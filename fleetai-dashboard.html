@@ -1,0 +1,2372 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Fleet AI — Operator Dashboard (Mock)</title>
+
+  <style>
+    :root{
+      --bg:#070B14;
+      --panel:#0B1221;
+      --panel2:#0E1830;
+      --ink:#EAF2FF;
+      --muted:#9DB4D7;
+      --line:rgba(77,163,255,.18);
+      --shadow: 0 18px 48px rgba(0,0,0,.45);
+      --radius: 18px;
+
+      --accent:#4da3ff;
+      --accent2:#2f7bdc;
+
+      --good:#2bdc9b;
+      --warn:#ffb020;
+      --bad:#ff5c5c;
+
+      --chip: rgba(77,163,255,.10);
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    }
+
+    *{box-sizing:border-box}
+
+    /* Theme enforcement: lock the dark-blue palette across all views */
+    .app, :root{
+      --bg:#060913;
+      --panel:#081428;
+      --panel2:#0d2138;
+      --ink:#EAF2FF;
+      --muted:#9DB4D7;
+      --line:rgba(77,163,255,.18);
+      --accent:#4da3ff;
+      --accent2:#2f7bdc;
+      --chip: rgba(77,163,255,.10);
+      --shadow: 0 18px 48px rgba(0,0,0,.45);
+      --radius: 18px;
+    }
+    body{
+      margin:0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Noto Sans", "Helvetica Neue", sans-serif;
+      color:var(--ink);
+      background:
+        radial-gradient(1200px 600px at 18% 0%, rgba(77,163,255,.20) 0%, rgba(7,11,20,1) 55%, rgba(6,9,18,1) 100%),
+        linear-gradient(180deg, #070B14 0%, #060913 100%);
+    }
+
+    .app{
+      display:grid;
+      grid-template-columns: 280px 1fr;
+      min-height: 100vh;
+    }
+    @media (max-width: 980px){
+      .app{grid-template-columns: 1fr}
+      .sidebar{position:sticky; top:0; z-index:10}
+    }
+
+    /* Sidebar */
+    .sidebar{
+      padding:18px;
+      border-right:1px solid var(--line);
+      background:
+        linear-gradient(180deg, rgba(14,24,48,.92) 0%, rgba(11,18,33,.86) 55%, rgba(7,11,20,.92) 100%);
+      backdrop-filter: blur(10px);
+    }
+    .brand{
+      display:flex; align-items:center; gap:12px;
+      padding:10px 10px 16px 10px;
+      border-bottom:1px solid var(--line);
+      margin-bottom:14px;
+    }
+    .logo{
+      width:42px;height:42px;border-radius:14px;
+      background: linear-gradient(135deg, rgba(77,163,255,.95) 0%, rgba(47,123,220,.95) 60%);
+      border:1px solid rgba(77,163,255,.35);
+      box-shadow: 0 14px 34px rgba(0,0,0,.35);
+      display:grid;place-items:center;
+      font-weight:900; letter-spacing:.4px;
+      color:#071225;
+    }
+    /* logo: simple FA marker (no halo) */
+    .logo{width:42px;height:42px;border-radius:14px;display:grid;place-items:center;position:relative;z-index:2}
+    /* ambient canvas layers removed (static blue theme) */
+    .brand h1{margin:0;font-size:14px;line-height:1.1;letter-spacing:.2px}
+    .brand small{display:block;margin-top:4px;font-size:12px;color:var(--muted)}
+
+    .nav{
+      display:flex; flex-direction:column; gap:8px;
+      margin-top:12px;
+    }
+    .nav button{
+      width:100%;
+      text-align:left;
+      border:1px solid var(--line);
+      background: rgba(14,24,48,.65);
+      border-radius:14px;
+      padding:11px 12px;
+      font-weight:950;
+      font-size:13px;
+      color:var(--ink);
+      cursor:pointer;
+      box-shadow: 0 10px 24px rgba(0,0,0,.25);
+      display:flex; justify-content:space-between; align-items:center;
+      transition: transform .10s ease, box-shadow .15s ease, border-color .15s ease, background .15s ease;
+    }
+    .nav button:hover{
+      transform: translateY(-1px);
+      box-shadow: 0 14px 30px rgba(0,0,0,.32);
+      border-color: rgba(77,163,255,.35);
+    }
+    .nav button.active{
+      border-color: rgba(77,163,255,.55);
+      background: linear-gradient(180deg, rgba(77,163,255,.18) 0%, rgba(14,24,48,.60) 100%);
+      box-shadow: 0 0 0 1px rgba(77,163,255,.22), 0 16px 36px rgba(0,0,0,.32);
+    }
+    .nav .tag{
+      font-size:11px;
+      font-weight:950;
+      padding:5px 10px;
+      border-radius:999px;
+      border:1px solid rgba(77,163,255,.22);
+      background: rgba(77,163,255,.10);
+      color:#CFE5FF;
+      white-space:nowrap;
+    }
+
+    .sidebar .note{
+      margin-top:14px;
+      font-size:12px;
+      color:var(--muted);
+      line-height:1.45;
+      padding:12px;
+      border-radius:16px;
+      border:1px dashed rgba(77,163,255,.20);
+      background: rgba(14,24,48,.50);
+    }
+    .sidebar .note b{color:#EAF2FF}
+    .sidebar .divider{
+      margin:14px 0;
+      height:1px;
+      background: rgba(77,163,255,.14);
+      border-radius:999px;
+    }
+
+    /* Collapsible sidebar: compact / expanded states */
+    .app.collapsed{ grid-template-columns: 72px 1fr; transition: grid-template-columns .22s ease; }
+    .app .sidebar{ transition: width .22s ease, padding .18s ease, background .18s ease; }
+    .app .sidebar .brand h1,
+    .app .sidebar .brand small,
+    .app .nav button .tag,
+    .app .sidebar .note{ transition: opacity .18s ease, visibility .18s ease; }
+
+    .app.collapsed .sidebar{ padding:14px 8px; }
+    .app.collapsed .sidebar .brand h1,
+    .app.collapsed .sidebar .brand small,
+    .app.collapsed .nav button .tag,
+    .app.collapsed .sidebar .note{
+      opacity:0; visibility:hidden; pointer-events:none; height:0; margin:0; padding:0;
+    }
+    .app.collapsed .nav button{ justify-content:center; padding:10px; }
+    .app.collapsed .nav button span{ display:none; }
+
+    /* Main */
+    .main{
+      padding:18px 18px 28px 18px;
+      max-width: 1320px;
+    }
+
+    .topbar{
+      display:flex; gap:12px; align-items:center; justify-content:space-between;
+      margin-bottom:14px;
+      flex-wrap:wrap;
+    }
+    .crumb{
+      display:flex; flex-direction:column; gap:3px;
+    }
+    .crumb .title{
+      font-size:16px; font-weight:950; letter-spacing:.2px;
+      color:#EAF2FF;
+    }
+    .crumb .sub{
+      font-size:12px; color:var(--muted);
+    }
+
+    .controls{
+      display:flex; gap:10px; align-items:center; flex-wrap:wrap;
+    }
+    .pill{
+      display:flex; gap:10px; align-items:center;
+      background: rgba(14,24,48,.60);
+      border:1px solid var(--line);
+      border-radius:999px;
+      padding:9px 12px;
+      box-shadow: 0 10px 22px rgba(0,0,0,.22);
+      backdrop-filter: blur(10px);
+    }
+    .pill label{font-size:12px;color:var(--muted);white-space:nowrap}
+
+    select, input, textarea{
+      border:1px solid rgba(77,163,255,.22);
+      background: rgba(11,18,33,.75);
+      color: var(--ink);
+      border-radius:12px;
+      padding:9px 10px;
+      font-size:13px;
+      outline:none;
+    }
+    select option{background:#0B1221;color:#EAF2FF;}
+    input{min-width:220px}
+
+    .btn{
+      border:1px solid rgba(77,163,255,.22);
+      background: linear-gradient(180deg, rgba(14,24,48,.85) 0%, rgba(11,18,33,.75) 100%);
+      border-radius:14px;
+      padding:10px 12px;
+      font-weight:950;
+      font-size:13px;
+      cursor:pointer;
+      box-shadow: 0 10px 22px rgba(0,0,0,.24);
+      color: var(--ink);
+      transition: transform .10s ease, box-shadow .15s ease, border-color .15s ease;
+    }
+    .btn:hover{transform: translateY(-1px); box-shadow: 0 16px 30px rgba(0,0,0,.30); border-color: rgba(77,163,255,.38);}
+    .btn.primary{
+      border-color: rgba(77,163,255,.55);
+      background: linear-gradient(180deg, rgba(77,163,255,.22) 0%, rgba(47,123,220,.10) 100%);
+    }
+    .btn.ghost{
+      background: rgba(11,18,33,.55);
+    }
+
+    /* Cards */
+    .card{
+      background: rgba(11,18,33,.72);
+      border:1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+      backdrop-filter: blur(10px);
+    }
+    .hd{
+      padding:14px 16px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      border-bottom: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(14,24,48,.80) 0%, rgba(11,18,33,.70) 100%);
+    }
+    .hd h2{margin:0;font-size:14px;letter-spacing:.2px}
+    .hd .meta{font-size:12px;color:var(--muted)}
+    .bd{padding:16px}
+
+    .grid2{display:grid; grid-template-columns: 1.2fr .8fr; gap:14px;}
+    @media (max-width: 980px){.grid2{grid-template-columns: 1fr}}
+
+    .kpis{
+      display:grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap:12px;
+      margin-bottom:14px;
+    }
+    @media (max-width: 980px){
+      .kpis{grid-template-columns: repeat(2, 1fr)}
+    }
+    .kpi{
+      background: rgba(11,18,33,.74);
+      border:1px solid var(--line);
+      border-radius: 16px;
+      padding:14px;
+      position:relative;
+      overflow:hidden;
+      min-height: 92px;
+      box-shadow: 0 12px 26px rgba(0,0,0,.26);
+    }
+    .kpi:before{
+      content:"";
+      position:absolute; inset:-80px -80px auto auto;
+      width:180px; height:180px;
+      border-radius: 999px;
+      background: radial-gradient(circle at 30% 30%, rgba(77,163,255,.22) 0%, rgba(77,163,255,0) 60%);
+      transform: rotate(12deg);
+    }
+    .kpi .t{font-size:12px;color:var(--muted);margin-bottom:8px}
+    .kpi .v{font-size:22px;font-weight:980;letter-spacing:.2px}
+    .kpi .s{font-size:12px;color:var(--muted);margin-top:6px}
+    .badge{
+      position:absolute; right:12px; top:12px;
+      font-size:11px; font-weight:980;
+      padding:6px 10px; border-radius:999px;
+      background: rgba(77,163,255,.12);
+      border:1px solid rgba(77,163,255,.22);
+      color:#CFE5FF;
+    }
+
+    /* Lists & chips */
+    .row{
+      display:flex; justify-content:space-between; align-items:flex-start; gap:12px;
+      padding:12px;
+      border:1px solid var(--line);
+      border-radius: 16px;
+      background: rgba(11,18,33,.60);
+    }
+    .row + .row{margin-top:10px}
+    .row .l{min-width:0}
+    .row h3{margin:0;font-size:13px;letter-spacing:.2px}
+    .row p{margin:6px 0 0 0;font-size:12px;color:var(--muted);line-height:1.35}
+
+    .chip{
+      display:inline-flex; gap:8px; align-items:center;
+      padding:6px 10px; border-radius:999px;
+      border:1px solid rgba(77,163,255,.22);
+      background: rgba(77,163,255,.10);
+      font-size:11px;
+      color:#CFE5FF;
+      font-weight:900;
+      white-space:nowrap;
+    }
+    .mini{font-size:11px;color:var(--muted);white-space:nowrap}
+
+    .dot{width:10px;height:10px;border-radius:999px;display:inline-block;margin-right:8px}
+    .dot.good{background:var(--good); box-shadow:0 0 0 4px rgba(43,220,155,.12)}
+    .dot.warn{background:var(--warn); box-shadow:0 0 0 4px rgba(255,176,32,.12)}
+    .dot.bad{background:var(--bad); box-shadow:0 0 0 4px rgba(255,92,92,.12)}
+
+    .pill2{
+      padding:5px 10px;
+      border-radius:999px;
+      border:1px solid rgba(77,163,255,.22);
+      background: rgba(77,163,255,.10);
+      font-size:11px;
+      font-weight:950;
+      color:#CFE5FF;
+      white-space:nowrap;
+      display:inline-flex; align-items:center; gap:8px;
+    }
+    .pill2.good{background: rgba(43,220,155,.10); border-color: rgba(43,220,155,.25); color: #BFF7E6;}
+    .pill2.warn{background: rgba(255,176,32,.10); border-color: rgba(255,176,32,.25); color: #FFE1A8;}
+    .pill2.bad{background: rgba(255,92,92,.10); border-color: rgba(255,92,92,.25); color: #FFD0D0;}
+
+    /* Tables */
+    table{
+      width:100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      overflow:hidden;
+      border-radius: 16px;
+      border:1px solid var(--line);
+      background: rgba(11,18,33,.60);
+    }
+    thead th{
+      text-align:left;
+      padding:10px 12px;
+      font-size:12px;
+      color:#DCEBFF;
+      background: linear-gradient(180deg, rgba(14,24,48,.80) 0%, rgba(11,18,33,.70) 100%);
+      border-bottom:1px solid var(--line);
+    }
+    tbody td{
+      padding:10px 12px;
+      font-size:12px;
+      border-bottom:1px solid rgba(77,163,255,.12);
+      color:#EAF2FF;
+      vertical-align:top;
+    }
+    tbody tr:hover{background: rgba(77,163,255,.06)}
+    tbody tr:last-child td{border-bottom:none}
+
+    /* Telemetry panel */
+    .telemetry{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:12px;
+    }
+    @media (max-width: 980px){.telemetry{grid-template-columns: 1fr}}
+
+    .teleCard{
+      border:1px solid var(--line);
+      border-radius:16px;
+      background: rgba(11,18,33,.60);
+      padding:14px;
+      box-shadow: 0 12px 26px rgba(0,0,0,.26);
+    }
+    .teleCard .k{
+      font-size:12px;color:var(--muted);
+      margin-bottom:8px;
+      display:flex; justify-content:space-between; gap:10px; align-items:center;
+    }
+    .teleCard .val{
+      font-size:22px; font-weight:980;
+      display:flex; gap:10px; align-items:baseline;
+    }
+    .teleCard .val span.unit{font-size:12px;color:var(--muted);font-weight:900}
+    .spark{
+      margin-top:10px;
+      height:10px;
+      border-radius:999px;
+      border:1px solid rgba(77,163,255,.20);
+      background: rgba(14,24,48,.65);
+      overflow:hidden;
+    }
+    .spark > i{
+      display:block;
+      height:100%;
+      width:0%;
+      background: linear-gradient(90deg, rgba(77,163,255,.28), rgba(77,163,255,.70));
+      transition: width .4s ease;
+    }
+
+    /* GPS / Map */
+    .gpsGrid{
+      display:grid;
+      grid-template-columns: 1.2fr .8fr;
+      gap:14px;
+    }
+    @media (max-width: 980px){.gpsGrid{grid-template-columns: 1fr}}
+
+    .mapWrap{
+      position:relative;
+      border-radius: 18px;
+      overflow:hidden;
+      border:1px solid var(--line);
+      background:
+        radial-gradient(800px 400px at 20% 15%, rgba(77,163,255,.16) 0%, rgba(11,18,33,.70) 60%, rgba(7,11,20,.85) 100%),
+        linear-gradient(180deg, rgba(14,24,48,.60) 0%, rgba(11,18,33,.70) 100%);
+      box-shadow: 0 18px 48px rgba(0,0,0,.35);
+      min-height: 440px;
+    }
+    .mapHud{
+      position:absolute;
+      left:14px; top:14px;
+      display:flex; gap:8px; flex-wrap:wrap;
+      z-index:5;
+    }
+    .hudPill{
+      padding:7px 10px;
+      border-radius:999px;
+      border:1px solid rgba(77,163,255,.22);
+      background: rgba(11,18,33,.55);
+      font-size:11px;
+      font-weight:950;
+      color:#CFE5FF;
+      backdrop-filter: blur(10px);
+    }
+    .mapCanvas{
+      width:100%;
+      height:100%;
+      display:block;
+    }
+    .mapLegend{
+      position:absolute;
+      right:14px; top:14px;
+      z-index:5;
+      width: 240px;
+    }
+    .legendBox{
+      border:1px solid rgba(77,163,255,.22);
+      background: rgba(11,18,33,.55);
+      border-radius:16px;
+      padding:12px;
+      backdrop-filter: blur(10px);
+    }
+    .legendBox h4{margin:0 0 8px 0; font-size:12px; color:#DCEBFF}
+    .legendBox .li{
+      display:flex; justify-content:space-between; gap:10px;
+      font-size:11px; color:var(--muted);
+      padding:6px 0;
+      border-bottom:1px solid rgba(77,163,255,.12);
+    }
+    .legendBox .li:last-child{border-bottom:none}
+    .legendBox b{color:#EAF2FF}
+
+    /* Cameras */
+    .camGrid{
+      display:grid;
+      grid-template-columns: 1.25fr .75fr;
+      gap:14px;
+    }
+    @media (max-width: 980px){.camGrid{grid-template-columns: 1fr}}
+
+    .videoBox{
+      border:1px solid var(--line);
+      border-radius:18px;
+      background: rgba(11,18,33,.60);
+      overflow:hidden;
+      box-shadow: 0 18px 48px rgba(0,0,0,.35);
+      position:relative;
+      min-height: 360px;
+    }
+    .videoTop{
+      display:flex; justify-content:space-between; align-items:center; gap:10px;
+      padding:12px 14px;
+      border-bottom:1px solid rgba(77,163,255,.14);
+      background: linear-gradient(180deg, rgba(14,24,48,.72) 0%, rgba(11,18,33,.55) 100%);
+    }
+    .videoTop .title{
+      display:flex; flex-direction:column; gap:2px;
+    }
+    .videoTop .title b{font-size:13px}
+    .videoTop .title span{font-size:11px; color: var(--muted)}
+    .videoViewport{
+      position:relative;
+      height: 420px;
+      background:
+        radial-gradient(800px 400px at 20% 15%, rgba(77,163,255,.18) 0%, rgba(11,18,33,.70) 60%, rgba(7,11,20,.85) 100%);
+    }
+    @media (max-width: 980px){ .videoViewport{ height: 320px; } }
+
+    video{
+      width:100%;
+      height:100%;
+      object-fit: cover;
+      display:none;
+    }
+    .videoPlaceholder{
+      position:absolute; inset:0;
+      display:flex; flex-direction:column;
+      align-items:center; justify-content:center;
+      padding:18px;
+      text-align:center;
+      color:#DCEBFF;
+    }
+    .scanline{
+      position:absolute; left:-25%;
+      width:150%;
+      height: 2px;
+      background: rgba(77,163,255,.32);
+      box-shadow: 0 0 18px rgba(77,163,255,.35);
+      animation: scan 2.8s linear infinite;
+      opacity:.65;
+    }
+    @keyframes scan{
+      0%{ top: 18%; opacity: .2; }
+      15%{ opacity:.65; }
+      50%{ top: 62%; opacity:.65; }
+      85%{ opacity:.65; }
+      100%{ top: 18%; opacity:.2; }
+    }
+    .camBadge{
+      position:absolute; left:14px; bottom:14px;
+      padding:7px 10px;
+      border-radius:999px;
+      border:1px solid rgba(77,163,255,.22);
+      background: rgba(11,18,33,.55);
+      font-size:11px;
+      font-weight:950;
+      color:#CFE5FF;
+      backdrop-filter: blur(10px);
+    }
+
+    .toast{
+      display:none;
+      position: fixed;
+      right: 18px;
+      bottom: 18px;
+      max-width: 460px;
+      border:1px solid rgba(77,163,255,.22);
+      border-radius:16px;
+      box-shadow: var(--shadow);
+      background: rgba(11,18,33,.84);
+      padding:12px 14px;
+      z-index: 999;
+      backdrop-filter: blur(10px);
+    }
+    /* Login / user modal overlay */
+    .overlay{
+      position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
+      background: linear-gradient(rgba(4,8,18,.55), rgba(4,8,18,.66));
+      z-index:2000;
+    }
+    .overlay .panel{
+      width:420px; max-width:92%; border-radius:14px; padding:18px; box-shadow:var(--shadow);
+      background: linear-gradient(180deg, rgba(14,24,48,.96) 0%, rgba(11,18,33,.92) 100%);
+      border:1px solid var(--line);
+    }
+    .overlay h3{margin:0 0 8px 0; font-size:15px}
+    .overlay .f{display:flex; flex-direction:column; gap:8px}
+    .overlay input{width:100%; box-sizing:border-box}
+    .overlay .small{font-size:12px;color:var(--muted); margin-top:6px}
+    .toast .t{font-weight:950; font-size:13px}
+    .toast .d{margin-top:6px; font-size:12px; color:var(--muted); line-height:1.35}
+    .toast .x{
+      float:right;
+      border:none;background:transparent;cursor:pointer;
+      font-weight:950;color:#9DB4D7;
+    }
+
+    .hide{display:none !important;}
+    .section{margin-top:14px;}
+    .subtle{
+      font-size:11px;color:var(--muted);
+      margin-top:10px;
+      display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap;
+    }
+    .kbd{
+      font-family: var(--mono);
+      padding:3px 7px;
+      border-radius: 10px;
+      border:1px solid rgba(77,163,255,.20);
+      background: rgba(11,18,33,.70);
+      color:#DCEBFF;
+      font-size:11px;
+      font-weight:900;
+    }
+
+    /* AI Advisor */
+    .chatWrap{
+      display:grid;
+      grid-template-columns: 1fr;
+      gap:12px;
+    }
+    .chatLog{
+      border:1px solid var(--line);
+      background: rgba(11,18,33,.60);
+      border-radius: 18px;
+      padding:14px;
+      min-height: 300px;
+      max-height: 420px;
+      overflow:auto;
+      box-shadow: 0 12px 26px rgba(0,0,0,.26);
+    }
+    .msg{
+      display:flex;
+      gap:10px;
+      padding:10px 10px;
+      border:1px solid rgba(77,163,255,.12);
+      border-radius: 14px;
+      background: rgba(14,24,48,.45);
+      margin-bottom:10px;
+    }
+    .msg:last-child{margin-bottom:0}
+    .avatar{
+      width:32px;height:32px;border-radius:12px;
+      display:grid;place-items:center;
+      font-weight:980;
+      color:#071225;
+      background: linear-gradient(135deg, rgba(77,163,255,.95) 0%, rgba(47,123,220,.95) 60%);
+      border:1px solid rgba(77,163,255,.35);
+      flex: 0 0 auto;
+    }
+    .msg .body{min-width:0}
+    .msg .who{font-size:12px;font-weight:980;color:#DCEBFF}
+    .msg .text{margin-top:6px;font-size:12px;color:var(--muted);line-height:1.45;white-space:pre-wrap}
+    .chatBar{
+      display:flex;
+      gap:10px;
+      align-items:flex-start;
+    }
+    .chatBar textarea{
+      min-height: 58px;
+      max-height: 120px;
+      resize: vertical;
+    }
+    .quickPrompts{
+      display:flex; gap:10px; flex-wrap:wrap;
+    }
+
+    /* Small helper */
+    .rightStack{display:flex; gap:10px; align-items:center; flex-wrap:wrap;}
+  </style>
+</head>
+
+<body>
+  <div class="app">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="logo" aria-hidden="false">FA</div>
+        <div>
+          <h1>Fleet AI</h1>
+          <small>Preventable Maintenance • Operator Intelligence</small>
+        </div>
+      </div>
+
+      <div class="nav">
+        <button class="active" data-view="dashboard">Dashboard <span class="tag">Maintenance First</span></button>
+        <button data-view="telemetry">Live Telemetry <span class="tag">Sensors</span></button>
+        <button data-view="alerts">Alerts <span class="tag" id="alertCount">0</span></button>
+
+        <div class="divider"></div>
+
+        <button data-view="gps">GPS Tracking <span class="tag">Live</span></button>
+        <button data-view="cameras">Cameras <span class="tag">Feed</span></button>
+        <button data-view="advisor">AI Advisor <span class="tag">Ask</span></button>
+        <button data-view="reports">Reports <span class="tag">Pilot</span></button>
+      </div>
+
+      <div class="note">
+        <b>Positioning:</b> Fleet AI is a preventable maintenance product first.
+        GPS + Cameras exist to support uptime decisions, safety context, and faster resolution — not to distract from maintenance ROI.
+      </div>
+
+      <div class="note">
+        <b>Demo realism:</b> Telemetry updates every second. Alerts can only fire about once every 20 seconds.
+        GPS markers update every second with simulated motion.
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <main class="main">
+      <div class="topbar">
+        <div class="crumb">
+          <div class="title" id="viewTitle">Dashboard</div>
+          <div class="sub" id="viewSub">Instant value: uptime, risk, and prioritized actions</div>
+        </div>
+
+        <div class="controls">
+          <button id="btnToggleSidebar" class="btn ghost" aria-pressed="false" aria-label="Toggle sidebar">☰</button>
+          <div class="pill">
+            <label for="fleet">Fleet</label>
+            <select id="fleet">
+              <option>All Fleets</option>
+              <option>Linehaul / Semis</option>
+              <option>Construction Fleet</option>
+              <option>Service Vans</option>
+            </select>
+          </div>
+
+          <div class="pill">
+            <label for="truck">Unit</label>
+            <select id="truck"></select>
+          </div>
+
+          <input id="search" type="search" placeholder="Search unit #, issue, recommendation…" />
+          <button class="btn primary" id="btnRefresh">Refresh</button>
+          <button class="btn" id="btnExport">Export (Mock)</button>
+          <button class="btn" id="btnAddUser" style="display:none">Add User</button>
+          <button class="btn ghost" id="btnLogout" style="display:none">Logout</button>
+        </div>
+      </div>
+
+      <!-- DASHBOARD VIEW -->
+      <section id="view-dashboard" class="section">
+        <div class="kpis">
+          <div class="kpi">
+            <div class="badge">Uptime</div>
+            <div class="t">Fleet Uptime (est.)</div>
+            <div class="v" id="kpiUptime">98.7%</div>
+            <div class="s">Goal ≥ 98.0% • operator-facing metric</div>
+          </div>
+          <div class="kpi">
+            <div class="badge">Avoided</div>
+            <div class="t">Estimated Downtime Cost Avoided</div>
+            <div class="v" id="kpiAvoided">$18,420</div>
+            <div class="s">Semi / diesel economics (mock)</div>
+          </div>
+          <div class="kpi">
+            <div class="badge">Queue</div>
+            <div class="t">Priority Actions (next 14 days)</div>
+            <div class="v" id="kpiActions">9</div>
+            <div class="s">Risk-ranked to reduce surprises</div>
+          </div>
+          <div class="kpi">
+            <div class="badge">ROI</div>
+            <div class="t">Projected ROI (pilot estimate)</div>
+            <div class="v" id="kpiROI">3.9×</div>
+            <div class="s">Savings vs. effort + cost</div>
+          </div>
+        </div>
+
+        <div class="grid2">
+          <div class="card">
+            <div class="hd">
+              <h2>Priority Queue</h2>
+              <div class="meta">“Tell me what to fix first”</div>
+            </div>
+            <div class="bd" id="queue"></div>
+          </div>
+
+          <div class="card">
+            <div class="hd">
+              <h2>Fleet Manager Notifications</h2>
+              <div class="meta">Auto-generated from patterns</div>
+            </div>
+            <div class="bd" id="notifFeed"></div>
+            <div class="bd" style="padding-top:0;">
+              <div class="subtle">
+                <div><span class="kbd">Maintenance-first</span> actions are ranked by downtime risk</div>
+                <div><span class="kbd">Context</span> GPS + Cameras support faster resolution</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:14px;">
+          <div class="hd">
+            <h2>Fleet Health Table</h2>
+            <div class="meta">Searchable snapshot • mock values</div>
+          </div>
+          <div class="bd" style="padding-top:12px;">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width:12%;">Unit</th>
+                  <th style="width:16%;">Status</th>
+                  <th>Next Recommended Action</th>
+                  <th style="width:18%;">Due Window</th>
+                  <th style="width:16%;">Risk</th>
+                </tr>
+              </thead>
+              <tbody id="fleetTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- TELEMETRY VIEW -->
+      <section id="view-telemetry" class="section hide">
+        <div class="card">
+          <div class="hd">
+            <h2>Live Telemetry</h2>
+            <div class="meta">Simulated stream • abnormal behavior triggers alerts</div>
+          </div>
+          <div class="bd">
+            <div class="telemetry" id="telemetryGrid"></div>
+
+            <div class="card" style="margin-top:12px; box-shadow:none; background:transparent; border:none;">
+              <div class="hd" style="border:none; padding:0 0 10px 0; background:transparent;">
+                <h2>Live Event Log</h2>
+                <div class="meta">Last 10 events for selected unit</div>
+              </div>
+              <table>
+                <thead>
+                  <tr>
+                    <th style="width:22%;">Time</th>
+                    <th style="width:16%;">Signal</th>
+                    <th>Observation</th>
+                    <th style="width:20%;">Action</th>
+                  </tr>
+                </thead>
+                <tbody id="eventLog"></tbody>
+              </table>
+            </div>
+
+            <div class="subtle">
+              <div><span class="kbd">Predictive</span> trend + threshold + correlation + persistence</div>
+              <div><span class="kbd">Semi focus</span> DPF/EGT/rail pressure/charging stability</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ALERTS VIEW -->
+      <section id="view-alerts" class="section hide">
+        <div class="card">
+          <div class="hd">
+            <h2>Alerts</h2>
+            <div class="meta">All alerts across fleets • mock feed</div>
+          </div>
+          <div class="bd" id="alertsList"></div>
+        </div>
+      </section>
+
+      <!-- GPS VIEW -->
+      <section id="view-gps" class="section hide">
+        <div class="card">
+          <div class="hd">
+            <h2>GPS Tracking</h2>
+            <div class="meta">Live simulated positions • supports maintenance + dispatch context</div>
+          </div>
+          <div class="bd">
+            <div class="gpsGrid">
+              <div class="mapWrap">
+                <div class="mapHud" id="mapHud">
+                  <div class="hudPill" id="hudClock">Live</div>
+                  <div class="hudPill" id="hudSelected">Selected: —</div>
+                  <div class="hudPill">Mode: Demo</div>
+                </div>
+
+                <div class="mapLegend">
+                  <div class="legendBox" id="legendBox">
+                    <h4>Unit Telemetry (GPS Layer)</h4>
+                    <div class="li"><span>Status</span><b id="gpsStatus">—</b></div>
+                    <div class="li"><span>Speed</span><b id="gpsSpeed">—</b></div>
+                    <div class="li"><span>Heading</span><b id="gpsHeading">—</b></div>
+                    <div class="li"><span>Lat/Lon</span><b id="gpsLatLon">—</b></div>
+                    <div class="li"><span>ETA to Yard (mock)</span><b id="gpsETA">—</b></div>
+                    <div class="li"><span>Maintenance Risk</span><b id="gpsRisk">—</b></div>
+                  </div>
+                  <div class="subtle" style="margin-top:10px;">
+                    <div><span class="kbd">Click</span> a marker to select unit</div>
+                  </div>
+                </div>
+
+                <canvas class="mapCanvas" id="mapCanvas" width="1100" height="540"></canvas>
+              </div>
+
+              <div>
+                <div class="card">
+                  <div class="hd">
+                    <h2>Location Feed</h2>
+                    <div class="meta">Last 8 updates</div>
+                  </div>
+                  <div class="bd" id="gpsFeed"></div>
+                </div>
+
+                <div class="card" style="margin-top:14px;">
+                  <div class="hd">
+                    <h2>Maintenance Context</h2>
+                    <div class="meta">Why GPS matters for preventable maintenance</div>
+                  </div>
+                  <div class="bd">
+                    <div class="row">
+                      <div class="l">
+                        <h3><span class="dot warn"></span>“Service window planning”</h3>
+                        <p>Use route + yard proximity to schedule repairs when the truck is naturally near your shop or a preferred vendor.</p>
+                      </div>
+                      <div class="r" style="text-align:right;">
+                        <div class="chip">Cuts downtime</div>
+                        <div class="mini" style="margin-top:8px;">Better than roadside events</div>
+                      </div>
+                    </div>
+                    <div class="row">
+                      <div class="l">
+                        <h3><span class="dot bad"></span>“Derate / risk recovery”</h3>
+                        <p>If an aftertreatment or charging anomaly escalates, GPS gives immediate context for routing to the safest/closest service point.</p>
+                      </div>
+                      <div class="r" style="text-align:right;">
+                        <div class="chip">Protects loads</div>
+                        <div class="mini" style="margin-top:8px;">Reduces tow exposure</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+            <div class="subtle">
+              <div><span class="kbd">Real Product</span> would use real GPS (ELD/telematics), geofences, and route history</div>
+              <div><span class="kbd">Demo</span> is simulated with smooth motion</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- CAMERAS VIEW -->
+      <section id="view-cameras" class="section hide">
+        <div class="card">
+          <div class="hd">
+            <h2>Cameras</h2>
+            <div class="meta">Road-facing + Driver-facing • supports safety + maintenance verification</div>
+          </div>
+          <div class="bd">
+            <div class="camGrid">
+              <div>
+                <div class="videoBox">
+                  <div class="videoTop">
+                    <div class="title">
+                      <b id="camTitle">Road-Facing Camera</b>
+                      <span id="camSub">Demo feed • switch channel on the right</span>
+                    </div>
+                    <div class="rightStack">
+                      <button class="btn ghost" id="btnStartCam">Use Device Camera (Optional)</button>
+                      <button class="btn" id="btnSnapshot">Snapshot (Mock)</button>
+                    </div>
+                  </div>
+
+                  <div class="videoViewport" id="videoViewport">
+                    <video id="camVideo" autoplay playsinline muted></video>
+                    <div class="videoPlaceholder" id="videoPlaceholder">
+                      <div style="max-width:520px;">
+                        <div style="font-weight:980; font-size:14px;">Live Feed (Mock)</div>
+                        <div style="margin-top:8px; font-size:12px; color: var(--muted); line-height:1.45;">
+                          In the real product, this panel would render a truck camera stream (RTSP/WebRTC), store clips for events,
+                          and link camera events to alerts (e.g., smoke/overheat event context, roadside breakdown verification).
+                        </div>
+                        <div style="margin-top:12px;">
+                          <span class="pill2 warn"><span class="dot warn"></span>Demo Mode</span>
+                          <span class="pill2 good" style="margin-left:8px;"><span class="dot good"></span>Stream Ready</span>
+                        </div>
+                      </div>
+                      <div class="scanline"></div>
+                      <div class="camBadge" id="camBadge">CH 1 • Road</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="card" style="margin-top:14px;">
+                  <div class="hd">
+                    <h2>Camera + Maintenance</h2>
+                    <div class="meta">Keep it aligned with Fleet AI’s core</div>
+                  </div>
+                  <div class="bd">
+                    <div class="row">
+                      <div class="l">
+                        <h3><span class="dot good"></span>Verification of “symptoms”</h3>
+                        <p>Use camera clips to validate smoke, overheating indicators, leaks, or driver-reported symptoms that correlate with sensor patterns.</p>
+                      </div>
+                      <div class="r" style="text-align:right;">
+                        <div class="chip">Reduces false positives</div>
+                      </div>
+                    </div>
+                    <div class="row">
+                      <div class="l">
+                        <h3><span class="dot warn"></span>Faster roadside decision-making</h3>
+                        <p>When an alert fires (EGT, coolant temp, voltage dips), camera context helps decide: continue, derate strategy, or route to service now.</p>
+                      </div>
+                      <div class="r" style="text-align:right;">
+                        <div class="chip">Cuts emergency costs</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <div class="card">
+                  <div class="hd">
+                    <h2>Channels</h2>
+                    <div class="meta">Select a feed</div>
+                  </div>
+                  <div class="bd" id="camChannels"></div>
+                </div>
+
+                <div class="card" style="margin-top:14px;">
+                  <div class="hd">
+                    <h2>Event Clips (Mock)</h2>
+                    <div class="meta">Linked to alerts</div>
+                  </div>
+                  <div class="bd" id="clipList"></div>
+                </div>
+
+                <div class="subtle">
+                  <div><span class="kbd">Real Product</span> WebRTC/RTSP ingest + cloud clips + permissions</div>
+                  <div><span class="kbd">Demo</span> channel switching + optional device camera</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- AI ADVISOR VIEW -->
+      <section id="view-advisor" class="section hide">
+        <div class="card">
+          <div class="hd">
+            <h2>AI Advisor</h2>
+            <div class="meta">Fleet-scoped assistant • maintenance + cost + growth</div>
+          </div>
+          <div class="bd">
+            <div class="chatWrap">
+              <div class="quickPrompts" id="quickPrompts"></div>
+
+              <div class="chatLog" id="chatLog"></div>
+
+              <div class="chatBar">
+                <textarea id="chatInput" placeholder="Ask Mike about this fleet: predicted failures, downtime risk, cost exposure, recommended service windows…"></textarea>
+                <button class="btn primary" id="btnSend">Send</button>
+              </div>
+
+              <div class="subtle">
+                <div><span class="kbd">Guardrail</span> Mike answers only using this demo fleet’s data + assumptions</div>
+                <div><span class="kbd">Business</span> ROI, downtime exposure, scheduling strategy</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- REPORTS VIEW -->
+      <section id="view-reports" class="section hide">
+        <div class="card">
+          <div class="hd">
+            <h2>Pilot Reports</h2>
+            <div class="meta">Simple, sellable summaries operators actually use</div>
+          </div>
+          <div class="bd">
+            <div class="row">
+              <div class="l">
+                <h3>30-Day Pilot Summary (Mock)</h3>
+                <p>Uptime trend, prevented urgent events, recommended maintenance windows, and a clear next-step plan.</p>
+              </div>
+              <div class="r">
+                <button class="btn primary" id="btnPilotSummary">Generate</button>
+              </div>
+            </div>
+            <div class="row">
+              <div class="l">
+                <h3>Cost Avoidance Breakdown (Mock)</h3>
+                <p>Conservative view of avoided tow/emergency labor + time-loss reduction by early scheduling.</p>
+              </div>
+              <div class="r">
+                <button class="btn" id="btnCostReport">Generate</button>
+              </div>
+            </div>
+            <div class="row">
+              <div class="l">
+                <h3>Maintenance Priority Plan (Mock)</h3>
+                <p>A simple list: “Do now / Do soon / Can wait” with reasons and due windows.</p>
+              </div>
+              <div class="r">
+                <button class="btn" id="btnPriorityPlan">Generate</button>
+              </div>
+            </div>
+
+            <div class="note" style="margin-top:12px;">
+              <b>Operator-friendly reporting:</b> avoid jargon, show decisions. A fleet manager should be able to act in under 60 seconds.
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- ambient canvases removed -->
+  <!-- Login overlay (appears when no session) -->
+  <div class="overlay hide" id="loginOverlay" role="dialog" aria-modal="true">
+    <div class="panel">
+      <h3 id="loginTitle">Sign in to Fleet AI</h3>
+      <div class="f">
+        <input id="loginEmail" type="email" placeholder="Email address" />
+        <input id="loginPass" type="password" placeholder="Password" />
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:6px;">
+          <button class="btn" id="btnLogin">Login</button>
+          <button class="btn ghost" id="btnCreateAdmin">Create Admin</button>
+        </div>
+        <div class="small">If no users exist, press <b>Create Admin</b> to initialize an admin account (demo only).</div>
+        <div class="small" id="loginMsg" style="display:none;color:#FFD0D0;margin-top:8px"></div>
+      </div>
+    </div>
+  </div>
+  <!-- Toast -->
+  <div class="toast" id="toast">
+    <button class="x" id="toastX">✕</button>
+    <div class="t" id="toastT">Alert</div>
+    <div class="d" id="toastD">Details</div>
+  </div>
+
+  <script>
+    /***********************
+     * MOCK CONFIG / DATA
+     ***********************/
+    const trucks = [
+      { id:"U-12", name:"Unit 12 — 2021 Freightliner Cascadia", profile:"Linehaul", risk:"High" },
+      { id:"U-07", name:"Unit 7 — 2019 Kenworth T680", profile:"Linehaul", risk:"Med" },
+      { id:"U-19", name:"Unit 19 — 2018 Peterbilt 579", profile:"Linehaul", risk:"Med" },
+      { id:"U-03", name:"Unit 3 — F-350 Service Truck", profile:"Service", risk:"Low" },
+      { id:"U-21", name:"Unit 21 — 1-Ton Work Truck", profile:"Construction", risk:"Low" }
+    ];
+
+    const priorityQueue = [
+      {
+        sev:"bad",
+        title:"Unit 12 — Cooling system trend under load",
+        desc:"Coolant temp rising faster than baseline on highway pulls. Recommend pressure test + fan clutch/thermostat window.",
+        chip:"Exposure: $12k–$28k",
+        due:"48–72 hrs"
+      },
+      {
+        sev:"warn",
+        title:"Unit 7 — Brake wear imbalance (rear axle)",
+        desc:"Wear rate suggests drag/adjustment issue. Schedule inspection before next long run.",
+        chip:"Prevents roadside",
+        due:"7–10 days"
+      },
+      {
+        sev:"warn",
+        title:"Unit 19 — Charging volatility (cold start + idle)",
+        desc:"Voltage dips correlate with cold starts and extended idle. Recommend load test + alternator ripple check.",
+        chip:"Avoid no-start",
+        due:"10–14 days"
+      },
+      {
+        sev:"warn",
+        title:"Unit 12 — Fuel rail pressure variance (early signal)",
+        desc:"Variance increasing under steady load. Recommend filter restriction check + pump health trend window.",
+        chip:"Predictive",
+        due:"7–14 days"
+      },
+      {
+        sev:"good",
+        title:"Unit 3 — Oil service window approaching",
+        desc:"Bundle with PM checklist to reduce downtime and catch small issues early.",
+        chip:"Bundle PM",
+        due:"14–21 days"
+      }
+    ];
+
+    const fleetRows = [
+      {unit:"Unit 12", status:"Action Now", next:"Cooling system inspection + pressure test", due:"48–72 hrs", risk:"High"},
+      {unit:"Unit 12", status:"Due Soon",   next:"Fuel system trend check (rail + filter)",   due:"7–14 days", risk:"Med"},
+      {unit:"Unit 7",  status:"Due Soon",   next:"Brake inspection (rear) + drag check",     due:"7–10 days", risk:"Med"},
+      {unit:"Unit 19", status:"Due Soon",   next:"Battery load test + alternator output",     due:"10–14 days",risk:"Med"},
+      {unit:"Unit 21", status:"OK",         next:"Tire rotation + alignment check",           due:"21–30 days",risk:"Low"},
+      {unit:"Unit 3",  status:"OK",         next:"Oil service + PM checklist",                due:"14–21 days",risk:"Low"},
+      {unit:"Unit 5",  status:"Monitor",    next:"DPF regen efficiency review",               due:"30–45 days",risk:"Med"},
+      {unit:"Unit 9",  status:"OK",         next:"Transmission temp baseline + fluid check",  due:"45–60 days",risk:"Low"}
+    ];
+
+    // Expanded-ish sensor catalog (still demo, but broader than the first version)
+    const signalCatalog = [
+      { key:"coolant_temp", label:"Coolant Temp", unit:"°F", base:[185,205], hard:[215,235], msg:"Cooling trend abnormal under load" },
+      { key:"oil_temp",     label:"Oil Temp",     unit:"°F", base:[195,220], hard:[230,250], msg:"Oil temperature elevated vs baseline" },
+      { key:"battery_v",    label:"Battery / Charging", unit:"V",  base:[13.6,14.4], hard:[12.2,12.8], invert:true, msg:"Charging volatility / low voltage events" },
+      { key:"boost_psi",    label:"Boost",        unit:"psi",base:[18,28], hard:[30,38], msg:"Boost out of normal envelope" },
+      { key:"egt",          label:"EGT",          unit:"°F", base:[650,950], hard:[1000,1200], msg:"EGT elevated; check regen/load behavior" },
+      { key:"fuel_mpg",     label:"Fuel Efficiency", unit:"mpg", base:[5.6,7.0], hard:[4.2,5.2], invert:true, msg:"Efficiency drop suggests hidden issue or behavior shift" },
+      { key:"fuel_rail",    label:"Fuel Rail Pressure (trend)", unit:"psi", base:[24000,29000], hard:[20000,22000], invert:true, msg:"Fuel pressure trend suggests restriction or pump wear" },
+      { key:"dpf_delta",    label:"DPF ΔP (restriction)", unit:"kPa", base:[1.4,3.2], hard:[4.0,5.2], msg:"DPF restriction rising; regen efficiency at risk" },
+      { key:"trans_temp",   label:"Transmission Temp", unit:"°F", base:[160,195], hard:[205,235], msg:"Transmission temperature elevated vs baseline" },
+      { key:"intake_temp",  label:"Intake Air Temp", unit:"°F", base:[75,105], hard:[115,140], msg:"Intake temp high; charge air cooling underperforming" }
+    ];
+
+    const camChannels = [
+      { id:"road", title:"Road-Facing Camera", sub:"CH 1 • Forward view • incident context" },
+      { id:"driver", title:"Driver-Facing Camera", sub:"CH 2 • Driver view • compliance/safety" },
+      { id:"cargo", title:"Cargo / Trailer Camera", sub:"CH 3 • Load view • door/strap checks" }
+    ];
+
+    const mockClips = [
+      { sev:"warn", title:"Unit 12 — Smoke/steam visual check (mock)", time:"Today 14:22", note:"Correlates with coolant temp spikes under load." },
+      { sev:"warn", title:"Unit 19 — Hard vibration / idle irregularity (mock)", time:"Yesterday 07:41", note:"Correlates with charging dips and rough idle." },
+      { sev:"good", title:"Unit 7 — Normal regen cycle (mock)", time:"Yesterday 18:10", note:"EGT elevated but within expected regeneration profile." }
+    ];
+
+    /***********************
+     * STATE
+     ***********************/
+    const state = {
+      view: "dashboard",
+      selectedTruckId: trucks[0].id,
+      alerts: [],
+      notifFeed: [],
+      eventLog: [],
+      lastVals: {},
+      tick: 0,
+      lastAlertAt: 0,
+      persist: {},
+
+      // GPS state
+      gps: {
+        // normalized demo coords (0..1) for the canvas
+        units: {},         // {id:{x,y,vx,vy,heading,speed,trail:[]}}
+        feed: [],
+        selected: trucks[0].id
+      },
+
+      // Camera state
+      camera: {
+        channel: "road",
+        stream: null
+      }
+    };
+
+    /***********************
+     * HELPERS
+     ***********************/
+    const $ = (id)=>document.getElementById(id);
+
+    function sevDot(sev){
+      if(sev==="bad") return `<span class="dot bad"></span>`;
+      if(sev==="warn") return `<span class="dot warn"></span>`;
+      return `<span class="dot good"></span>`;
+    }
+    function sevPill(sev, text){
+      if(sev==="bad") return `<span class="pill2 bad">${sevDot("bad")}${text}</span>`;
+      if(sev==="warn") return `<span class="pill2 warn">${sevDot("warn")}${text}</span>`;
+      return `<span class="pill2 good">${sevDot("good")}${text}</span>`;
+    }
+    function pillClass(status){
+      const s = status.toLowerCase();
+      if(s.includes("action")) return "pill2 bad";
+      if(s.includes("due") || s.includes("monitor")) return "pill2 warn";
+      return "pill2 good";
+    }
+    function riskPill(risk){
+      const r = risk.toLowerCase();
+      if(r.includes("high")) return "pill2 bad";
+      if(r.includes("med")) return "pill2 warn";
+      return "pill2 good";
+    }
+    function nowTime(){
+      const d = new Date();
+      return d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+    }
+    function clamp(x, a, b){ return Math.max(a, Math.min(b, x)); }
+    function rand(a,b){ return a + Math.random()*(b-a); }
+    function round(x, n=1){ const p=Math.pow(10,n); return Math.round(x*p)/p; }
+
+    function toast(title, desc){
+      $("toastT").textContent = title;
+      $("toastD").textContent = desc;
+      $("toast").style.display = "block";
+      clearTimeout(window.__toastTimer);
+      window.__toastTimer = setTimeout(()=> $("toast").style.display="none", 5200);
+    }
+
+    function setView(view){
+      state.view = view;
+      const titles = {
+        dashboard:["Dashboard","Instant value: uptime, risk, and prioritized actions"],
+        telemetry:["Live Telemetry","Simulated sensor stream • anomalies trigger notifications"],
+        alerts:["Alerts","Fleet-wide alert history • filtered by unit selection"],
+        gps:["GPS Tracking","Live unit locations • supports service window planning + incident context"],
+        cameras:["Cameras","Road + Driver feeds • link visual context to alerts"],
+        advisor:["AI Advisor","Ask questions • maintenance + money + growth insights"],
+        reports:["Reports","Pilot reporting outputs operators will actually use"]
+      };
+      $("viewTitle").textContent = titles[view][0];
+      $("viewSub").textContent = titles[view][1];
+
+      ["dashboard","telemetry","alerts","gps","cameras","advisor","reports"].forEach(v=>{
+        $("view-"+v).classList.toggle("hide", v!==view);
+      });
+
+      document.querySelectorAll(".nav button").forEach(b=>{
+        b.classList.toggle("active", b.dataset.view===view);
+      });
+
+      // small UX: update HUD when entering GPS
+      if(view==="gps"){
+        $("hudSelected").textContent = `Selected: ${state.gps.selected}`;
+      }
+      if(view==="cameras"){
+        renderCameraChannels();
+        renderClipList();
+      }
+      if(view==="advisor"){
+        renderQuickPrompts();
+      }
+    }
+
+    function pushAlert({sev, unit, title, desc}){
+      const item = { sev, unit, title, desc, time: nowTime() };
+      state.alerts.unshift(item);
+      state.notifFeed.unshift(item);
+      renderNotifFeed();
+      renderAlerts();
+      toast(title, `${unit}: ${desc}`);
+    }
+
+    // Rate limiter: allow at most 1 alert every 20 seconds
+    function canFireAlert(){
+      const now = Date.now();
+      return (now - state.lastAlertAt) >= 20000;
+    }
+    function markAlertFired(){
+      state.lastAlertAt = Date.now();
+    }
+
+    /***********************
+     * RENDERERS
+     ***********************/
+    function renderQueue(){
+      $("queue").innerHTML = priorityQueue.map(x=>`
+        <div class="row">
+          <div class="l">
+            <h3>${sevDot(x.sev)}${x.title}</h3>
+            <p>${x.desc}</p>
+          </div>
+          <div class="r" style="text-align:right;">
+            <div class="chip">${x.chip}</div>
+            <div class="mini" style="margin-top:8px;">Due: <b>${x.due}</b></div>
+          </div>
+        </div>
+      `).join("");
+    }
+
+    function renderTable(rows){
+      $("fleetTable").innerHTML = rows.map(r=>`
+        <tr>
+          <td><b>${r.unit}</b></td>
+          <td><span class="${pillClass(r.status)}">${r.status}</span></td>
+          <td>${r.next}</td>
+          <td><span class="pill2">${r.due}</span></td>
+          <td><span class="${riskPill(r.risk)}">${r.risk}</span></td>
+        </tr>
+      `).join("");
+    }
+
+    function renderNotifFeed(){
+      const items = state.notifFeed.slice(0,6);
+      if(items.length === 0){
+        $("notifFeed").innerHTML = `<div class="note"><b>No new alerts yet.</b> Select a unit and let telemetry run. Alerts will populate when abnormal behavior is detected.</div>`;
+        return;
+      }
+      $("notifFeed").innerHTML = items.map(a=>`
+        <div class="row">
+          <div class="l">
+            <h3>${sevDot(a.sev)}${a.title}</h3>
+            <p>${a.desc}</p>
+          </div>
+          <div class="r" style="text-align:right;">
+            <div class="chip">${a.unit}</div>
+            <div class="mini" style="margin-top:8px;">${a.time}</div>
+          </div>
+        </div>
+      `).join("");
+    }
+
+    function renderAlerts(){
+      const items = state.alerts.slice(0,25);
+      if(items.length === 0){
+        $("alertsList").innerHTML = `<div class="note"><b>No alerts generated yet.</b> Use Live Telemetry to simulate abnormal sensor behavior and trigger notifications.</div>`;
+        return;
+      }
+      $("alertsList").innerHTML = items.map(a=>`
+        <div class="row">
+          <div class="l">
+            <h3>${sevDot(a.sev)}${a.title}</h3>
+            <p>${a.desc}</p>
+          </div>
+          <div class="r" style="text-align:right;">
+            <div class="chip">${a.unit}</div>
+            <div class="mini" style="margin-top:8px;">${a.time}</div>
+          </div>
+        </div>
+      `).join("");
+      $("alertCount").textContent = String(state.alerts.length);
+    }
+
+    function renderTelemetryCards(signalValues){
+      $("telemetryGrid").innerHTML = signalCatalog.map(s=>{
+        const v = signalValues[s.key];
+        const sev = v.sev;
+        const sevLabel = sev==="bad" ? "Anomaly" : sev==="warn" ? "Watch" : "Normal";
+        const pill = sevPill(sev, sevLabel);
+        return `
+          <div class="teleCard">
+            <div class="k">
+              <div><b>${s.label}</b></div>
+              <div>${pill}</div>
+            </div>
+            <div class="val">
+              ${v.value} <span class="unit">${s.unit}</span>
+            </div>
+            <div class="spark"><i style="width:${v.pct}%"></i></div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function renderEventLog(){
+      const items = state.eventLog.slice(0,10);
+      $("eventLog").innerHTML = items.map(e=>`
+        <tr>
+          <td><span style="font-family:var(--mono);font-weight:900;">${e.time}</span></td>
+          <td><b>${e.signal}</b></td>
+          <td>${e.obs}</td>
+          <td>${e.action}</td>
+        </tr>
+      `).join("");
+    }
+
+    function filterTable(q){
+      const query = q.trim().toLowerCase();
+      const filtered = fleetRows.filter(r => {
+        const blob = `${r.unit} ${r.status} ${r.next} ${r.due} ${r.risk}`.toLowerCase();
+        return blob.includes(query);
+      });
+      renderTable(filtered);
+    }
+
+    function mockExport(){
+      alert("Mock export: In the real product, this would generate a PDF report for the selected fleet/unit and date range.");
+    }
+
+    function pilotSummary(kind){
+      const text = {
+        summary:
+`30-Day Pilot Summary (Mock)
+- Objective: Reduce unplanned downtime and improve maintenance prioritization.
+- Scope: 10–30 units, 30 days.
+- Inputs: Maintenance history + OBD/telematics where available.
+- Outputs: Priority queue, alerts, recommended service windows, monthly report.
+- Time commitment: Weekly 15-minute check-in.`,
+        cost:
+`Cost Avoidance Breakdown (Mock)
+- Avoided urgent road call events: 2
+- Emergency labor premium avoided: $1,800
+- Tow/dispatch avoidance estimate: $3,500
+- Reduced downtime hours estimate: 18
+- Conservative net avoided cost: $10,800`,
+        priority:
+`Maintenance Priority Plan (Mock)
+DO NOW: high risk anomalies / trending temps / charging volatility
+DO SOON: rail pressure variance, regen efficiency review
+CAN WAIT: routine service windows, bundled PM checks`
+      }[kind];
+      alert(text);
+    }
+
+    /***********************
+     * LIVE TELEMETRY SIM
+     ***********************/
+    function simulateTelemetryTick(){
+      state.tick++;
+
+      const unit = state.selectedTruckId;
+      const out = {};
+      const truckFlavor = trucks.find(t=>t.id===unit)?.profile || "Linehaul";
+
+      const profileMult = truckFlavor==="Construction" ? 1.15 : truckFlavor==="Service" ? 0.95 : 1.0;
+
+      signalCatalog.forEach(sig=>{
+        let baseLow = sig.base[0], baseHigh = sig.base[1];
+        let hardLow = sig.hard[0], hardHigh = sig.hard[1];
+
+        // generate normal value
+        let val = rand(baseLow, baseHigh) * profileMult;
+
+        // anomalies plausible but not constant
+        const anomalyChance = 0.04;
+        const willAnom = Math.random() < anomalyChance;
+
+        if(willAnom){
+          const drift = Math.random() < 0.70;
+          const last = state.lastVals[sig.key] ?? val;
+          if(drift){
+            const step = (Math.random()*0.8 + 0.25) * (sig.invert ? -1 : 1);
+            const scale =
+              sig.key==="battery_v" ? 0.12 :
+              sig.key==="fuel_rail" ? 260 :
+              sig.key==="dpf_delta" ? 0.14 :
+              3.2;
+            val = last + step * scale;
+          } else {
+            val = rand(hardLow, hardHigh);
+          }
+        } else {
+          const last = state.lastVals[sig.key] ?? val;
+          const jitter =
+            sig.key==="battery_v" ? 0.06 :
+            sig.key==="fuel_rail" ? 140 :
+            sig.key==="dpf_delta" ? 0.08 :
+            1.1;
+          val = last + (val - last) * 0.35 + rand(-0.25, 0.25) * jitter;
+        }
+
+        // clamp plausible bounds
+        if(sig.key==="battery_v") val = clamp(val, 11.8, 14.7);
+        else if(sig.key==="fuel_mpg") val = clamp(val, 3.8, 8.8);
+        else if(sig.key==="boost_psi") val = clamp(val, 8, 42);
+        else if(sig.key==="egt") val = clamp(val, 450, 1300);
+        else if(sig.key==="fuel_rail") val = clamp(val, 18000, 32000);
+        else if(sig.key==="dpf_delta") val = clamp(val, 0.8, 6.0);
+        else if(sig.key==="trans_temp") val = clamp(val, 140, 245);
+        else if(sig.key==="intake_temp") val = clamp(val, 55, 155);
+        else val = clamp(val, 160, 260);
+
+        // determine severity by threshold + trend
+        const last = state.lastVals[sig.key] ?? val;
+        const trend = val - last;
+
+        let sev = "good";
+
+        const inHardBad = sig.invert
+          ? (val <= sig.hard[1])
+          : (val >= sig.hard[0]);
+
+        const nearBad = sig.invert
+          ? (val <= (sig.base[0] + (sig.base[1]-sig.base[0])*0.35))
+          : (val >= (sig.base[0] + (sig.base[1]-sig.base[0])*0.75));
+
+        const trendBad = sig.invert
+          ? (trend < -0.05)
+          : (trend > (sig.key==="battery_v" ? 0.02 : sig.key==="fuel_rail" ? 120 : sig.key==="dpf_delta" ? 0.08 : 1.0));
+
+        if(inHardBad) sev = "bad";
+        else if(nearBad || trendBad) sev = "warn";
+
+        // percent for spark bar
+        let pct;
+        if(sig.invert){
+          if(sig.key==="battery_v") pct = 100 - ((val - 11.8) / (14.7 - 11.8)) * 100;
+          else if(sig.key==="fuel_mpg") pct = 100 - ((val - 3.8) / (8.8 - 3.8)) * 100;
+          else if(sig.key==="fuel_rail") pct = 100 - ((val - 18000) / (32000 - 18000)) * 100;
+          else pct = 50;
+        } else {
+          const min =
+            sig.key==="boost_psi" ? 8 :
+            sig.key==="egt" ? 450 :
+            sig.key==="dpf_delta" ? 0.8 :
+            sig.key==="trans_temp" ? 140 :
+            sig.key==="intake_temp" ? 55 :
+            160;
+          const max =
+            sig.key==="boost_psi" ? 42 :
+            sig.key==="egt" ? 1300 :
+            sig.key==="dpf_delta" ? 6.0 :
+            sig.key==="trans_temp" ? 245 :
+            sig.key==="intake_temp" ? 155 :
+            260;
+          pct = ((val - min) / (max - min)) * 100;
+        }
+        pct = clamp(pct, 0, 100);
+
+        state.lastVals[sig.key] = val;
+
+        const showValue =
+          sig.key==="battery_v" ? round(val,2) :
+          sig.key==="fuel_rail" ? Math.round(val) :
+          sig.key==="dpf_delta" ? round(val,1) :
+          round(val,0);
+
+        out[sig.key] = { value: showValue, pct: Math.round(pct), sev };
+
+        // persistence counters
+        const persistKey = unit + "::" + sig.key;
+        const p = state.persist[persistKey] || {warn:0,bad:0};
+
+        if(sev==="bad"){ p.bad++; p.warn=0; }
+        else if(sev==="warn"){ p.warn++; p.bad=0; }
+        else { p.warn=0; p.bad=0; }
+
+        state.persist[persistKey] = p;
+
+        // Event logging always, alert rate-limited
+        if(sev!=="good" && (p.warn===2 || p.bad===2)){
+          const severityText = sev==="bad" ? "Anomaly detected" : "Abnormal trend";
+          const obs = `${severityText}: ${sig.label} reading ${out[sig.key].value}${sig.unit} vs baseline`;
+          const action = sev==="bad"
+            ? "Recommend scheduling inspection window"
+            : "Monitor + bundle with PM check";
+
+          state.eventLog.unshift({ time: nowTime(), signal: sig.label, obs, action });
+
+          if (canFireAlert()){
+            markAlertFired();
+            const alertSev = sev==="bad" ? "bad" : "warn";
+            pushAlert({
+              sev: alertSev,
+              unit,
+              title: `${unit} — ${sig.msg}`,
+              desc: `${sig.label} indicates ${severityText.toLowerCase()}. Suggested action: ${action}.`
+            });
+          }
+        }
+      });
+
+      // trim logs
+      state.eventLog = state.eventLog.slice(0, 25);
+
+      // render telemetry + events
+      renderTelemetryCards(out);
+      renderEventLog();
+
+      // KPI motion
+      if(state.tick % 6 === 0){
+        const baseUptime = 98.7 + rand(-0.2, 0.2);
+        $("kpiUptime").textContent = baseUptime.toFixed(1) + "%";
+      }
+    }
+
+    /***********************
+     * GPS SIM + MAP RENDER
+     ***********************/
+    function initGPS(){
+      // seed each unit with a starting position and velocity
+      trucks.forEach((t, idx)=>{
+        const x = 0.18 + 0.12*idx + rand(-0.03,0.03);
+        const y = 0.25 + (idx%3)*0.18 + rand(-0.03,0.03);
+        const vx = 0.002 + rand(-0.0006, 0.0006);
+        const vy = 0.0012 + rand(-0.0005, 0.0005);
+        state.gps.units[t.id] = {
+          x: clamp(x,0.08,0.92),
+          y: clamp(y,0.08,0.92),
+          vx, vy,
+          heading: Math.floor(rand(0,359)),
+          speed: Math.floor(rand(52,72)),
+          trail: []
+        };
+      });
+      state.gps.selected = state.selectedTruckId;
+      $("hudSelected").textContent = `Selected: ${state.gps.selected}`;
+    }
+
+    function gpsTick(){
+      const c = $("mapCanvas");
+      const ctx = c.getContext("2d");
+      const w = c.width, h = c.height;
+
+      // update clock HUD
+      $("hudClock").textContent = `Live • ${nowTime()}`;
+
+      // move units
+      for(const id of Object.keys(state.gps.units)){
+        const u = state.gps.units[id];
+
+        // small random steering
+        u.vx += rand(-0.00025, 0.00025);
+        u.vy += rand(-0.00025, 0.00025);
+        u.vx = clamp(u.vx, -0.004, 0.004);
+        u.vy = clamp(u.vy, -0.004, 0.004);
+
+        u.x += u.vx;
+        u.y += u.vy;
+
+        // bounce edges
+        if(u.x < 0.06 || u.x > 0.94) u.vx *= -1;
+        if(u.y < 0.08 || u.y > 0.92) u.vy *= -1;
+
+        u.x = clamp(u.x, 0.06, 0.94);
+        u.y = clamp(u.y, 0.08, 0.92);
+
+        // derive speed/heading from velocity
+        const ang = Math.atan2(u.vy, u.vx);
+        u.heading = (Math.floor((ang * 180/Math.PI) + 360) % 360);
+        const mag = Math.sqrt(u.vx*u.vx + u.vy*u.vy);
+        u.speed = Math.floor(clamp(40 + mag*9500, 18, 78));
+
+        // keep trail
+        u.trail.unshift({x:u.x, y:u.y});
+        u.trail = u.trail.slice(0, 36);
+      }
+
+      // draw background grid
+      ctx.clearRect(0,0,w,h);
+      ctx.fillStyle = "rgba(7,11,20,0)";
+      ctx.fillRect(0,0,w,h);
+
+      // subtle grid lines
+      ctx.save();
+      ctx.globalAlpha = 0.25;
+      for(let i=0;i<=12;i++){
+        const x = (w/12)*i;
+        ctx.strokeStyle = "rgba(77,163,255,0.12)";
+        ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,h); ctx.stroke();
+      }
+      for(let j=0;j<=8;j++){
+        const y = (h/8)*j;
+        ctx.strokeStyle = "rgba(77,163,255,0.10)";
+        ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(w,y); ctx.stroke();
+      }
+      ctx.restore();
+
+      // draw a few “roads” as arcs/lines
+      ctx.save();
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = "rgba(77,163,255,0.16)";
+      ctx.beginPath();
+      ctx.moveTo(w*0.08, h*0.80);
+      ctx.bezierCurveTo(w*0.22, h*0.62, w*0.42, h*0.60, w*0.62, h*0.42);
+      ctx.bezierCurveTo(w*0.78, h*0.30, w*0.86, h*0.20, w*0.92, h*0.14);
+      ctx.stroke();
+
+      ctx.strokeStyle = "rgba(77,163,255,0.12)";
+      ctx.beginPath();
+      ctx.moveTo(w*0.10, h*0.22);
+      ctx.lineTo(w*0.88, h*0.26);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(w*0.14, h*0.54);
+      ctx.lineTo(w*0.90, h*0.62);
+      ctx.stroke();
+      ctx.restore();
+
+      // selected route / trail highlight
+      const selected = state.gps.selected;
+      if(selected && state.gps.units[selected]){
+        const t = state.gps.units[selected].trail;
+        if(t.length>2){
+          ctx.save();
+          ctx.lineWidth = 4;
+          ctx.strokeStyle = "rgba(77,163,255,0.45)";
+          ctx.beginPath();
+          ctx.moveTo(t[t.length-1].x*w, t[t.length-1].y*h);
+          for(let i=t.length-2;i>=0;i--){
+            ctx.lineTo(t[i].x*w, t[i].y*h);
+          }
+          ctx.stroke();
+          ctx.restore();
+        }
+      }
+
+      // draw markers
+      for(const id of Object.keys(state.gps.units)){
+        const u = state.gps.units[id];
+        const px = u.x*w, py = u.y*h;
+        const isSel = id === state.gps.selected;
+
+        // trail faint
+        ctx.save();
+        ctx.globalAlpha = isSel ? 0.35 : 0.18;
+        ctx.fillStyle = "rgba(77,163,255,0.35)";
+        (u.trail || []).forEach((p, i)=>{
+          const a = (1 - i/(u.trail.length||1)) * (isSel?0.25:0.18);
+          ctx.globalAlpha = a;
+          ctx.beginPath();
+          ctx.arc(p.x*w, p.y*h, isSel ? 2.2 : 1.6, 0, Math.PI*2);
+          ctx.fill();
+        });
+        ctx.restore();
+
+        // marker glow
+        ctx.save();
+        ctx.shadowColor = isSel ? "rgba(77,163,255,0.85)" : "rgba(77,163,255,0.35)";
+        ctx.shadowBlur = isSel ? 18 : 10;
+
+        ctx.fillStyle = isSel ? "rgba(77,163,255,0.95)" : "rgba(77,163,255,0.70)";
+        ctx.beginPath();
+        ctx.arc(px, py, isSel ? 9.5 : 7.5, 0, Math.PI*2);
+        ctx.fill();
+
+        ctx.shadowBlur = 0;
+        ctx.strokeStyle = "rgba(7,11,20,0.85)";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // label
+        ctx.font = "12px " + getComputedStyle(document.documentElement).getPropertyValue("--mono");
+        ctx.fillStyle = "rgba(234,242,255,0.92)";
+        ctx.fillText(id, px + 12, py + 4);
+        ctx.restore();
+      }
+
+      // update right panel details + feed
+      updateGPSDetails();
+    }
+
+    function updateGPSDetails(){
+      const sel = state.gps.selected;
+      const u = sel ? state.gps.units[sel] : null;
+      if(!u){ return; }
+
+      const meta = trucks.find(t=>t.id===sel);
+      const status = meta?.risk === "High" ? "At-Risk (Maintenance)" : "Normal";
+
+      // convert normalized to pseudo lat/lon (demo only)
+      const lat = 36.76 + (u.y - 0.5) * 0.55;   // around MO-ish scale
+      const lon = -90.40 + (u.x - 0.5) * 0.75;
+
+      $("hudSelected").textContent = `Selected: ${sel}`;
+      $("gpsStatus").textContent = status;
+      $("gpsSpeed").textContent = `${u.speed} mph`;
+      $("gpsHeading").textContent = `${u.heading}°`;
+      $("gpsLatLon").textContent = `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+      $("gpsETA").textContent = `${Math.floor(rand(18,64))} min`;
+      $("gpsRisk").textContent = meta?.risk || "—";
+
+      // feed: add an entry occasionally
+      if(state.tick % 3 === 0){
+        state.gps.feed.unshift({
+          time: nowTime(),
+          unit: sel,
+          line: `Location update • ${lat.toFixed(4)}, ${lon.toFixed(4)} • ${u.speed} mph • heading ${u.heading}°`
+        });
+        state.gps.feed = state.gps.feed.slice(0, 8);
+        renderGPSFeed();
+      }
+    }
+
+    function renderGPSFeed(){
+      const items = state.gps.feed;
+      if(items.length===0){
+        $("gpsFeed").innerHTML = `<div class="note"><b>No updates yet.</b> Select GPS Tracking and let the demo run.</div>`;
+        return;
+      }
+      $("gpsFeed").innerHTML = items.map(i=>`
+        <div class="row">
+          <div class="l">
+            <h3><span class="dot good"></span>${i.unit} — GPS Update</h3>
+            <p>${i.line}</p>
+          </div>
+          <div class="r" style="text-align:right;">
+            <div class="chip">Live</div>
+            <div class="mini" style="margin-top:8px;">${i.time}</div>
+          </div>
+        </div>
+      `).join("");
+    }
+
+    function bindMapClicks(){
+      const c = $("mapCanvas");
+      c.addEventListener("click", (e)=>{
+        const rect = c.getBoundingClientRect();
+        const mx = (e.clientX - rect.left) * (c.width / rect.width);
+        const my = (e.clientY - rect.top) * (c.height / rect.height);
+
+        // find nearest marker
+        let best = null, bestD = 999999;
+        for(const id of Object.keys(state.gps.units)){
+          const u = state.gps.units[id];
+          const px = u.x*c.width, py = u.y*c.height;
+          const d = Math.hypot(mx-px, my-py);
+          if(d < bestD){ bestD = d; best = id; }
+        }
+        if(best && bestD < 28){
+          state.gps.selected = best;
+          state.selectedTruckId = best;
+          $("truck").value = best;
+          toast("GPS unit selected", `Now focusing map + panels on ${best}.`);
+        }
+      });
+    }
+
+    /***********************
+     * CAMERAS
+     ***********************/
+    function renderCameraChannels(){
+      $("camChannels").innerHTML = camChannels.map(ch=>`
+        <div class="row" style="cursor:pointer;" data-channel="${ch.id}">
+          <div class="l">
+            <h3>${ch.id===state.camera.channel ? '<span class="dot good"></span>' : '<span class="dot warn"></span>'}${ch.title}</h3>
+            <p>${ch.sub}</p>
+          </div>
+          <div class="r" style="text-align:right;">
+            <div class="chip">${ch.id.toUpperCase()}</div>
+            <div class="mini" style="margin-top:8px;">${ch.id===state.camera.channel ? '<b>Active</b>' : 'Select'}</div>
+          </div>
+        </div>
+      `).join("");
+
+      document.querySelectorAll('[data-channel]').forEach(el=>{
+        el.addEventListener("click", ()=>{
+          const id = el.getAttribute("data-channel");
+          setCameraChannel(id);
+        });
+      });
+
+      setCameraChannel(state.camera.channel, true);
+    }
+
+    function setCameraChannel(id, silent=false){
+      state.camera.channel = id;
+
+      const ch = camChannels.find(c=>c.id===id) || camChannels[0];
+      $("camTitle").textContent = ch.title;
+      $("camSub").textContent = ch.sub;
+      $("camBadge").textContent = id==="road" ? "CH 1 • Road" : id==="driver" ? "CH 2 • Driver" : "CH 3 • Cargo";
+
+      if(!silent){
+        toast("Camera channel", `Switched to ${ch.title} (mock).`);
+      }
+      renderCameraChannels(); // refresh active highlight
+    }
+
+    function renderClipList(){
+      $("clipList").innerHTML = mockClips.map(c=>`
+        <div class="row">
+          <div class="l">
+            <h3>${sevDot(c.sev)}${c.title}</h3>
+            <p>${c.note}</p>
+          </div>
+          <div class="r" style="text-align:right;">
+            <div class="chip">${c.time}</div>
+            <div class="mini" style="margin-top:8px;">Link to alert (mock)</div>
+          </div>
+        </div>
+      `).join("");
+    }
+
+    async function startDeviceCamera(){
+      try{
+        if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+          toast("Camera not available", "This browser/device does not support getUserMedia().");
+          return;
+        }
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        state.camera.stream = stream;
+
+        const v = $("camVideo");
+        v.srcObject = stream;
+        v.style.display = "block";
+        $("videoPlaceholder").style.display = "none";
+
+        toast("Device camera active", "Using your device camera as a demo feed.");
+      } catch(err){
+        toast("Camera permission denied", "No problem — the mock feed remains active.");
+      }
+    }
+
+    function stopDeviceCamera(){
+      if(state.camera.stream){
+        state.camera.stream.getTracks().forEach(t=>t.stop());
+        state.camera.stream = null;
+      }
+      const v = $("camVideo");
+      v.pause();
+      v.srcObject = null;
+      v.style.display = "none";
+      $("videoPlaceholder").style.display = "flex";
+    }
+
+    function snapshotMock(){
+      toast("Snapshot saved (mock)", "In production: save a still image + associate with unit + timestamp + alert context.");
+    }
+
+    /***********************
+     * AI ADVISOR (demo logic)
+     ***********************/
+    function renderQuickPrompts(){
+      const prompts = [
+        "Which truck is most likely to cause a $20k breakdown in the next 14 days?",
+        "Explain Unit 12 risk in dollars and the recommended action window.",
+        "How can we reduce downtime next month without increasing spend?",
+        "What should I schedule this week based on GPS + risk?",
+        "If fuel rail pressure trends down, what does that usually mean and what’s the cheapest first step?"
+      ];
+      $("quickPrompts").innerHTML = prompts.map(p=>`<button class="btn ghost" style="padding:9px 12px;" data-prompt="${encodeURIComponent(p)}">${p}</button>`).join("");
+      document.querySelectorAll("[data-prompt]").forEach(b=>{
+        b.addEventListener("click", ()=>{
+          const p = decodeURIComponent(b.getAttribute("data-prompt"));
+          $("chatInput").value = p;
+          $("chatInput").focus();
+        });
+      });
+    }
+
+    function chatAdd(who, text){
+      const isMike = who === "Mike";
+      const avatar = isMike ? "MI" : "You";
+      const el = document.createElement("div");
+      el.className = "msg";
+      el.innerHTML = `
+        <div class="avatar">${avatar}</div>
+        <div class="body">
+          <div class="who">${who}</div>
+          <div class="text">${text}</div>
+        </div>
+      `;
+      $("chatLog").appendChild(el);
+      $("chatLog").scrollTop = $("chatLog").scrollHeight;
+    }
+
+    function mikeReply(userText){
+      const unit = state.selectedTruckId;
+      const risk = trucks.find(t=>t.id===unit)?.risk || "Med";
+      const econ = risk==="High"
+        ? {low:12000, high:28000, now:950, soon:2100}
+        : risk==="Med"
+        ? {low:6000, high:18000, now:700, soon:1600}
+        : {low:1500, high:6000, now:350, soon:900};
+
+      const lower = userText.toLowerCase();
+
+      let reply =
+`Here’s the fleet-scoped view (demo), using the current selected unit: ${unit}.
+
+- Maintenance risk: ${risk}
+- Estimated financial exposure if ignored: $${econ.low.toLocaleString()}–$${econ.high.toLocaleString()} (road call + tow + downtime + secondary damage)
+- Recommended action: schedule a controlled inspection window (shop or preferred vendor), bundle with PM where possible.
+
+If you tell me your constraint (shop capacity, next dispatch window, or desired budget), I can rank the best next step.`;
+
+      if(lower.includes("fuel") || lower.includes("rail") || lower.includes("pump")){
+        reply =
+`Fuel-system / rail-pressure reasoning (demo):
+
+What the pattern can indicate:
+- Filter restriction (cheapest first check)
+- Low supply pressure / aeration
+- Early high-pressure pump wear
+- Voltage/ground instability affecting sensor readings
+
+Cheapest first step (most fleets do this first):
+1) Verify fuel filter restriction + service history
+2) Inspect supply side for air intrusion (lines/fittings)
+3) Compare rail pressure commanded vs actual under steady load
+4) If drift persists: schedule pump health check window
+
+Why it matters financially:
+- If it escalates to a derate/no-start event, exposure can jump into the $${econ.low.toLocaleString()}–$${econ.high.toLocaleString()} range quickly.
+
+If you want, I can generate a “Do Now / Do Soon / Can Wait” plan for the whole fleet based on your next 7–14 day schedule.`;
+      }
+
+      if(lower.includes("gps") || lower.includes("route") || lower.includes("schedule")){
+        reply =
+`Using GPS for preventive maintenance (demo):
+
+Best practice:
+- Schedule repairs when the unit is naturally near your yard or a preferred vendor
+- Avoid pulling a linehaul unit off-route unless the risk is high enough to justify it
+
+For ${unit}:
+- If risk is ${risk}, I’d target a controlled service window within the next ${risk==="High" ? "48–72 hours" : risk==="Med" ? "7–10 days" : "14–21 days"}.
+- The goal is to spend ~$${(risk==="High"?econ.now:econ.soon).toLocaleString()} in a planned window to avoid a $${econ.low.toLocaleString()}+ disruption.
+
+If you tell me your main yard location or preferred service corridor, I can optimize the window logic further.`;
+      }
+
+      if(lower.includes("20k") || lower.includes("breakdown") || lower.includes("most likely")){
+        reply =
+`Highest “big-dollar breakdown” risk in this demo fleet:
+
+1) U-12 — High risk (cooling trend + fuel variance signals)
+   - Potential exposure: $12k–$28k if escalates to roadside failure
+   - Recommended action window: 48–72 hours (planned inspection)
+
+2) U-19 — Medium risk (charging volatility)
+   - Exposure: $6k–$18k (no-start + downtime + cascading electrical)
+   - Window: 10–14 days
+
+Why this is maintenance-first:
+- The objective is not “more alerts,” it’s fewer surprises and fewer emergency invoices.`;
+      }
+
+      if(lower.includes("growth") || lower.includes("business") || lower.includes("profit")){
+        reply =
+`Business-growth angle (fleet-scoped, maintenance-first):
+
+Three levers that typically increase profitability without increasing chaos:
+1) Reduce emergency spend: move from roadside to scheduled work (largest ROI)
+2) Improve utilization: identify underused assets and right-size the fleet
+3) Standardize PM bundles: one visit fixes multiple small items, reducing downtime events
+
+If you want, I can draft a pilot KPI board:
+- cost per mile, downtime hours, road calls avoided, maintenance spend variance, and ROI.`;
+      }
+
+      return reply;
+    }
+
+    /***********************
+     * INIT + EVENTS
+     ***********************/
+    
+    function initTrucks(){
+      $("truck").innerHTML = trucks.map(t=>`<option value="${t.id}">${t.name}</option>`).join("");
+      $("truck").value = state.selectedTruckId;
+    }
+
+    /* ---------- Simple local users (demo) ---------- */
+    function loadUsers(){
+      try{ return JSON.parse(localStorage.getItem('fleetai.users')||'[]'); }catch(e){ return []; }
+    }
+    function saveUsers(u){ try{ localStorage.setItem('fleetai.users', JSON.stringify(u||[])); }catch(e){}
+    }
+    function addUser(email, pass, role='operator'){
+      if(!email || !pass) return false;
+      const users = loadUsers();
+      if(users.find(x=>x.email===email)) return false;
+      users.push({ email, pass, role });
+      saveUsers(users);
+      return true;
+    }
+    function findUser(email, pass){
+      const users = loadUsers();
+      return users.find(u=>u.email===email && u.pass===pass) || null;
+    }
+    function getUserByEmail(email){ const users = loadUsers(); return users.find(u=>u.email===email) || null; }
+
+    function showLoginOverlay(show, opts={}){
+      const el = $('loginOverlay');
+      if(!el) return;
+      el.classList.toggle('hide', !show);
+      if(show){
+        $('loginEmail').focus();
+        if(opts.createMode) $('loginTitle').textContent = 'Create Admin Account';
+        else $('loginTitle').textContent = 'Sign in to Fleet AI';
+      }
+    }
+
+    function doLogin(){
+      const em = $('loginEmail').value.trim();
+      const pw = $('loginPass').value;
+      const u = findUser(em,pw);
+      if(u){
+        state.user = { email: u.email, role: u.role };
+        try{ localStorage.setItem('fleetai.sessionEmail', u.email); }catch(e){}
+        $('btnAddUser').style.display = (u.role==='admin')? 'inline-block':'none';
+        $('btnLogout').style.display = 'inline-block';
+        showLoginOverlay(false);
+        toast('Signed in', `Welcome back, ${u.email}`);
+        return;
+      }
+      // wrong credentials
+      const m = $('loginMsg'); m.style.display='block'; m.textContent = 'Invalid credentials.';
+    }
+
+    function doCreateAdmin(){
+      const em = $('loginEmail').value.trim();
+      const pw = $('loginPass').value;
+      if(!em || !pw){ const m=$('loginMsg'); m.style.display='block'; m.textContent='Email + password required.'; return; }
+      const ok = addUser(em,pw,'admin');
+      if(!ok){ const m=$('loginMsg'); m.style.display='block'; m.textContent='User already exists.'; return; }
+      $('loginMsg').style.display='block'; $('loginMsg').textContent='Admin created — you can now log in.';
+      setTimeout(()=>{ $('loginMsg').style.display='none'; $('loginPass').value=''; }, 1400);
+    }
+
+    function doLogout(){
+      state.user = null;
+      try{ localStorage.removeItem('fleetai.sessionEmail'); }catch(e){}
+      $('btnAddUser').style.display='none';
+      $('btnLogout').style.display='none';
+      showLoginOverlay(true);
+      toast('Signed out','You have been signed out.');
+    }
+
+    document.querySelectorAll(".nav button").forEach(btn=>{
+      // preserve a compact label for tooltip use when sidebar is collapsed
+      const label = btn.textContent.trim();
+      btn.dataset.label = label;
+      btn.title = label;
+      btn.addEventListener("click", ()=> setView(btn.dataset.view));
+    });
+
+    // Sidebar toggle + persistence
+    const __root = document.querySelector('.app');
+    const __sidebarKey = 'fleetai.sidebarCollapsed';
+    function applySidebarState(collapsed){
+      __root.classList.toggle('collapsed', !!collapsed);
+      const t = $('btnToggleSidebar');
+      if(t) t.setAttribute('aria-pressed', collapsed? 'true':'false');
+      const sub = $('viewSub');
+      if(sub) sub.style.display = (collapsed? 'none':'');
+    }
+    // init from localStorage
+    try{
+      const saved = localStorage.getItem(__sidebarKey) === 'true';
+      applySidebarState(saved);
+    }catch(e){ /* ignore */ }
+
+    const btnToggle = $('btnToggleSidebar');
+    if(btnToggle){
+      btnToggle.addEventListener('click', ()=>{
+        const next = !__root.classList.contains('collapsed');
+        applySidebarState(next);
+        try{ localStorage.setItem(__sidebarKey, next? 'true':'false'); }catch(e){}
+      });
+    }
+
+    // Login events
+    const btnLogin = $('btnLogin');
+    if(btnLogin) btnLogin.addEventListener('click', doLogin);
+    const btnCreateAdmin = $('btnCreateAdmin');
+    if(btnCreateAdmin) btnCreateAdmin.addEventListener('click', doCreateAdmin);
+
+    const btnAddUser = $('btnAddUser');
+    if(btnAddUser){
+      btnAddUser.addEventListener('click', ()=>{
+        // open overlay in create mode for admin to add a user
+        showLoginOverlay(true, {createMode:true});
+      });
+    }
+    const btnLogout = $('btnLogout');
+    if(btnLogout) btnLogout.addEventListener('click', doLogout);
+
+
+    // Ctrl+B / Meta+B to toggle sidebar
+    document.addEventListener('keydown', (e)=>{
+      if((e.ctrlKey || e.metaKey) && (e.key === 'b' || e.key === 'B')){
+        e.preventDefault();
+        const next = !__root.classList.contains('collapsed');
+        applySidebarState(next);
+        try{ localStorage.setItem(__sidebarKey, next? 'true':'false'); }catch(e){}
+      }
+    });
+
+    $("btnRefresh").addEventListener("click", ()=>{
+      priorityQueue.unshift(priorityQueue.pop());
+      renderQueue();
+      renderNotifFeed();
+    });
+
+    $("btnExport").addEventListener("click", mockExport);
+
+    $("search").addEventListener("input", e => filterTable(e.target.value));
+
+    $("truck").addEventListener("change", e=>{
+      state.selectedTruckId = e.target.value;
+
+      // reset telemetry stream state
+      state.lastVals = {};
+      state.eventLog = [];
+      state.persist = {};
+      state.lastAlertAt = 0;
+
+      // sync GPS selection
+      state.gps.selected = state.selectedTruckId;
+
+      toast("Unit selected", `Now focusing Fleet AI on ${state.selectedTruckId}.`);
+      renderEventLog();
+    });
+
+    $("toastX").addEventListener("click", ()=> $("toast").style.display="none");
+
+    document.addEventListener("click", (e)=>{
+      if(e.target && e.target.id==="btnPilotSummary") pilotSummary("summary");
+      if(e.target && e.target.id==="btnCostReport") pilotSummary("cost");
+      if(e.target && e.target.id==="btnPriorityPlan") pilotSummary("priority");
+    });
+
+    $("btnStartCam").addEventListener("click", async ()=>{
+      if(state.camera.stream){
+        stopDeviceCamera();
+        toast("Device camera stopped", "Back to mock feed.");
+        $("btnStartCam").textContent = "Use Device Camera (Optional)";
+      } else {
+        await startDeviceCamera();
+        if(state.camera.stream){
+          $("btnStartCam").textContent = "Stop Device Camera";
+        }
+      }
+    });
+
+    $("btnSnapshot").addEventListener("click", snapshotMock);
+
+    $("btnSend").addEventListener("click", ()=>{
+      const text = $("chatInput").value.trim();
+      if(!text) return;
+      $("chatInput").value = "";
+      chatAdd("You", text);
+      const reply = mikeReply(text);
+      chatAdd("Mike", reply);
+    });
+
+    $("chatInput").addEventListener("keydown", (e)=>{
+      if((e.ctrlKey || e.metaKey) && e.key === "Enter"){
+        $("btnSend").click();
+      }
+    });
+
+    /***********************
+     * INITIAL RENDER
+     ***********************/
+    initTrucks();
+    renderQueue();
+    renderTable(fleetRows);
+    renderNotifFeed();
+    renderAlerts();
+    setView("dashboard");
+
+    // telemetry init
+    renderTelemetryCards(Object.fromEntries(signalCatalog.map(s=>[s.key,{value:"—",pct:0,sev:"good"}])));
+    renderEventLog();
+
+    // GPS init
+    initGPS();
+    bindMapClicks();
+    renderGPSFeed();
+
+    // AI Advisor seed
+    chatAdd("Mike",
+`Welcome. I’m Mike — the Fleet AI Advisor (demo).
+
+I focus on preventable maintenance first:
+- what will likely fail
+- when to schedule it
+- what it costs if you ignore it
+
+Ask me anything about this demo fleet’s risk, ROI, and next actions.`);
+
+    // tickers
+    setInterval(simulateTelemetryTick, 1000);
+    setInterval(gpsTick, 1000);
+
+    // session / users: ensure at least a default admin exists for easy setup
+    (function initAuth(){
+      const users = loadUsers();
+      if(!users || users.length===0){
+        // create a default admin for convenience
+        addUser('admin@example.com','admin','admin');
+        toast('Admin created','Default admin: admin@example.com / admin');
+      }
+      // restore session if present
+      try{
+        const sess = localStorage.getItem('fleetai.sessionEmail');
+        if(sess){
+          const u = getUserByEmail(sess);
+          if(u){ state.user = {email:u.email, role:u.role}; $('btnAddUser').style.display = (u.role==='admin')? 'inline-block':'none'; $('btnLogout').style.display='inline-block'; }
+        }
+      }catch(e){}
+      if(!state.user) showLoginOverlay(true);
+    })();
+
+    // ambient starfield removed — using static blue background
+
+    // particle flow removed — static blue background only
+  </script>
+</body>
+</html>
