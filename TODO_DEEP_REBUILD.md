@@ -37,10 +37,10 @@
 - [x] Do NOT block login flows with incorrect “first login” logic
 
 ## E) Driver App (Android / Kotlin)
-- [ ] Fix `SensorsScreen.kt` compile errors
+- [x] Fix `SensorsScreen.kt` compile errors
 - [ ] App builds with `./gradlew :app:assembleDebug`
-- [ ] Ensure API base URL is configurable
-- [ ] Add TODOs for future driver features (no extras)
+- [x] Ensure API base URL is configurable
+- [x] Add TODOs for future driver features (no extras)
 
 ## F) Tooling & Scripts
 - [ ] `npm run dev:reset` → clears auth store + reseeds

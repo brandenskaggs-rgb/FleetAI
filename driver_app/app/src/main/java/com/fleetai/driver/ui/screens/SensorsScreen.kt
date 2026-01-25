@@ -172,6 +172,7 @@ private fun ConnectionBanner(
             Text("Live Telemetry", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
             Text("Status: $status", style = MaterialTheme.typography.bodyMedium)
             Text("Saved dongle: ${savedDevice.ifBlank { \"--\" }}", style = MaterialTheme.typography.bodySmall)
+            // TODO: Add trip summary and last pairing metadata once backend exposes it.
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
                 StatusPill(label = "Bluetooth", good = status.contains("Connected", true))
                 StatusPill(label = "OBD", good = debug.lastObdReadAt > 0 && System.currentTimeMillis() - debug.lastObdReadAt < 3000)
