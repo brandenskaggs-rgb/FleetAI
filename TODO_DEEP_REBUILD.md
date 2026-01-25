@@ -29,6 +29,7 @@
 - [x] “User not found” only if user truly does not exist
 - [x] “Invalid credentials” only for password mismatch
 - [x] Remove or strictly define `/api/login`
+- [x] Add explicit debug logs for lookup + bcrypt compare (no secrets)
 
 ## D) UI Fixes
 - [x] Update `employee-login.html` to call the correct endpoint

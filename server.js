@@ -190,7 +190,9 @@ const authService = createAuthService({
   saveData: writeData,
   issueSession,
   devSetupMode: DEV_SETUP_MODE && !IS_PROD,
-  demoWhitelist: AUTH_DEMO_WHITELIST
+  demoWhitelist: AUTH_DEMO_WHITELIST,
+  debugLogger: authLog,
+  storePath: DATA_PATH
 });
 const APP_VERSION = (() => {
   const base = (pkg && pkg.version) || "0.0.0";

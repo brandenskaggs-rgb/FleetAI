@@ -81,8 +81,16 @@ function createAuthService(options) {
     saveData,
     issueSession,
     devSetupMode,
-    demoWhitelist = []
+    demoWhitelist = [],
+    debugLogger = null,
+    storePath = ""
   } = options;
+
+  function logAuth(message, meta) {
+    if (!debugLogger) return;
+    const detail = meta ? ` ${JSON.stringify(meta)}` : "";
+    debugLogger(`[AUTH] ${message}${detail}`);
+  }
 
   async function getUserByEmail(scope, email) {
     const emailNormalized = normalizeEmail(email);
@@ -98,20 +106,25 @@ function createAuthService(options) {
   async function authenticate(scope, email, password) {
     const emailNormalized = normalizeEmail(email);
     if (!emailNormalized || !password) {
+      logAuth("missing credentials", { scope, email: emailNormalized, storePath });
       return { ok: false, error: AUTH_ERRORS.INVALID_CREDENTIALS };
     }
     const result = await getUserByEmail(scope, emailNormalized);
     const user = result.user;
     const data = result.data;
     if (!user) {
+      logAuth("user lookup", { scope, email: emailNormalized, found: false, storePath });
       return { ok: false, error: AUTH_ERRORS.USER_NOT_FOUND };
     }
+    logAuth("user lookup", { scope, email: emailNormalized, found: true, userId: user.id || null, role: user.role, storePath });
     if (!isActiveUser(user)) {
+      logAuth("inactive user", { scope, email: emailNormalized, userId: user.id || null });
       return { ok: false, error: AUTH_ERRORS.ACCOUNT_LOCKED };
     }
     if (needsPasswordSetup(user)) {
       const tokenInfo = issueSetupToken(user);
       await saveData(data);
+      logAuth("password setup required", { scope, email: emailNormalized, userId: user.id || null });
       return { ok: false, error: AUTH_ERRORS.PASSWORD_SETUP_REQUIRED, next: tokenInfo };
     }
     let ok = false;
@@ -120,6 +133,7 @@ function createAuthService(options) {
     } catch (_) {
       ok = false;
     }
+    logAuth("password compare", { scope, email: emailNormalized, userId: user.id || null, method: "bcrypt", result: ok });
     if (!ok && shouldAutoRepair(emailNormalized, devSetupMode, demoWhitelist)) {
       await setPassword(user, password);
       await saveData(data);
