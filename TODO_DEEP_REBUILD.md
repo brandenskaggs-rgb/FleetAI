@@ -43,10 +43,10 @@
 - [x] Add TODOs for future driver features (no extras)
 
 ## F) Tooling & Scripts
-- [ ] `npm run dev:reset` → clears auth store + reseeds
-- [ ] `npm run dev:start` → DEV_SETUP=true
-- [ ] `npm run prod:start` → DEV_SETUP=false
-- [ ] `SMOKE_TEST.md` with exact verification steps
+- [x] `npm run dev:reset` → clears auth store + reseeds
+- [x] `npm run dev:start` → DEV_SETUP=true
+- [x] `npm run prod:start` → DEV_SETUP=false
+- [x] `SMOKE_TEST.md` with exact verification steps
 
 ## G) Smoke Test Checklist
 - [ ] `npm start` logs `[AUTH STORE] loaded users >= 3`

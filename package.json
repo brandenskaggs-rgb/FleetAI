@@ -6,6 +6,9 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
+    "dev:reset": "node scripts/dev-reset.js",
+    "dev:start": "node -e \"process.env.DEV_SETUP='true'; require('./server.js')\"",
+    "prod:start": "node -e \"process.env.DEV_SETUP='false'; require('./server.js')\"",
     "smoke": "node scripts/smoke.js",
     "check:hosts": "node scripts/check-hardcoded-hosts.js",
     "check:dashboard": "node scripts/check-dashboard-pairing.js",
