@@ -56,6 +56,10 @@ async function seedUsers(data) {
 }
 
 async function main() {
+  if (process.env.NODE_ENV === "production" && String(process.env.DEV_SETUP || "").toLowerCase() !== "true") {
+    console.error("[dev-reset] Refusing to run in production without DEV_SETUP=true.");
+    process.exit(1);
+  }
   const { filePath, data } = loadAuthStore({ allowEmpty: true, allowMissing: true });
   data.users = [];
   data.orgs = Array.isArray(data.orgs) ? data.orgs : [];
