@@ -14,13 +14,13 @@
 - [x] Fail fast if schema is invalid
 
 ## B) Dev Seed Logic (Deterministic)
-- [ ] Create `server/seed-dev.js`
-- [ ] Seed when `DEV_SETUP=true` and store empty:
-  - [ ] SUPER_ADMIN employee: `brandenwooley07@icloud.com`
-  - [ ] Internal admin: `admin@fleetai.local`
-  - [ ] 1 customer org + user
-- [ ] Passwords are bcrypt-hashed
-- [ ] If `DEV_SETUP=false` and store is empty: refuse to start or show setup flow
+- [x] Create `server/seed-dev.js`
+- [x] Seed when `DEV_SETUP=true` and store empty:
+  - [x] SUPER_ADMIN employee: `brandenwooley07@icloud.com`
+  - [x] Internal admin: `admin@fleetai.local`
+  - [x] 1 customer org + user
+- [x] Passwords are bcrypt-hashed
+- [x] If `DEV_SETUP=false` and store is empty: refuse to start or show setup flow
 
 ## C) Auth Routes (Normalize Everything)
 - [ ] `POST /api/auth/employee/login`

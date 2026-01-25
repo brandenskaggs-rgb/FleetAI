@@ -1,6 +1,6 @@
 const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
-const { loadAuthStore, saveAuthStore } = require("../auth/authStore");
+const { loadAuthStore, saveAuthStore } = require("./authStore");
 
 const DEV_SETUP = String(process.env.DEV_SETUP || "").toLowerCase() === "true";
 if (!DEV_SETUP) {
