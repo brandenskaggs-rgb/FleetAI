@@ -23,18 +23,18 @@
 - [x] If `DEV_SETUP=false` and store is empty: refuse to start or show setup flow
 
 ## C) Auth Routes (Normalize Everything)
-- [ ] `POST /api/auth/employee/login`
-- [ ] `POST /api/auth/customer/login`
-- [ ] (Optional) `POST /api/auth/org/login`
-- [ ] “User not found” only if user truly does not exist
-- [ ] “Invalid credentials” only for password mismatch
-- [ ] Remove or strictly define `/api/login`
+- [x] `POST /api/auth/employee/login`
+- [x] `POST /api/auth/customer/login`
+- [x] (Optional) `POST /api/auth/org/login`
+- [x] “User not found” only if user truly does not exist
+- [x] “Invalid credentials” only for password mismatch
+- [x] Remove or strictly define `/api/login`
 
 ## D) UI Fixes
-- [ ] Update `employee-login.html` to call the correct endpoint
-- [ ] Update `login.html` (customer) to call correct endpoint
+- [x] Update `employee-login.html` to call the correct endpoint
+- [x] Update `login.html` (customer) to call correct endpoint
 - [ ] Add `/admin/setup.html` if required for first-run admin creation
-- [ ] Do NOT block login flows with incorrect “first login” logic
+- [x] Do NOT block login flows with incorrect “first login” logic
 
 ## E) Driver App (Android / Kotlin)
 - [ ] Fix `SensorsScreen.kt` compile errors

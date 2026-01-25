@@ -43,7 +43,7 @@ async function submitCustomerLogin() {
   }
   try {
     if (btn) btn.disabled = true;
-    const res = await fetch(resolveApiUrl("/api/auth/org/login"), {
+    const res = await fetch(resolveApiUrl("/api/auth/customer/login"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
