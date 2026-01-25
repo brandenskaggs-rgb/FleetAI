@@ -16,12 +16,11 @@ const { cToF, kphToMph, kmToMiles, milesToKm } = require("./server/telematics/no
 const ml = require("./server/ml");
 const { createDataStore } = require("./server/storage/dataStore");
 const { createPairingRouter } = require("./server/routes/pairing");
-const { normalizeAuthData } = require("./server/authStore");
+const { normalizeAuthData, loadAuthStore, saveAuthStore } = require("./server/authStore");
 const { createAuthService } = require("./server/auth/authService");
 const { AUTH_ERRORS, formatAuthError } = require("./server/auth/authErrors");
 const { applyAuthStoreRepair } = require("./server/auth/repairAuthStore");
 const { resolveAuthStorePath } = require("./server/config/authStorePath");
-const { loadAuthStore, saveAuthStore } = require("./server/auth/authStore");
 
 /**
  * Fleet AI server entry and routing map (Step 0 audit)
