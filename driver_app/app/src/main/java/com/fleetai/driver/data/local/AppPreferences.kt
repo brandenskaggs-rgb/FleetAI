@@ -20,8 +20,10 @@ class AppPreferences(private val context: Context) {
     private val driverNameKey = stringPreferencesKey("driver_name")
     private val vehicleIdKey = stringPreferencesKey("vehicle_id")
     private val deviceIdKey = stringPreferencesKey("device_id")
+    private val assignmentIdKey = stringPreferencesKey("assignment_id")
     private val themeKey = stringPreferencesKey("theme_mode")
     private val demoModeKey = booleanPreferencesKey("demo_mode")
+    private val obdAddressKey = stringPreferencesKey("obd_device_address")
 
     val tenantId: Flow<String> = context.appDataStore.data.map { it[tenantIdKey] ?: "" }
     val driverId: Flow<String> = context.appDataStore.data.map { it[driverIdKey] ?: "" }
@@ -29,6 +31,7 @@ class AppPreferences(private val context: Context) {
     val driverName: Flow<String> = context.appDataStore.data.map { it[driverNameKey] ?: "" }
     val vehicleId: Flow<String> = context.appDataStore.data.map { it[vehicleIdKey] ?: "" }
     val deviceId: Flow<String> = context.appDataStore.data.map { it[deviceIdKey] ?: "" }
+    val assignmentId: Flow<String> = context.appDataStore.data.map { it[assignmentIdKey] ?: "" }
     val themeMode: Flow<ThemeMode> = context.appDataStore.data.map {
         when (it[themeKey]) {
             ThemeMode.LIGHT.name -> ThemeMode.LIGHT
@@ -36,6 +39,7 @@ class AppPreferences(private val context: Context) {
         }
     }
     val demoMode: Flow<Boolean> = context.appDataStore.data.map { it[demoModeKey] ?: false }
+    val obdDeviceAddress: Flow<String> = context.appDataStore.data.map { it[obdAddressKey] ?: "" }
 
     suspend fun saveSession(tenantId: String, driverId: String, token: String, driverName: String) {
         context.appDataStore.edit { prefs ->
@@ -53,6 +57,13 @@ class AppPreferences(private val context: Context) {
             prefs.remove(tokenKey)
             prefs.remove(driverNameKey)
             prefs.remove(vehicleIdKey)
+            prefs.remove(assignmentIdKey)
+        }
+    }
+
+    suspend fun clearPairing() {
+        context.appDataStore.edit { prefs ->
+            prefs.remove(vehicleIdKey)
         }
     }
 
@@ -66,6 +77,12 @@ class AppPreferences(private val context: Context) {
         context.appDataStore.edit { prefs ->
             prefs[vehicleIdKey] = vehicleId
             prefs[driverIdKey] = driverId
+        }
+    }
+
+    suspend fun saveAssignment(assignmentId: String) {
+        context.appDataStore.edit { prefs ->
+            prefs[assignmentIdKey] = assignmentId
         }
     }
 
@@ -90,6 +107,18 @@ class AppPreferences(private val context: Context) {
     suspend fun setDemoMode(enabled: Boolean) {
         context.appDataStore.edit { prefs ->
             prefs[demoModeKey] = enabled
+        }
+    }
+
+    suspend fun saveObdDeviceAddress(address: String) {
+        context.appDataStore.edit { prefs ->
+            prefs[obdAddressKey] = address
+        }
+    }
+
+    suspend fun clearObdDeviceAddress() {
+        context.appDataStore.edit { prefs ->
+            prefs.remove(obdAddressKey)
         }
     }
 }

@@ -22,11 +22,7 @@ function loginPilot(){
     orgName: orgName || "Fleet AI",
     planStatus
   });
-  if(planStatus === "pilot"){
-    window.location.href = "/app/dashboard.html";
-  } else {
-    window.location.href = "/app/billing.html";
-  }
+  window.location.href = "/app/dashboard.html";
 }
 
 function showLoginMessage(text){

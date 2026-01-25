@@ -54,6 +54,12 @@ class SettingsViewModel(
             preferences.clearSession()
         }
     }
+
+    fun resetPairing() {
+        viewModelScope.launch {
+            preferences.clearPairing()
+        }
+    }
 }
 
 data class SettingsState(

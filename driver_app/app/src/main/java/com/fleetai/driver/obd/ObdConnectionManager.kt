@@ -22,6 +22,24 @@ class ObdConnectionManager {
 
     fun isConnected(): Boolean = socket?.isConnected == true
 
+    suspend fun discoverSupportedPids(): Set<String> {
+        val supported = mutableSetOf<String>()
+        val groups = listOf("0100", "0120", "0140", "0160", "0180")
+        groups.forEachIndexed { idx, cmd ->
+            try {
+                val resp = sendCommand(cmd) ?: return@forEachIndexed
+                val bits = ObdParser.parseSupportedPids(resp)
+                bits.forEach { pidHex ->
+                    // pidHex already includes mode 01 prefix
+                    supported.add(pidHex)
+                }
+            } catch (_: Exception) {
+                // ignore
+            }
+        }
+        return supported
+    }
+
     suspend fun connect(device: BluetoothDevice): Boolean = withContext(Dispatchers.IO) {
         disconnect()
         val uuid = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
@@ -51,6 +69,11 @@ class ObdConnectionManager {
     suspend fun readDtcs(): List<String> = withContext(Dispatchers.IO) {
         val response = sendCommand("03") ?: return@withContext emptyList()
         ObdParser.parseDtcs(response)
+    }
+
+    suspend fun readVin(): String? = withContext(Dispatchers.IO) {
+        val resp = sendCommand("0902") ?: return@withContext null
+        ObdParser.parseVin(resp)
     }
 
     suspend fun clearDtcs(): Boolean = withContext(Dispatchers.IO) {

@@ -1,0 +1,112 @@
+{
+  "schemaVersion": 2,
+  "users": [
+    {
+      "id": "ADMIN_1769301552924_7543",
+      "email": "admin@fleetai.local",
+      "role": "admin",
+      "orgId": "ORG_DEFAULT",
+      "isActive": true,
+      "verified": true,
+      "createdAt": "2026-01-25T00:39:12.924Z",
+      "lastLoginAt": null,
+      "passwordHash": "$2a$12$fPXf30Ro3yjWFiKt4cky6u1fPlMcsUWZ0vpIbVF1vz6bZeO8Y4VG.",
+      "mustSetPassword": true,
+      "requirePasswordReset": true,
+      "active": true,
+      "kind": "employee"
+    },
+    {
+      "id": "CUST_1769301553889_4549",
+      "email": "brandenskaggs01@gmail.com",
+      "role": "CUSTOMER",
+      "orgId": "ORG_DEFAULT",
+      "isActive": true,
+      "active": true,
+      "verified": true,
+      "createdAt": "2026-01-25T00:39:13.889Z",
+      "lastLoginAt": null,
+      "passwordHash": "$2a$12$YBZA9XHPJEf8nN9PUczI7.G8DvjKpPkepvxUcdk1GdNdqQsV6fLX.",
+      "mustSetPassword": true,
+      "requirePasswordReset": true,
+      "kind": "customer"
+    }
+  ],
+  "orgs": [
+    {
+      "id": "ORG_DEFAULT",
+      "name": "Default Org",
+      "createdAt": "2026-01-25T00:39:13.432Z"
+    }
+  ],
+  "leads": [],
+  "invites": [],
+  "audit": [],
+  "featureFlags": {},
+  "billing": {},
+  "tenantSettings": {
+    "companyName": "Fleet AI",
+    "logoUrl": "",
+    "themeMode": "blue",
+    "accentColor": ""
+  },
+  "settings": {
+    "defaultPilotPrice": 59,
+    "inviteExpiryHours": 72,
+    "maintenanceMode": false
+  },
+  "fleetAddons": {
+    "enabledAddons": {},
+    "trailerCount": 0,
+    "updatedAt": null
+  },
+  "addonQuotes": [],
+  "orgBillingSettings": {
+    "plan": "PILOT_CORE",
+    "priceMonthly": 59,
+    "status": "NONE",
+    "activatedAt": null,
+    "nextBillAt": null,
+    "vehicleCount": 0,
+    "contractTermMonths": 0,
+    "notes": ""
+  },
+  "paymentMethod": {
+    "type": "CARD_STUB",
+    "billingName": "",
+    "billingEmail": "",
+    "last4": "",
+    "expMonth": 1,
+    "expYear": 2026,
+    "brand": "",
+    "postalCode": "",
+    "accountType": "",
+    "routingLast4": "",
+    "accountLast4": "",
+    "updatedAt": null
+  },
+  "telemetryRecords": [],
+  "telemetrySnapshots": [],
+  "telemetryAggregates": [],
+  "telemetryFrames": [],
+  "telemetrySamples": [],
+  "telemetry_samples": [],
+  "fuelEvents": [],
+  "fuel_events": [],
+  "events": [],
+  "alerts": [],
+  "notifications": [],
+  "baselines": [],
+  "modelState": [],
+  "model_state": [],
+  "trendSignals": [],
+  "patternSignatures": [],
+  "recommendations": [],
+  "maintenanceLogs": [],
+  "maintenance_logs": [],
+  "workOrders": [],
+  "workOrderLineItems": [],
+  "vehicles": [],
+  "drivers": [],
+  "pairings": []
+}

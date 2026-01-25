@@ -14,19 +14,8 @@ function requireAuth(){
 }
 
 function guardAppPage(){
-  const path = window.location.pathname;
-  const isDashboard = path.includes("/app/dashboard.html");
-  if(isDashboard){
-    return;
-  }
   const user = requireAuth();
   if(!user) return;
-  const isBilling = path.includes("/app/billing.html");
-  if(user.planStatus !== "pilot" && user.planStatus !== "paid"){
-    if(!isBilling){
-      window.location.href = "/app/billing.html";
-    }
-  }
 }
 
 document.addEventListener("DOMContentLoaded", guardAppPage);

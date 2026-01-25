@@ -1,6 +1,8 @@
 ﻿<!doctype html>
 <html lang="en" data-theme="light">
 <head>
+  <link rel="stylesheet" href="/css/theme.css" />
+
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Fleet AI - Driver Tablet</title>
@@ -333,6 +335,21 @@
     <div class="grid" id="opsPanel">
       <div class="card">
         <div class="hd">
+          <h2>Server Connection</h2>
+          <span class="pill" id="serverStatus">Default</span>
+        </div>
+        <div class="bd">
+          <div class="field">
+            <label for="serverAddress">Server address</label>
+            <input id="serverAddress" type="text" placeholder="https://fleetai.yourdomain.com" />
+          </div>
+          <button class="btn secondary" id="btnSaveServer">Save Server</button>
+          <div class="note" id="serverNote" style="margin-top:12px;">Used for pairing and AI requests.</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="hd">
           <h2>Driver Sign-In</h2>
           <span class="pill warn" id="authStatus">Not signed in</span>
         </div>
@@ -445,15 +462,74 @@
     </div>
   </div>
 
+  <script src="/js/config.js"></script>
   <script>
-    const API_BASE_URL = window.location.origin;
     const LOG_ERRORS = false;
     const DRIVER_CHAT_KEY = "fleetai.driverChatHistory";
+    const SERVER_STORAGE_KEY = "fleetai.apiBase";
+    const apiUrl = (path) => (typeof window.apiUrl === "function" ? window.apiUrl(path) : path);
 
     const $ = (id)=>document.getElementById(id);
     function logError(){
       if(LOG_ERRORS){
         console.error.apply(console, arguments);
+      }
+    }
+
+    function normalizeBase(value){
+      if(!value) return "";
+      const trimmed = value.trim().replace(/\/+$/, "");
+      if(!trimmed) return "";
+      if(trimmed.startsWith("http://") || trimmed.startsWith("https://")) return trimmed;
+      return `http://${trimmed}`;
+    }
+
+    function applyApiBase(value){
+      window.API_BASE_URL = value;
+      window.apiUrl = (path) => {
+        const raw = String(path || "");
+        if(!raw) return value || "";
+        if(raw.startsWith("http://") || raw.startsWith("https://")) return raw;
+        if(!value) return raw.startsWith("/") ? raw : `/${raw}`;
+        if(raw.startsWith("/")) return `${value}${raw}`;
+        return `${value}/${raw}`;
+      };
+    }
+
+    function loadServerBase(){
+      try{
+        return localStorage.getItem(SERVER_STORAGE_KEY) || "";
+      }catch(e){
+        return "";
+      }
+    }
+
+    function saveServerBase(value){
+      try{
+        if(value){
+          localStorage.setItem(SERVER_STORAGE_KEY, value);
+        }else{
+          localStorage.removeItem(SERVER_STORAGE_KEY);
+        }
+      }catch(e){}
+      applyApiBase(value);
+      updateServerUi();
+    }
+
+    function updateServerUi(){
+      const input = $("serverAddress");
+      const status = $("serverStatus");
+      const note = $("serverNote");
+      const stored = loadServerBase();
+      if(input) input.value = stored;
+      if(status){
+        status.textContent = stored ? "Custom" : "Default";
+        status.className = stored ? "pill good" : "pill";
+      }
+      if(note){
+        note.textContent = stored
+          ? `Using ${stored} for API requests.`
+          : "Using current site origin for API requests.";
       }
     }
 
@@ -642,7 +718,7 @@
         return;
       }
       try{
-        const res = await postJson(`${API_BASE_URL}/api/ai/chat`, {
+        const res = await postJson("/api/ai/chat", {
           messages: driverChat.slice(-8).map(m=>({ role: m.role === "user" ? "user" : "assistant", content: m.content })),
           context: { vehicleId, deviceId: getDeviceId(), driverName: $("driverName").textContent || "" }
         });
@@ -652,12 +728,17 @@
       }
     }
 
-    async function postJson(url, payload){
-      const res = await fetch(url, {
-        method: "POST",
-        headers: {"Content-Type":"application/json"},
-        body: JSON.stringify(payload || {})
-      });
+    async function postJson(path, payload){
+      let res;
+      try{
+        res = await fetch(apiUrl(path), {
+          method: "POST",
+          headers: {"Content-Type":"application/json"},
+          body: JSON.stringify(payload || {})
+        });
+      }catch(err){
+        throw new Error("Server unreachable. Check the server address.");
+      }
       if(!res.ok){
         const err = await res.json().catch(()=>({}));
         throw new Error(err.error || `HTTP ${res.status}`);
@@ -673,7 +754,7 @@
         return;
       }
       try{
-        const data = await postJson(`${API_BASE_URL}/auth/driverLogin`, { companyCode, driverPin });
+        const data = await postJson("/auth/driverLogin", { companyCode, driverPin });
         $("authStatus").textContent = "Signed in";
         $("authStatus").className = "pill good";
         $("driverName").textContent = data.driverName || "--";
@@ -696,7 +777,7 @@
         return;
       }
       try{
-        await postJson(`${API_BASE_URL}/pairings/claim`, {
+        await postJson("/api/pairings/claim", {
           pairingCode,
           deviceId: getDeviceId(),
           deviceLabel
@@ -718,6 +799,9 @@
     }
 
     function init(){
+      const initialBase = normalizeBase(loadServerBase());
+      applyApiBase(initialBase);
+      updateServerUi();
       loadCompanyName();
       loadDriverChat();
       renderDriverChat();
@@ -725,6 +809,10 @@
       initSpeech();
       updateSpeedFromStorage();
       setInterval(updateSpeedFromStorage, 2000);
+      $("btnSaveServer").addEventListener("click", () => {
+        const value = normalizeBase($("serverAddress").value);
+        saveServerBase(value);
+      });
       $("btnLogin").addEventListener("click", login);
       $("btnPair").addEventListener("click", pairDevice);
       $("tabOps").addEventListener("click", ()=> setActiveTab("ops"));

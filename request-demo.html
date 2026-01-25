@@ -1,6 +1,8 @@
 <!doctype html>
 <html lang="en">
 <head>
+  <link rel="stylesheet" href="/css/theme.css" />
+
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Fleet AI - Request Demo</title>
@@ -66,30 +68,16 @@
           <p>Tell us about your fleet and operational goals. We will tailor the walkthrough and pilot plan.</p>
         </div>
         <form id="demoForm" class="card formGrid">
-          <input id="demoName" type="text" placeholder="Full name" required />
           <input id="demoCompany" type="text" placeholder="Company name" required />
+          <input id="demoName" type="text" placeholder="Contact name" required />
           <input id="demoEmail" type="email" placeholder="Work email" required />
           <input id="demoPhone" type="tel" placeholder="Phone (optional)" />
-          <select id="demoFleet" required>
-            <option value="">Fleet size</option>
-            <option value="1-10">1-10 vehicles</option>
-            <option value="11-50">11-50 vehicles</option>
-            <option value="51-200">51-200 vehicles</option>
-            <option value="201-500">201-500 vehicles</option>
-            <option value="500+">500+ vehicles</option>
-          </select>
-          <select id="demoPain" required>
-            <option value="">Primary goal</option>
-            <option value="maintenance">Maintenance planning</option>
-            <option value="downtime">Downtime reduction</option>
-            <option value="safety">Safety readiness</option>
-            <option value="compliance">Compliance indicators</option>
-            <option value="visibility">Fleet visibility</option>
-          </select>
-          <textarea id="demoNotes" placeholder="Notes or goals"></textarea>
+          <input id="demoFleetSize" type="text" placeholder="Fleet size (approx.)" />
+          <textarea id="demoMessage" placeholder="Message (optional)"></textarea>
           <button class="btn primary" type="submit">Request Demo</button>
           <div class="formNote">We will respond within one business day.</div>
           <div id="demoSuccess" class="formSuccess">Thanks. Your request has been received. We will reach out with next steps.</div>
+          <div id="demoError" class="formNote" style="display:none; color:#b91c1c;"></div>
           <div class="formNote">If you prefer email, use <a href="mailto:demo@fleetai.com">demo@fleetai.com</a>.</div>
         </form>
       </div>
@@ -145,6 +133,7 @@
     </div>
   </footer>
 
+  <script src="/js/config.js"></script>
   <script src="/js/site.js"></script>
   <script src="/js/scroll-reveal.js"></script>
 </body>

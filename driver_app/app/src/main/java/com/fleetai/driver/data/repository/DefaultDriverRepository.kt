@@ -20,6 +20,7 @@ import com.fleetai.driver.network.ApiService
 import com.fleetai.driver.network.DriverLogRequest
 import com.fleetai.driver.network.MockApiService
 import com.fleetai.driver.network.SelectVehicleRequest
+import com.fleetai.driver.network.PairingClaimResponse
 import kotlinx.coroutines.flow.first
 import retrofit2.HttpException
 import java.time.Instant
@@ -71,14 +72,24 @@ class DefaultDriverRepository(
                     )
                 )
             } catch (ex: HttpException) {
+                val errorBody = ex.response()?.errorBody()?.string().orEmpty()
                 when (ex.code()) {
                     404 -> throw IllegalArgumentException("invalid_code")
+                    409 -> {
+                        if (errorBody.contains("ALREADY_CLAIMED", ignoreCase = true)) {
+                            throw IllegalStateException("already_claimed")
+                        }
+                        throw IllegalStateException("conflict")
+                    }
                     410 -> throw IllegalStateException("expired_code")
                     else -> throw ex
                 }
             }
         }
         preferences.savePairing(response.vehicleId, response.driverId)
+        if (response is PairingClaimResponse && response.assignmentId != null) {
+            preferences.saveAssignment(response.assignmentId)
+        }
     }
 
     override suspend fun getVehicles(tenantId: String): List<Vehicle> {

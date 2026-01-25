@@ -90,6 +90,21 @@ Set API base URL (dashboard):
 - Laptop browser: `http://localhost:3000`
 - Real tablet (hotspot/LAN): `http://<LAPTOP_LAN_IP>:3000`
 
+## Expansion Add-Ons (Dashboard)
+
+Open the dashboard and select **Add-Ons** in the left nav to manage optional expansion modules.
+
+MOCK_MODE behavior:
+- State is stored in LocalStorage:
+  - `fleet_addons_state_v1` (enabled add-ons)
+  - `fleet_trailer_count_v1` (trailer count)
+- Quote requests are stored in `fleet_addons_quote_requests_v1`
+
+API endpoints (when MOCK_MODE=false):
+- `GET /fleet/addons` (current add-on state + trailer count)
+- `POST /fleet/addons` (save add-on state + trailer count)
+- `POST /fleet/addons/request-quote` (submit a quote request)
+
 ## Driver App API Base URL
 
 Default emulator base URL is `http://10.0.2.2:3000/` in `driver_app/app/build.gradle`.
@@ -182,6 +197,38 @@ Latest AI insight:
 ```powershell
 Invoke-RestMethod -Method Get -Uri "http://127.0.0.1:8000/api/insights/latest?vehicle_id=VEHICLE_001"
 ```
+
+## Tier Plan (Predictive Maintenance Readiness)
+
+Tier 1 (Now — Demo Ready)
+- Get data flowing:
+  - vehicles and drivers created
+  - pairing works
+  - telemetry ingestion works
+  - alerts show up
+  - AI advisor answers using data
+- Basic rules-based alerts (coolant temp high, DTC codes, battery voltage low)
+
+Tier 2 (Next — Training-Ready)
+- Add maintenance logs and work orders
+- Require fleet managers to record:
+  - oil changes
+  - repairs
+  - part replacements
+  - inspections
+  - odometer miles / engine hours at time of service
+- Link logs to telemetry windows (before vs after repair)
+- Enable AI advisor to log maintenance events automatically from chat
+
+Tier 3 (Later — Better Predictions)
+- Use telemetry + maintenance logs to train predictive models
+- Estimate time to failure and recommended service window
+- Add cost modeling and ROI reporting
+
+If you have zero maintenance history right now, that's okay:
+1) Start logging maintenance going forward.
+2) Backfill only the last 3-6 months if available (optional).
+3) Make odometer + engine hours mandatory for every log to improve predictions.
 
 AI status (no secrets):
 ```powershell

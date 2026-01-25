@@ -2,6 +2,8 @@ function $(id){
   return document.getElementById(id);
 }
 
+const apiUrl = window.apiUrl || ((path) => path);
+
 function statusMessage(msg, ok){
   const el = $("signupStatus");
   if(!el) return;
@@ -22,14 +24,14 @@ async function loadInvite(){
     return;
   }
   try{
-    const res = await fetch(`/api/invites/${encodeURIComponent(token)}`);
+    const res = await fetch(apiUrl(`/api/invites/${encodeURIComponent(token)}`));
     const data = await res.json();
     if(!res.ok){
       statusMessage(data.error || "Invite not found.", false);
       return;
     }
     const invite = data.data;
-    $("inviteDetails").textContent = `Org: ${invite.orgId} · Type: ${invite.type} · Expires: ${invite.expiresAt}`;
+    $("inviteDetails").textContent = `Org: ${invite.orgId} | Type: ${invite.type} | Expires: ${invite.expiresAt}`;
   }catch(err){
     statusMessage("Unable to validate invite.", false);
   }
@@ -44,7 +46,7 @@ async function acceptInvite(){
     return;
   }
   try{
-    const res = await fetch(`/api/invites/${encodeURIComponent(token)}/accept`, {
+    const res = await fetch(apiUrl(`/api/invites/${encodeURIComponent(token)}/accept`), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password })
@@ -55,7 +57,7 @@ async function acceptInvite(){
       return;
     }
     statusMessage("Account activated. You can now sign in.", true);
-    setTimeout(()=> window.location.href = "/login.html", 1200);
+    setTimeout(()=> window.location.href = "/customer-login.html", 1200);
   }catch(err){
     statusMessage("Signup failed. Try again.", false);
   }

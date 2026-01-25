@@ -1,6 +1,8 @@
 <!doctype html>
 <html lang="en">
 <head>
+  <link rel="stylesheet" href="/css/theme.css" />
+
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Fleet AI - Pilot Program</title>
@@ -139,6 +141,7 @@
           </div>
           <button class="btn primary" type="submit">Submit pilot request</button>
           <div id="pilotSuccess" class="formSuccess">Thanks - your pilot request has been received. We will follow up soon.</div>
+          <div id="pilotError" class="formNote" style="display:none; color:#b91c1c;"></div>
           <div class="formNote">We will reach out with next steps and a pilot timeline.</div>
         </form>
       </div>
@@ -191,6 +194,7 @@
     </div>
   </footer>
 
+  <script src="/js/config.js"></script>
   <script src="/js/site.js"></script>
   <script src="/js/scroll-reveal.js"></script>
 </body>

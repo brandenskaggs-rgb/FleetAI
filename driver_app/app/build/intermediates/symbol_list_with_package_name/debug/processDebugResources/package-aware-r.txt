@@ -3148,6 +3148,7 @@ id always
 id androidx_compose_ui_view_composition_context
 id animateToEnd
 id animateToStart
+id appTitle
 id arc
 id asConfigured
 id async
@@ -3162,6 +3163,12 @@ id beginning
 id blocking
 id bottom
 id bounce
+id btnChangeFromError
+id btnChangeServer
+id btnRefresh
+id btnRetry
+id btnSaveServer
+id btnTestServer
 id buttonPanel
 id cancel_button
 id center
@@ -3183,6 +3190,8 @@ id collapseActionView
 id compose_view_saveable_id_tag
 id compress
 id confirm_button
+id connectHelp
+id connectTitle
 id consume_window_insets_tag
 id container
 id content
@@ -3220,6 +3229,7 @@ id dragLeft
 id dragRight
 id dragStart
 id dragUp
+id driverWebView
 id dropdown_menu
 id easeIn
 id easeInOut
@@ -3233,6 +3243,10 @@ id end
 id endToStart
 id enterAlways
 id enterAlwaysCollapsed
+id errorMessage
+id errorPanel
+id errorTitle
+id errorUrl
 id escape
 id exitUntilCollapsed
 id expand_activities_button
@@ -3439,6 +3453,8 @@ id search_voice_btn
 id select_dialog_listview
 id selected
 id selection_type
+id serverError
+id serverInput
 id shortcut
 id showCustom
 id showHome
@@ -3467,6 +3483,9 @@ id startToEnd
 id startVertical
 id staticLayout
 id staticPostLayout
+id statusError
+id statusPage
+id statusServer
 id stop
 id stretch
 id submenuarrow
@@ -3485,6 +3504,10 @@ id tag_transition_group
 id tag_unhandled_key_event_manager
 id tag_unhandled_key_listeners
 id tag_window_insets_animation_callback
+id testAdvice
+id testHostStatus
+id testHttpStatus
+id testPortStatus
 id text
 id text2
 id textEnd
@@ -3654,6 +3677,8 @@ layout abc_search_dropdown_item_icons_2line
 layout abc_search_view
 layout abc_select_dialog_material
 layout abc_tooltip
+layout activity_connect
+layout activity_main
 layout custom_dialog
 layout design_bottom_navigation_item
 layout design_bottom_sheet_dialog
@@ -5282,3 +5307,4 @@ styleable View android_theme android_focusable paddingEnd paddingStart theme
 styleable ViewBackgroundHelper android_background backgroundTint backgroundTintMode
 styleable ViewPager2 android_orientation
 styleable ViewStubCompat android_id android_layout android_inflatedId
+xml network_security_config

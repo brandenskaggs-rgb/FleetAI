@@ -29,6 +29,8 @@ fun DiagnosticsScreen(contentPadding: PaddingValues) {
     val viewModel: DiagnosticsViewModel = viewModel(factory = AppGraph.viewModelFactory)
     val dtcs by viewModel.dtcs.collectAsState()
     val message by viewModel.message.collectAsState()
+    val apiDiagnostics by viewModel.apiDiagnostics.collectAsState()
+    val networkMessage by viewModel.networkMessage.collectAsState()
 
     Column(
         modifier = Modifier
@@ -46,6 +48,24 @@ fun DiagnosticsScreen(contentPadding: PaddingValues) {
             if (message.isNotBlank()) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(text = message)
+            }
+        }
+
+        FleetCard(modifier = Modifier.fillMaxWidth()) {
+            Text(text = "Network Diagnostics", style = MaterialTheme.typography.titleMedium)
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(text = "Base URL: ${apiDiagnostics.baseUrl.ifBlank { "--" }}")
+            Text(text = "Last Request: ${apiDiagnostics.lastMethod} ${apiDiagnostics.lastUrl}".trim())
+            Text(text = "Last Status: ${apiDiagnostics.lastStatus.ifBlank { "--" }}")
+            Text(text = "Last Error: ${apiDiagnostics.lastError.ifBlank { "--" }}")
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                FleetButton(text = "Ping /health", onClick = { viewModel.ping("/health") })
+                FleetButton(text = "Ping /api/pairing/health", onClick = { viewModel.ping("/api/pairing/health") })
+            }
+            if (networkMessage.isNotBlank()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(text = networkMessage)
             }
         }
 

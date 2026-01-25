@@ -8,6 +8,8 @@ class J1939Adapter extends BaseAdapter {
     this.standard = "J1939";
     this.reassembler = new J1939Reassembler();
     this.discovery = new J1939Discovery();
+    this.supportedSpns = new Set();
+    this.lastGoodSampleAt = null;
   }
 
   handleFrame(frame) {
@@ -26,6 +28,10 @@ class J1939Adapter extends BaseAdapter {
 
     const spns = decodeSpns(pgn, data);
     this.discovery.registerSpns(spns.map((s) => s.spn));
+    spns.forEach((s) => {
+      if (s && s.spn) this.supportedSpns.add(s.spn);
+    });
+    if (spns.length) this.lastGoodSampleAt = new Date().toISOString();
     return this.mapSpns(spns);
   }
 

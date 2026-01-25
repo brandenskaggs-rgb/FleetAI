@@ -25,10 +25,13 @@ object AppGraph {
         private set
     lateinit var preferences: AppPreferences
         private set
+    lateinit var appContext: Context
+        private set
 
     fun init(context: Context) {
+        appContext = context.applicationContext
         preferences = AppPreferences(context)
-        ApiClient.init(preferences)
+        ApiClient.init(context, preferences)
         val db = DriverDatabase.create(context)
         repository = DefaultDriverRepository(
             api = ApiClient.api,
@@ -47,7 +50,7 @@ object AppGraph {
                 HomeViewModel::class.java -> HomeViewModel(repository) as T
                 LogbookViewModel::class.java -> LogbookViewModel(repository, preferences) as T
                 StatusViewModel::class.java -> StatusViewModel(repository) as T
-                DiagnosticsViewModel::class.java -> DiagnosticsViewModel(repository, preferences) as T
+                DiagnosticsViewModel::class.java -> DiagnosticsViewModel(repository, preferences, appContext) as T
                 VehicleViewModel::class.java -> VehicleViewModel(repository, preferences) as T
                 SessionViewModel::class.java -> SessionViewModel(repository, preferences) as T
                 SensorViewModel::class.java -> SensorViewModel(preferences) as T

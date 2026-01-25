@@ -1,22 +1,37 @@
 package com.fleetai.driver.ui.viewmodel
 
 import android.bluetooth.BluetoothDevice
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.fleetai.driver.data.local.AppPreferences
 import com.fleetai.driver.data.model.SensorReading
+import com.fleetai.driver.data.model.SensorStatus
+import com.fleetai.driver.data.model.Trend
 import com.fleetai.driver.obd.ObdParser
 import com.fleetai.driver.obd.ObdService
+import com.fleetai.driver.telemetry.TelemetrySender
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlin.random.Random
 
 class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
+    data class UnitPrefs(val tempF: Boolean = true, val speedMph: Boolean = true)
+    private data class PidReadResult(val value: Double?, val error: String?)
+
     private val obd = ObdService.manager
+    private val sender = TelemetrySender(
+        obd = obd,
+        resolveVehicleId = { preferences.vehicleId.first().ifBlank { null } },
+        resolveDriverId = { preferences.driverId.first().ifBlank { null } },
+        resolveDeviceId = { preferences.ensureDeviceId() }
+    )
 
     private val _status = MutableStateFlow("Not connected")
     val status: StateFlow<String> = _status
@@ -24,17 +39,40 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
     private val _demoMode = MutableStateFlow(false)
     val demoMode: StateFlow<Boolean> = _demoMode
 
+    private val _savedDevice = MutableStateFlow<String>("")
+    val savedDevice: StateFlow<String> = _savedDevice
+
     private val _readings = MutableStateFlow<List<SensorReading>>(emptyList())
     val readings: StateFlow<List<SensorReading>> = _readings
 
+    private val _debug = MutableStateFlow(sender.debug)
+    val debug: StateFlow<TelemetrySender.DebugState> = _debug
+
+    private val _unitPrefs = MutableStateFlow(UnitPrefs())
+    val unitPrefs: StateFlow<UnitPrefs> = _unitPrefs
+
     private var pollJob: Job? = null
+    private var debugJob: Job? = null
+    private val ema = mutableMapOf<String, Double>()
+    private val history = mutableMapOf<String, MutableList<Double>>()
+    private var lastReadError: String? = null
 
     init {
         viewModelScope.launch {
             _demoMode.value = preferences.demoMode.first()
+            _savedDevice.value = preferences.obdDeviceAddress.first()
             if (_demoMode.value) {
                 _status.value = "Demo mode"
                 startDemo()
+            } else if (_savedDevice.value.isNotBlank()) {
+                reconnectSavedDevice()
+            }
+        }
+        debugJob = viewModelScope.launch {
+            // keep debug state flowing even if not connected
+            while (isActive) {
+                _debug.value = sender.debug
+                delay(1000)
             }
         }
     }
@@ -49,6 +87,7 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
             _demoMode.value = enabled
             if (enabled) {
                 _status.value = "Demo mode"
+                sender.stop()
                 startDemo()
             } else {
                 _status.value = "Not connected"
@@ -63,7 +102,10 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
                 _status.value = "Connecting..."
                 obd.connect(device)
                 _status.value = "Connected"
+                preferences.saveObdDeviceAddress(device.address)
+                _savedDevice.value = device.address
                 startPolling()
+                sender.start()
             } catch (_: Exception) {
                 _status.value = "Connection failed"
             }
@@ -74,28 +116,113 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
         viewModelScope.launch {
             obd.disconnect()
             _status.value = "Not connected"
+            preferences.clearObdDeviceAddress()
+            _savedDevice.value = ""
             stopPolling()
+            sender.stop()
+        }
+    }
+
+    fun toggleUnits(tempF: Boolean? = null, speedMph: Boolean? = null) {
+        val current = _unitPrefs.value
+        _unitPrefs.value = current.copy(
+            tempF = tempF ?: current.tempF,
+            speedMph = speedMph ?: current.speedMph
+        )
+    }
+
+    private fun reconnectSavedDevice() {
+        viewModelScope.launch {
+            val address = _savedDevice.value
+            if (address.isBlank()) return@launch
+            val device = pairedDevices().firstOrNull { it.address == address }
+            if (device == null) {
+                _status.value = "Saved dongle not paired"
+                return@launch
+            }
+            try {
+                _status.value = "Reconnecting..."
+                obd.connect(device)
+                _status.value = "Connected"
+                startPolling()
+                sender.start()
+            } catch (_: SecurityException) {
+                _status.value = "Bluetooth permission required"
+            } catch (_: Exception) {
+                _status.value = "Reconnect failed"
+            }
         }
     }
 
     private fun startPolling() {
         stopPolling()
-        pollJob = viewModelScope.launch {
-            while (true) {
-                val rpm = obd.readPid("010C")?.let { ObdParser.parseRpm(it) }
-                val speed = obd.readPid("010D")?.let { ObdParser.parseSpeed(it) }
-                val coolant = obd.readPid("0105")?.let { ObdParser.parseCoolant(it) }
-                val voltage = obd.readPid("0142")?.let { ObdParser.parseVoltage(it) }
-                val intake = obd.readPid("010F")?.let { ObdParser.parseIntake(it) }
-                _readings.value = listOf(
-                    SensorReading("Coolant Temp", formatTemp(coolant), "F"),
-                    SensorReading("RPM", formatNumber(rpm), "rpm"),
-                    SensorReading("Speed", formatNumber(speed), "mph"),
-                    SensorReading("Voltage", formatNumber(voltage), "V"),
-                    SensorReading("Intake Temp", formatTemp(intake), "F"),
-                    SensorReading("Oil Temp", "N/A", "F")
+        pollJob = viewModelScope.launch(Dispatchers.IO) {
+            var backoffMs = 0L
+            while (isActive) {
+                if (!obd.isConnected()) {
+                    _status.value = "Not connected"
+                    delay(1000)
+                    continue
+                }
+                val now = System.currentTimeMillis()
+                val rpm = readPidValue("010C") { ObdParser.parseRpm(it) }
+                val speed = readPidValue("010D") { ObdParser.parseSpeed(it) }
+                val coolant = readPidValue("0105") { ObdParser.parseCoolant(it) }
+                val voltage = readPidValue("0142") { ObdParser.parseVoltage(it) }
+                val intake = readPidValue("010F") { ObdParser.parseIntake(it) }
+                val load = readPidValue("0104") { ObdParser.parseLoad(it) }
+                val throttle = readPidValue("0111") { ObdParser.parseThrottle(it) }
+                val map = readPidValue("010B") { ObdParser.parseMap(it) }
+                val baro = readPidValue("0133") { it.toDoubleOrNull() }
+                val maf = readPidValue("0110") { ObdParser.parseMaf(it) }
+                val fuelLevel = readPidValue("012F") { it.toDoubleOrNull() }
+                val oilTemp = readPidValue("015C") { it.toDoubleOrNull()?.minus(40) }
+                val loopError = listOf(
+                    rpm.error,
+                    speed.error,
+                    coolant.error,
+                    voltage.error,
+                    intake.error,
+                    load.error,
+                    throttle.error,
+                    map.error,
+                    baro.error,
+                    maf.error,
+                    fuelLevel.error,
+                    oilTemp.error
+                ).firstOrNull { !it.isNullOrBlank() }
+                if (loopError != null && loopError != lastReadError) {
+                    Log.w("FleetAI", "[OBD] read error: $loopError")
+                }
+                lastReadError = loopError
+                val boost = deriveBoost(map.value, baro.value)
+
+                val unit = _unitPrefs.value
+                val coreReadings = listOfNotNull(
+                    buildReading("010C", "RPM", rpm.value, "rpm", now, unit, decimals = 0),
+                    buildReading("010D", "Speed", speed.value?.let { if (unit.speedMph) it * 0.621371 else it }, if (unit.speedMph) "mph" else "kph", now, unit, decimals = 0),
+                    buildReading("0105", "Coolant Temp", applyTempUnit(coolant.value, unit.tempF), if (unit.tempF) "°F" else "°C", now, unit),
+                    buildReading("010F", "Intake Temp", applyTempUnit(intake.value, unit.tempF), if (unit.tempF) "°F" else "°C", now, unit),
+                    buildReading("0142", "Voltage", voltage.value, "V", now, unit, decimals = 2),
+                    buildReading("0104", "Engine Load", load.value?.times(100)?.div(100.0), "%", now, unit),
+                    buildReading("010B", "MAP", map.value, "kPa", now, unit),
+                    buildReading("0111", "Throttle", throttle.value, "%", now, unit)
                 )
-                delay(2000)
+                val advanced = listOfNotNull(
+                    buildReading("0110", "MAF", maf.value, "g/s", now, unit, decimals = 2),
+                    buildReading("012F", "Fuel Level", fuelLevel.value, "%", now, unit),
+                    buildReading("0133", "BARO", baro.value, "kPa", now, unit),
+                    buildReading("015C", "Oil Temp", applyTempUnit(oilTemp.value, unit.tempF), if (unit.tempF) "°F" else "°C", now, unit),
+                    boost?.let { buildReading("BOOST", "Boost (Derived)", it, "psi", now, unit, derived = true, decimals = 2) }
+                )
+                _readings.value = coreReadings + advanced
+                if (lastReadError == null) {
+                    backoffMs = 0L
+                    delay(800)
+                } else {
+                    backoffMs = if (backoffMs == 0L) 400L else (backoffMs * 2).coerceAtMost(4000L)
+                    delay(backoffMs)
+                }
             }
         }
     }
@@ -103,14 +230,14 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
     private fun startDemo() {
         stopPolling()
         pollJob = viewModelScope.launch {
-            while (true) {
+            while (isActive) {
                 _readings.value = listOf(
-                    SensorReading("Coolant Temp", demoValue(78.0, 96.0), "F"),
-                    SensorReading("RPM", demoValue(900.0, 2100.0), "rpm"),
-                    SensorReading("Speed", demoValue(0.0, 100.0), "mph"),
-                    SensorReading("Voltage", demoValue(12.4, 14.2), "V"),
-                    SensorReading("Intake Temp", demoValue(20.0, 45.0), "F"),
-                    SensorReading("Oil Temp", demoValue(70.0, 105.0), "F")
+                    SensorReading("0105", "Coolant Temp", demoValue(78.0, 96.0), "°F", SensorStatus.LIVE, Trend.FLAT, null, null, System.currentTimeMillis()),
+                    SensorReading("010C", "RPM", demoValue(900.0, 2100.0), "rpm", SensorStatus.LIVE, Trend.FLAT, null, null, System.currentTimeMillis()),
+                    SensorReading("010D", "Speed", demoValue(0.0, 100.0), "mph", SensorStatus.LIVE, Trend.FLAT, null, null, System.currentTimeMillis()),
+                    SensorReading("0142", "Voltage", demoValue(12.4, 14.2), "V", SensorStatus.LIVE, Trend.FLAT, null, null, System.currentTimeMillis()),
+                    SensorReading("010F", "Intake Temp", demoValue(20.0, 45.0), "°F", SensorStatus.LIVE, Trend.FLAT, null, null, System.currentTimeMillis()),
+                    SensorReading("015C", "Oil Temp", demoValue(70.0, 105.0), "°F", SensorStatus.LIVE, Trend.FLAT, null, null, System.currentTimeMillis())
                 )
                 delay(2000)
             }
@@ -126,7 +253,89 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
         return String.format("%.1f", Random.nextDouble(min, max))
     }
 
-    private fun formatNumber(value: Double?): String = value?.let { String.format("%.0f", it) } ?: "N/A"
+    private suspend fun readPidValue(pid: String, parser: (String) -> Double?): PidReadResult {
+        return try {
+            val raw = obd.readPid(pid) ?: return PidReadResult(null, null)
+            PidReadResult(parser(raw), null)
+        } catch (err: Exception) {
+            val message = err.message ?: "obd_read_error"
+            PidReadResult(null, message)
+        }
+    }
 
-    private fun formatTemp(value: Double?): String = value?.let { String.format("%.0f", it) } ?: "N/A"
+    override fun onCleared() {
+        stopPolling()
+        sender.stop()
+        debugJob?.cancel()
+        debugJob = null
+        super.onCleared()
+    }
+
+    private fun buildReading(
+        pid: String,
+        label: String,
+        raw: Double?,
+        unit: String,
+        ts: Long,
+        prefs: UnitPrefs,
+        derived: Boolean = false,
+        decimals: Int = 1
+    ): SensorReading {
+        val smoothed = raw?.let { smooth(pid, it) }
+        val status = when {
+            raw == null -> SensorStatus.UNSUPPORTED
+            System.currentTimeMillis() - ts > 3000 -> SensorStatus.STALE
+            else -> SensorStatus.LIVE
+        }
+        val trend = trend(pid, smoothed ?: raw)
+        val valueStr = when {
+            status == SensorStatus.UNSUPPORTED -> "Unsupported"
+            (smoothed ?: raw) == null -> "N/A"
+            else -> "%.${decimals}f".format(smoothed ?: raw)
+        }
+        return SensorReading(
+            pid = pid,
+            label = if (derived) "$label (Derived)" else label,
+            value = valueStr,
+            unit = unit,
+            status = status,
+            trend = trend,
+            raw = raw,
+            smoothed = smoothed,
+            lastUpdated = ts
+        )
+    }
+
+    private fun smooth(pid: String, value: Double): Double {
+        val alpha = 0.35
+        val prev = ema[pid]
+        val next = if (prev == null) value else alpha * value + (1 - alpha) * prev
+        ema[pid] = next
+        return next
+    }
+
+    private fun trend(pid: String, value: Double?): Trend {
+        if (value == null) return Trend.FLAT
+        val window = history.getOrPut(pid) { mutableListOf() }
+        window.add(value)
+        if (window.size > 5) window.removeAt(0)
+        if (window.size < 3) return Trend.FLAT
+        val delta = window.last() - window.first()
+        return when {
+            delta > 0.5 -> Trend.UP
+            delta < -0.5 -> Trend.DOWN
+            else -> Trend.FLAT
+        }
+    }
+
+    private fun applyTempUnit(valueC: Double?, tempF: Boolean): Double? {
+        return valueC?.let { if (tempF) it * 9 / 5 + 32 else it }
+    }
+
+    private fun deriveBoost(map: Double?, baro: Double?): Double? {
+        if (map == null) return null
+        val baroVal = baro ?: 101.3
+        val boost = (map - baroVal) / 6.89476
+        return if (boost < 0) 0.0 else boost
+    }
 }

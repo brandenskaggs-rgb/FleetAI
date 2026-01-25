@@ -17,6 +17,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.ui.platform.LocalContext
+import android.content.Intent
+import com.fleetai.driver.ConnectActivity
 import com.fleetai.driver.AppGraph
 import com.fleetai.driver.data.model.ThemeMode
 import com.fleetai.driver.ui.components.FleetButton
@@ -27,6 +30,7 @@ import com.fleetai.driver.ui.viewmodel.SettingsViewModel
 fun SettingsScreen(contentPadding: PaddingValues) {
     val viewModel: SettingsViewModel = viewModel(factory = AppGraph.viewModelFactory)
     val state by viewModel.state.collectAsState()
+    val context = LocalContext.current
 
     Column(
         modifier = Modifier
@@ -71,6 +75,18 @@ fun SettingsScreen(contentPadding: PaddingValues) {
         FleetButton(
             text = "Sign out",
             onClick = { viewModel.logout() },
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        FleetButton(
+            text = "Server settings",
+            onClick = { context.startActivity(Intent(context, ConnectActivity::class.java)) },
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        FleetButton(
+            text = "Reset pairing",
+            onClick = { viewModel.resetPairing() },
             modifier = Modifier.fillMaxWidth()
         )
     }

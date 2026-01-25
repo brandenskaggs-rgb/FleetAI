@@ -11,11 +11,13 @@
   Defaults: update near the top of the script.
   Nav: data-route on sidebar + top tabs drives renderRoute().
   URLs:
-  - http://localhost:8000/ui/fleetai-dashboard.html
-  - http://localhost:8000/fleetai-dashboard.html
+  - /ui/fleetai-dashboard.html
+  - /fleetai-dashboard.html
 -->
 <html lang="en" data-theme="light-blue">
 <head>
+  <link rel="stylesheet" href="/css/theme.css" />
+
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Fleet AI - Operator Dashboard</title>
@@ -843,9 +845,11 @@
     .overlay{
       position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
       background: linear-gradient(rgba(4,8,18,.55), rgba(4,8,18,.66));
-      z-index:2000;
+      z-index:900;
     }
     .overlay .panel{
+      position:relative;
+      z-index:1000;
       width:420px; max-width:92%; border-radius:14px; padding:18px; box-shadow:var(--shadow-md);
       background: var(--panel);
       border:1px solid var(--border);
@@ -998,6 +1002,10 @@
           <span class="navItem"><span class="navIcon" aria-hidden="true">&#x1F4C4;</span><span class="navLabel">Reports</span></span>
           <span class="tag">Ops</span>
         </button>
+        <button data-view="maintenance-logs" data-route="maintenance-logs">
+          <span class="navItem"><span class="navIcon" aria-hidden="true">&#x1F527;</span><span class="navLabel">Maintenance Logs</span></span>
+          <span class="tag">Logs</span>
+        </button>
         <button data-view="advisor" data-route="advisor">
           <span class="navItem"><span class="navIcon" aria-hidden="true">&#x2728;</span><span class="navLabel">AI Advisor</span></span>
           <span class="tag">Core</span>
@@ -1110,6 +1118,7 @@
         <button class="topTab" data-route="gps">GPS</button>
         <button class="topTab" data-route="cameras">Cameras</button>
         <button class="topTab" data-route="reports">Reports</button>
+        <button class="topTab" data-route="maintenance-logs">Maintenance Logs</button>
         <button class="topTab" data-route="vehicles">Vehicles</button>
         <button class="topTab" data-route="drivers">Drivers</button>
         <button class="topTab" data-route="pairing">Device Pairing</button>
@@ -1125,6 +1134,13 @@
 
       <!-- DASHBOARD VIEW -->
       <section id="view-dashboard" class="section">
+        <div id="billingNotice" class="banner" style="margin-bottom:12px; display:none;">
+          <div>
+            <div style="font-weight:700;" id="billingNoticeStatus">Billing not set up</div>
+            <div class="meta">Complete billing when you're ready. This does not block dashboard access.</div>
+          </div>
+          <a class="btn" href="/app/billing.html">Set up billing</a>
+        </div>
         <div class="grid2">
           <div class="card">
             <div class="hd">
@@ -1679,6 +1695,62 @@
         </div>
       </section>
 
+      <!-- MAINTENANCE LOGS VIEW -->
+      <section id="view-maintenance-logs" class="section hide">
+        <div class="card">
+          <div class="hd">
+            <h2>Maintenance Logs</h2>
+            <div class="meta">Service history for the selected vehicle</div>
+          </div>
+          <div class="bd">
+            <div class="row" style="margin-bottom:12px; gap:12px; flex-wrap:wrap;">
+              <div class="l" style="display:flex; gap:12px; flex-wrap:wrap;">
+                <div class="pill" style="min-width:240px;">
+                  <label for="maintLogsVehicle">Vehicle</label>
+                  <select id="maintLogsVehicle"></select>
+                </div>
+                <div class="pill" style="min-width:220px;">
+                  <label for="maintLogsRange">Date Range</label>
+                  <select id="maintLogsRange">
+                    <option value="30d">Last 30 days</option>
+                    <option value="90d">Last 90 days</option>
+                    <option value="180d">Last 180 days</option>
+                    <option value="365d">Last 12 months</option>
+                  </select>
+                </div>
+              </div>
+              <div class="r" style="text-align:right;">
+                <button class="btn" id="maintLogsRefresh">Refresh</button>
+                <button class="btn primary" id="maintLogsAdd">Add Maintenance Log</button>
+              </div>
+            </div>
+            <div class="mini" id="maintLogsStatus" style="margin-bottom:10px;"></div>
+            <div id="maintLogsEmpty" class="note" style="display:none;">
+              <b>No maintenance history yet.</b> Select a vehicle to view service history.
+              <div style="margin-top:10px;">
+                <button class="btn primary" id="maintLogsAddEmpty">Add first log</button>
+              </div>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Vehicle</th>
+                  <th>Type</th>
+                  <th>Notes</th>
+                  <th>Odometer</th>
+                  <th>Engine Hours</th>
+                  <th>Cost</th>
+                  <th>Performed By</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="maintLogsTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
       <!-- VEHICLES VIEW -->
       <section id="view-vehicles" class="section hide">
         <div class="grid2">
@@ -1870,6 +1942,98 @@
   </div>
 
   <!-- ambient canvases removed -->
+  <!-- Maintenance logs modal -->
+  <div class="overlay hide" id="maintLogsModal" role="dialog" aria-modal="true">
+    <div class="panel" style="width:520px;">
+      <h3 id="maintLogsModalTitle">Add Maintenance Log</h3>
+      <div class="f">
+        <div class="mini" id="maintLogVehicleLabel" style="margin-bottom:8px;"></div>
+        <label>
+          <span class="mini">Maintenance Type *</span>
+          <select id="maintLogType">
+            <option value="">Select maintenance type</option>
+            <option value="OIL_CHANGE">Oil Change</option>
+            <option value="TIRE_ROTATION">Tire Rotation</option>
+            <option value="TIRE_CHANGE_REPLACEMENT">Tire Change/Replacement</option>
+            <option value="BRAKE_INSPECTION">Brake Inspection</option>
+            <option value="BRAKE_PADS_SHOES_REPLACEMENT">Brake Pads/Shoes Replacement</option>
+            <option value="BRAKE_ADJUSTMENT">Brake Adjustment</option>
+            <option value="AIR_FILTER_REPLACEMENT">Air Filter Replacement</option>
+            <option value="FUEL_FILTER_REPLACEMENT">Fuel Filter Replacement</option>
+            <option value="CABIN_FILTER_REPLACEMENT">Cabin Filter Replacement</option>
+            <option value="COOLANT_FLUSH_SERVICE">Coolant Flush/Service</option>
+            <option value="THERMOSTAT_REPLACEMENT">Thermostat Replacement</option>
+            <option value="RADIATOR_REPLACEMENT_REPAIR">Radiator Replacement/Repair</option>
+            <option value="WATER_PUMP_REPLACEMENT">Water Pump Replacement</option>
+            <option value="SERPENTINE_BELT_REPLACEMENT">Serpentine Belt Replacement</option>
+            <option value="BATTERY_REPLACEMENT">Battery Replacement</option>
+            <option value="ALTERNATOR_REPLACEMENT">Alternator Replacement</option>
+            <option value="STARTER_REPLACEMENT">Starter Replacement</option>
+            <option value="TRANSMISSION_SERVICE">Transmission Service</option>
+            <option value="DIFFERENTIAL_SERVICE">Differential Service</option>
+            <option value="WHEEL_ALIGNMENT">Wheel Alignment</option>
+            <option value="SUSPENSION_INSPECTION">Suspension Inspection</option>
+            <option value="SHOCK_STRUT_REPLACEMENT">Shock/Strut Replacement</option>
+            <option value="INJECTOR_SERVICE_REPLACEMENT">Injector Service/Replacement</option>
+            <option value="GLOW_PLUG_REPLACEMENT">Glow Plug Replacement</option>
+            <option value="DPF_REGEN_SERVICE">DPF Regeneration/Service</option>
+            <option value="DEF_SYSTEM_SERVICE">DEF System Service</option>
+            <option value="EGR_SYSTEM_SERVICE">EGR System Service</option>
+            <option value="SENSOR_REPLACEMENT">Sensor Replacement</option>
+            <option value="CHECK_ENGINE_DIAGNOSTIC_SCAN">Check Engine / Diagnostic Scan</option>
+            <option value="MANUAL">Other (Manual Entry)</option>
+          </select>
+        </label>
+        <label id="maintLogSensorWrap" style="display:none;">
+          <span class="mini">Sensor Name (optional)</span>
+          <input type="text" id="maintLogSensor" placeholder="MAF, MAP, O2, ECT" />
+        </label>
+        <label>
+          <span class="mini">Date Performed</span>
+          <input type="datetime-local" id="maintLogDate" />
+        </label>
+        <div class="row" style="gap:10px;">
+          <label class="l">
+            <span class="mini">Odometer</span>
+            <input type="number" id="maintLogOdometer" min="0" step="0.1" />
+          </label>
+          <label class="l">
+            <span class="mini">Engine Hours</span>
+            <input type="number" id="maintLogHours" min="0" step="0.1" />
+          </label>
+        </div>
+        <label>
+          <span class="mini">Parts Used (comma-separated)</span>
+          <input type="text" id="maintLogParts" placeholder="Oil filter, 5W-30" />
+        </label>
+        <div class="row" style="gap:10px;">
+          <label class="l">
+            <span class="mini">Cost</span>
+            <input type="number" id="maintLogCost" min="0" step="0.01" />
+          </label>
+          <label class="l">
+            <span class="mini">Performed By</span>
+            <input type="text" id="maintLogPerformedBy" placeholder="Fleet manager, shop, driver" />
+          </label>
+        </div>
+        <label id="maintLogNotesWrap">
+          <span class="mini">Notes (optional)</span>
+          <textarea id="maintLogNotes" rows="3" placeholder="Add service notes or follow-ups"></textarea>
+        </label>
+        <label id="maintLogManualWrap" style="display:none;">
+          <span class="mini">Manual Entry Notes *</span>
+          <textarea id="maintLogManualNotes" rows="4" placeholder="Describe the maintenance performed"></textarea>
+        </label>
+        <div class="row" style="justify-content:space-between; align-items:center;">
+          <div class="mini" id="maintLogStatus"></div>
+          <div>
+            <button class="btn ghost" id="maintLogsCancel">Cancel</button>
+            <button class="btn primary" id="maintLogsSave">Save Log</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
   <!-- Login overlay (appears when no session) -->
   <div class="overlay hide" id="loginOverlay" role="dialog" aria-modal="true">
     <div class="panel">
@@ -1893,6 +2057,7 @@
     <div class="d" id="toastD">Details</div>
   </div>
 
+  <script src="/js/config.js"></script>
   <script src="/js/guard.js"></script>
   <script>
     /***********************
@@ -1962,6 +2127,10 @@
       camera: {
         channel: "road",
         stream: null
+      },
+      maintenanceLogs: {
+        logs: [],
+        editingId: null
       }
     };
 
@@ -1969,7 +2138,12 @@
      * HELPERS
      ***********************/
     const $ = (id)=>document.getElementById(id);
-    const API_BASE_URL = window.location.origin;
+    function resolveApiBase(){
+      const injected = window.__FLEETAI_API_BASE_URL__ || window.FLEETAI_API_BASE_URL || window.API_BASE_URL;
+      if(injected) return String(injected).replace(/\/$/, "");
+      return "";
+    }
+    const API_BASE_URL = resolveApiBase();
     const MOCK_MODE = false;
     const REQUIRE_LOGIN = false;
     const DEV_LOG_NAV = false;
@@ -1985,11 +2159,30 @@
     const isFileProtocol = window.location.protocol === "file:";
     const apiEndpoint = () => `${API_BASE_URL}/api/telemetry?vehicle_id=${encodeURIComponent(state.selectedVehicleId || "")}`;
     const tireRiskEndpoint = () => `${API_BASE_URL}/api/tire-risk?vehicle_id=${encodeURIComponent(state.selectedVehicleId || "")}`;
-    const vehiclesEndpoint = `${API_BASE_URL}/vehicles`;
-    const driversEndpoint = `${API_BASE_URL}/drivers`;
-    const pairingGenerateEndpoint = `${API_BASE_URL}/pairings/generate`;
-    const pairingClaimEndpoint = `${API_BASE_URL}/pairings/claim`;
-    const pairingActiveEndpoint = `${API_BASE_URL}/pairings/active`;
+    const vehiclesEndpoint = `${API_BASE_URL}/api/vehicles`;
+    const driversEndpoint = `${API_BASE_URL}/api/drivers`;
+    const pairingGenerateEndpoint = `${API_BASE_URL}/api/pairings/generate`;
+    const pairingClaimEndpoint = `${API_BASE_URL}/api/pairings/claim`;
+    const maintenanceLogsEndpoint = () => `${API_BASE_URL}/api/maintenance-logs`;
+
+    function updateBillingNotice(){
+      const notice = $("billingNotice");
+      if(!notice) return;
+      let user = null;
+      try{ user = JSON.parse(localStorage.getItem("fleetai.user") || "null"); }catch(e){}
+      const statusRaw = user && user.planStatus ? String(user.planStatus) : "none";
+      const status = statusRaw.toLowerCase();
+      const statusEl = $("billingNoticeStatus");
+      if(status === "pilot" || status === "paid" || status === "active"){
+        notice.style.display = "none";
+        return;
+      }
+      if(statusEl){
+        statusEl.textContent = status === "none" ? "Billing not set up" : `Billing status: ${statusRaw}`;
+      }
+      notice.style.display = "flex";
+    }
+    const pairingActiveEndpoint = `${API_BASE_URL}/api/pairings/active`;
     const healthEndpoint = `${API_BASE_URL}/health`;
     const alertsEndpoint = () => `${API_BASE_URL}/api/alerts?vehicle_id=${encodeURIComponent(state.selectedVehicleId || "")}&limit=20`;
     const insightsLatestEndpoint = () => `${API_BASE_URL}/api/insights/latest?vehicle_id=${encodeURIComponent(state.selectedVehicleId || "")}`;
@@ -2050,7 +2243,8 @@
         el.textContent = "Connection: Connected";
         el.style.color = "var(--good)";
       } else {
-        el.textContent = `Connection: Disconnected (${message || "error"})`;
+        const safe = message && message !== "Fetch failed" ? message : "check backend";
+        el.textContent = `Connection: Disconnected (${safe})`;
         el.style.color = "var(--bad)";
       }
     }
@@ -2221,7 +2415,7 @@
 
     function formatInsight(insight){
       if(!insight){
-        return "No AI insight available yet.";
+        return "No AI insight yet. Connect a paired vehicle and review recent alerts to generate a maintenance-focused summary.";
       }
       const summary = insight.summary || "No summary available.";
       const actions = Array.isArray(insight.recommended_actions) ? insight.recommended_actions : [];
@@ -2485,12 +2679,17 @@
       try{
         const res = await fetch(url, Object.assign({}, opts, { headers }));
         if(!res.ok){
-          throw new Error(`HTTP ${res.status}`);
+          throw new Error(`Request failed (${res.status})`);
         }
         updateConnectionStatus(true);
         return res.json();
       } catch(err){
-        updateConnectionStatus(false, err && err.message ? err.message : "Fetch failed");
+        const rawMsg = err && err.message ? err.message : "Request failed";
+        const safeMsg = rawMsg.includes("Failed to fetch") ? "check backend" : rawMsg;
+        updateConnectionStatus(false, safeMsg);
+        try{
+          toast("Request error", safeMsg);
+        }catch(e){}
         throw err;
       }
     }
@@ -2815,6 +3014,7 @@
         cameras:["Cameras","Road and driver feeds when available"],
         advisor:["AI Advisor","Ask questions on maintenance and operations insights"],
         reports:["Reports","Operational reporting and summaries"],
+        "maintenance-logs":["Maintenance Logs","Vehicle service history and logbook"],
         vehicles:["Fleet","Fleet inventory with assigned driver and device"],
         drivers:["People","Driver roster and pairing PINs"],
         pairing:["Device Pairing","Generate pairing codes and view claim status"],
@@ -2825,7 +3025,7 @@
         $("viewSub").textContent = titles[route][1];
       }
 
-      ["dashboard","telemetry","alerts","safety","compliance","gps","cameras","advisor","reports","vehicles","drivers","pairing","settings"].forEach(v=>{
+      ["dashboard","telemetry","alerts","safety","compliance","gps","cameras","advisor","reports","maintenance-logs","vehicles","drivers","pairing","settings"].forEach(v=>{
         $("view-"+v).classList.toggle("hide", v!==route);
       });
 
@@ -2845,6 +3045,9 @@
       }
       if(route==="advisor"){
         renderQuickPrompts();
+      }
+      if(route==="maintenance-logs"){
+        loadMaintenanceLogsV2();
       }
       if(route==="vehicles" || route==="drivers" || route==="pairing"){
         loadFleetManagement();
@@ -3345,6 +3548,7 @@
         select.innerHTML = `<option value="">No vehicles yet</option>`;
         select.disabled = true;
         state.selectedVehicleId = "";
+        renderMaintenanceLogsVehicleSelect();
         return;
       }
       select.disabled = false;
@@ -3354,6 +3558,351 @@
       }
       select.value = state.selectedVehicleId;
       state.gps.selected = state.selectedVehicleId;
+      const selected = state.vehicles.find(v=> v.vehicleId === state.selectedVehicleId) || state.vehicles[0];
+      if(selected && selected.orgId){
+        try{ localStorage.setItem("fleetai.orgId", selected.orgId); }catch(e){}
+      }
+      renderMaintenanceLogsVehicleSelect();
+    }
+
+    function formatVehicleLabelById(vehicleId){
+      if(!vehicleId) return "--";
+      const vehicle = state.vehicles.find(v=>v.vehicleId === vehicleId);
+      if(!vehicle) return vehicleId;
+      const unitName = vehicle.unitName || vehicle.vehicleId;
+      const type = vehicle.type || "Vehicle";
+      return `${vehicle.vehicleId} - ${unitName} (${type})`;
+    }
+
+    function renderMaintenanceLogsVehicleSelect(){
+      const select = $("maintLogsVehicle");
+      if(!select) return;
+      if(!state.vehicles.length){
+        select.innerHTML = `<option value="">No vehicles yet</option>`;
+        select.disabled = true;
+        return;
+      }
+      select.disabled = false;
+      select.innerHTML = state.vehicles.map(v=>`<option value="${v.vehicleId}">${formatVehicleLabelById(v.vehicleId)}</option>`).join("");
+      if(state.selectedVehicleId){
+        select.value = state.selectedVehicleId;
+      }
+    }
+
+    function applySelectedVehicle(vehicleId, opts = {}){
+      state.selectedVehicleId = vehicleId || "";
+      const selected = state.vehicles.find(v=> v.vehicleId === state.selectedVehicleId);
+      if(selected && selected.orgId){
+        try{ localStorage.setItem("fleetai.orgId", selected.orgId); }catch(e){}
+      }
+      state.lastVals = {};
+      state.eventLog = [];
+      state.persist = {};
+      state.gps.selected = state.selectedVehicleId;
+      const pairSelect = $("pairVehicleSelect");
+      if(pairSelect && state.selectedVehicleId){
+        pairSelect.value = state.selectedVehicleId;
+      }
+      const truckSelect = $("truck");
+      if(truckSelect && truckSelect.value !== state.selectedVehicleId){
+        truckSelect.value = state.selectedVehicleId;
+      }
+      const maintSelect = $("maintLogsVehicle");
+      if(maintSelect && maintSelect.value !== state.selectedVehicleId){
+        maintSelect.value = state.selectedVehicleId;
+      }
+      if(!opts.silent && state.selectedVehicleId){
+        toast("Vehicle selected", `Now focusing Fleet AI on ${state.selectedVehicleId}.`);
+      }
+      renderEventLog();
+      updateTelemetryStatus();
+      fetchTelemetry();
+      loadMaintenanceLogsV2();
+      loadTelemetryHistory();
+      loadFuelEvents();
+      loadDtcHistory();
+    }
+
+    const MAINTENANCE_SERVICE_TYPE_LABELS = {
+      OIL_CHANGE: "Oil Change",
+      TIRE_ROTATION: "Tire Rotation",
+      TIRE_CHANGE_REPLACEMENT: "Tire Change/Replacement",
+      BRAKE_INSPECTION: "Brake Inspection",
+      BRAKE_PADS_SHOES_REPLACEMENT: "Brake Pads/Shoes Replacement",
+      BRAKE_ADJUSTMENT: "Brake Adjustment",
+      AIR_FILTER_REPLACEMENT: "Air Filter Replacement",
+      FUEL_FILTER_REPLACEMENT: "Fuel Filter Replacement",
+      CABIN_FILTER_REPLACEMENT: "Cabin Filter Replacement",
+      COOLANT_FLUSH_SERVICE: "Coolant Flush/Service",
+      THERMOSTAT_REPLACEMENT: "Thermostat Replacement",
+      RADIATOR_REPLACEMENT_REPAIR: "Radiator Replacement/Repair",
+      WATER_PUMP_REPLACEMENT: "Water Pump Replacement",
+      SERPENTINE_BELT_REPLACEMENT: "Serpentine Belt Replacement",
+      BATTERY_REPLACEMENT: "Battery Replacement",
+      ALTERNATOR_REPLACEMENT: "Alternator Replacement",
+      STARTER_REPLACEMENT: "Starter Replacement",
+      TRANSMISSION_SERVICE: "Transmission Service",
+      DIFFERENTIAL_SERVICE: "Differential Service",
+      WHEEL_ALIGNMENT: "Wheel Alignment",
+      SUSPENSION_INSPECTION: "Suspension Inspection",
+      SHOCK_STRUT_REPLACEMENT: "Shock/Strut Replacement",
+      INJECTOR_SERVICE_REPLACEMENT: "Injector Service/Replacement",
+      GLOW_PLUG_REPLACEMENT: "Glow Plug Replacement",
+      DPF_REGEN_SERVICE: "DPF Regeneration/Service",
+      DEF_SYSTEM_SERVICE: "DEF System Service",
+      EGR_SYSTEM_SERVICE: "EGR System Service",
+      SENSOR_REPLACEMENT: "Sensor Replacement",
+      CHECK_ENGINE_DIAGNOSTIC_SCAN: "Check Engine / Diagnostic Scan",
+      OTHER: "Other",
+      MANUAL: "Other (Manual Entry)"
+    };
+
+    function maintenanceServiceTypeLabel(value){
+      if(!value) return "Other";
+      const raw = String(value || "");
+      const upper = raw.toUpperCase();
+      if(MAINTENANCE_SERVICE_TYPE_LABELS[upper]){
+        return MAINTENANCE_SERVICE_TYPE_LABELS[upper];
+      }
+      if(raw.includes("_")){
+        return raw.replace(/_/g, " ");
+      }
+      return raw;
+    }
+
+    function formatMaintLogValue(value){
+      if(value == null || value === "") return `--`;
+      const num = Number(value);
+      if(!Number.isFinite(num)) return `${value}`;
+      return `${Math.round(num * 10) / 10}`;
+    }
+
+    function renderMaintenanceLogsList(){
+      const body = $("maintLogsTableBody");
+      const empty = $("maintLogsEmpty");
+      if(!body || !empty) return;
+      if(!state.selectedVehicleId){
+        empty.style.display = "block";
+        empty.innerHTML = `<b>No maintenance history yet.</b> Select a vehicle to view service history.`;
+        body.innerHTML = "";
+        return;
+      }
+      if(!state.maintenanceLogs.logs.length){
+        empty.style.display = "block";
+        empty.innerHTML = `<b>No maintenance history yet.</b> Add your first log to build service history.
+          <div style="margin-top:10px;"><button class="btn primary" id="maintLogsAddEmpty">Add first log</button></div>`;
+        body.innerHTML = "";
+        const addEmpty = $("maintLogsAddEmpty");
+        if(addEmpty) addEmpty.addEventListener("click", ()=> openMaintLogsModal());
+        return;
+      }
+      empty.style.display = "none";
+      const rows = state.maintenanceLogs.logs.slice().sort((a,b)=>{
+        const aDate = new Date(a.performedAt || a.occurredAt || a.serviceDate || a.createdAt || 0).getTime();
+        const bDate = new Date(b.performedAt || b.occurredAt || b.serviceDate || b.createdAt || 0).getTime();
+        return bDate - aDate;
+      }).map(log=>{
+        const occurredAt = log.performedAt || log.occurredAt || log.serviceDate || log.createdAt;
+        const dateLabel = occurredAt ? new Date(occurredAt).toLocaleString() : "--";
+        const typeLabel = maintenanceServiceTypeLabel(log.serviceType || log.type || log.category);
+        const notes = log.notes || "--";
+        const odometer = log.odometer != null ? log.odometer : (log.odometerAtService != null ? log.odometerAtService : log.odometerKm);
+        const hours = log.engineHours != null ? log.engineHours : log.engineHoursAtService;
+        const cost = log.cost != null ? log.cost : log.costTotal;
+        const performedBy = log.performedBy || log.vendor || "--";
+        return `
+          <tr data-maint-log="${log.id}">
+            <td>${dateLabel}</td>
+            <td>${formatVehicleLabelById(log.vehicleId)}</td>
+            <td>${typeLabel}</td>
+            <td>${notes}</td>
+            <td>${formatMaintLogValue(odometer)}</td>
+            <td>${formatMaintLogValue(hours)}</td>
+            <td>${cost != null ? `$${Number(cost).toFixed(2)}` : "--"}</td>
+            <td>${performedBy}</td>
+            <td>
+              <div class="rightStack">
+                <button class="btn ghost" data-action="edit-log">Edit</button>
+                <button class="btn" data-action="delete-log">Delete</button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join("");
+      body.innerHTML = rows;
+    }
+
+    function updateMaintLogTypeFields(){
+      const type = $("maintLogType")?.value || "";
+      const isSensor = type === "SENSOR_REPLACEMENT";
+      const isManual = type === "MANUAL";
+      const sensorWrap = $("maintLogSensorWrap");
+      const manualWrap = $("maintLogManualWrap");
+      const notesWrap = $("maintLogNotesWrap");
+      if(sensorWrap) sensorWrap.style.display = isSensor ? "block" : "none";
+      if(manualWrap) manualWrap.style.display = isManual ? "block" : "none";
+      if(notesWrap) notesWrap.style.display = isManual ? "none" : "block";
+      if(!isSensor && $("maintLogSensor")) $("maintLogSensor").value = "";
+      if(!isManual && $("maintLogManualNotes")) $("maintLogManualNotes").value = "";
+    }
+
+    function mapLegacyTypeToServiceType(value){
+      const raw = String(value || "").toLowerCase();
+      const map = {
+        oil_change: "OIL_CHANGE",
+        tire_rotation: "TIRE_ROTATION",
+        brakes: "BRAKE_INSPECTION",
+        coolant_service: "COOLANT_FLUSH_SERVICE",
+        transmission_service: "TRANSMISSION_SERVICE",
+        inspection: "CHECK_ENGINE_DIAGNOSTIC_SCAN",
+        repair: "OTHER",
+        other: "OTHER"
+      };
+      return map[raw] || "";
+    }
+
+    function openMaintLogsModal(log){
+      const modal = $("maintLogsModal");
+      if(!modal) return;
+      state.maintenanceLogs.editingId = log?.id || null;
+      $("maintLogsModalTitle").textContent = log ? "Edit Maintenance Log" : "Add Maintenance Log";
+      const selectedVehicle = log?.vehicleId || state.selectedVehicleId || "";
+      const vehicleLabel = $("maintLogVehicleLabel");
+      if(vehicleLabel){
+        vehicleLabel.textContent = selectedVehicle ? `Vehicle: ${formatVehicleLabelById(selectedVehicle)}` : "Select a vehicle before logging maintenance.";
+      }
+      const serviceDate = log?.performedAt || log?.occurredAt || log?.serviceDate || "";
+      $("maintLogDate").value = serviceDate ? serviceDate.substring(0,16) : "";
+      const typeSelect = $("maintLogType");
+      const serviceType = (log?.serviceType || "").toUpperCase() || mapLegacyTypeToServiceType(log?.type);
+      if(typeSelect){
+        typeSelect.value = serviceType || "";
+      }
+      $("maintLogSensor").value = log?.serviceSubType || "";
+      const odometer = log?.odometer != null ? log.odometer : (log?.odometerAtService != null ? log.odometerAtService : "");
+      $("maintLogOdometer").value = odometer != null && odometer !== "" ? Number(odometer).toFixed(1) : "";
+      const hours = log?.engineHours != null ? log.engineHours : log?.engineHoursAtService;
+      $("maintLogHours").value = hours != null ? Number(hours).toFixed(1) : "";
+      const parts = Array.isArray(log?.partsUsed)
+        ? log.partsUsed.join(", ")
+        : (log?.parts || "");
+      $("maintLogParts").value = parts;
+      $("maintLogCost").value = log?.cost != null ? log.cost : (log?.costTotal != null ? log.costTotal : "");
+      $("maintLogPerformedBy").value = log?.performedBy || log?.vendor || "";
+      $("maintLogNotes").value = log?.notes || "";
+      $("maintLogManualNotes").value = log?.serviceType === "MANUAL" ? (log?.notes || "") : "";
+      updateMaintLogTypeFields();
+      $("maintLogStatus").textContent = "";
+      modal.classList.remove("hide");
+      document.body.classList.add("modal-open");
+    }
+
+    function closeMaintLogsModal(){
+      const modal = $("maintLogsModal");
+      if(!modal) return;
+      modal.classList.add("hide");
+      document.body.classList.remove("modal-open");
+    }
+
+    function handleMaintLogTypeChange(){
+      updateMaintLogTypeFields();
+    }
+
+    async function loadMaintenanceLogsV2(){
+      const body = $("maintLogsTableBody");
+      if(!body) return;
+      const endpoint = maintenanceLogsEndpoint();
+      const vehicleId = state.selectedVehicleId || "";
+      const status = $("maintLogsStatus");
+      if(!endpoint || !vehicleId){
+        state.maintenanceLogs.logs = [];
+        if(status) status.textContent = "Select a vehicle to view maintenance logs.";
+        renderMaintenanceLogsList();
+        return;
+      }
+      const range = $("maintLogsRange")?.value || "30d";
+      const days = Number(String(range).replace("d","")) || 30;
+      const start = new Date(Date.now() - days * 86400000).toISOString();
+      const params = new URLSearchParams({ vehicleId, start });
+      try{
+        if(status) status.textContent = "";
+        const data = await fetchJson(`${endpoint}?${params.toString()}`);
+        state.maintenanceLogs.logs = data.data || [];
+        renderMaintenanceLogsList();
+      }catch(err){
+        state.maintenanceLogs.logs = [];
+        if(status) status.textContent = `Unable to load maintenance logs from ${endpoint}.`;
+        renderMaintenanceLogsList();
+      }
+    }
+
+    async function saveMaintenanceLogV2(){
+      const endpoint = maintenanceLogsEndpoint();
+      const vehicleId = state.selectedVehicleId || "";
+      if(!endpoint || !vehicleId){
+        $("maintLogStatus").textContent = "Select a vehicle to log maintenance.";
+        return;
+      }
+      const serviceType = $("maintLogType").value.trim();
+      if(!serviceType){
+        $("maintLogStatus").textContent = "Maintenance type is required.";
+        return;
+      }
+      const isManual = serviceType === "MANUAL";
+      const manualNotes = $("maintLogManualNotes").value.trim();
+      if(isManual && !manualNotes){
+        $("maintLogStatus").textContent = "Manual entry notes are required.";
+        return;
+      }
+      const occurredAtRaw = $("maintLogDate").value;
+      const parts = $("maintLogParts").value.split(",").map(p=>p.trim()).filter(Boolean);
+      const sensorName = $("maintLogSensor").value.trim();
+      const notes = isManual ? manualNotes : $("maintLogNotes").value.trim();
+      const payload = {
+        vehicleId,
+        serviceType,
+        serviceSubType: serviceType === "SENSOR_REPLACEMENT" && sensorName ? sensorName : "",
+        performedAt: occurredAtRaw ? new Date(occurredAtRaw).toISOString() : "",
+        odometer: $("maintLogOdometer").value ? Number($("maintLogOdometer").value) : null,
+        engineHours: $("maintLogHours").value ? Number($("maintLogHours").value) : null,
+        parts,
+        cost: $("maintLogCost").value ? Number($("maintLogCost").value) : null,
+        performedBy: $("maintLogPerformedBy").value.trim(),
+        notes
+      };
+      try{
+        if(state.maintenanceLogs.editingId){
+          await fetchJson(`${endpoint}/${state.maintenanceLogs.editingId}`, {
+            method: "PUT",
+            body: JSON.stringify(payload)
+          });
+          toast("Maintenance updated", "Log updated successfully.");
+        } else {
+          await fetchJson(endpoint, {
+            method: "POST",
+            body: JSON.stringify(payload)
+          });
+          toast("Maintenance logged", "New maintenance record saved.");
+        }
+        closeMaintLogsModal();
+        state.maintenanceLogs.editingId = null;
+        loadMaintenanceLogsV2();
+      }catch(err){
+        $("maintLogStatus").textContent = `Save failed at ${endpoint}. Check connection.`;
+      }
+    }
+
+    async function deleteMaintenanceLogV2(logId){
+      const endpoint = maintenanceLogsEndpoint();
+      if(!endpoint) return;
+      if(!confirm("Delete this maintenance log?")) return;
+      try{
+        await fetchJson(`${endpoint}/${logId}`, { method:"DELETE" });
+        toast("Maintenance deleted", "Log removed.");
+        loadMaintenanceLogsV2();
+      }catch(err){
+        toast("Delete failed", "Unable to delete maintenance log.");
+      }
     }
 
     /* ---------- Simple local users (optional) ---------- */
@@ -3380,6 +3929,7 @@
       const el = $('loginOverlay');
       if(!el) return;
       el.classList.toggle('hide', !show);
+      document.body.classList.toggle('modal-open', !!show);
       if(show){
         $('loginEmail').focus();
         if(opts.createMode) $('loginTitle').textContent = 'Create Admin Account';
@@ -3431,6 +3981,7 @@
         btn.title = label;
       });
       initNav();
+      updateBillingNotice();
 
     // Sidebar toggle + persistence
     const __root = document.querySelector('.app');
@@ -3473,6 +4024,22 @@
     const btnLogout = $('btnLogout');
     if(btnLogout) btnLogout.addEventListener('click', doLogout);
 
+    const loginOverlay = $('loginOverlay');
+    if(loginOverlay){
+      loginOverlay.addEventListener('click', (e)=>{
+        if(e.target === loginOverlay){
+          showLoginOverlay(false);
+        }
+      });
+    }
+    document.addEventListener('keydown', (e)=>{
+      if(e.key === 'Escape'){
+        if(!loginOverlay?.classList.contains('hide')){
+          showLoginOverlay(false);
+        }
+      }
+    });
+
 
     // Ctrl+B / Meta+B to toggle sidebar
     document.addEventListener('keydown', (e)=>{
@@ -3496,6 +4063,46 @@
     });
 
     $("btnExport").addEventListener("click", exportReport);
+
+    const maintLogsRefresh = $("maintLogsRefresh");
+    if(maintLogsRefresh) maintLogsRefresh.addEventListener("click", loadMaintenanceLogsV2);
+    const maintLogsAdd = $("maintLogsAdd");
+    if(maintLogsAdd) maintLogsAdd.addEventListener("click", ()=> openMaintLogsModal());
+    const maintLogsAddEmpty = $("maintLogsAddEmpty");
+    if(maintLogsAddEmpty) maintLogsAddEmpty.addEventListener("click", ()=> openMaintLogsModal());
+    const maintLogsRange = $("maintLogsRange");
+    if(maintLogsRange) maintLogsRange.addEventListener("change", loadMaintenanceLogsV2);
+    const maintLogsVehicle = $("maintLogsVehicle");
+    if(maintLogsVehicle) maintLogsVehicle.addEventListener("change", (e)=> applySelectedVehicle(e.target.value));
+    const maintLogType = $("maintLogType");
+    if(maintLogType) maintLogType.addEventListener("change", handleMaintLogTypeChange);
+    const maintLogsCancel = $("maintLogsCancel");
+    if(maintLogsCancel) maintLogsCancel.addEventListener("click", closeMaintLogsModal);
+    const maintLogsSave = $("maintLogsSave");
+    if(maintLogsSave) maintLogsSave.addEventListener("click", saveMaintenanceLogV2);
+    const maintLogsModal = $("maintLogsModal");
+    if(maintLogsModal){
+      maintLogsModal.addEventListener("click", (e)=>{
+        if(e.target === maintLogsModal) closeMaintLogsModal();
+      });
+    }
+    const maintLogsTableBody = $("maintLogsTableBody");
+    if(maintLogsTableBody){
+      maintLogsTableBody.addEventListener("click", (e)=>{
+        const target = e.target;
+        if(!(target instanceof HTMLElement)) return;
+        const row = target.closest("[data-maint-log]");
+        if(!row) return;
+        const logId = row.getAttribute("data-maint-log");
+        const log = state.maintenanceLogs.logs.find(l=> l.id === logId);
+        if(target.matches('[data-action="edit-log"]') && log){
+          openMaintLogsModal(log);
+        }
+        if(target.matches('[data-action="delete-log"]') && logId){
+          deleteMaintenanceLogV2(logId);
+        }
+      });
+    }
 
     const btnAddVehicle = $("btnAddVehicle");
     if(btnAddVehicle) btnAddVehicle.addEventListener("click", addVehicle);
@@ -3525,24 +4132,7 @@
     $("search").addEventListener("input", e => filterTable(e.target.value));
 
     $("truck").addEventListener("change", e=>{
-      state.selectedVehicleId = e.target.value;
-
-      // reset telemetry stream state
-      state.lastVals = {};
-      state.eventLog = [];
-      state.persist = {};
-
-      // sync GPS selection
-      state.gps.selected = state.selectedVehicleId;
-      const pairSelect = $("pairVehicleSelect");
-      if(pairSelect && state.selectedVehicleId){
-        pairSelect.value = state.selectedVehicleId;
-      }
-
-      toast("Vehicle selected", `Now focusing Fleet AI on ${state.selectedVehicleId}.`);
-      renderEventLog();
-      updateTelemetryStatus();
-      fetchTelemetry();
+      applySelectedVehicle(e.target.value);
     });
 
     $("toastX").addEventListener("click", ()=> $("toast").style.display="none");

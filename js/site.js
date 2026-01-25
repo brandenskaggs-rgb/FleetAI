@@ -4,6 +4,23 @@ function toggleNav(){
   nav.classList.toggle("is-open");
 }
 
+const apiUrl = window.apiUrl || ((path)=> path);
+
+const SITE_DIAG = (() => {
+  try{
+    const params = new URLSearchParams(window.location.search);
+    if(params.get("diag") === "1") return true;
+    return localStorage.getItem("fleetai.diagnostics") === "true";
+  }catch(e){
+    return false;
+  }
+})();
+
+function diagLog(){
+  if(!SITE_DIAG) return;
+  console.log.apply(console, ["[diagnostics]"].concat(Array.from(arguments)));
+}
+
 function initNav(){
   const btn = document.getElementById("navToggle");
   if(btn) btn.addEventListener("click", toggleNav);
@@ -31,55 +48,114 @@ function initAccordion(){
 function initDemoForm(){
   const form = document.getElementById("demoForm");
   if(!form) return;
-  form.addEventListener("submit", (e)=>{
+  form.addEventListener("submit", async (e)=>{
     e.preventDefault();
-    const payload = {
-      name: document.getElementById("demoName")?.value.trim() || "",
-      company: document.getElementById("demoCompany")?.value.trim() || "",
-      email: document.getElementById("demoEmail")?.value.trim() || "",
-      phone: document.getElementById("demoPhone")?.value.trim() || "",
-      fleet: document.getElementById("demoFleet")?.value || "",
-      pain: document.getElementById("demoPain")?.value || "",
-      notes: document.getElementById("demoNotes")?.value.trim() || "",
-      ts: new Date().toISOString()
-    };
-    try{
-      const key = "fleetai.demoRequests";
-      const raw = localStorage.getItem(key);
-      const list = raw ? JSON.parse(raw) : [];
-      list.push(payload);
-      localStorage.setItem(key, JSON.stringify(list));
-    }catch(err){}
+    const companyName = document.getElementById("demoCompany")?.value.trim() || "";
+    const contactName = document.getElementById("demoName")?.value.trim() || "";
+    const email = document.getElementById("demoEmail")?.value.trim() || "";
+    const phone = document.getElementById("demoPhone")?.value.trim() || "";
+    const fleetSize = document.getElementById("demoFleetSize")?.value.trim() || "";
+    const message = document.getElementById("demoMessage")?.value.trim() || "";
     const success = document.getElementById("demoSuccess");
-    if(success) success.style.display = "block";
-    form.reset();
+    const error = document.getElementById("demoError");
+    if(success) success.style.display = "none";
+    if(error) error.style.display = "none";
+    if(!/^[^@]+@[^@]+\.[^@]+$/.test(email)){
+      if(error){
+        error.textContent = "Please enter a valid email address.";
+        error.style.display = "block";
+      }
+      return;
+    }
+    const btn = form.querySelector("button[type='submit']");
+    if(btn) btn.disabled = true;
+    try{
+      diagLog("submit", "request-demo");
+      const res = await fetch(apiUrl("/api/leads/request-demo"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          leadType: "DEMO",
+          companyName,
+          contactName,
+          email,
+          phone,
+          fleetSize,
+          message,
+          sourcePage: window.location.pathname || "web"
+        })
+      });
+      const data = await res.json().catch(()=> ({}));
+      if(!res.ok){
+        throw new Error(data.error || "Request failed");
+      }
+      if(success) success.style.display = "block";
+      form.reset();
+    }catch(err){
+      if(error){
+        error.textContent = err && err.message ? err.message : "Unable to submit. Please try again.";
+        error.style.display = "block";
+      }
+    }finally{
+      if(btn) btn.disabled = false;
+    }
   });
 }
 
 function initPilotForm(){
   const form = document.getElementById("pilotForm");
   if(!form) return;
-  form.addEventListener("submit", (e)=>{
+  form.addEventListener("submit", async (e)=>{
     e.preventDefault();
-    const payload = {
-      name: document.getElementById("pilotName")?.value.trim() || "",
-      company: document.getElementById("pilotCompany")?.value.trim() || "",
-      email: document.getElementById("pilotEmail")?.value.trim() || "",
-      phone: document.getElementById("pilotPhone")?.value.trim() || "",
-      fleet: document.getElementById("pilotFleet")?.value || "",
-      notes: document.getElementById("pilotNotes")?.value.trim() || "",
-      ts: new Date().toISOString()
-    };
-    try{
-      const key = "fleetai.pilotRequests";
-      const raw = localStorage.getItem(key);
-      const list = raw ? JSON.parse(raw) : [];
-      list.push(payload);
-      localStorage.setItem(key, JSON.stringify(list));
-    }catch(err){}
+    const companyName = document.getElementById("pilotCompany")?.value.trim() || "";
+    const contactName = document.getElementById("pilotName")?.value.trim() || "";
+    const email = document.getElementById("pilotEmail")?.value.trim() || "";
+    const phone = document.getElementById("pilotPhone")?.value.trim() || "";
+    const fleetSize = document.getElementById("pilotFleet")?.value || "";
+    const message = document.getElementById("pilotNotes")?.value.trim() || "";
     const success = document.getElementById("pilotSuccess");
-    if(success) success.style.display = "block";
-    form.reset();
+    const error = document.getElementById("pilotError");
+    if(success) success.style.display = "none";
+    if(error) error.style.display = "none";
+    if(!/^[^@]+@[^@]+\.[^@]+$/.test(email)){
+      if(error){
+        error.textContent = "Please enter a valid email address.";
+        error.style.display = "block";
+      }
+      return;
+    }
+    const btn = form.querySelector("button[type='submit']");
+    if(btn) btn.disabled = true;
+    try{
+      diagLog("submit", "pilot-apply");
+      const res = await fetch(apiUrl("/api/leads/pilot-apply"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          leadType: "PILOT",
+          companyName,
+          contactName,
+          email,
+          phone,
+          fleetSize,
+          message,
+          sourcePage: window.location.pathname || "web"
+        })
+      });
+      const data = await res.json().catch(()=> ({}));
+      if(!res.ok){
+        throw new Error(data.error || "Request failed");
+      }
+      if(success) success.style.display = "block";
+      form.reset();
+    }catch(err){
+      if(error){
+        error.textContent = err && err.message ? err.message : "Unable to submit. Please try again.";
+        error.style.display = "block";
+      }
+    }finally{
+      if(btn) btn.disabled = false;
+    }
   });
 }
 

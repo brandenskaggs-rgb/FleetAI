@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="24dp">
+
+    <TextView
+        android:id="@+id/connectTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Connect to Fleet AI Server"
+        android:textSize="20sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/connectHelp"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="Example: http://172.20.10.8:3000" />
+
+    <EditText
+        android:id="@+id/serverInput"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:hint="Server URL"
+        android:inputType="textUri" />
+
+    <TextView
+        android:id="@+id/serverError"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:textColor="#B00020" />
+
+    <Button
+        android:id="@+id/btnTestServer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:text="Test Connection" />
+
+    <TextView
+        android:id="@+id/testHostStatus"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:text="Host reachable: --" />
+
+    <TextView
+        android:id="@+id/testPortStatus"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Port open: --" />
+
+    <TextView
+        android:id="@+id/testHttpStatus"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="HTTP /health: --" />
+
+    <TextView
+        android:id="@+id/testAdvice"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="" />
+
+    <Button
+        android:id="@+id/btnSaveServer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:text="Save" />
+</LinearLayout>

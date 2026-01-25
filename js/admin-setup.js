@@ -12,6 +12,8 @@ function setupShowMessage(message, isError) {
   el.textContent = message;
 }
 
+const apiUrl = window.apiUrl || ((path) => path);
+
 function setupSetStatus(message) {
   const el = document.getElementById("setupStatus");
   if (!el) return;
@@ -27,7 +29,7 @@ function setupDisableForm(disabled) {
 
 async function setupCheckStatus() {
   try {
-    const res = await fetch("/api/admin/setup/status");
+    const res = await fetch(apiUrl("/api/admin/setup/status"));
     console.log("[setup] status response", res.status);
     const data = await res.json();
     if (!data.enabled) {
@@ -57,7 +59,7 @@ async function setupSubmit() {
     return;
   }
   try {
-    const res = await fetch("/api/admin/setup", {
+    const res = await fetch(apiUrl("/api/admin/setup"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ setupKey, email, password })

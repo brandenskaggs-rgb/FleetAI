@@ -1,0 +1,15 @@
+{
+  "190": { "metric": "rpm", "scale": 0.125, "offset": 0, "unit": "rpm" },
+  "84": { "metric": "speedKph", "scale": 0.00390625, "offset": 0, "unit": "kph" },
+  "110": { "metric": "coolantTempC", "scale": 1, "offset": -40, "unit": "C" },
+  "175": { "metric": "oilTempC", "scale": 1, "offset": -40, "unit": "C" },
+  "158": { "metric": "batteryVoltageV", "scale": 0.05, "offset": 0, "unit": "V" },
+  "92": { "metric": "engineLoadPct", "scale": 0.4, "offset": 0, "unit": "%" },
+  "183": { "metric": "fuelRateLph", "scale": 0.05, "offset": 0, "unit": "L/h" },
+  "247": { "metric": "engineHours", "scale": 0.05, "offset": 0, "unit": "h" },
+  "245": { "metric": "odometerKm", "scale": 0.125, "offset": 0, "unit": "km" },
+  "96": { "metric": "fuelLevelPct", "scale": 0.4, "offset": 0, "unit": "%" },
+  "173": { "metric": "egtC", "scale": 0.03125, "offset": -273, "unit": "C" },
+  "3719": { "metric": "dpfSootLoadPct", "scale": 0.1, "offset": 0, "unit": "%" },
+  "3697": { "metric": "regenActive", "scale": 1, "offset": 0, "unit": "bool" }
+}

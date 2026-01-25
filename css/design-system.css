@@ -1,14 +1,14 @@
 :root{
   --container-max: 1200px;
-  --section-y: 88px;
-  --gutter: 24px;
-  --stack-1: 8px;
-  --stack-2: 12px;
-  --stack-3: 16px;
-  --stack-4: 24px;
-  --stack-5: 32px;
-  --stack-6: 48px;
-  --stack-7: 64px;
+  --section-y: var(--space-7);
+  --gutter: clamp(16px, 3vw, 28px);
+  --stack-1: var(--space-1);
+  --stack-2: var(--space-2);
+  --stack-3: var(--space-3);
+  --stack-4: var(--space-4);
+  --stack-5: var(--space-5);
+  --stack-6: var(--space-6);
+  --stack-7: var(--space-7);
 }
 
 html{

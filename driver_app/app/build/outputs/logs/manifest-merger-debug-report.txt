@@ -1,9 +1,9 @@
 -- Merging decision tree log ---
 manifest
-ADDED from C:\Dev\Fleet AI\Fleet AI\driver_app\app\src\main\AndroidManifest.xml:1:1-32:12
-INJECTED from C:\Dev\Fleet AI\Fleet AI\driver_app\app\src\main\AndroidManifest.xml:1:1-32:12
-INJECTED from C:\Dev\Fleet AI\Fleet AI\driver_app\app\src\main\AndroidManifest.xml:1:1-32:12
-INJECTED from C:\Dev\Fleet AI\Fleet AI\driver_app\app\src\main\AndroidManifest.xml:1:1-32:12
+ADDED from C:\Dev\Fleet AI\Fleet AI\driver_app\app\src\main\AndroidManifest.xml:1:1-36:12
+INJECTED from C:\Dev\Fleet AI\Fleet AI\driver_app\app\src\main\AndroidManifest.xml:1:1-36:12
+INJECTED from C:\Dev\Fleet AI\Fleet AI\driver_app\app\src\main\AndroidManifest.xml:1:1-36:12
+INJECTED from C:\Dev\Fleet AI\Fleet AI\driver_app\app\src\main\AndroidManifest.xml:1:1-36:12
 MERGED from [androidx.navigation:navigation-common:2.7.7] C:\Users\minsh\.gradle\caches\transforms-3\d64e7178f0b70af940815f806ff7191c\transformed\navigation-common-2.7.7\AndroidManifest.xml:17:1-22:12
 MERGED from [androidx.navigation:navigation-runtime:2.7.7] C:\Users\minsh\.gradle\caches\transforms-3\09e22f4d84897cd04bb3989378974668\transformed\navigation-runtime-2.7.7\AndroidManifest.xml:17:1-22:12
 MERGED from [androidx.navigation:navigation-common-ktx:2.7.7] C:\Users\minsh\.gradle\caches\transforms-3\6c5687796deca84da344cc93b38ea241\transformed\navigation-common-ktx-2.7.7\AndroidManifest.xml:2:1-7:12
@@ -157,8 +157,8 @@ ADDED from C:\Dev\Fleet AI\Fleet AI\driver_app\app\src\main\AndroidManifest.xml:
 	android:name
 		ADDED from C:\Dev\Fleet AI\Fleet AI\driver_app\app\src\main\AndroidManifest.xml:8:22-70
 application
-ADDED from C:\Dev\Fleet AI\Fleet AI\driver_app\app\src\main\AndroidManifest.xml:10:5-31:19
-INJECTED from C:\Dev\Fleet AI\Fleet AI\driver_app\app\src\main\AndroidManifest.xml:10:5-31:19
+ADDED from C:\Dev\Fleet AI\Fleet AI\driver_app\app\src\main\AndroidManifest.xml:10:5-35:19
+INJECTED from C:\Dev\Fleet AI\Fleet AI\driver_app\app\src\main\AndroidManifest.xml:10:5-35:19
 MERGED from [com.google.android.material:material:1.12.0] C:\Users\minsh\.gradle\caches\transforms-3\4cebfad1d6735f5e3ed899454cbcadc6\transformed\material-1.12.0\AndroidManifest.xml:22:5-20
 MERGED from [com.google.android.material:material:1.12.0] C:\Users\minsh\.gradle\caches\transforms-3\4cebfad1d6735f5e3ed899454cbcadc6\transformed\material-1.12.0\AndroidManifest.xml:22:5-20
 MERGED from [androidx.constraintlayout:constraintlayout:2.0.1] C:\Users\minsh\.gradle\caches\transforms-3\e5da9d3f7b0e446341794583d8d056d4\transformed\constraintlayout-2.0.1\AndroidManifest.xml:9:5-20
@@ -215,38 +215,46 @@ MERGED from [androidx.startup:startup-runtime:1.1.1] C:\Users\minsh\.gradle\cach
 		ADDED from C:\Dev\Fleet AI\Fleet AI\driver_app\app\src\main\AndroidManifest.xml:12:9-41
 	android:theme
 		ADDED from C:\Dev\Fleet AI\Fleet AI\driver_app\app\src\main\AndroidManifest.xml:13:9-51
+	android:networkSecurityConfig
+		ADDED from C:\Dev\Fleet AI\Fleet AI\driver_app\app\src\main\AndroidManifest.xml:15:9-69
 	android:usesCleartextTraffic
 		ADDED from C:\Dev\Fleet AI\Fleet AI\driver_app\app\src\main\AndroidManifest.xml:14:9-44
 	android:name
 		ADDED from C:\Dev\Fleet AI\Fleet AI\driver_app\app\src\main\AndroidManifest.xml:11:9-49
 activity#com.fleetai.driver.MainActivity
-ADDED from C:\Dev\Fleet AI\Fleet AI\driver_app\app\src\main\AndroidManifest.xml:15:9-22:20
+ADDED from C:\Dev\Fleet AI\Fleet AI\driver_app\app\src\main\AndroidManifest.xml:16:9-23:20
 	android:exported
-		ADDED from C:\Dev\Fleet AI\Fleet AI\driver_app\app\src\main\AndroidManifest.xml:17:13-36
+		ADDED from C:\Dev\Fleet AI\Fleet AI\driver_app\app\src\main\AndroidManifest.xml:18:13-36
 	android:name
-		ADDED from C:\Dev\Fleet AI\Fleet AI\driver_app\app\src\main\AndroidManifest.xml:16:13-41
+		ADDED from C:\Dev\Fleet AI\Fleet AI\driver_app\app\src\main\AndroidManifest.xml:17:13-41
 intent-filter#action:name:android.intent.action.MAIN+category:name:android.intent.category.LAUNCHER
-ADDED from C:\Dev\Fleet AI\Fleet AI\driver_app\app\src\main\AndroidManifest.xml:18:13-21:29
+ADDED from C:\Dev\Fleet AI\Fleet AI\driver_app\app\src\main\AndroidManifest.xml:19:13-22:29
 action#android.intent.action.MAIN
-ADDED from C:\Dev\Fleet AI\Fleet AI\driver_app\app\src\main\AndroidManifest.xml:19:17-69
+ADDED from C:\Dev\Fleet AI\Fleet AI\driver_app\app\src\main\AndroidManifest.xml:20:17-69
 	android:name
-		ADDED from C:\Dev\Fleet AI\Fleet AI\driver_app\app\src\main\AndroidManifest.xml:19:25-66
+		ADDED from C:\Dev\Fleet AI\Fleet AI\driver_app\app\src\main\AndroidManifest.xml:20:25-66
 category#android.intent.category.LAUNCHER
-ADDED from C:\Dev\Fleet AI\Fleet AI\driver_app\app\src\main\AndroidManifest.xml:20:17-77
+ADDED from C:\Dev\Fleet AI\Fleet AI\driver_app\app\src\main\AndroidManifest.xml:21:17-77
 	android:name
-		ADDED from C:\Dev\Fleet AI\Fleet AI\driver_app\app\src\main\AndroidManifest.xml:20:27-74
-service#com.fleetai.driver.notifications.FleetMessagingService
-ADDED from C:\Dev\Fleet AI\Fleet AI\driver_app\app\src\main\AndroidManifest.xml:24:9-30:19
+		ADDED from C:\Dev\Fleet AI\Fleet AI\driver_app\app\src\main\AndroidManifest.xml:21:27-74
+activity#com.fleetai.driver.ConnectActivity
+ADDED from C:\Dev\Fleet AI\Fleet AI\driver_app\app\src\main\AndroidManifest.xml:24:9-26:40
 	android:exported
 		ADDED from C:\Dev\Fleet AI\Fleet AI\driver_app\app\src\main\AndroidManifest.xml:26:13-37
 	android:name
-		ADDED from C:\Dev\Fleet AI\Fleet AI\driver_app\app\src\main\AndroidManifest.xml:25:13-64
-intent-filter#action:name:com.google.firebase.MESSAGING_EVENT
-ADDED from C:\Dev\Fleet AI\Fleet AI\driver_app\app\src\main\AndroidManifest.xml:27:13-29:29
-action#com.google.firebase.MESSAGING_EVENT
-ADDED from C:\Dev\Fleet AI\Fleet AI\driver_app\app\src\main\AndroidManifest.xml:28:17-78
+		ADDED from C:\Dev\Fleet AI\Fleet AI\driver_app\app\src\main\AndroidManifest.xml:25:13-44
+service#com.fleetai.driver.notifications.FleetMessagingService
+ADDED from C:\Dev\Fleet AI\Fleet AI\driver_app\app\src\main\AndroidManifest.xml:28:9-34:19
+	android:exported
+		ADDED from C:\Dev\Fleet AI\Fleet AI\driver_app\app\src\main\AndroidManifest.xml:30:13-37
 	android:name
-		ADDED from C:\Dev\Fleet AI\Fleet AI\driver_app\app\src\main\AndroidManifest.xml:28:25-75
+		ADDED from C:\Dev\Fleet AI\Fleet AI\driver_app\app\src\main\AndroidManifest.xml:29:13-64
+intent-filter#action:name:com.google.firebase.MESSAGING_EVENT
+ADDED from C:\Dev\Fleet AI\Fleet AI\driver_app\app\src\main\AndroidManifest.xml:31:13-33:29
+action#com.google.firebase.MESSAGING_EVENT
+ADDED from C:\Dev\Fleet AI\Fleet AI\driver_app\app\src\main\AndroidManifest.xml:32:17-78
+	android:name
+		ADDED from C:\Dev\Fleet AI\Fleet AI\driver_app\app\src\main\AndroidManifest.xml:32:25-75
 uses-sdk
 INJECTED from C:\Dev\Fleet AI\Fleet AI\driver_app\app\src\main\AndroidManifest.xml reason: use-sdk injection requested
 INJECTED from C:\Dev\Fleet AI\Fleet AI\driver_app\app\src\main\AndroidManifest.xml

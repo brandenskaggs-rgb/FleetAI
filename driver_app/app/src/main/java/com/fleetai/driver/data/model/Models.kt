@@ -72,8 +72,17 @@ data class HomeUiState(
     val needsAcknowledgement: Boolean
 )
 
+enum class SensorStatus { LIVE, STALE, UNSUPPORTED }
+enum class Trend { UP, DOWN, FLAT }
+
 data class SensorReading(
+    val pid: String,
     val label: String,
     val value: String,
-    val unit: String
+    val unit: String,
+    val status: SensorStatus,
+    val trend: Trend,
+    val raw: Double?,
+    val smoothed: Double?,
+    val lastUpdated: Long
 )

@@ -11,15 +11,18 @@
   Defaults: update near the top of the script.
   Nav: data-route on sidebar + top tabs drives renderRoute().
   URLs:
-  - http://localhost:8000/ui/fleetai-dashboard.html
-  - http://localhost:8000/fleetai-dashboard.html
+  - /ui/fleetai-dashboard.html
+  - /fleetai-dashboard.html
 -->
 <html lang="en" data-theme="light-blue">
 <head>
+  <link rel="stylesheet" href="/css/theme.css" />
+
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <link rel="stylesheet" href="/css/site-tokens.css" />
   <title>Fleet AI - Operator Dashboard</title>
+  <meta name="fleetai-build" content="<!-- BUILD_MARKER -->" />
 
   <style>
     @import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap");
@@ -213,7 +216,7 @@
       display:flex; flex-direction:column; gap:8px;
       margin-top:12px;
     }
-    .nav button{
+.nav button{
       width:100%;
       text-align:left;
       border:1px solid transparent;
@@ -230,6 +233,9 @@
       transition: background .15s ease, border-color .15s ease, color .15s ease;
       gap:10px;
       height:44px;
+      pointer-events:auto;
+      position:relative;
+      z-index:11;
     }
     .nav button .navItem{
       display:flex; align-items:center; gap:10px;
@@ -358,6 +364,17 @@
       font-weight:700;
       font-size:12px;
       font-family: var(--font-display);
+    }
+    .headerUser{
+      padding:6px 12px;
+      border-radius:999px;
+      border:1px solid var(--border);
+      background: var(--panel2);
+      color: var(--muted);
+      font-size:12px;
+      font-weight:700;
+      font-family: var(--font-display);
+      white-space:nowrap;
     }
 
     .subHeader{
@@ -593,6 +610,7 @@
     /* Lists & chips */
     .row{
       display:flex; justify-content:space-between; align-items:flex-start; gap:12px;
+      flex-wrap:wrap;
       padding:14px;
       border:1px solid var(--border);
       border-radius: var(--radius-lg);
@@ -611,7 +629,9 @@
       font-size:11px;
       color:var(--primary2);
       font-weight:700;
-      white-space:nowrap;
+      white-space:normal;
+      max-width:180px;
+      line-height:1.2;
     }
     .mini{font-size:11px;color:var(--muted);white-space:nowrap}
 
@@ -628,7 +648,9 @@
       font-size:11px;
       font-weight:700;
       color:var(--primary2);
-      white-space:nowrap;
+      white-space:normal;
+      max-width:180px;
+      line-height:1.2;
       display:inline-flex; align-items:center; gap:8px;
     }
     .pill2.good{background: rgba(43,220,155,.12); border-color: rgba(43,220,155,.25); color: #0d6b4f;}
@@ -862,12 +884,16 @@
     .overlay{
       position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
       background: linear-gradient(rgba(4,8,18,.55), rgba(4,8,18,.66));
-      z-index:2000;
+      z-index:900;
+      pointer-events:none; /* default non-blocking */
     }
     .overlay .panel{
+      position:relative;
+      z-index:1000;
       width:420px; max-width:92%; border-radius:14px; padding:18px; box-shadow:var(--shadow-md);
       background: var(--panel);
       border:1px solid var(--border);
+      pointer-events:auto; /* allow interaction only on the panel */
     }
     .overlay h3{margin:0 0 8px 0; font-size:15px}
     .overlay .f{display:flex; flex-direction:column; gap:8px}
@@ -882,7 +908,13 @@
     }
 
     .hide{display:none !important;}
-    .overlay.hide{pointer-events:none;}
+    .overlay.hide{pointer-events:none !important; display:none !important;}
+    /* Safety: overlays marked hidden must never capture clicks */
+    .overlay[aria-hidden="true"]{
+      pointer-events:none !important;
+      display:none !important;
+      opacity:0;
+    }
     .section{margin-top:18px;}
     .subtle{
       font-size:11px;color:var(--muted);
@@ -1085,7 +1117,7 @@
       background: var(--panel);
       border:1px solid var(--border);
       border-radius: 16px;
-      box-shadow: var(--shadow-lg);
+      box-shadow: var(--shadow-md);
       padding:16px;
     }
     .aiAdvisor-modalHeader{
@@ -1104,9 +1136,23 @@
     /* Small helper */
     .rightStack{display:flex; gap:10px; align-items:center; flex-wrap:wrap;}
   </style>
+  <link rel="stylesheet" href="/css/app.css" />
 </head>
 
 <body>
+  <script>
+    // Ensure overlays start non-blocking
+    document.addEventListener("DOMContentLoaded", () => {
+      document.querySelectorAll(".overlay").forEach(el => {
+        if (el.classList.contains("hide")) {
+          el.style.display = "none";
+        }
+      });
+    });
+  </script>
+  <div id="devBanner" style="display:none; background:#fee2e2; color:#7f1d1d; padding:10px 14px; font-size:13px; border-bottom:1px solid #fecaca;">
+    <strong>Dashboard warning:</strong> <span id="devBannerText">--</span>
+  </div>
   <div class="app">
     <!-- Sidebar -->
     <aside class="sidebar">
@@ -1126,6 +1172,22 @@
         <button data-view="telemetry" data-route="telemetry">
           <span class="navItem"><span class="navIcon" aria-hidden="true">&#x1F50C;</span><span class="navLabel">Live Telemetry</span></span>
           <span class="tag">Live</span>
+        </button>
+        <button data-view="telemetry-history" data-route="telemetry-history">
+          <span class="navItem"><span class="navIcon" aria-hidden="true">&#x1F4C8;</span><span class="navLabel">Telemetry History</span></span>
+          <span class="tag">History</span>
+        </button>
+        <button data-view="fuel-events" data-route="fuel-events">
+          <span class="navItem"><span class="navIcon" aria-hidden="true">&#x26FD;</span><span class="navLabel">Fuel &amp; Costs</span></span>
+          <span class="tag">Fuel</span>
+        </button>
+        <button data-view="health-risk" data-route="health-risk">
+          <span class="navItem"><span class="navIcon" aria-hidden="true">&#x2695;</span><span class="navLabel">Health &amp; Risk</span></span>
+          <span class="tag">Risk</span>
+        </button>
+        <button data-view="dtc-history" data-route="dtc-history">
+          <span class="navItem"><span class="navIcon" aria-hidden="true">&#x26A0;</span><span class="navLabel">DTC History</span></span>
+          <span class="tag">Codes</span>
         </button>
         <button data-view="alerts" data-route="alerts">
           <span class="navItem"><span class="navIcon" aria-hidden="true">&#x1F514;</span><span class="navLabel">Alerts</span></span>
@@ -1154,6 +1216,14 @@
           <span class="navItem"><span class="navIcon" aria-hidden="true">&#x1F4C4;</span><span class="navLabel">Reports</span></span>
           <span class="tag">Ops</span>
         </button>
+        <button data-view="maintenance" data-route="maintenance">
+          <span class="navItem"><span class="navIcon" aria-hidden="true">&#x1F6E0;</span><span class="navLabel">Maintenance</span></span>
+          <span class="tag">Logs</span>
+        </button>
+        <button data-view="maintenance-logs" data-route="maintenance-logs">
+          <span class="navItem"><span class="navIcon" aria-hidden="true">&#x1F527;</span><span class="navLabel">Maintenance Logs</span></span>
+          <span class="tag">Service</span>
+        </button>
         <button data-view="advisor" data-route="advisor">
           <span class="navItem">
             <span class="navIcon" aria-hidden="true">
@@ -1181,6 +1251,10 @@
         <button data-view="pairing" data-route="pairing">
           <span class="navItem"><span class="navIcon" aria-hidden="true">&#x1F4F1;</span><span class="navLabel">Device Pairing</span></span>
           <span class="tag">Tablets</span>
+        </button>
+        <button data-view="addons" data-route="addons">
+          <span class="navItem"><span class="navIcon" aria-hidden="true">&#x1F9F1;</span><span class="navLabel">Add-Ons</span></span>
+          <span class="tag">Expand</span>
         </button>
         <button data-view="settings" data-route="settings">
           <span class="navItem"><span class="navIcon" aria-hidden="true">&#9881;</span><span class="navLabel">Settings</span></span>
@@ -1216,6 +1290,7 @@
               <option value="dark-blue">Dark Blue</option>
               <option value="dark-gray">Dark Gray</option>
             </select>
+            <div class="headerUser" id="headerUserName">Preview Mode</div>
             <button class="btn primary" id="btnRefresh">Refresh</button>
             <button class="btn" id="btnExport">Export Report</button>
             <button class="btn" id="btnAddUser" style="display:none">Add User</button>
@@ -1253,15 +1328,22 @@
       <div class="topTabs tabBar" id="topTabs">
         <button class="topTab" data-route="dashboard">Dashboard</button>
         <button class="topTab" data-route="telemetry">Live Telemetry</button>
+        <button class="topTab" data-route="telemetry-history">Telemetry History</button>
+        <button class="topTab" data-route="fuel-events">Fuel &amp; Costs</button>
+        <button class="topTab" data-route="dtc-history">DTC History</button>
         <button class="topTab" data-route="alerts">Alerts</button>
         <button class="topTab" data-route="safety">Safety</button>
         <button class="topTab" data-route="compliance">Compliance</button>
         <button class="topTab" data-route="gps">GPS</button>
         <button class="topTab" data-route="cameras">Cameras</button>
         <button class="topTab" data-route="reports">Reports</button>
+        <button class="topTab" data-route="maintenance">Maintenance</button>
+        <button class="topTab" data-route="health-risk">Health &amp; Risk</button>
+        <button class="topTab" data-route="maintenance-logs">Maintenance Logs</button>
         <button class="topTab" data-route="vehicles">Vehicles</button>
         <button class="topTab" data-route="drivers">Drivers</button>
         <button class="topTab" data-route="pairing">Device Pairing</button>
+        <button class="topTab" data-route="addons">Add-Ons</button>
         <button class="topTab" data-route="settings">Settings</button>
       </div>
 
@@ -1320,8 +1402,8 @@
 
           <div class="card">
             <div class="hd">
-              <h2>Fleet Manager Notifications</h2>
-              <div class="meta">Auto-generated from patterns</div>
+              <h2>Alerts Overview</h2>
+              <div class="meta">Open maintenance events and next steps</div>
             </div>
             <div class="bd" id="notifFeed"></div>
             <div class="bd" style="padding-top:0;">
@@ -1330,6 +1412,17 @@
                 <div><span class="kbd">Context</span> GPS + Cameras support faster resolution</div>
               </div>
             </div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:14px;">
+          <div class="hd">
+            <h2>Recommendations</h2>
+            <div class="meta">Predictive service windows based on your history</div>
+          </div>
+          <div class="bd" id="recommendationsList"></div>
+          <div class="bd" style="padding-top:0;">
+            <div class="subtle" id="recommendationsHelp"></div>
           </div>
         </div>
 
@@ -1436,14 +1529,195 @@
         </div>
       </section>
 
-      <!-- ALERTS VIEW -->
-      <section id="view-alerts" class="section hide">
+      <!-- TELEMETRY HISTORY VIEW -->
+      <section id="view-telemetry-history" class="section hide">
         <div class="card">
           <div class="hd">
-            <h2>Alerts</h2>
-            <div class="meta">Alerts from paired vehicles</div>
+            <h2>Telemetry History</h2>
+            <div class="meta">Normalized metrics history for the selected vehicle</div>
           </div>
-          <div class="bd" id="alertsList"></div>
+          <div class="bd">
+            <div class="row" style="margin-bottom:12px;">
+              <div class="l">
+                <div class="pill" style="min-width:220px;">
+                  <label for="telemetryHistoryMetric">Metric</label>
+                  <select id="telemetryHistoryMetric">
+                    <option value="coolantTempC">Coolant Temperature (C)</option>
+                    <option value="batteryVoltageV">Battery Voltage (V)</option>
+                    <option value="rpm">Engine RPM</option>
+                    <option value="engineLoadPct">Engine Load (%)</option>
+                    <option value="maf">MAF (g/s)</option>
+                    <option value="stft1">Short Fuel Trim (%)</option>
+                    <option value="ltft1">Long Fuel Trim (%)</option>
+                    <option value="intakeAirTempC">Intake Air Temp (C)</option>
+                    <option value="speedKph">Vehicle Speed (kph)</option>
+                    <option value="fuelLevelPct">Fuel Level (%)</option>
+                    <option value="odometerKm">Odometer (km)</option>
+                    <option value="engineHours">Engine Hours</option>
+                  </select>
+                </div>
+                <div class="pill" style="min-width:180px;">
+                  <label for="telemetryHistoryRange">Range</label>
+                  <select id="telemetryHistoryRange">
+                    <option value="24h">Last 24 hours</option>
+                    <option value="7d">Last 7 days</option>
+                    <option value="14d">Last 14 days</option>
+                    <option value="30d">Last 30 days</option>
+                  </select>
+                </div>
+              </div>
+              <div class="r" style="text-align:right;">
+                <button class="btn" id="telemetryHistoryRefresh">Refresh History</button>
+              </div>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th style="width:30%;">Timestamp</th>
+                  <th>Value</th>
+                </tr>
+              </thead>
+              <tbody id="telemetryHistoryTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- FUEL & COSTS VIEW -->
+      <section id="view-fuel-events" class="section hide">
+        <div class="card">
+          <div class="hd">
+            <h2>Fuel &amp; Costs</h2>
+            <div class="meta">Detected refuels while stationary (suggested only)</div>
+          </div>
+          <div class="bd">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width:22%;">Start</th>
+                  <th style="width:22%;">End</th>
+                  <th style="width:16%;">Delta</th>
+                  <th style="width:16%;">Confidence</th>
+                  <th>Notes</th>
+                </tr>
+              </thead>
+              <tbody id="fuelEventsTable"></tbody>
+            </table>
+            <div id="fuelEventsEmpty" class="note" style="margin-top:12px; display:none;">
+              <b>Fuel data not available.</b> Connect a vehicle with fuel level telemetry to enable event detection.
+            </div>
+            <div class="subtle" style="margin-top:10px;">
+              Fuel events are suggestions only. Approve in Maintenance if needed.
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- HEALTH & RISK VIEW -->
+      <section id="view-health-risk" class="section hide">
+        <div class="grid2">
+          <div class="card">
+            <div class="hd">
+              <h2>Health &amp; Risk</h2>
+              <div class="meta">Baseline learning and anomaly scoring</div>
+            </div>
+            <div class="bd">
+              <div class="row" style="margin-bottom:12px;">
+                <div class="l">
+                  <h3>Anomaly Score</h3>
+                  <p id="healthAnomalyNote">Not enough history yet.</p>
+                </div>
+                <div class="r">
+                  <div class="pill2" id="healthAnomalyScore">--</div>
+                </div>
+              </div>
+              <div class="row" style="margin-bottom:12px;">
+                <div class="l">
+                  <h3>Confidence</h3>
+                  <p id="healthConfidenceNote">Waiting for data coverage.</p>
+                </div>
+                <div class="r">
+                  <div class="pill2" id="healthConfidence">--</div>
+                </div>
+              </div>
+              <div class="card" style="border:none; box-shadow:none;">
+                <div class="hd" style="padding:10px 0; border:none; background:transparent;">
+                  <h2 style="font-size:13px;">Top Contributors</h2>
+                  <div class="meta">Most deviated metrics</div>
+                </div>
+                <div class="bd" style="padding:0;" id="healthContributors">
+                  <div class="note">Not enough history yet.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="hd">
+              <h2>System Risk Outlook</h2>
+              <div class="meta">Next 7 / 14 / 30 days</div>
+            </div>
+            <div class="bd" id="healthRiskPanel">
+              <div class="note">Not enough data yet to score subsystem risk.</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- DTC HISTORY VIEW -->
+      <section id="view-dtc-history" class="section hide">
+        <div class="card">
+          <div class="hd">
+            <h2>DTC History</h2>
+            <div class="meta">Stored diagnostic codes from recent telemetry snapshots</div>
+          </div>
+          <div class="bd">
+            <div class="row" style="margin-bottom:12px;">
+              <div class="l">
+                <div class="pill" style="min-width:200px;">
+                  <label for="dtcHistoryRange">Range</label>
+                  <select id="dtcHistoryRange">
+                    <option value="7d">Last 7 days</option>
+                    <option value="14d" selected>Last 14 days</option>
+                    <option value="30d">Last 30 days</option>
+                  </select>
+                </div>
+              </div>
+              <div class="r" style="text-align:right;">
+                <button class="btn" id="dtcHistoryRefresh">Refresh DTCs</button>
+              </div>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th style="width:22%;">Timestamp</th>
+                  <th style="width:18%;">Code</th>
+                  <th style="width:18%;">Protocol</th>
+                  <th>Notes</th>
+                </tr>
+              </thead>
+              <tbody id="dtcHistoryTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ALERTS VIEW -->
+      <section id="view-alerts" class="section hide">
+        <div class="grid2">
+          <div class="card">
+            <div class="hd">
+              <h2>Alerts</h2>
+              <div class="meta">Open maintenance events from paired vehicles</div>
+            </div>
+            <div class="bd" id="alertsList"></div>
+          </div>
+          <div class="card">
+            <div class="hd">
+              <h2>Alert Detail</h2>
+              <div class="meta">Review severity, context, and actions</div>
+            </div>
+            <div class="bd" id="alertDetail"></div>
+          </div>
         </div>
       </section>
 
@@ -1788,69 +2062,15 @@
 
       <!-- AI ADVISOR VIEW -->
       <section id="view-advisor" class="section hide">
-        <div class="aiAdvisor-shell">
-          <div class="aiAdvisor-head">
-            <div>
-              <h2>AI Advisor</h2>
-              <div class="meta">Ask about maintenance, compliance, costs, and fleet operations.</div>
+        <div class="card">
+          <div class="hd">
+            <h2>AI Advisor</h2>
+            <div class="meta">Coming soon for Tier 2 pilot fleets</div>
+          </div>
+          <div class="bd">
+            <div class="note">
+              <b>AI Advisor coming soon</b> - will support logging and insights once sufficient telemetry history is available.
             </div>
-            <div class="aiAdvisor-controls">
-              <span class="aiAdvisor-status" id="aiAdvisorStatus"><span class="aiAdvisor-statusDot"></span>Online</span>
-              <button class="btn ghost" id="aiAdvisorNewChat">New chat</button>
-              <button class="btn ghost" id="aiAdvisorClear">Clear</button>
-              <button class="btn ghost" id="aiAdvisorExport">Export</button>
-            </div>
-          </div>
-
-          <div class="aiAdvisor-quick" id="quickPrompts"></div>
-
-          <div class="aiAdvisor-transcript" id="chatLog" aria-live="polite">
-            <button class="btn ghost aiAdvisor-jump hide" id="aiAdvisorJump">Jump to latest</button>
-          </div>
-
-          <div class="aiAdvisor-typing hide" id="aiAdvisorTyping">
-            <div class="aiAdvisor-dots">
-              <span class="aiAdvisor-dot"></span>
-              <span class="aiAdvisor-dot"></span>
-              <span class="aiAdvisor-dot"></span>
-            </div>
-            <span>Advisor is drafting a response...</span>
-          </div>
-
-          <div class="aiAdvisor-composer">
-            <textarea id="chatInput" placeholder="Ask the AI Advisor about your fleet operations..."></textarea>
-            <button class="btn primary" id="btnSend">Send</button>
-            <button class="btn" id="aiAdvisorSupport">Request Human Support</button>
-          </div>
-
-          <div class="aiAdvisor-footer">
-            <div class="mini">AI Advisor is informational and may require human review.</div>
-          </div>
-        </div>
-
-        <div class="aiAdvisor-modal hide" id="aiAdvisorSupportModal" role="dialog" aria-modal="true">
-          <div class="aiAdvisor-modalPanel">
-            <div class="aiAdvisor-modalHeader">
-              <h3>Request Human Support</h3>
-              <button class="btn ghost" id="aiAdvisorSupportClose">Close</button>
-            </div>
-            <form id="aiAdvisorSupportForm">
-              <div class="aiAdvisor-formGrid">
-                <input id="aiAdvisorSupportTopic" type="text" placeholder="Topic (e.g., inspection schedule, compliance, downtime)" />
-                <select id="aiAdvisorSupportUrgency">
-                  <option value="normal">Urgency: Normal</option>
-                  <option value="high">Urgency: High</option>
-                  <option value="critical">Urgency: Critical</option>
-                </select>
-                <input id="aiAdvisorSupportContact" type="text" placeholder="Preferred contact (email or phone)" />
-                <textarea id="aiAdvisorSupportNotes" placeholder="Notes or context for the support team"></textarea>
-              </div>
-              <div class="rightStack">
-                <button class="btn" type="button" id="aiAdvisorSupportCancel">Cancel</button>
-                <button class="btn primary" type="submit">Submit</button>
-              </div>
-              <div class="mini" id="aiAdvisorSupportMsg" style="margin-top:8px;"></div>
-            </form>
           </div>
         </div>
       </section>
@@ -1894,6 +2114,172 @@
             <div class="note" style="margin-top:12px;">
               <b>Operator-friendly reporting:</b> avoid jargon, show decisions. A fleet manager should be able to act in under 60 seconds.
             </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- MAINTENANCE VIEW -->
+      <section id="view-maintenance" class="section hide">
+        <div class="card">
+          <div class="hd">
+            <h2>Maintenance Logs</h2>
+            <div class="meta">Record repairs, inspections, and service history</div>
+          </div>
+          <div class="bd">
+            <div class="row" style="gap:14px; flex-wrap:wrap;">
+              <div class="pill" style="min-width:200px;">
+                <label for="maintStart">Start</label>
+                <input id="maintStart" type="date" />
+              </div>
+              <div class="pill" style="min-width:200px;">
+                <label for="maintEnd">End</label>
+                <input id="maintEnd" type="date" />
+              </div>
+              <div class="pill" style="min-width:200px;">
+                <label for="maintTypeFilter">Type</label>
+                <select id="maintTypeFilter">
+                  <option value="">All types</option>
+                  <option value="oil_change">Oil Change</option>
+                  <option value="tire_rotation">Tire Rotation</option>
+                  <option value="brakes">Brakes</option>
+                  <option value="coolant_service">Coolant Service</option>
+                  <option value="transmission_service">Transmission Service</option>
+                  <option value="inspection">Inspection</option>
+                  <option value="repair">Repair</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              <div class="rightStack" style="margin-left:auto;">
+                <button class="btn" id="btnRefreshMaintenance">Refresh</button>
+              </div>
+            </div>
+            <div class="row" style="margin-top:12px; gap:10px; flex-wrap:wrap;">
+              <button class="btn ghost" id="quickOil">Log Oil Change</button>
+              <button class="btn ghost" id="quickBrake">Log Brake Service</button>
+              <button class="btn ghost" id="quickTire">Log Tire Rotation</button>
+              <button class="btn ghost" id="quickRepair">Log Repair</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid2" style="margin-top:14px;">
+          <div class="card">
+            <div class="hd">
+              <h2>History</h2>
+              <div class="meta">Recent maintenance events</div>
+            </div>
+            <div class="bd" style="padding-top:12px;">
+              <table>
+                <thead>
+                  <tr>
+                    <th style="width:22%;">Date</th>
+                    <th style="width:20%;">Type</th>
+                    <th>Description</th>
+                    <th style="width:16%;">Miles</th>
+                  </tr>
+                </thead>
+                <tbody id="maintenanceTable"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="hd">
+              <h2 id="maintenanceFormTitle">Add Maintenance Log</h2>
+              <div class="meta">Captured per vehicle</div>
+            </div>
+            <div class="bd">
+              <form id="maintenanceForm" class="form">
+                <input type="hidden" id="maintenanceId" />
+                <label for="maintDate">Date / Time</label>
+                <input id="maintDate" type="datetime-local" />
+                <label for="maintOdometer">Odometer (miles)</label>
+                <input id="maintOdometer" type="number" min="0" />
+                <label for="maintEngineHours">Engine Hours</label>
+                <input id="maintEngineHours" type="number" min="0" step="0.1" />
+                <label for="maintType">Type</label>
+                <select id="maintType">
+                  <option value="oil_change">Oil Change</option>
+                  <option value="tire_rotation">Tire Rotation</option>
+                  <option value="brakes">Brakes</option>
+                  <option value="coolant_service">Coolant Service</option>
+                  <option value="transmission_service">Transmission Service</option>
+                  <option value="inspection">Inspection</option>
+                  <option value="repair">Repair</option>
+                  <option value="other">Other</option>
+                </select>
+                <label for="maintDescription">Description</label>
+                <textarea id="maintDescription" rows="4" placeholder="Describe the service performed"></textarea>
+                <label>Parts Used</label>
+                <div id="partsList" style="display:grid; gap:8px;"></div>
+                <button type="button" class="btn ghost" id="addPartRow">Add Part</button>
+                <label for="maintVendor">Vendor</label>
+                <input id="maintVendor" type="text" placeholder="Service provider" />
+                <label for="maintCost">Total Cost</label>
+                <input id="maintCost" type="number" min="0" step="0.01" />
+                <div class="rightStack" style="margin-top:12px; gap:10px;">
+                  <button class="btn primary" type="submit" id="saveMaintenance">Save Log</button>
+                  <button class="btn ghost" type="button" id="deleteMaintenance">Delete</button>
+                </div>
+                <div class="mini" id="maintenanceStatus" style="margin-top:8px;"></div>
+              </form>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- MAINTENANCE LOGS VIEW -->
+      <section id="view-maintenance-logs" class="section hide">
+        <div class="card">
+          <div class="hd">
+            <h2>Maintenance Logs</h2>
+            <div class="meta">Service history for the selected vehicle</div>
+          </div>
+          <div class="bd">
+            <div class="row" style="margin-bottom:12px; gap:12px; flex-wrap:wrap;">
+              <div class="l" style="display:flex; gap:12px; flex-wrap:wrap;">
+                <div class="pill" style="min-width:240px;">
+                  <label for="maintLogsVehicle">Vehicle</label>
+                  <select id="maintLogsVehicle"></select>
+                </div>
+                <div class="pill" style="min-width:220px;">
+                  <label for="maintLogsRange">Date Range</label>
+                  <select id="maintLogsRange">
+                    <option value="30d">Last 30 days</option>
+                    <option value="90d">Last 90 days</option>
+                    <option value="180d">Last 180 days</option>
+                    <option value="365d">Last 12 months</option>
+                  </select>
+                </div>
+              </div>
+              <div class="r" style="text-align:right;">
+                <button class="btn" id="maintLogsRefresh">Refresh</button>
+                <button class="btn primary" id="maintLogsAdd">Add Maintenance Log</button>
+              </div>
+            </div>
+            <div class="mini" id="maintLogsStatus" style="margin-bottom:10px;"></div>
+            <div id="maintLogsEmpty" class="note" style="display:none;">
+              <b>No maintenance history yet.</b> Select a vehicle to view service history.
+              <div style="margin-top:10px;">
+                <button class="btn primary" id="maintLogsAddEmpty">Add first log</button>
+              </div>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Vehicle</th>
+                  <th>Type</th>
+                  <th>Notes</th>
+                  <th>Odometer</th>
+                  <th>Engine Hours</th>
+                  <th>Cost</th>
+                  <th>Performed By</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="maintLogsTableBody"></tbody>
+            </table>
           </div>
         </div>
       </section>
@@ -2001,12 +2387,36 @@
                 <select id="pairDriverSelect"></select>
               </div>
               <div class="rightStack" style="margin-top:12px;">
-                <button class="btn primary" id="btnGeneratePair">Generate Pair Code</button>
+                <button class="btn primary" id="btnGeneratePairCode">Generate Pair Code</button>
               </div>
-              <div class="mini" id="pairCodeOutput" style="margin-top:8px;">Code: --</div>
-              <div class="mini" id="pairCodeCountdown" style="margin-top:6px;">Expires in --:--</div>
-              <div class="mini" id="pairDriverPinOutput" style="margin-top:10px;">Driver PIN: --</div>
-              <div class="mini" id="pairDriverPinCountdown" style="margin-top:6px;">PIN expires in --:--</div>
+              <div class="mini" id="pairCodeValue" style="margin-top:8px;">Code: --</div>
+              <div class="mini" id="pairExpiresValue" style="margin-top:6px;">Expires in --:--</div>
+              <div class="mini" id="pairDriverPinValue" style="margin-top:10px;">Driver PIN: --</div>
+              <div class="mini" id="pairPinExpiresValue" style="margin-top:6px;">PIN expires in --:--</div>
+              <div id="pairError" class="note" style="margin-top:10px; display:none;"></div>
+              <div id="pairConflict" class="note" style="margin-top:12px; display:none;">
+                <div style="font-weight:700; margin-bottom:6px;">Pairing already active</div>
+                <div id="pairConflictDetail" style="margin-bottom:8px;">--</div>
+                <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                  <button class="btn ghost" id="pairUseExisting" type="button">Use Existing Code</button>
+                  <button class="btn" id="pairExpireGenerate" type="button">Revoke Existing &amp; Generate New</button>
+                  <button class="btn primary" id="pairReplaceGenerate" type="button">Replace With New Code</button>
+                </div>
+              </div>
+              <details class="note" style="margin-top:12px;">
+                <summary style="cursor:pointer;">Pairing Debug</summary>
+                <div style="margin-top:6px; font-size:12px;">
+                  <div>Vehicle: <span id="pairingDebugVehicle">--</span></div>
+                  <div>Driver: <span id="pairingDebugDriver">--</span></div>
+                  <div>Endpoint: <span id="pairingDebugEndpoint">--</span></div>
+                  <div>Status: <span id="pairingDebugStatus">--</span></div>
+                  <div>Error: <span id="pairingDebugError">--</span></div>
+                  <div>Conflict: <span id="pairingDebugConflict">--</span></div>
+                  <div>Code: <span id="pairingDebugCode">--</span></div>
+                  <div>Response: <span id="pairingDebugResponse">--</span></div>
+                  <button class="btn ghost" id="pairPing" type="button" style="margin-top:8px;">Ping Pair Endpoint</button>
+                </div>
+              </details>
             </div>
           </div>
 
@@ -2026,9 +2436,75 @@
                     <th>Status</th>
                   </tr>
                 </thead>
-                <tbody id="pairingsTable"></tbody>
+                <tbody id="claimStatusTableBody"></tbody>
               </table>
-              <div id="pairingsEmpty" class="note" style="margin-top:10px; display:none;"><b>No pairings yet.</b> Generate a code and claim from a tablet.</div>
+              <div id="claimStatusEmpty" class="note" style="margin-top:10px; display:none;"><b>No pairings yet.</b> Generate a code and claim from a tablet.</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ADD-ONS VIEW -->
+      <section id="view-addons" class="section hide">
+        <div class="card">
+          <div class="hd">
+            <h2>Expansion Add-Ons</h2>
+            <div class="meta">Optional modules for deeper fleet coverage</div>
+          </div>
+          <div class="bd">
+            <div class="addonsHelp">Add-Ons expand Fleet AI beyond the core intelligence. Core features remain included.</div>
+            <div class="addonsTableWrap">
+              <table class="addonsTable">
+                <thead>
+                  <tr>
+                    <th>Add-On</th>
+                    <th>Pricing Model</th>
+                    <th>Price</th>
+                    <th>Quantity</th>
+                    <th>Estimated Monthly</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="addonsTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid2" style="margin-top:16px;">
+          <div class="card">
+            <div class="hd">
+              <h2>Totals Summary</h2>
+              <div class="meta">Monthly estimates</div>
+            </div>
+            <div class="bd">
+              <div class="summaryRow">
+                <span>Core price</span>
+                <span id="addonsCorePrice">Core billed separately</span>
+              </div>
+              <div class="summaryRow">
+                <span>Add-Ons subtotal</span>
+                <span id="addonsSubtotal">$0</span>
+              </div>
+              <div class="summaryRow total">
+                <span>Grand total</span>
+                <span id="addonsGrandTotal">--</span>
+              </div>
+              <div class="rightStack" style="margin-top:12px;">
+                <button class="btn" id="btnAddonsQuote">Generate Add-Ons Quote PDF</button>
+              </div>
+              <div class="mini" style="margin-top:8px;">Mock mode prints a quote view for review.</div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="hd">
+              <h2>Notes</h2>
+              <div class="meta">Enterprise expansion context</div>
+            </div>
+            <div class="bd">
+              <div class="mini">Add-Ons expand coverage for diagnostics, compliance, and asset intelligence. Core Fleet AI remains fully active.</div>
+              <div class="mini" style="margin-top:8px;">Contact Sales items require a quote request before activation.</div>
             </div>
           </div>
         </div>
@@ -2075,6 +2551,26 @@
 
         <div class="card" style="margin-top:14px;">
           <div class="hd">
+            <h2>Account Security</h2>
+            <div class="meta">Finalize account access and reset passwords</div>
+          </div>
+          <div class="bd">
+            <div class="mini" id="passwordStatusLabel">Password last updated: --</div>
+            <div style="display:grid; gap:8px; margin-top:10px;">
+              <input id="passwordCurrent" type="password" placeholder="Current password" />
+              <input id="passwordNew" type="password" placeholder="New password (10+ characters)" />
+              <input id="passwordConfirm" type="password" placeholder="Confirm new password" />
+            </div>
+            <div class="rightStack" style="margin-top:12px;">
+              <button class="btn primary" id="passwordUpdateBtn" disabled>Update Password</button>
+            </div>
+            <div class="mini" id="passwordUpdateMessage" style="margin-top:8px;"></div>
+            <div class="mini" style="margin-top:6px;"><a href="/ui/settings/set-password.html">Open the dedicated set password page</a></div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:14px;">
+          <div class="hd">
             <h2>Admin Controls</h2>
             <div class="meta">Access management</div>
           </div>
@@ -2089,6 +2585,98 @@
   </div>
 
   <!-- ambient canvases removed -->
+  <!-- Maintenance logs modal -->
+  <div class="overlay hide" id="maintLogsModal" role="dialog" aria-modal="true">
+    <div class="panel" style="width:520px;">
+      <h3 id="maintLogsModalTitle">Add Maintenance Log</h3>
+      <div class="f">
+        <div class="mini" id="maintLogVehicleLabel" style="margin-bottom:8px;"></div>
+        <label>
+          <span class="mini">Maintenance Type *</span>
+          <select id="maintLogType">
+            <option value="">Select maintenance type</option>
+            <option value="OIL_CHANGE">Oil Change</option>
+            <option value="TIRE_ROTATION">Tire Rotation</option>
+            <option value="TIRE_CHANGE_REPLACEMENT">Tire Change/Replacement</option>
+            <option value="BRAKE_INSPECTION">Brake Inspection</option>
+            <option value="BRAKE_PADS_SHOES_REPLACEMENT">Brake Pads/Shoes Replacement</option>
+            <option value="BRAKE_ADJUSTMENT">Brake Adjustment</option>
+            <option value="AIR_FILTER_REPLACEMENT">Air Filter Replacement</option>
+            <option value="FUEL_FILTER_REPLACEMENT">Fuel Filter Replacement</option>
+            <option value="CABIN_FILTER_REPLACEMENT">Cabin Filter Replacement</option>
+            <option value="COOLANT_FLUSH_SERVICE">Coolant Flush/Service</option>
+            <option value="THERMOSTAT_REPLACEMENT">Thermostat Replacement</option>
+            <option value="RADIATOR_REPLACEMENT_REPAIR">Radiator Replacement/Repair</option>
+            <option value="WATER_PUMP_REPLACEMENT">Water Pump Replacement</option>
+            <option value="SERPENTINE_BELT_REPLACEMENT">Serpentine Belt Replacement</option>
+            <option value="BATTERY_REPLACEMENT">Battery Replacement</option>
+            <option value="ALTERNATOR_REPLACEMENT">Alternator Replacement</option>
+            <option value="STARTER_REPLACEMENT">Starter Replacement</option>
+            <option value="TRANSMISSION_SERVICE">Transmission Service</option>
+            <option value="DIFFERENTIAL_SERVICE">Differential Service</option>
+            <option value="WHEEL_ALIGNMENT">Wheel Alignment</option>
+            <option value="SUSPENSION_INSPECTION">Suspension Inspection</option>
+            <option value="SHOCK_STRUT_REPLACEMENT">Shock/Strut Replacement</option>
+            <option value="INJECTOR_SERVICE_REPLACEMENT">Injector Service/Replacement</option>
+            <option value="GLOW_PLUG_REPLACEMENT">Glow Plug Replacement</option>
+            <option value="DPF_REGEN_SERVICE">DPF Regeneration/Service</option>
+            <option value="DEF_SYSTEM_SERVICE">DEF System Service</option>
+            <option value="EGR_SYSTEM_SERVICE">EGR System Service</option>
+            <option value="SENSOR_REPLACEMENT">Sensor Replacement</option>
+            <option value="CHECK_ENGINE_DIAGNOSTIC_SCAN">Check Engine / Diagnostic Scan</option>
+            <option value="MANUAL">Other (Manual Entry)</option>
+          </select>
+        </label>
+        <label id="maintLogSensorWrap" style="display:none;">
+          <span class="mini">Sensor Name (optional)</span>
+          <input type="text" id="maintLogSensor" placeholder="MAF, MAP, O2, ECT" />
+        </label>
+        <label>
+          <span class="mini">Date Performed</span>
+          <input type="datetime-local" id="maintLogDate" />
+        </label>
+        <div class="row" style="gap:10px;">
+          <label class="l">
+            <span class="mini">Odometer</span>
+            <input type="number" id="maintLogOdometer" min="0" step="0.1" />
+          </label>
+          <label class="l">
+            <span class="mini">Engine Hours</span>
+            <input type="number" id="maintLogHours" min="0" step="0.1" />
+          </label>
+        </div>
+        <label>
+          <span class="mini">Parts Used (comma-separated)</span>
+          <input type="text" id="maintLogParts" placeholder="Oil filter, 5W-30" />
+        </label>
+        <div class="row" style="gap:10px;">
+          <label class="l">
+            <span class="mini">Cost</span>
+            <input type="number" id="maintLogCost" min="0" step="0.01" />
+          </label>
+          <label class="l">
+            <span class="mini">Performed By</span>
+            <input type="text" id="maintLogPerformedBy" placeholder="Fleet manager, shop, driver" />
+          </label>
+        </div>
+        <label id="maintLogNotesWrap">
+          <span class="mini">Notes (optional)</span>
+          <textarea id="maintLogNotes" rows="3" placeholder="Add service notes or follow-ups"></textarea>
+        </label>
+        <label id="maintLogManualWrap" style="display:none;">
+          <span class="mini">Manual Entry Notes *</span>
+          <textarea id="maintLogManualNotes" rows="4" placeholder="Describe the maintenance performed"></textarea>
+        </label>
+        <div class="row" style="justify-content:space-between; align-items:center;">
+          <div class="mini" id="maintLogStatus"></div>
+          <div>
+            <button class="btn ghost" id="maintLogsCancel">Cancel</button>
+            <button class="btn primary" id="maintLogsSave">Save Log</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
   <!-- Login overlay (appears when no session) -->
   <div class="overlay hide" id="loginOverlay" role="dialog" aria-modal="true">
     <div class="panel">
@@ -2112,8 +2700,28 @@
     <div class="d" id="toastD">Details</div>
   </div>
 
+  <script src="/js/config.js"></script>
   <script src="/js/guard.js"></script>
+  <script>window.FLEETAI_PAIRING_V2 = true;</script>
   <script>
+    (function(){
+      const banner = document.getElementById("devBanner");
+      const bannerText = document.getElementById("devBannerText");
+      window.showBanner = function showBanner(msg){
+        if(!banner || !bannerText) return;
+        bannerText.textContent = msg || "Unknown error";
+        banner.style.display = "block";
+      };
+      window.addEventListener("error", (e) => {
+        const message = e && e.message ? e.message : "JS error";
+        showBanner(`JS error: ${message}`);
+      });
+      window.addEventListener("unhandledrejection", (e) => {
+        const reason = e && e.reason ? (e.reason.message || String(e.reason)) : "Promise rejection";
+        showBanner(`Promise rejection: ${reason}`);
+      });
+      console.log("[PAIRING] script loaded", new Date().toISOString());
+    })();
     /***********************
      * LIVE-ONLY CONFIG
      ***********************/
@@ -2159,13 +2767,37 @@
       drivers: [],
       pairings: [],
       telemetryLastSeen: null,
+      telemetryStream: {
+        connected: false,
+        lastHeartbeat: null,
+        lastMessage: null,
+        obdConnected: false,
+        deviceOnline: null
+      },
       alerts: [],
       alertsLoaded: false,
       notifFeed: [],
       eventLog: [],
+      selectedAlert: null,
       lastVals: {},
       tick: 0,
       persist: {},
+      addons: {
+        enabledAddons: {},
+        trailerCount: 0,
+        loaded: false
+      },
+      maintenance: {
+        logs: [],
+        loaded: false,
+        editingId: null
+      },
+      maintenanceLogs: {
+        logs: [],
+        loaded: false,
+        editingId: null
+      },
+      recommendations: [],
       apiTelemetry: null,
       lastAlertId: null,
 
@@ -2181,6 +2813,14 @@
       camera: {
         channel: "road",
         stream: null
+      },
+      healthRisk: {
+        data: null,
+        loading: false
+      },
+      fuelEvents: {
+        data: [],
+        fuelSignalAvailable: false
       }
     };
 
@@ -2188,7 +2828,39 @@
      * HELPERS
      ***********************/
     const $ = (id)=>document.getElementById(id);
-    const API_BASE_URL = window.location.origin;
+    function resolveApiBase(){
+      try{
+        const stored = localStorage.getItem("fleetai.serverBase");
+        if(stored) return String(stored).replace(/\/$/, "");
+      }catch(e){}
+      const injected = window.__FLEETAI_API_BASE_URL__ || window.FLEETAI_API_BASE_URL || window.API_BASE_URL;
+      if(injected) return String(injected).replace(/\/$/, "");
+      if(window.location && window.location.origin && !window.location.origin.startsWith("file")) return window.location.origin;
+      return "";
+    }
+    const API_BASE_URL = resolveApiBase();
+    const DIAG_ENABLED = (() => {
+      try{
+        const params = new URLSearchParams(window.location.search);
+        if(params.get("diag") === "1") return true;
+        return localStorage.getItem("fleetai.diagnostics") === "true";
+      }catch(e){
+        return false;
+      }
+    })();
+    const PAIRING_V2 = window.FLEETAI_PAIRING_V2 === true;
+    const AI_ADVISOR_ENABLED = true;
+
+    function diagLog(){
+      if(!DIAG_ENABLED) return;
+      console.log.apply(console, ["[diagnostics]"].concat(Array.from(arguments)));
+    }
+    if(DIAG_ENABLED){
+      document.addEventListener("click", (e)=>{
+        const top = document.elementFromPoint(e.clientX, e.clientY);
+        console.log("[diag click]", top && top.id, top && top.className);
+      }, true);
+    }
     const MOCK_MODE = false;
     const REQUIRE_LOGIN = false;
     const DEV_LOG_NAV = false;
@@ -2204,21 +2876,41 @@
     const isFileProtocol = window.location.protocol === "file:";
     const apiEndpoint = () => `${API_BASE_URL}/api/telemetry?vehicle_id=${encodeURIComponent(state.selectedVehicleId || "")}`;
     const tireRiskEndpoint = () => `${API_BASE_URL}/api/tire-risk?vehicle_id=${encodeURIComponent(state.selectedVehicleId || "")}`;
-    const vehiclesEndpoint = `${API_BASE_URL}/vehicles`;
-    const driversEndpoint = `${API_BASE_URL}/drivers`;
-    const pairingGenerateEndpoint = `${API_BASE_URL}/pairings/generate`;
-    const pairingClaimEndpoint = `${API_BASE_URL}/pairings/claim`;
-    const pairingActiveEndpoint = `${API_BASE_URL}/pairings/active`;
+    const vehiclesEndpoint = `${API_BASE_URL}/api/vehicles`;
+    const driversEndpoint = `${API_BASE_URL}/api/drivers`;
+    const pairingGenerateEndpoint = `${API_BASE_URL}/api/pairings/generate`;
+    const pairingClaimEndpoint = `${API_BASE_URL}/api/pairings/claim`;
+    const pairingActiveEndpoint = `${API_BASE_URL}/api/pairings/active`;
+    const pairCodeEndpoint = `${API_BASE_URL}/api/pairing/generate`;
+    const pairCodeReplaceEndpoint = `${API_BASE_URL}/api/pair-code/replace`;
+    const pairCodeExpireGenerateEndpoint = `${API_BASE_URL}/api/pairing/expire-and-generate`;
+    const pairCodeRevokeEndpoint = `${API_BASE_URL}/api/pairing/revoke`;
+    const pairCodeExpireEndpoint = (pairId) => `${API_BASE_URL}/api/pair-code/${encodeURIComponent(pairId)}/expire`;
+    const pairHealthEndpoint = `${API_BASE_URL}/api/pairing/health`;
     const healthEndpoint = `${API_BASE_URL}/health`;
     const alertsEndpoint = () => `${API_BASE_URL}/api/alerts?vehicle_id=${encodeURIComponent(state.selectedVehicleId || "")}&limit=20`;
     const insightsLatestEndpoint = () => `${API_BASE_URL}/api/insights/latest?vehicle_id=${encodeURIComponent(state.selectedVehicleId || "")}`;
     const insightsGenerateEndpoint = () => `${API_BASE_URL}/api/insights/generate?vehicle_id=${encodeURIComponent(state.selectedVehicleId || "")}`;
-    const aiAdvisorEndpoint = `${API_BASE_URL}/api/ai/chat`;
+    const aiAdvisorEndpoint = `${API_BASE_URL}/api/ai/advisor`;
+    const aiAdvisorStatusEndpoint = `${API_BASE_URL}/api/advisor/status`;
+    const aiMaintenanceEndpoint = `${API_BASE_URL}/api/ai/log-maintenance`;
+    const maintenanceEndpoint = `${API_BASE_URL}/api/maintenance`;
+    const addonsEndpoint = `${API_BASE_URL}/api/fleet/addons`;
+    const addonsQuoteEndpoint = `${API_BASE_URL}/api/fleet/addons/request-quote`;
+    const telemetryHistoryEndpoint = () => `${API_BASE_URL}/api/vehicles/${encodeURIComponent(state.selectedVehicleId || "")}/metrics/history`;
+    const dtcHistoryEndpoint = () => `${API_BASE_URL}/api/vehicles/${encodeURIComponent(state.selectedVehicleId || "")}/dtc-history`;
+    const fuelEventsEndpoint = () => `${API_BASE_URL}/api/fuel/events?vehicleId=${encodeURIComponent(state.selectedVehicleId || "")}`;
+    const maintenanceLogsEndpoint = () => `${API_BASE_URL}/api/maintenance-logs`;
     const AI_ADVISOR_STORAGE_KEY = "fleetai_ai_advisor_history";
     const AI_ADVISOR_SUPPORT_KEY = "fleetai_ai_support_requests";
+    const ADDON_STORAGE_KEY = "fleet_addons_state_v1";
+    const TRAILER_COUNT_KEY = "fleet_trailer_count_v1";
+    const ADDON_QUOTE_KEY = "fleet_addons_quote_requests_v1";
+    let currentUserProfile = null;
     const AI_ADVISOR_CONFIG = {
       endpoint: aiAdvisorEndpoint,
-      mockEnabled: true
+      statusEndpoint: aiAdvisorStatusEndpoint,
+      mockEnabled: false
     };
 
     function loadStore(key, fallback){
@@ -2227,12 +2919,46 @@
         return raw ? JSON.parse(raw) : fallback;
       } catch(e){
         return fallback;
-      }
     }
+  }
+
+  // Telemetry helpers (stubs are overwritten later if real implementations exist)
+  async function loadTelemetryHistory(){
+    const body = $("telemetryHistoryTable");
+    if(body){
+      body.innerHTML = `<tr><td colspan="2"><span class="mini">No telemetry history yet.</span></td></tr>`;
+    }
+    return [];
+  }
+  async function loadFuelEvents(){
+    const list = $("fuelEventsList");
+    if(list){
+      list.innerHTML = `<div class="note"><b>Fuel events not available.</b></div>`;
+    }
+    return [];
+  }
+  async function loadDtcHistory(){
+    const body = $("dtcHistoryTable");
+    if(body){
+      body.innerHTML = `<tr><td colspan="4"><span class="mini">No DTC history yet.</span></td></tr>`;
+    }
+    return [];
+  }
 
     function saveStore(key, value){
       try{ localStorage.setItem(key, JSON.stringify(value)); }catch(e){}
     }
+
+    const ADDON_CATALOG = [
+      { id: "advanced_diagnostics", name: "Advanced Diagnostics & Active Testing", priceModel: "per_fleet", price: 25 },
+      { id: "driver_wellness", name: "Driver Wellness & Fatigue Monitoring", priceModel: "per_vehicle", price: 4 },
+      { id: "environmental_reefer", name: "Environmental & Reefer Monitoring", priceModel: "per_vehicle", price: 8 },
+      { id: "trailer_gps", name: "Trailer-Only GPS Tracking", priceModel: "per_trailer", price: 5 },
+      { id: "yard_asset", name: "Yard & Asset Intelligence", priceModel: "per_vehicle", price: 8 },
+      { id: "fleet_benchmarking", name: "Fleet Benchmarking", priceModel: "per_fleet", price: 15 },
+      { id: "dedicated_advisor", name: "Dedicated Fleet Advisor", priceModel: "per_month_flat", price: 700 },
+      { id: "custom_ai_dev", name: "Custom AI Development (Enterprise Service)", priceModel: "contact_sales", price: null }
+    ];
     const apiTelemetryKeys = new Set([
       "vehicle_id",
       "vin",
@@ -2276,7 +3002,8 @@
         el.textContent = "Connection: Connected";
         el.style.color = "var(--good)";
       } else {
-        el.textContent = `Connection: Disconnected (${message || "error"})`;
+        const safe = message && message !== "Fetch failed" ? message : "check backend";
+        el.textContent = `Connection: Disconnected (${safe})`;
         el.style.color = "var(--bad)";
       }
     }
@@ -2321,6 +3048,10 @@
       const pill = $("telemetryStatusPill");
       const note = $("telemetryStatusNote");
       if(!pill || !note) return;
+      const backendConnected = state.telemetryStream.connected;
+      const lastMsg = state.telemetryStream.lastMessage ? new Date(state.telemetryStream.lastMessage).getTime() : 0;
+      const deviceFresh = lastMsg && (Date.now() - lastMsg) < 10000;
+      const obdConnected = state.telemetryStream.obdConnected && deviceFresh;
       if(!state.selectedVehicleId){
         pill.className = "pill2";
         pill.textContent = "No vehicles yet";
@@ -2334,17 +3065,19 @@
         note.textContent = "Waiting for a pairing code to be claimed by a tablet.";
         return;
       }
-      const lastSeen = state.telemetryLastSeen ? new Date(state.telemetryLastSeen).getTime() : 0;
-      const fresh = lastSeen && (Date.now() - lastSeen) < 30000;
-      if(fresh){
-        pill.className = "pill2 good";
-        pill.textContent = "Receiving data";
-        note.textContent = "Live OBD data is streaming from the paired tablet.";
-      } else {
-        pill.className = "pill2 warn";
-        pill.textContent = "Waiting for OBD-II connection";
-        note.textContent = "Pairing is active, waiting for OBD-II data from the tablet.";
+      if(backendConnected && deviceFresh){
+        pill.className = obdConnected ? "pill2 good" : "pill2 warn";
+        pill.textContent = obdConnected ? "OBD Connected" : "Device online, OBD offline";
+        note.textContent = obdConnected
+          ? "Live OBD data is streaming from the paired tablet."
+          : "Tablet online; waiting for OBD-II dongle data.";
+        return;
       }
+      pill.className = "pill2 warn";
+      pill.textContent = backendConnected ? "Device offline" : "Backend disconnected";
+      note.textContent = backendConnected
+        ? "Waiting for device to send telemetry."
+        : "Reconnecting to backend...";
     }
 
     async function fetchTelemetry(){
@@ -2375,9 +3108,250 @@
         updateTelemetryStatus();
       } catch(err){
         logError("Telemetry fetch failed", err);
-        updateTelemetryStatus();
+      updateTelemetryStatus();
+    }
+
+    function formatMetricValueForHistory(metricKey, value){
+      if(value == null || Number.isNaN(value)) return "--";
+      const rounded = (digits) => Number(value).toFixed(digits);
+      switch(metricKey){
+        case "coolantTempC":
+        case "intakeAirTempC":
+          return `${rounded(1)} C`;
+        case "batteryVoltageV":
+          return `${rounded(2)} V`;
+        case "engineLoadPct":
+        case "fuelLevelPct":
+        case "stft1":
+        case "ltft1":
+          return `${rounded(1)} %`;
+        case "rpm":
+          return `${Math.round(value)} rpm`;
+        case "maf":
+          return `${rounded(1)} g/s`;
+        case "speedKph":
+          return `${rounded(1)} kph`;
+        case "odometerKm":
+          return `${rounded(1)} km`;
+        case "engineHours":
+          return `${rounded(1)} h`;
+        default:
+          return `${value}`;
       }
     }
+
+    function renderTelemetryHistoryRows(rows, metricKey){
+      const body = $("telemetryHistoryTable");
+      if(!body) return;
+      if(!rows.length){
+        body.innerHTML = `<tr><td colspan="2"><span class="mini">No telemetry history yet.</span></td></tr>`;
+        return;
+      }
+      body.innerHTML = rows.map(item=>{
+        const ts = item.ts ? new Date(item.ts).toLocaleString() : "--";
+        const value = formatMetricValueForHistory(metricKey, item.value);
+        return `
+          <tr>
+            <td>${ts}</td>
+            <td>${value}</td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+  async function loadTelemetryHistory(){
+    const metricSelect = $("telemetryHistoryMetric");
+    const rangeSelect = $("telemetryHistoryRange");
+    if(!metricSelect || !rangeSelect){
+      return;
+    }
+    if(!state.selectedVehicleId){
+      renderTelemetryHistoryRows([], metricSelect.value);
+      return;
+    }
+    const params = new URLSearchParams({
+      metricKey: metricSelect.value,
+      range: rangeSelect.value
+    });
+    try{
+      const data = await fetchJson(`${telemetryHistoryEndpoint()}?${params.toString()}`);
+      renderTelemetryHistoryRows(data.data || [], metricSelect.value);
+    }catch(err){
+      renderTelemetryHistoryRows([], metricSelect.value);
+    }
+  }
+
+    function renderFuelEvents(events){
+      const body = $("fuelEventsTable");
+      const empty = $("fuelEventsEmpty");
+      if(!body) return;
+      if(!events.length){
+        body.innerHTML = `<tr><td colspan="5"><span class="mini">No fuel events yet.</span></td></tr>`;
+        if(empty) empty.style.display = state.fuelEvents.fuelSignalAvailable ? "none" : "block";
+        return;
+      }
+      if(empty) empty.style.display = "none";
+      body.innerHTML = events.map(evt=>{
+        const start = evt.tsStart || evt.startTs;
+        const end = evt.tsEnd || evt.endTs;
+        const startLabel = start ? new Date(start).toLocaleString() : "--";
+        const endLabel = end ? new Date(end).toLocaleString() : "--";
+        const deltaPct = evt.deltaFuelPct != null
+          ? `${evt.deltaFuelPct}%`
+          : (evt.fuelLevelBefore != null && evt.fuelLevelAfter != null
+            ? `${Math.round((evt.fuelLevelAfter - evt.fuelLevelBefore) * 10) / 10}%`
+            : "--");
+        const confidence = evt.confidence != null ? `${Math.round(evt.confidence * 100)}%` : "--";
+        const notes = evt.note || evt.notes || "--";
+        return `
+          <tr>
+            <td>${startLabel}</td>
+            <td>${endLabel}</td>
+            <td>${deltaPct}</td>
+            <td>${confidence}</td>
+            <td>${notes}</td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+  async function loadFuelEvents(){
+    if(!state.selectedVehicleId){
+      state.fuelEvents.fuelSignalAvailable = false;
+      renderFuelEvents([]);
+      return;
+    }
+    try{
+      const data = await fetchJson(fuelEventsEndpoint());
+      state.fuelEvents.fuelSignalAvailable = Boolean(data.fuelSignalAvailable);
+      renderFuelEvents(data.data || []);
+    }catch(err){
+      state.fuelEvents.fuelSignalAvailable = false;
+      renderFuelEvents([]);
+    }
+  }
+
+    function renderHealthRisk(){
+      const anomaly = $("healthAnomalyScore");
+      const anomalyNote = $("healthAnomalyNote");
+      const confidence = $("healthConfidence");
+      const confidenceNote = $("healthConfidenceNote");
+      const contributors = $("healthContributors");
+      const riskPanel = $("healthRiskPanel");
+      const data = state.healthRisk.data;
+      if(!anomaly || !anomalyNote || !confidence || !confidenceNote || !contributors || !riskPanel) return;
+      if(!data || data.insufficientHistory){
+        anomaly.textContent = "--";
+        anomalyNote.textContent = "Not enough history yet.";
+        confidence.textContent = "--";
+        confidenceNote.textContent = "Waiting for data coverage.";
+        contributors.innerHTML = `<div class="note">Not enough history yet.</div>`;
+        riskPanel.innerHTML = `<div class="note">Not enough data yet to score subsystem risk.</div>`;
+        return;
+      }
+      const score = data.anomalyScore != null ? Math.round(data.anomalyScore * 100) : null;
+      anomaly.textContent = score != null ? `${score}` : "--";
+      anomalyNote.textContent = data.topContributors?.length ? "Anomaly detected from recent samples." : "No anomaly detected.";
+      const conf = data.confidence != null ? data.confidence : 0;
+      const confLabel = conf >= 0.75 ? "High" : conf >= 0.45 ? "Medium" : "Low";
+      confidence.textContent = confLabel;
+      confidenceNote.textContent = `Coverage ${(data.coverage * 100).toFixed(0)}% over ${data.sampleCount} samples.`;
+      if(data.topContributors && data.topContributors.length){
+        contributors.innerHTML = data.topContributors.map(item=>`
+          <div class="row" style="margin-top:8px;">
+            <div class="l">
+              <h3>${item.metric}</h3>
+              <p>${item.reason}</p>
+            </div>
+            <div class="r">
+              <span class="pill2">${item.zScore.toFixed(2)} z</span>
+            </div>
+          </div>
+        `).join("");
+      } else {
+        contributors.innerHTML = `<div class="note">No deviations detected.</div>`;
+      }
+      const risk = data.risk || {};
+      const renderRiskRow = (label, entry) => {
+        if(!entry){
+          return `<div class="row"><div class="l"><h3>${label}</h3><p>Not enough data yet.</p></div><div class="r"><span class="pill2">--</span></div></div>`;
+        }
+        return `
+          <div class="row">
+            <div class="l">
+              <h3>${label}</h3>
+              <p>${entry.reason || "Risk trend detected."}</p>
+            </div>
+            <div class="r" style="text-align:right;">
+              <div class="mini">7d: ${entry.risk7}</div>
+              <div class="mini">14d: ${entry.risk14}</div>
+              <div class="mini">30d: ${entry.risk30}</div>
+            </div>
+          </div>
+        `;
+      };
+      riskPanel.innerHTML = [
+        renderRiskRow("Cooling System", risk.cooling),
+        renderRiskRow("Charging System", risk.charging),
+        renderRiskRow("Fuel System", risk.fuel)
+      ].join("");
+    }
+
+    async function loadHealthRisk(){
+      if(!state.selectedVehicleId){
+        state.healthRisk.data = null;
+        renderHealthRisk();
+        return;
+      }
+      state.healthRisk.loading = true;
+      try{
+        const data = await fetchJson(`${API_BASE_URL}/api/ml/state?vehicleId=${encodeURIComponent(state.selectedVehicleId)}`);
+        state.healthRisk.data = data.data || null;
+        renderHealthRisk();
+      }catch(err){
+        state.healthRisk.data = null;
+        renderHealthRisk();
+      }finally{
+        state.healthRisk.loading = false;
+      }
+    }
+
+    function renderDtcHistory(rows){
+      const body = $("dtcHistoryTable");
+      if(!body) return;
+      if(!rows.length){
+        body.innerHTML = `<tr><td colspan="4"><span class="mini">No DTCs recorded yet.</span></td></tr>`;
+        return;
+      }
+      body.innerHTML = rows.map(item=>{
+        const ts = item.ts ? new Date(item.ts).toLocaleString() : "--";
+        const protocol = item.protocol || "UNKNOWN";
+        return `
+          <tr>
+            <td>${ts}</td>
+            <td>${item.code || "--"}</td>
+            <td>${protocol}</td>
+            <td>${item.note || "--"}</td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+  async function loadDtcHistory(){
+    const rangeSelect = $("dtcHistoryRange");
+    if(!rangeSelect) return;
+    if(!state.selectedVehicleId){
+      renderDtcHistory([]);
+      return;
+    }
+    const params = new URLSearchParams({ range: rangeSelect.value });
+    try{
+      const data = await fetchJson(`${dtcHistoryEndpoint()}?${params.toString()}`);
+      renderDtcHistory(data.data || []);
+    }catch(err){
+      renderDtcHistory([]);
+    }
+  }
 
     function formatAlertTime(ts){
       if(!ts) return nowTime();
@@ -2395,8 +3369,10 @@
         unit: alert.vehicle_id || "--",
         title: alert.title || "Alert",
         desc: alert.details || alert.recommended_action || "No details available.",
+        details: alert.details || "",
+        action: alert.recommended_action || "",
         time: formatAlertTime(alert.timestamp),
-        action: alert.recommended_action || ""
+        raw: alert
       };
     }
 
@@ -2447,7 +3423,7 @@
 
     function formatInsight(insight){
       if(!insight){
-        return "No AI insight available yet.";
+        return "No AI insight yet. Connect a paired vehicle and review recent alerts to generate a maintenance-focused summary.";
       }
       const summary = insight.summary || "No summary available.";
       const actions = Array.isArray(insight.recommended_actions) ? insight.recommended_actions : [];
@@ -2648,9 +3624,9 @@
     }
 
     function renderPairingsTable(pairings, vehicles, drivers){
-      const body = $("pairingsTable");
+      const body = $("claimStatusTableBody");
       if(!body) return;
-      const empty = $("pairingsEmpty");
+      const empty = $("claimStatusEmpty");
       if(!pairings.length){
         body.innerHTML = "";
         if(empty) empty.style.display = "block";
@@ -2705,20 +3681,89 @@
       }
     }
 
+    function getCustomerToken(){
+      try{
+        return localStorage.getItem("fleetai_customer_token") || "";
+      }catch(e){
+        return "";
+      }
+    }
+
+    async function safeJsonResponse(res){
+      const text = await res.text();
+      try{
+        return { parsed: true, data: text ? JSON.parse(text) : {}, raw: text };
+      }catch(err){
+        diagLog("non-json-response", text ? text.slice(0, 200) : "");
+        return { parsed: false, data: null, raw: text };
+      }
+    }
+
     async function fetchJson(url, options){
       const opts = options || {};
+      const token = getCustomerToken();
       const headers = Object.assign({"Content-Type":"application/json"}, opts.headers || {});
+      if(token) headers.Authorization = `Bearer ${token}`;
       try{
-        const res = await fetch(url, Object.assign({}, opts, { headers }));
+        diagLog("request", opts.method || "GET", url);
+        const res = await fetch(url, Object.assign({}, opts, { headers, credentials:"include" }));
+        const parsed = await safeJsonResponse(res);
+        if(!parsed.parsed){
+          throw new Error("Non-JSON response");
+        }
         if(!res.ok){
-          throw new Error(`HTTP ${res.status}`);
+          throw new Error(parsed.data?.error || `Request failed (${res.status})`);
         }
         updateConnectionStatus(true);
-        return res.json();
+        diagLog("response", res.status, url, parsed.data);
+        return parsed.data;
       } catch(err){
-        updateConnectionStatus(false, err && err.message ? err.message : "Fetch failed");
+        const rawMsg = err && err.message ? err.message : "Request failed";
+        const safeMsg = rawMsg.includes("Failed to fetch") ? "check backend" : rawMsg;
+        updateConnectionStatus(false, safeMsg);
+        try{
+          toast("Request error", safeMsg);
+        }catch(e){}
+        diagLog("error", url, err && err.message ? err.message : err);
         throw err;
       }
+    }
+
+    function safeInvoke(name){
+      try{
+        const fn = window[name];
+        if(typeof fn !== "function"){
+          if(typeof window.showBanner === "function"){
+            window.showBanner(`Missing function: ${name}`);
+          }
+          return false;
+        }
+        fn();
+        return true;
+      }catch(err){
+        if(typeof window.showBanner === "function"){
+          const msg = err && err.message ? err.message : String(err);
+          window.showBanner(`Error in ${name}: ${msg}`);
+        }
+        return false;
+      }
+    }
+
+    async function checkConfigStatus(){
+      try{
+        const res = await fetch("/api/health", { credentials: "include" });
+        if(!res.ok) return;
+        const text = await res.text();
+        let data = null;
+        try{ data = JSON.parse(text); }catch(e){ return; }
+        const status = data?.data?.status;
+        if(status && status !== "OK"){
+          const note = data?.data?.note ? ` (${data.data.note})` : "";
+          if(typeof window.showBanner === "function"){
+            window.showBanner(`Config recovery mode: ${status}${note}`);
+          }
+        }
+      }catch(e){}
     }
 
     function setTheme(theme){
@@ -2765,6 +3810,151 @@
       const input = $("companyNameInput");
       if(input) input.value = name;
       setCompanyName(name);
+    }
+
+    function setHeaderUserLabel(label){
+      const el = $("headerUserName");
+      if(!el) return;
+      el.textContent = label || "Preview Mode";
+    }
+
+    function setOrgBranding(orgName){
+      const name = orgName && orgName.trim ? orgName.trim() : "";
+      if(!name) return;
+      const header = $("headerCompanyName");
+      if(header) header.textContent = `Fleet AI | ${name}`;
+      const suffix = $("headerCompanySuffix");
+      if(suffix) suffix.textContent = "";
+      const sidebar = $("companyName");
+      if(sidebar) sidebar.textContent = name;
+      const input = $("companyNameInput");
+      if(input) input.value = name;
+      document.title = `Fleet AI | ${name}`;
+    }
+
+    function formatDateTimeShort(value){
+      if(!value) return "--";
+      const d = new Date(value);
+      if(Number.isNaN(d.getTime())) return "--";
+      return `${d.toLocaleDateString()} ${d.toLocaleTimeString([], { hour:"2-digit", minute:"2-digit" })}`;
+    }
+
+    function updatePasswordSection(profile){
+      const status = $("passwordStatusLabel");
+      const btn = $("passwordUpdateBtn");
+      if(!status) return;
+      const mustSet = Boolean(profile?.mustSetPassword);
+      const lastSet = profile?.passwordLastSetAt;
+      if(mustSet){
+        status.textContent = "Temporary password detected. Set a permanent password to continue.";
+        if(btn) btn.textContent = "Set Password";
+      } else {
+        status.textContent = `Password last updated on ${formatDateTimeShort(lastSet)}.`;
+        if(btn) btn.textContent = "Update Password";
+      }
+    }
+
+    function validatePasswordUpdateForm(){
+      const current = $("passwordCurrent")?.value || "";
+      const next = $("passwordNew")?.value || "";
+      const confirm = $("passwordConfirm")?.value || "";
+      const btn = $("passwordUpdateBtn");
+      if(!btn) return;
+      const valid = current.length > 0 && next.length >= 10 && next === confirm;
+      btn.disabled = !valid;
+    }
+
+    async function submitPasswordUpdate(){
+      const current = $("passwordCurrent")?.value || "";
+      const next = $("passwordNew")?.value || "";
+      const confirm = $("passwordConfirm")?.value || "";
+      const msg = $("passwordUpdateMessage");
+      if(msg) msg.textContent = "";
+      if(!current || !next || !confirm){
+        if(msg) msg.textContent = "Current, new, and confirm password are required.";
+        return;
+      }
+      if(next.length < 10){
+        if(msg) msg.textContent = "Password must be at least 10 characters.";
+        return;
+      }
+      if(next !== confirm){
+        if(msg) msg.textContent = "Passwords do not match.";
+        return;
+      }
+      try{
+        const res = await fetch(`${API_BASE_URL}/api/auth/password/update`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ currentPassword: current, newPassword: next })
+        });
+        if(res.status === 401){
+          window.location.href = "/customer-login.html";
+          return;
+        }
+        const data = await res.json();
+        if(!res.ok){
+          if(msg) msg.textContent = data.error || "Unable to update password.";
+          return;
+        }
+        if(msg) msg.textContent = "Password updated successfully.";
+        $("passwordCurrent").value = "";
+        $("passwordNew").value = "";
+        $("passwordConfirm").value = "";
+        validatePasswordUpdateForm();
+        loadCustomerProfile();
+      }catch(err){
+        if(msg) msg.textContent = "Update failed. Check connection.";
+      }
+    }
+
+    function initPasswordSettings(){
+      ["passwordCurrent","passwordNew","passwordConfirm"].forEach((id)=>{
+        const el = $(id);
+        if(el){
+          el.addEventListener("input", validatePasswordUpdateForm);
+        }
+      });
+      const btn = $("passwordUpdateBtn");
+      if(btn) btn.addEventListener("click", submitPasswordUpdate);
+      validatePasswordUpdateForm();
+    }
+
+    async function loadCustomerProfile(){
+      try{
+        const res = await fetch(`${API_BASE_URL}/api/me`);
+        if(res.status === 401){
+          setHeaderUserLabel("Preview Mode");
+          return;
+        }
+        if(!res.ok){
+          setHeaderUserLabel("Preview Mode");
+          return;
+        }
+        const data = await res.json();
+        if(data.mustSetPassword || data.resetRequired || data.requirePasswordReset){
+          window.location.href = "/ui/settings/set-password.html";
+          return;
+        }
+        const user = data.user || {};
+        currentUserProfile = user;
+        const display = user.displayName || user.email || "";
+        setHeaderUserLabel(display ? `Signed in as ${display}` : "Signed in");
+        updatePasswordSection(user);
+        if(user.orgId){
+          try{ localStorage.setItem("fleetai.orgId", user.orgId); }catch(e){}
+          const orgRes = await fetch(`${API_BASE_URL}/api/orgs/${encodeURIComponent(user.orgId)}/public-profile`);
+          if(orgRes.ok){
+            const orgData = await orgRes.json();
+            const orgName = orgData && orgData.data ? orgData.data.name : "";
+            if(orgName){
+              setOrgBranding(orgName);
+            }
+          }
+        }
+      }catch(e){
+        setHeaderUserLabel("Preview Mode");
+      }
     }
 
     async function getVehicles(){
@@ -2822,6 +4012,9 @@
         initGPS();
         renderGPSFeed();
         updateTelemetryStatus();
+        if(state.addons.loaded){
+          renderAddons();
+        }
       } catch(err){
         logError("Fleet management fetch failed", err);
       }
@@ -2893,7 +4086,7 @@
 
     let pairCountdownTimer = null;
     function startPairCountdown(expiresAt){
-      const output = $("pairCodeCountdown");
+      const output = $("pairExpiresValue");
       if(!output) return;
       if(pairCountdownTimer){
         clearInterval(pairCountdownTimer);
@@ -2915,7 +4108,7 @@
 
     let pairPinCountdownTimer = null;
     function startPinCountdown(expiresAt){
-      const output = $("pairDriverPinCountdown");
+      const output = $("pairPinExpiresValue");
       if(!output) return;
       if(pairPinCountdownTimer){
         clearInterval(pairPinCountdownTimer);
@@ -2936,13 +4129,36 @@
     }
 
     async function generatePairCode(){
-      const vehicleId = $("pairVehicleSelect").value;
-      const driverId = $("pairDriverSelect").value;
+      const vehicleId = $("pairVehicleSelect")?.value || "";
+      const driverId = $("pairDriverSelect")?.value || "";
+      const btn = $("btnGeneratePairCode");
+      console.log("[PAIR] click", { vehicleId, driverId });
+      updatePairDebug({
+        vehicleId,
+        driverId,
+        endpoint: pairCodeEndpoint,
+        status: "REQUESTING",
+        error: "--",
+        conflict: "--",
+        code: "--",
+        response: "--"
+      });
       if(!vehicleId || !driverId){
         toast("Missing selection", "Choose a vehicle and driver.");
+        updatePairDebug({ error: "missing vehicle or driver" });
+        const err = $("pairError");
+        if(err){
+          err.textContent = "Select a vehicle and driver.";
+          err.style.display = "block";
+        }
         return;
       }
       try{
+        if(btn){
+          btn.disabled = true;
+          btn.textContent = "Generating...";
+        }
+        clearPairConflict();
         let data = null;
         if(MOCK_MODE){
           const pairings = loadMock(MOCK_KEYS.pairings, []);
@@ -2959,29 +4175,149 @@
           pairings.push(record);
           saveMock(MOCK_KEYS.pairings, pairings);
           data = { pairingCode: pairing_code, expiresAt: expires_at, driverPin: "--", driverPinExpiresAt: expires_at };
-        } else {
-          data = await fetchJson(pairingGenerateEndpoint, {
-            method: "POST",
-            body: JSON.stringify({ vehicleId, driverId })
-          });
+          updatePairDebug({ status: "200", code: pairing_code });
+          renderPairingCode(data);
+          toast("Pairing generated", `Share code ${pairing_code} and driver PIN with the driver.`);
+          loadFleetManagement();
+          return;
         }
-        const code = data.pairingCode || data.code || data.pairing_code || "--";
-        const expiresAt = data.expiresAt || data.expires_at;
-        const driverPin = data.driverPin || data.driver_pin || "--";
-        const driverPinExpiresAt = data.driverPinExpiresAt || data.driver_pin_expires_at || expiresAt;
-        $("pairCodeOutput").textContent = `Code: ${code}`;
-        $("pairDriverPinOutput").textContent = `Driver PIN: ${driverPin}`;
-        if(expiresAt){
-          startPairCountdown(expiresAt);
-          startPinCountdown(driverPinExpiresAt || expiresAt);
+        const token = getCustomerToken();
+        const headers = { "Content-Type": "application/json" };
+        if(token) headers.Authorization = `Bearer ${token}`;
+        const res = await fetch(pairCodeEndpoint, {
+          method: "POST",
+          headers,
+          credentials: "include",
+          body: JSON.stringify({ vehicleId, driverId })
+        });
+        updatePairDebug({ status: String(res.status) });
+        const parsed = await safeJsonResponse(res);
+        if(!parsed.parsed){
+          updatePairDebug({ error: "non_json_response", response: (parsed.raw || "").slice(0, 200) });
+          const err = $("pairError");
+          if(err){
+            err.textContent = "Server returned non-JSON.";
+            err.style.display = "block";
+          }
+          toast("Generate pair code failed", "Server returned non-JSON.");
+          return;
         }
-        toast("Pairing generated", `Share code ${code} and driver PIN with the driver.`);
+        data = parsed.data || {};
+        updatePairDebug({ response: (parsed.raw || JSON.stringify(data)).slice(0, 200) });
+        if(res.status === 409 && (data.error === "pair_conflict" || data.error === "PAIRING_CONFLICT")){
+          updatePairDebug({ conflict: data.reason || data.error || "pair_conflict" });
+          showPairConflict(data);
+          return;
+        }
+        if(!res.ok){
+          updatePairDebug({ error: data.error || `request_failed_${res.status}` });
+          const err = $("pairError");
+          if(err){
+            err.textContent = data.error || `Request failed (${res.status})`;
+            err.style.display = "block";
+          }
+          toast("Generate pair code failed", data.error || "Unable to generate pairing code.");
+          return;
+        }
+        updatePairDebug({ code: data.code || data.pairingCode || "--" });
+        renderPairingCode(data);
+        toast("Pairing generated", `Share code ${data.code || data.pairingCode || "--"} and driver PIN with the driver.`);
         loadFleetManagement();
       } catch(err){
         logError("Generate pair code failed", err);
-        $("pairCodeOutput").textContent = "Code: --";
-        $("pairDriverPinOutput").textContent = "Driver PIN: --";
+        const codeEl = $("pairCodeValue");
+        if(codeEl) codeEl.textContent = "Code: --";
+        const pinEl = $("pairDriverPinValue");
+        if(pinEl) pinEl.textContent = "Driver PIN: --";
+        toast("Generate pair code failed", "Unable to generate pairing code.");
+        updatePairDebug({ error: err && err.message ? err.message : "request_failed" });
+        const errEl = $("pairError");
+        if(errEl){
+          errEl.textContent = err && err.message ? err.message : "Request failed";
+          errEl.style.display = "block";
+        }
+      } finally {
+        if(btn){
+          btn.disabled = false;
+          btn.textContent = "Generate Pair Code";
+        }
       }
+    }
+
+    function updatePairDebug(partial){
+      const vehicleEl = $("pairingDebugVehicle");
+      const driverEl = $("pairingDebugDriver");
+      const endpointEl = $("pairingDebugEndpoint");
+      const statusEl = $("pairingDebugStatus");
+      const errorEl = $("pairingDebugError");
+      const conflictEl = $("pairingDebugConflict");
+      const codeEl = $("pairingDebugCode");
+      const responseEl = $("pairingDebugResponse");
+      if(!partial) return;
+      if(vehicleEl && partial.vehicleId !== undefined) vehicleEl.textContent = partial.vehicleId || "--";
+      if(driverEl && partial.driverId !== undefined) driverEl.textContent = partial.driverId || "--";
+      if(endpointEl && partial.endpoint !== undefined) endpointEl.textContent = partial.endpoint || "--";
+      if(statusEl && partial.status !== undefined) statusEl.textContent = partial.status || "--";
+      if(errorEl && partial.error !== undefined) errorEl.textContent = partial.error || "--";
+      if(conflictEl && partial.conflict !== undefined) conflictEl.textContent = partial.conflict || "--";
+      if(codeEl && partial.code !== undefined) codeEl.textContent = partial.code || "--";
+      if(responseEl && partial.response !== undefined) responseEl.textContent = partial.response || "--";
+    }
+
+    function initPairingDebug(){
+      updatePairDebug({
+        vehicleId: $("pairVehicleSelect")?.value || "",
+        driverId: $("pairDriverSelect")?.value || "",
+        endpoint: pairCodeEndpoint,
+        status: "--",
+        error: "--",
+        conflict: "--",
+        code: "--"
+      });
+    }
+
+    function renderPairingCode(data){
+      const code = data.pairingCode || data.code || data.pairing_code || "--";
+      const expiresAt = data.expiresAt || data.expires_at;
+      const driverPin = data.driverPin || data.driver_pin || "--";
+      const driverPinExpiresAt = data.driverPinExpiresAt || data.driver_pin_expires_at || expiresAt;
+      const codeEl = $("pairCodeValue");
+      if(codeEl) codeEl.textContent = `Code: ${code}`;
+      const pinEl = $("pairDriverPinValue");
+      if(pinEl) pinEl.textContent = `Driver PIN: ${driverPin}`;
+      if(expiresAt){
+        startPairCountdown(expiresAt);
+        startPinCountdown(driverPinExpiresAt || expiresAt);
+      }
+    }
+
+    function clearPairConflict(){
+      const box = $("pairConflict");
+      if(box) box.style.display = "none";
+      const detail = $("pairConflictDetail");
+      if(detail) detail.textContent = "--";
+      const err = $("pairError");
+      if(err){
+        err.style.display = "none";
+        err.textContent = "";
+      }
+      updatePairDebug({ conflict: "--" });
+    }
+
+    function showPairConflict(payload){
+      const box = $("pairConflict");
+      const detail = $("pairConflictDetail");
+      if(!box || !detail) return;
+      const c = payload.conflict || {};
+      const code = c.code || c.pairingCode || "--";
+      const reason = payload.reason || "PAIR_CONFLICT";
+      detail.textContent = `Reason: ${reason} | Code: ${code} | Vehicle: ${c.vehicleId || "--"} | Driver: ${c.driverId || "--"} | Status: ${c.status || "--"}`;
+      box.style.display = "block";
+      box.dataset.pairId = c.pairId || c.id || "";
+      box.dataset.code = code;
+      box.dataset.expiresAt = c.expiresAt || "";
+      box.dataset.driverPin = c.driverPin || "";
+      box.dataset.driverPinExpiresAt = c.driverPinExpiresAt || "";
     }
 
     function sevDot(sev){
@@ -3024,6 +4360,812 @@
       window.__toastTimer = setTimeout(()=> $("toast").style.display="none", 5200);
     }
 
+    function routeFromHash(){
+      const hash = window.location.hash.replace("#", "").trim();
+      return hash || "dashboard";
+    }
+
+    function setHashRoute(route){
+      const next = route || "dashboard";
+      if(window.location.hash.replace("#", "") !== next){
+        window.location.hash = next;
+      }
+      renderRoute(next);
+    }
+
+    function addonModelLabel(model){
+      const map = {
+        per_vehicle: "Per Vehicle",
+        per_fleet: "Per Fleet",
+        per_trailer: "Per Trailer",
+        per_month_flat: "Monthly Flat",
+        contact_sales: "Contact Sales"
+      };
+      return map[model] || model;
+    }
+
+    function addonPriceLabel(addon){
+      if(addon.price == null) return "Contact sales";
+      const suffix = {
+        per_vehicle: " / vehicle",
+        per_fleet: " / fleet",
+        per_trailer: " / trailer",
+        per_month_flat: " / month"
+      }[addon.priceModel] || "";
+      return `$${addon.price}${suffix}`;
+    }
+
+    function getVehicleCount(){
+      return Array.isArray(state.vehicles) ? state.vehicles.length : 0;
+    }
+
+    function getAddonQuantity(addon, addonState){
+      const override = addonState && typeof addonState.quantityOverride === "number"
+        ? addonState.quantityOverride
+        : null;
+      if(addon.priceModel === "per_vehicle"){
+        return override != null ? override : getVehicleCount();
+      }
+      if(addon.priceModel === "per_trailer"){
+        return override != null ? override : (state.addons.trailerCount || 0);
+      }
+      if(addon.priceModel === "per_fleet" || addon.priceModel === "per_month_flat"){
+        return 1;
+      }
+      return 0;
+    }
+
+    function addonEstimatedMonthly(addon, addonState){
+      if(addon.price == null) return 0;
+      if(!addonState?.enabled) return 0;
+      const qty = getAddonQuantity(addon, addonState);
+      return addon.price * qty;
+    }
+
+    function renderAddons(){
+      const body = $("addonsTableBody");
+      if(!body) return;
+      const rows = ADDON_CATALOG.map((addon)=>{
+        const addonState = state.addons.enabledAddons[addon.id] || { enabled: false };
+        const qty = getAddonQuantity(addon, addonState);
+        const est = addon.price == null ? "Contact sales" : `$${addonEstimatedMonthly(addon, addonState).toFixed(2)}`;
+        let qtyCell = `<span>${qty}</span>`;
+        if(addon.priceModel === "per_vehicle"){
+          qtyCell = `<span>${qty}</span>`;
+        } else if(addon.priceModel === "per_trailer"){
+          qtyCell = `<input class="qtyInput" type="number" min="0" value="${state.addons.trailerCount || 0}" data-action="trailer-count" />`;
+        } else if(addon.priceModel === "contact_sales"){
+          qtyCell = `<span>--</span>`;
+        }
+        let actionCell = "";
+        if(addon.priceModel === "contact_sales"){
+          actionCell = `<button class="btn ghost" data-action="request-quote" data-addon="${addon.id}">Request Quote</button>`;
+        } else {
+          actionCell = `
+            <label class="toggleSwitch">
+              <input type="checkbox" data-action="toggle-addon" data-addon="${addon.id}" ${addonState.enabled ? "checked" : ""} />
+              <span class="toggleTrack"></span>
+            </label>`;
+        }
+        return `
+          <tr>
+            <td>${addon.name}</td>
+            <td>${addonModelLabel(addon.priceModel)}</td>
+            <td>${addonPriceLabel(addon)}</td>
+            <td>${qtyCell}</td>
+            <td>${est}</td>
+            <td>${actionCell}</td>
+          </tr>`;
+      }).join("");
+      body.innerHTML = rows;
+      renderAddonTotals();
+      renderAddonsSummary();
+    }
+
+    function renderAddonTotals(){
+      let subtotal = 0;
+      ADDON_CATALOG.forEach((addon)=>{
+        const addonState = state.addons.enabledAddons[addon.id] || { enabled: false };
+        subtotal += addonEstimatedMonthly(addon, addonState);
+      });
+      const subtotalEl = $("addonsSubtotal");
+      if(subtotalEl) subtotalEl.textContent = `$${subtotal.toFixed(2)}`;
+      const corePrice = typeof state.persist?.corePriceMonthly === "number" ? state.persist.corePriceMonthly : null;
+      const grandEl = $("addonsGrandTotal");
+      if(grandEl){
+        if(corePrice != null){
+          grandEl.textContent = `$${(corePrice + subtotal).toFixed(2)}`;
+        } else {
+          grandEl.textContent = subtotal > 0 ? `$${subtotal.toFixed(2)} + core` : "Core billed separately";
+        }
+      }
+    }
+
+    function renderAddonsSummary(){
+      const coreEl = $("addonsCorePrice");
+      if(!coreEl) return;
+      const corePrice = typeof state.persist?.corePriceMonthly === "number" ? state.persist.corePriceMonthly : null;
+      coreEl.textContent = corePrice != null ? `$${corePrice.toFixed(2)}` : "Core billed separately";
+    }
+
+    async function loadAddonsState(){
+      if(state.addons.loaded) return;
+      if(MOCK_MODE){
+        state.addons.enabledAddons = loadStore(ADDON_STORAGE_KEY, {});
+        state.addons.trailerCount = loadStore(TRAILER_COUNT_KEY, 0);
+        state.addons.loaded = true;
+        renderAddons();
+        return;
+      }
+      try{
+        const data = await fetchJson(addonsEndpoint);
+        state.addons.enabledAddons = data.enabledAddons || {};
+        state.addons.trailerCount = data.trailerCount || 0;
+        state.addons.loaded = true;
+        renderAddons();
+      }catch(err){
+        toast("Add-Ons unavailable", "Unable to load add-on settings.");
+      }
+    }
+
+    async function saveAddonsState(){
+      if(MOCK_MODE){
+        saveStore(ADDON_STORAGE_KEY, state.addons.enabledAddons);
+        saveStore(TRAILER_COUNT_KEY, state.addons.trailerCount || 0);
+        return;
+      }
+      await fetchJson(addonsEndpoint, {
+        method: "POST",
+        body: JSON.stringify({
+          enabledAddons: state.addons.enabledAddons,
+          trailerCount: state.addons.trailerCount || 0
+        })
+      });
+    }
+
+    function maintenanceTypeLabel(type){
+      const map = {
+        OIL_SERVICE: "Oil Service",
+        COOLING: "Cooling",
+        CHARGING: "Charging",
+        FUEL_SYSTEM: "Fuel System",
+        AIR_INTAKE: "Air Intake",
+        EXHAUST_EMISSIONS: "Exhaust/Emissions",
+        BRAKES: "Brakes",
+        TIRES: "Tires",
+        TRANSMISSION: "Transmission",
+        ELECTRICAL: "Electrical",
+        INSPECTION: "Inspection",
+        OTHER: "Other",
+        oil_change: "Oil Change",
+        tire_rotation: "Tire Rotation",
+        brakes: "Brakes",
+        coolant_service: "Coolant Service",
+        transmission_service: "Transmission Service",
+        inspection: "Inspection",
+        repair: "Repair",
+        other: "Other"
+      };
+      return map[type] || type || "Other";
+    }
+
+    const MAINTENANCE_SERVICE_TYPE_LABELS = {
+      OIL_CHANGE: "Oil Change",
+      TIRE_ROTATION: "Tire Rotation",
+      TIRE_CHANGE_REPLACEMENT: "Tire Change/Replacement",
+      BRAKE_INSPECTION: "Brake Inspection",
+      BRAKE_PADS_SHOES_REPLACEMENT: "Brake Pads/Shoes Replacement",
+      BRAKE_ADJUSTMENT: "Brake Adjustment",
+      AIR_FILTER_REPLACEMENT: "Air Filter Replacement",
+      FUEL_FILTER_REPLACEMENT: "Fuel Filter Replacement",
+      CABIN_FILTER_REPLACEMENT: "Cabin Filter Replacement",
+      COOLANT_FLUSH_SERVICE: "Coolant Flush/Service",
+      THERMOSTAT_REPLACEMENT: "Thermostat Replacement",
+      RADIATOR_REPLACEMENT_REPAIR: "Radiator Replacement/Repair",
+      WATER_PUMP_REPLACEMENT: "Water Pump Replacement",
+      SERPENTINE_BELT_REPLACEMENT: "Serpentine Belt Replacement",
+      BATTERY_REPLACEMENT: "Battery Replacement",
+      ALTERNATOR_REPLACEMENT: "Alternator Replacement",
+      STARTER_REPLACEMENT: "Starter Replacement",
+      TRANSMISSION_SERVICE: "Transmission Service",
+      DIFFERENTIAL_SERVICE: "Differential Service",
+      WHEEL_ALIGNMENT: "Wheel Alignment",
+      SUSPENSION_INSPECTION: "Suspension Inspection",
+      SHOCK_STRUT_REPLACEMENT: "Shock/Strut Replacement",
+      INJECTOR_SERVICE_REPLACEMENT: "Injector Service/Replacement",
+      GLOW_PLUG_REPLACEMENT: "Glow Plug Replacement",
+      DPF_REGEN_SERVICE: "DPF Regeneration/Service",
+      DEF_SYSTEM_SERVICE: "DEF System Service",
+      EGR_SYSTEM_SERVICE: "EGR System Service",
+      SENSOR_REPLACEMENT: "Sensor Replacement",
+      CHECK_ENGINE_DIAGNOSTIC_SCAN: "Check Engine / Diagnostic Scan",
+      OTHER: "Other",
+      MANUAL: "Other (Manual Entry)"
+    };
+
+    function maintenanceServiceTypeLabel(value){
+      if(!value) return "Other";
+      const raw = String(value || "");
+      const upper = raw.toUpperCase();
+      if(MAINTENANCE_SERVICE_TYPE_LABELS[upper]){
+        return MAINTENANCE_SERVICE_TYPE_LABELS[upper];
+      }
+      if(raw.includes("_")){
+        return maintenanceTypeLabel(raw);
+      }
+      return raw;
+    }
+
+    function renderMaintenanceTable(){
+      const body = $("maintenanceTable");
+      if(!body) return;
+      if(!state.selectedVehicleId){
+        body.innerHTML = `<tr><td colspan="4"><span class="mini">Select a vehicle to view maintenance history.</span></td></tr>`;
+        return;
+      }
+      if(!state.maintenance.logs.length){
+        body.innerHTML = `<tr><td colspan="4"><span class="mini">No maintenance history yet.</span></td></tr>`;
+        return;
+      }
+      body.innerHTML = state.maintenance.logs.map(log=>{
+        const date = log.serviceDate || log.occurredAt || log.createdAt;
+        const odometer = log.odometerAtService != null ? log.odometerAtService : log.odometerMiles;
+        return `
+        <tr data-maint-id="${log.id}" style="cursor:pointer;">
+          <td>${date ? new Date(date).toLocaleDateString() : "--"}</td>
+          <td>${maintenanceTypeLabel(log.category || log.type)}</td>
+          <td>${log.title || log.description || "--"}</td>
+          <td>${odometer != null ? Math.round(odometer) : "--"}</td>
+        </tr>
+      `;
+      }).join("");
+      document.querySelectorAll("#maintenanceTable [data-maint-id]").forEach(row=>{
+        row.addEventListener("click", ()=>{
+          const id = row.getAttribute("data-maint-id");
+          const log = state.maintenance.logs.find(l=>l.id===id);
+          if(log) setMaintenanceForm(log);
+        });
+      });
+    }
+
+    function clearMaintenanceForm(){
+      state.maintenance.editingId = null;
+      $("maintenanceId").value = "";
+      $("maintenanceFormTitle").textContent = "Add Maintenance Log";
+      $("maintDate").value = "";
+      $("maintOdometer").value = "";
+      $("maintEngineHours").value = "";
+      $("maintType").value = "oil_change";
+      $("maintDescription").value = "";
+      $("maintVendor").value = "";
+      $("maintCost").value = "";
+      $("partsList").innerHTML = "";
+      $("maintenanceStatus").textContent = "";
+    }
+
+    function setMaintenanceForm(log){
+      state.maintenance.editingId = log.id;
+      $("maintenanceId").value = log.id;
+      $("maintenanceFormTitle").textContent = "Edit Maintenance Log";
+      const serviceDate = log.serviceDate || log.occurredAt || "";
+      $("maintDate").value = serviceDate ? serviceDate.substring(0,16) : "";
+      const odometer = log.odometerAtService != null ? log.odometerAtService : log.odometerMiles;
+      $("maintOdometer").value = odometer != null ? odometer : "";
+      const hours = log.engineHoursAtService != null ? log.engineHoursAtService : log.engineHours;
+      $("maintEngineHours").value = hours != null ? hours : "";
+      $("maintType").value = log.type || "other";
+      $("maintDescription").value = log.title || log.description || "";
+      $("maintVendor").value = log.vendor || "";
+      $("maintCost").value = log.cost != null ? log.cost : (log.costTotal != null ? log.costTotal : "");
+      $("partsList").innerHTML = "";
+      const parts = Array.isArray(log.partsUsed) ? log.partsUsed : [];
+      if(parts.length){
+        parts.forEach(p=> addPartRow(p));
+      } else {
+        addPartRow();
+      }
+    }
+
+    function addPartRow(part){
+      const list = $("partsList");
+      if(!list) return;
+      const row = document.createElement("div");
+      const partName = typeof part === "string" ? part : (part?.partName || "");
+      row.className = "row";
+      row.innerHTML = `
+        <input class="partName" type="text" placeholder="Part name" value="${partName}" />
+        <input class="partQty" type="number" min="0" step="1" placeholder="Qty" value="${part?.qty ?? ""}" />
+        <input class="partCost" type="number" min="0" step="0.01" placeholder="Cost" value="${part?.cost ?? ""}" />
+        <button type="button" class="btn ghost partRemove">Remove</button>
+      `;
+      row.querySelector(".partRemove").addEventListener("click", ()=>{
+        row.remove();
+      });
+      list.appendChild(row);
+    }
+
+    function collectParts(){
+      const list = $("partsList");
+      if(!list) return [];
+      return Array.from(list.querySelectorAll(".row"))
+        .map(row=> row.querySelector(".partName").value.trim())
+        .filter(Boolean);
+    }
+
+    async function loadMaintenanceLogs(){
+      if(!state.selectedVehicleId){
+        state.maintenance.logs = [];
+        renderMaintenanceTable();
+        return;
+      }
+      const start = $("maintStart")?.value;
+      const end = $("maintEnd")?.value;
+      const type = $("maintTypeFilter")?.value;
+      const params = new URLSearchParams({ vehicleId: state.selectedVehicleId });
+      if(start) params.append("start", start);
+      if(end) params.append("end", end);
+      if(type) params.append("type", type);
+      try{
+        const data = await fetchJson(`${maintenanceEndpoint}?${params.toString()}`);
+        state.maintenance.logs = data.data || [];
+        renderMaintenanceTable();
+      }catch(err){
+        $("maintenanceStatus").textContent = "Unable to load maintenance logs.";
+      }
+    }
+
+    async function saveMaintenanceLog(e){
+      e.preventDefault();
+      if(!state.selectedVehicleId){
+        toast("Select a vehicle", "Choose a vehicle to log maintenance.");
+        return;
+      }
+      const typeValue = $("maintType").value;
+      const payload = {
+        vehicleId: state.selectedVehicleId,
+        serviceDate: $("maintDate").value ? new Date($("maintDate").value).toISOString() : new Date().toISOString(),
+        odometerAtService: $("maintOdometer").value ? Number($("maintOdometer").value) : null,
+        engineHoursAtService: $("maintEngineHours").value ? Number($("maintEngineHours").value) : null,
+        category: maintenanceTypeLabel(typeValue),
+        type: typeValue,
+        title: $("maintDescription").value.trim(),
+        notes: "",
+        partsUsed: collectParts(),
+        vendor: $("maintVendor").value.trim(),
+        cost: $("maintCost").value ? Number($("maintCost").value) : null,
+        source: "manual"
+      };
+      try{
+        if(state.maintenance.editingId){
+          await fetchJson(`${maintenanceEndpoint}/${state.maintenance.editingId}`, {
+            method:"PUT",
+            body: JSON.stringify(payload)
+          });
+          toast("Maintenance updated", "Log updated successfully.");
+        } else {
+          await fetchJson(maintenanceEndpoint, {
+            method:"POST",
+            body: JSON.stringify(payload)
+          });
+          toast("Maintenance logged", "New maintenance record saved.");
+        }
+        clearMaintenanceForm();
+        addPartRow();
+        loadMaintenanceLogs();
+      }catch(err){
+        $("maintenanceStatus").textContent = "Save failed. Check connection.";
+      }
+    }
+
+    async function deleteMaintenanceLog(){
+      const id = state.maintenance.editingId;
+      if(!id){
+        toast("No selection", "Select a maintenance log to delete.");
+        return;
+      }
+      try{
+        await fetchJson(`${maintenanceEndpoint}/${id}`, { method:"DELETE" });
+        toast("Maintenance deleted", "Log removed.");
+        clearMaintenanceForm();
+        addPartRow();
+        loadMaintenanceLogs();
+      }catch(err){
+        $("maintenanceStatus").textContent = "Delete failed. Check connection.";
+      }
+    }
+
+    function initMaintenanceEvents(){
+      const form = $("maintenanceForm");
+      if(form){
+        form.addEventListener("submit", saveMaintenanceLog);
+      }
+      const refresh = $("btnRefreshMaintenance");
+      if(refresh){
+        refresh.addEventListener("click", ()=> loadMaintenanceLogs());
+      }
+      const addPart = $("addPartRow");
+      if(addPart){
+        addPart.addEventListener("click", ()=> addPartRow());
+      }
+      const delBtn = $("deleteMaintenance");
+      if(delBtn){
+        delBtn.addEventListener("click", deleteMaintenanceLog);
+      }
+      const quickOil = $("quickOil");
+      if(quickOil){
+        quickOil.addEventListener("click", ()=>{
+          $("maintType").value = "oil_change";
+          $("maintDescription").value = "Oil change completed";
+          renderRoute("maintenance");
+        });
+      }
+      const quickBrake = $("quickBrake");
+      if(quickBrake){
+        quickBrake.addEventListener("click", ()=>{
+          $("maintType").value = "brakes";
+          $("maintDescription").value = "Brake service completed";
+          renderRoute("maintenance");
+        });
+      }
+      const quickTire = $("quickTire");
+      if(quickTire){
+        quickTire.addEventListener("click", ()=>{
+          $("maintType").value = "tire_rotation";
+          $("maintDescription").value = "Tire rotation completed";
+          renderRoute("maintenance");
+        });
+      }
+      const quickRepair = $("quickRepair");
+      if(quickRepair){
+        quickRepair.addEventListener("click", ()=>{
+          $("maintType").value = "repair";
+          $("maintDescription").value = "Repair completed";
+          renderRoute("maintenance");
+        });
+      }
+      addPartRow();
+    }
+
+    function maintenanceCategoryLabel(value){
+      const raw = String(value || "").toUpperCase();
+      const map = {
+        OIL_SERVICE: "Oil Service",
+        COOLING: "Cooling",
+        CHARGING: "Charging",
+        FUEL_SYSTEM: "Fuel System",
+        AIR_INTAKE: "Air Intake",
+        EXHAUST_EMISSIONS: "Exhaust/Emissions",
+        BRAKES: "Brakes",
+        TIRES: "Tires",
+        TRANSMISSION: "Transmission",
+        ELECTRICAL: "Electrical",
+        INSPECTION: "Inspection",
+        OTHER: "Other"
+      };
+      return map[raw] || value || "Other";
+    }
+
+    function getMaintenanceLogItem(log){
+      return (log.title || log.item || log.description || "").trim();
+    }
+
+    function formatMaintLogValue(value){
+      if(value == null || value === "") return `--`;
+      const num = Number(value);
+      if(!Number.isFinite(num)) return `${value}`;
+      return `${Math.round(num * 10) / 10}`;
+    }
+
+    function formatVehicleLabelById(vehicleId){
+      if(!vehicleId) return "--";
+      const vehicle = state.vehicles.find(v=>v.vehicleId === vehicleId);
+      if(!vehicle) return vehicleId;
+      const unitName = vehicle.unitName || vehicle.vehicleId;
+      const type = vehicle.type || "Vehicle";
+      return `${vehicle.vehicleId} - ${unitName} (${type})`;
+    }
+
+    function renderMaintenanceLogsList(){
+      const body = $("maintLogsTableBody");
+      const empty = $("maintLogsEmpty");
+      if(!body || !empty) return;
+      if(!state.selectedVehicleId){
+        empty.style.display = "block";
+        empty.innerHTML = `<b>No maintenance history yet.</b> Select a vehicle to view service history.`;
+        body.innerHTML = "";
+        return;
+      }
+      if(!state.maintenanceLogs.logs.length){
+        empty.style.display = "block";
+        empty.innerHTML = `<b>No maintenance history yet.</b> Add your first log to build service history.
+          <div style="margin-top:10px;"><button class="btn primary" id="maintLogsAddEmpty">Add first log</button></div>`;
+        body.innerHTML = "";
+        const addEmpty = $("maintLogsAddEmpty");
+        if(addEmpty) addEmpty.addEventListener("click", ()=> openMaintLogsModal());
+        return;
+      }
+      empty.style.display = "none";
+      const rows = state.maintenanceLogs.logs.slice().sort((a,b)=>{
+        const aDate = new Date(a.performedAt || a.occurredAt || a.serviceDate || a.createdAt || 0).getTime();
+        const bDate = new Date(b.performedAt || b.occurredAt || b.serviceDate || b.createdAt || 0).getTime();
+        return bDate - aDate;
+      }).map(log=>{
+        const occurredAt = log.performedAt || log.occurredAt || log.serviceDate || log.createdAt;
+        const dateLabel = occurredAt ? new Date(occurredAt).toLocaleString() : "--";
+        const typeLabel = maintenanceServiceTypeLabel(log.serviceType || log.type || log.category);
+        const notes = log.notes || "--";
+        const odometer = log.odometer != null ? log.odometer : (log.odometerAtService != null ? log.odometerAtService : log.odometerKm);
+        const hours = log.engineHours != null ? log.engineHours : log.engineHoursAtService;
+        const cost = log.cost != null ? log.cost : log.costTotal;
+        const performedBy = log.performedBy || log.vendor || "--";
+        return `
+          <tr data-maint-log="${log.id}">
+            <td>${dateLabel}</td>
+            <td>${formatVehicleLabelById(log.vehicleId)}</td>
+            <td>${typeLabel}</td>
+            <td>${notes}</td>
+            <td>${formatMaintLogValue(odometer)}</td>
+            <td>${formatMaintLogValue(hours)}</td>
+            <td>${cost != null ? `$${Number(cost).toFixed(2)}` : "--"}</td>
+            <td>${performedBy}</td>
+            <td>
+              <div class="rightStack">
+                <button class="btn ghost" data-action="edit-log">Edit</button>
+                <button class="btn" data-action="delete-log">Delete</button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join("");
+      body.innerHTML = rows;
+    }
+
+    function updateMaintLogTypeFields(){
+      const type = $("maintLogType")?.value || "";
+      const isSensor = type === "SENSOR_REPLACEMENT";
+      const isManual = type === "MANUAL";
+      const sensorWrap = $("maintLogSensorWrap");
+      const manualWrap = $("maintLogManualWrap");
+      const notesWrap = $("maintLogNotesWrap");
+      if(sensorWrap) sensorWrap.style.display = isSensor ? "block" : "none";
+      if(manualWrap) manualWrap.style.display = isManual ? "block" : "none";
+      if(notesWrap) notesWrap.style.display = isManual ? "none" : "block";
+      if(!isSensor && $("maintLogSensor")) $("maintLogSensor").value = "";
+      if(!isManual && $("maintLogManualNotes")) $("maintLogManualNotes").value = "";
+    }
+
+    function mapLegacyTypeToServiceType(value){
+      const raw = String(value || "").toLowerCase();
+      const map = {
+        oil_change: "OIL_CHANGE",
+        tire_rotation: "TIRE_ROTATION",
+        brakes: "BRAKE_INSPECTION",
+        coolant_service: "COOLANT_FLUSH_SERVICE",
+        transmission_service: "TRANSMISSION_SERVICE",
+        inspection: "CHECK_ENGINE_DIAGNOSTIC_SCAN",
+        repair: "OTHER",
+        other: "OTHER"
+      };
+      return map[raw] || "";
+    }
+
+    function openMaintLogsModal(log){
+      const modal = $("maintLogsModal");
+      if(!modal) return;
+      state.maintenanceLogs.editingId = log?.id || null;
+      $("maintLogsModalTitle").textContent = log ? "Edit Maintenance Log" : "Add Maintenance Log";
+      const selectedVehicle = log?.vehicleId || state.selectedVehicleId || "";
+      const vehicleLabel = $("maintLogVehicleLabel");
+      if(vehicleLabel){
+        vehicleLabel.textContent = selectedVehicle ? `Vehicle: ${formatVehicleLabelById(selectedVehicle)}` : "Select a vehicle before logging maintenance.";
+      }
+      const serviceDate = log?.performedAt || log?.occurredAt || log?.serviceDate || "";
+      $("maintLogDate").value = serviceDate ? serviceDate.substring(0,16) : "";
+      const typeSelect = $("maintLogType");
+      const serviceType = (log?.serviceType || "").toUpperCase() || mapLegacyTypeToServiceType(log?.type);
+      if(typeSelect){
+        typeSelect.value = serviceType || "";
+      }
+      $("maintLogSensor").value = log?.serviceSubType || "";
+      const odometer = log?.odometer != null ? log.odometer : (log?.odometerAtService != null ? log.odometerAtService : "");
+      $("maintLogOdometer").value = odometer != null && odometer !== "" ? Number(odometer).toFixed(1) : "";
+      const hours = log?.engineHours != null ? log.engineHours : log?.engineHoursAtService;
+      $("maintLogHours").value = hours != null ? Number(hours).toFixed(1) : "";
+      const parts = Array.isArray(log?.partsUsed)
+        ? log.partsUsed.join(", ")
+        : (log?.parts || "");
+      $("maintLogParts").value = parts;
+      $("maintLogCost").value = log?.cost != null ? log.cost : (log?.costTotal != null ? log.costTotal : "");
+      $("maintLogPerformedBy").value = log?.performedBy || log?.vendor || "";
+      $("maintLogNotes").value = log?.notes || "";
+      $("maintLogManualNotes").value = log?.serviceType === "MANUAL" ? (log?.notes || "") : "";
+      updateMaintLogTypeFields();
+      $("maintLogStatus").textContent = "";
+      modal.classList.remove("hide");
+      document.body.classList.add("modal-open");
+    }
+
+    function closeMaintLogsModal(){
+      const modal = $("maintLogsModal");
+      if(!modal) return;
+      modal.classList.add("hide");
+      document.body.classList.remove("modal-open");
+    }
+
+    function handleMaintLogTypeChange(){
+      updateMaintLogTypeFields();
+    }
+
+    async function loadMaintenanceLogsV2(){
+      const body = $("maintLogsTableBody");
+      if(!body) return;
+      const endpoint = maintenanceLogsEndpoint();
+      const vehicleId = state.selectedVehicleId || "";
+      const status = $("maintLogsStatus");
+      if(!endpoint || !vehicleId){
+        state.maintenanceLogs.logs = [];
+        if(status) status.textContent = "Select a vehicle to view maintenance logs.";
+        renderMaintenanceLogsList();
+        return;
+      }
+      const range = $("maintLogsRange")?.value || "30d";
+      const days = Number(String(range).replace("d","")) || 30;
+      const start = new Date(Date.now() - days * 86400000).toISOString();
+      const params = new URLSearchParams({ vehicleId, start });
+      try{
+        if(status) status.textContent = "";
+        const data = await fetchJson(`${endpoint}?${params.toString()}`);
+        state.maintenanceLogs.logs = data.data || [];
+        renderMaintenanceLogsList();
+      }catch(err){
+        state.maintenanceLogs.logs = [];
+        if(status) status.textContent = `Unable to load maintenance logs from ${endpoint}.`;
+        renderMaintenanceLogsList();
+      }
+    }
+
+    async function saveMaintenanceLogV2(){
+      const endpoint = maintenanceLogsEndpoint();
+      const vehicleId = state.selectedVehicleId || "";
+      if(!endpoint || !vehicleId){
+        $("maintLogStatus").textContent = "Select a vehicle to log maintenance.";
+        return;
+      }
+      const serviceType = $("maintLogType").value.trim();
+      if(!serviceType){
+        $("maintLogStatus").textContent = "Maintenance type is required.";
+        return;
+      }
+      const isManual = serviceType === "MANUAL";
+      const manualNotes = $("maintLogManualNotes").value.trim();
+      if(isManual && !manualNotes){
+        $("maintLogStatus").textContent = "Manual entry notes are required.";
+        return;
+      }
+      const occurredAtRaw = $("maintLogDate").value;
+      const parts = $("maintLogParts").value.split(",").map(p=>p.trim()).filter(Boolean);
+      const sensorName = $("maintLogSensor").value.trim();
+      const notes = isManual ? manualNotes : $("maintLogNotes").value.trim();
+      const payload = {
+        vehicleId,
+        serviceType,
+        serviceSubType: serviceType === "SENSOR_REPLACEMENT" && sensorName ? sensorName : "",
+        performedAt: occurredAtRaw ? new Date(occurredAtRaw).toISOString() : "",
+        odometer: $("maintLogOdometer").value ? Number($("maintLogOdometer").value) : null,
+        engineHours: $("maintLogHours").value ? Number($("maintLogHours").value) : null,
+        parts,
+        cost: $("maintLogCost").value ? Number($("maintLogCost").value) : null,
+        performedBy: $("maintLogPerformedBy").value.trim(),
+        notes
+      };
+      try{
+        if(state.maintenanceLogs.editingId){
+          await fetchJson(`${endpoint}/${state.maintenanceLogs.editingId}`, {
+            method: "PUT",
+            body: JSON.stringify(payload)
+          });
+          toast("Maintenance updated", "Log updated successfully.");
+        } else {
+          await fetchJson(endpoint, {
+            method: "POST",
+            body: JSON.stringify(payload)
+          });
+          toast("Maintenance logged", "New maintenance record saved.");
+        }
+        closeMaintLogsModal();
+        state.maintenanceLogs.editingId = null;
+        loadMaintenanceLogsV2();
+      }catch(err){
+        $("maintLogStatus").textContent = `Save failed at ${endpoint}. Check connection.`;
+      }
+    }
+
+    async function deleteMaintenanceLogV2(logId){
+      const endpoint = maintenanceLogsEndpoint();
+      if(!endpoint) return;
+      if(!confirm("Delete this maintenance log?")) return;
+      try{
+        await fetchJson(`${endpoint}/${logId}`, { method:"DELETE" });
+        toast("Maintenance deleted", "Log removed.");
+        loadMaintenanceLogsV2();
+      }catch(err){
+        toast("Delete failed", "Unable to delete maintenance log.");
+      }
+    }
+
+    async function requestAddonQuote(addonId){
+      const addon = ADDON_CATALOG.find((item)=> item.id === addonId);
+      if(!addon) return;
+      const notes = prompt(`Request a quote for ${addon.name}. Add notes (optional):`, "");
+      const payload = { addonId, notes: (notes || "").trim() };
+      if(MOCK_MODE){
+        const list = loadStore(ADDON_QUOTE_KEY, []);
+        list.push(Object.assign({}, payload, { createdAt: new Date().toISOString() }));
+        saveStore(ADDON_QUOTE_KEY, list);
+        toast("Quote requested", "Your request was saved for the account team.");
+        return;
+      }
+      try{
+        await fetchJson(addonsQuoteEndpoint, {
+          method: "POST",
+          body: JSON.stringify(payload)
+        });
+        toast("Quote requested", "Fleet AI will follow up with pricing.");
+      }catch(err){
+        toast("Request failed", "Unable to submit quote request.");
+      }
+    }
+
+    function bindAddonEvents(){
+      const body = $("addonsTableBody");
+      if(!body) return;
+      body.addEventListener("change", async (e)=>{
+        const target = e.target;
+        if(!(target instanceof HTMLElement)) return;
+        if(target.matches('[data-action="toggle-addon"]')){
+          const addonId = target.getAttribute("data-addon");
+          if(!addonId) return;
+          const enabled = target.checked;
+          state.addons.enabledAddons[addonId] = Object.assign({}, state.addons.enabledAddons[addonId], { enabled });
+          renderAddons();
+          try{
+            await saveAddonsState();
+          }catch(err){
+            toast("Save failed", "Unable to save add-on changes.");
+          }
+          return;
+        }
+        if(target.matches('[data-action="trailer-count"]')){
+          const value = Number(target.value || 0);
+          state.addons.trailerCount = Number.isFinite(value) && value >= 0 ? value : 0;
+          renderAddons();
+          try{
+            await saveAddonsState();
+          }catch(err){
+            toast("Save failed", "Unable to save trailer count.");
+          }
+        }
+      });
+      body.addEventListener("click", (e)=>{
+        const target = e.target;
+        if(!(target instanceof HTMLElement)) return;
+        if(target.matches('[data-action="request-quote"]')){
+          const addonId = target.getAttribute("data-addon");
+          if(addonId) requestAddonQuote(addonId);
+        }
+      });
+      const quoteBtn = $("btnAddonsQuote");
+      if(quoteBtn){
+        quoteBtn.addEventListener("click", ()=>{
+          if(MOCK_MODE){
+            window.print();
+          } else {
+            toast("Quote request", "Export is available in mock mode only.");
+          }
+        });
+      }
+    }
+
     function renderRoute(route){
       state.view = route;
       if(DEV_LOG_NAV){
@@ -3032,16 +5174,23 @@
       const titles = {
         dashboard:["Overview","Uptime, risk, and prioritized actions"],
         telemetry:["Live Telemetry","Live OBD/telematics feed when paired"],
+        "telemetry-history":["Telemetry History","Normalized vehicle metrics over time"],
+        "fuel-events":["Fuel & Costs","Detected refuels when the vehicle is stationary"],
+        "health-risk":["Health & Risk","Baseline learning, anomaly scoring, and risk outlook"],
+        "dtc-history":["DTC History","Stored diagnostic trouble codes from recent snapshots"],
         alerts:["Alerts","Fleet alert history filtered by vehicle selection"],
         safety:["Safety","Driver events, safety score, and coaching actions"],
         compliance:["Compliance","HOS and inspection compliance overview"],
         gps:["GPS / Tracking","Live unit locations for service and incident context"],
         cameras:["Cameras","Road and driver feeds when available"],
-        advisor:["AI Advisor","Ask questions on maintenance and operations insights"],
+        advisor:["AI Advisor","Coming soon for Tier 2 pilot fleets"],
         reports:["Reports","Operational reporting and summaries"],
+        maintenance:["Maintenance","Service history and work orders"],
+        "maintenance-logs":["Maintenance Logs","Vehicle service history and logbook"],
         vehicles:["Fleet","Fleet inventory with assigned driver and device"],
         drivers:["People","Driver roster and pairing PINs"],
         pairing:["Device Pairing","Generate pairing codes and view claim status"],
+        addons:["Add-Ons","Expansion modules with fleet-level pricing"],
         settings:["Settings","Admin controls and access"]
       };
       if(titles[route]){
@@ -3049,7 +5198,7 @@
         $("viewSub").textContent = titles[route][1];
       }
 
-      ["dashboard","telemetry","alerts","safety","compliance","gps","cameras","advisor","reports","vehicles","drivers","pairing","settings"].forEach(v=>{
+      ["dashboard","telemetry","telemetry-history","fuel-events","health-risk","dtc-history","alerts","safety","compliance","gps","cameras","advisor","reports","maintenance","maintenance-logs","vehicles","drivers","pairing","addons","settings"].forEach(v=>{
         $("view-"+v).classList.toggle("hide", v!==route);
       });
 
@@ -3068,10 +5217,34 @@
         renderClipList();
       }
       if(route==="advisor"){
-        renderQuickPrompts();
+        if(AI_ADVISOR_ENABLED){
+          renderQuickPrompts();
+          aiAdvisorCheckStatus();
+        }
+      }
+      if(route==="telemetry-history"){
+        safeInvoke("loadTelemetryHistory");
+      }
+      if(route==="fuel-events"){
+        safeInvoke("loadFuelEvents");
+      }
+      if(route==="health-risk"){
+        safeInvoke("loadHealthRisk");
+      }
+      if(route==="dtc-history"){
+        safeInvoke("loadDtcHistory");
+      }
+      if(route==="maintenance-logs"){
+        safeInvoke("loadMaintenanceLogsV2");
+      }
+      if(route==="addons"){
+        safeInvoke("loadAddonsState");
+      }
+      if(route==="maintenance"){
+        safeInvoke("loadMaintenanceLogs");
       }
       if(route==="vehicles" || route==="drivers" || route==="pairing"){
-        loadFleetManagement();
+        safeInvoke("loadFleetManagement");
       }
     }
 
@@ -3086,7 +5259,7 @@
           if(DEV_LOG_NAV){
             console.log("[nav] click =", route);
           }
-          renderRoute(route);
+          setHashRoute(route);
         });
       });
       document.querySelectorAll(".topTab").forEach(btn=>{
@@ -3096,7 +5269,7 @@
           if(DEV_LOG_NAV){
             console.log("[tab] click =", route);
           }
-          renderRoute(route);
+          setHashRoute(route);
         });
       });
     }
@@ -3104,38 +5277,82 @@
     function initUI(){
       loadTheme();
       loadCompanyName();
+      loadCustomerProfile();
+      initPasswordSettings();
       pingServer();
       loadFleetManagement();
-      renderQueue();
+      loadAddonsState();
+      loadPriorityActions();
       renderTable();
       renderNotifFeed();
+      renderRecommendations();
       renderAlerts();
-      renderRoute("dashboard");
+      renderRoute(routeFromHash());
+      window.addEventListener("hashchange", ()=> renderRoute(routeFromHash()));
       renderTelemetryCards(buildTelemetryValues());
       renderEventLog();
       fetchTelemetry();
       fetchTireRisk();
       fetchAlerts();
+      loadRecommendations();
+      loadHealthRisk();
       bindMapClicks();
+      bindAddonEvents();
+      initMaintenanceEvents();
+      if(AI_ADVISOR_ENABLED){
+        const logBtn = $("btnLogMaintenance");
+        if(logBtn){
+          logBtn.addEventListener("click", logMaintenanceFromAdvisor);
+        }
+      }
     }
 
     function renderQueue(){
       if(!priorityQueue.length){
-        $("queue").innerHTML = `<div class="note"><b>No recommendations yet.</b> Action items appear once live data is streaming.</div>`;
+        $("queue").innerHTML = `<div class="note"><b>No active priority actions.</b> Alerts appear once sufficient telemetry history is available.</div>`;
         return;
       }
       $("queue").innerHTML = priorityQueue.map(x=>`
         <div class="row">
           <div class="l">
             <h3>${sevDot(x.sev)}${x.title}</h3>
-            <p>${x.desc}</p>
+            <p>${x.desc || ""}</p>
+            <div class="mini" style="margin-top:6px;">${x.action || "Review maintenance history and inspect the system on the next service window."}</div>
           </div>
           <div class="r" style="text-align:right;">
-            <div class="chip">${x.chip}</div>
-            <div class="mini" style="margin-top:8px;">Due: <b>${x.due}</b></div>
+            <div class="pill2">${x.unit || "Fleet"}</div>
+            <div class="mini" style="margin-top:6px;">${x.time || nowTime()}</div>
           </div>
         </div>
       `).join("");
+    }
+
+    async function loadPriorityActions(){
+      const orgId = localStorage.getItem("fleetai.orgId") || "";
+      if(!orgId){
+        priorityQueue.length = 0;
+        renderQueue();
+        return;
+      }
+      try{
+        const data = await fetchJson(`${API_BASE_URL}/api/ml/alerts?orgId=${encodeURIComponent(orgId)}`);
+        const alerts = data.data || [];
+        priorityQueue.length = 0;
+        alerts.forEach(a=>{
+          priorityQueue.push({
+            sev: a.severity === "critical" ? "bad" : (a.severity === "warning" ? "warn" : "good"),
+            title: a.type || "Alert",
+            desc: a.explanation || "",
+            action: (a.recommendedChecks || [])[0] || "",
+            unit: a.vehicleId || "Fleet",
+            time: a.createdAt ? new Date(a.createdAt).toLocaleString() : nowTime()
+          });
+        });
+        renderQueue();
+      }catch(err){
+        priorityQueue.length = 0;
+        renderQueue();
+      }
     }
 
     function renderTable(rows){
@@ -3169,7 +5386,7 @@
         return;
       }
       $("notifFeed").innerHTML = items.map(a=>`
-        <div class="row">
+        <div class="row" data-alert-id="${a.id}" style="cursor:pointer;">
           <div class="l">
             <h3>${sevDot(a.sev)}${a.title}</h3>
             <p>${a.desc}</p>
@@ -3180,6 +5397,57 @@
           </div>
         </div>
       `).join("");
+      document.querySelectorAll("#notifFeed [data-alert-id]").forEach((row)=>{
+        row.addEventListener("click", ()=>{
+          const id = row.getAttribute("data-alert-id");
+          selectAlertById(id, true);
+        });
+      });
+    }
+
+    function renderRecommendations(){
+      const list = $("recommendationsList");
+      const help = $("recommendationsHelp");
+      if(!list) return;
+      if(!state.recommendations.length){
+        list.innerHTML = `<div class="note"><b>Not enough history yet.</b> Recommendations appear after 7-14 days of telemetry and maintenance logs.</div>`;
+        if(help){
+          help.textContent = "To unlock predictions: 1) Pair devices and ingest telemetry 2) Log maintenance with miles and engine hours.";
+        }
+        return;
+      }
+      list.innerHTML = state.recommendations.slice(0,5).map(rec=>{
+        const window = Array.isArray(rec.serviceWindow)
+          ? rec.serviceWindow.map(w=>`${w.value} ${w.type}`).join(" / ")
+          : "";
+        return `
+          <div class="row">
+            <div class="l">
+              <h3>${sevDot(rec.severity === "warning" ? "warn" : rec.severity === "critical" ? "bad" : "good")}${rec.title}</h3>
+              <p>${rec.summary || ""}</p>
+            </div>
+            <div class="r" style="text-align:right;">
+              <div class="chip">${rec.vehicleId || "--"}</div>
+              <div class="mini" style="margin-top:8px;">${window || "Service window: --"}</div>
+            </div>
+          </div>
+        `;
+      }).join("");
+      if(help) help.textContent = "";
+    }
+
+    async function loadRecommendations(){
+      const orgId = localStorage.getItem("fleetai.orgId") || "";
+      const params = new URLSearchParams();
+      if(orgId) params.append("orgId", orgId);
+      if(!orgId && state.selectedVehicleId) params.append("vehicleId", state.selectedVehicleId);
+      try{
+        const data = await fetchJson(`${API_BASE_URL}/api/predictive/recommendations?${params.toString()}`);
+        state.recommendations = data.data || [];
+        renderRecommendations();
+      }catch(err){
+        renderRecommendations();
+      }
     }
 
     function renderAlerts(){
@@ -3187,10 +5455,11 @@
       if(items.length === 0){
         $("alertsList").innerHTML = `<div class="note"><b>No alerts generated yet.</b> Alerts appear once paired vehicles stream data.</div>`;
         $("alertCount").textContent = state.alertsLoaded ? "0" : "--";
+        renderAlertDetail();
         return;
       }
       $("alertsList").innerHTML = items.map(a=>`
-        <div class="row">
+        <div class="row" data-alert-id="${a.id}" style="cursor:pointer;">
           <div class="l">
             <h3>${sevDot(a.sev)}${a.title}</h3>
             <p>${a.desc}</p>
@@ -3201,7 +5470,55 @@
           </div>
         </div>
       `).join("");
+      document.querySelectorAll("#alertsList [data-alert-id]").forEach((row)=>{
+        row.addEventListener("click", ()=>{
+          const id = row.getAttribute("data-alert-id");
+          selectAlertById(id, false);
+        });
+      });
       $("alertCount").textContent = String(state.alerts.length);
+      if(!state.selectedAlert && state.alerts.length){
+        state.selectedAlert = state.alerts[0];
+      }
+      renderAlertDetail();
+    }
+
+    function selectAlertById(id, openView){
+      const alert = state.alerts.find(a=>a.id===id) || state.notifFeed.find(a=>a.id===id);
+      if(!alert) return;
+      state.selectedAlert = alert;
+      renderAlertDetail();
+      if(openView){
+        renderRoute("alerts");
+      }
+    }
+
+    function renderAlertDetail(){
+      const el = $("alertDetail");
+      if(!el) return;
+      if(!state.selectedAlert){
+        el.innerHTML = `<div class="note"><b>Select an alert.</b> Review details and next steps here.</div>`;
+        return;
+      }
+      const a = state.selectedAlert;
+      const action = a.action ? `<div class="pill2">Next step: ${a.action}</div>` : "";
+      el.innerHTML = `
+        <div class="row">
+          <div class="l">
+            <h3>${sevDot(a.sev)}${a.title}</h3>
+            <p>${a.details || a.desc}</p>
+          </div>
+          <div class="r" style="text-align:right;">
+            <div class="chip">${a.unit}</div>
+            <div class="mini" style="margin-top:8px;">${a.time}</div>
+          </div>
+        </div>
+        <div class="note" style="margin-top:12px;">
+          <b>Recommended action</b>
+          <div class="mini" style="margin-top:6px;">${a.action || "Review maintenance history and inspect the system on the next service window."}</div>
+        </div>
+        <div style="margin-top:10px;">${action}</div>
+      `;
     }
 
     function renderTelemetryCards(signalValues){
@@ -3223,6 +5540,94 @@
           </div>
         `;
       }).join("");
+    }
+
+    /***********************
+     * TELEMETRY STREAM (SSE)
+     ***********************/
+    let telemetrySource = null;
+    let telemetryBackoffMs = 1000;
+    let telemetryStableSince = null;
+    let activePollTimer = null;
+
+    function telemetryStreamConnect(){
+      if(telemetrySource){
+        telemetrySource.close();
+        telemetrySource = null;
+      }
+      const url = `${API_BASE_URL}/api/telemetry/stream`;
+      telemetrySource = new EventSource(url);
+      state.telemetryStream.connected = false;
+      telemetrySource.onopen = () => {
+        state.telemetryStream.connected = true;
+        telemetryStableSince = telemetryStableSince || Date.now();
+        telemetryBackoffMs = 1000;
+        updateTelemetryStatus();
+      };
+      telemetrySource.onerror = () => {
+        state.telemetryStream.connected = false;
+        updateTelemetryStatus();
+        telemetrySource?.close();
+        telemetrySource = null;
+        setTimeout(() => telemetryStreamConnect(), telemetryBackoffMs);
+        telemetryBackoffMs = Math.min(telemetryBackoffMs + 1000, 10000);
+        telemetryStableSince = null;
+      };
+      telemetrySource.onmessage = (evt) => {
+        try{
+          const data = JSON.parse(evt.data);
+          const now = Date.now();
+          if(data.type === "heartbeat"){
+            state.telemetryStream.lastHeartbeat = data.time || now;
+            return;
+          }
+          state.telemetryStream.lastMessage = data.ts || data.timestamp || now;
+          state.telemetryStream.obdConnected = Boolean(data.obdConnected);
+          state.telemetryStream.deviceOnline = now;
+          if(state.selectedVehicleId && data.vehicleId && data.vehicleId !== state.selectedVehicleId){
+            updateTelemetryStatus();
+            return;
+          }
+          if(data.metrics){
+            state.apiTelemetry = {
+              vehicle_id: data.vehicleId || "--",
+              timestamp: data.ts || data.timestamp || now,
+              rpm: data.metrics.rpm ?? data.metrics.engine_rpm ?? null,
+              speed: data.metrics.speedKph ?? data.metrics.speed ?? null,
+              coolant_temp: data.metrics.coolantTempC ?? data.metrics.coolant_temp ?? null,
+              fuel_level: data.metrics.fuelLevelPct ?? data.metrics.fuel_level ?? null,
+              mileage: data.metrics.odometerKm ?? data.metrics.mileage ?? null,
+              engine_hours: data.metrics.engineHours ?? data.metrics.engine_hours ?? null,
+              vin: data.metrics.vin || "--"
+            };
+            state.telemetryLastSeen = state.telemetryStream.lastMessage;
+            renderTelemetryCards(buildTelemetryValues());
+          }
+          updateTelemetryStatus();
+        }catch(err){
+          console.error("telemetry stream parse error", err);
+        }
+      };
+    }
+
+    function pollActiveStatus(){
+      const url = `${API_BASE_URL}/api/telemetry/active?_=${Date.now()}`;
+      fetch(url, { cache: "no-store" })
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+          if(!data) return;
+          if(data.lastSampleAt){
+            state.telemetryStream.lastMessage = data.lastSampleAt;
+            state.telemetryStream.deviceOnline = Date.now();
+            state.telemetryStream.obdConnected = Boolean(data.connected);
+            updateTelemetryStatus();
+          }
+          if(typeof data.connected === "boolean"){
+            state.telemetryStream.connected = data.connected;
+            updateTelemetryStatus();
+          }
+        })
+        .catch(()=>{});
     }
 
     function renderEventLog(){
@@ -3484,6 +5889,9 @@
      ***********************/
     let aiAdvisorHistory = [];
     let aiAdvisorAutoScroll = true;
+    let lastAdvisorQuestion = "";
+    let aiAdvisorNotConfigured = false;
+    let aiAdvisorNotConfiguredShown = false;
 
     function getAdvisorStorageKey(){
       const fleetId = localStorage.getItem("fleetai.companyId") || localStorage.getItem("fleetai.companyName") || "default";
@@ -3498,7 +5906,49 @@
       el.innerHTML = `<span class="aiAdvisor-statusDot"></span>${label}`;
     }
 
+    async function aiAdvisorCheckStatus(){
+      try{
+        const health = await fetch(healthEndpoint);
+        if(!health.ok){
+          aiAdvisorSetStatus("Offline", "offline");
+          return;
+        }
+      }catch(e){
+        aiAdvisorSetStatus("Offline", "offline");
+        return;
+      }
+      try{
+        const res = await fetch(AI_ADVISOR_CONFIG.statusEndpoint);
+        if(!res.ok){
+          aiAdvisorSetStatus("Degraded", "warn");
+          return;
+        }
+        const data = await res.json();
+        if(data && data.enabled){
+          aiAdvisorNotConfigured = false;
+          aiAdvisorSetStatus("Online", "ok");
+        } else {
+          aiAdvisorNotConfigured = true;
+          aiAdvisorSetStatus("Not configured", "warn");
+          if(!aiAdvisorNotConfiguredShown){
+            aiAdvisorNotConfiguredShown = true;
+            aiAdvisorAppendMessage({
+              role:"assistant",
+              content:"AI not configured on server. Add OPENAI_API_KEY and enable AI to activate live responses.",
+              ts: Date.now(),
+              type:"error"
+            });
+          }
+        }
+      }catch(e){
+        aiAdvisorSetStatus("Degraded", "warn");
+      }
+    }
+
     function aiAdvisorFormatTime(ts){
+      if(aiAdvisorNotConfigured){
+        return "AI not configured on server. Add OPENAI_API_KEY and enable AI to activate live responses.";
+      }
       try{
         const d = new Date(ts || Date.now());
         return d.toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"});
@@ -3620,6 +6070,10 @@
       btn.disabled = !input.value.trim();
     }
 
+    function shouldAutoLogMaintenance(text){
+      return /log|record|add/i.test(text) && /(oil|brake|tire|repair|inspection|service|maintenance)/i.test(text);
+    }
+
     async function aiAdvisorSend(){
       const input = $("chatInput");
       if(!input) return;
@@ -3627,6 +6081,7 @@
       if(!text) return;
       input.value = "";
       updateSendState();
+      lastAdvisorQuestion = text;
 
       aiAdvisorAppendMessage({ role:"user", content:text, ts: Date.now() });
       aiAdvisorSetStatus("Connecting", "warn");
@@ -3634,14 +6089,11 @@
       if(typing) typing.classList.remove("hide");
 
       try{
-        const reply = await sendMessageToAdvisor(text, {
-          fleetId: localStorage.getItem("fleetai.companyId") || null,
-          vehicleId: state.selectedVehicleId || null,
-          vehicleIds: (state.vehicles || []).map(v=>v.vehicleId),
-          telemetryAvailable: !!state.telemetryLastSeen,
-          telemetrySnapshot: state.apiTelemetry || null
-        });
+        const reply = await sendMessageToAdvisor(text);
         aiAdvisorAppendMessage({ role:"assistant", content:reply, ts: Date.now() });
+        if(shouldAutoLogMaintenance(text)){
+          await logMaintenanceFromAdvisor(true);
+        }
         aiAdvisorSetStatus("Online", "ok");
       } catch(err){
         logError("AI Advisor error", err);
@@ -3658,38 +6110,75 @@
     }
 
     async function sendMessageToAdvisor(message, context){
-      const history = aiAdvisorHistory
-        .filter(m => m.role === "user" || m.role === "assistant")
-        .slice(-12)
-        .map(m => ({ role: m.role, content: m.content }));
-      const payload = { messages: history, context: context || {} };
-
       try{
         const res = await fetch(AI_ADVISOR_CONFIG.endpoint, {
           method:"POST",
           headers:{ "Content-Type":"application/json" },
-          body: JSON.stringify(payload)
+          body: JSON.stringify({
+            orgId: localStorage.getItem("fleetai.orgId") || "",
+            currentVehicleId: state.selectedVehicleId || "",
+            userQuestion: message
+          })
         });
         if(res.ok){
           const data = await res.json();
-          if(data && data.reply) return data.reply;
+          if(data && data.reply){
+            return data.reply.trim();
+          }
         }
       } catch(err){
       }
 
       if(AI_ADVISOR_CONFIG.mockEnabled){
         if(!context || !context.telemetryAvailable){
-          return "No live data yet. Connect a paired vehicle to receive fleet-specific guidance.";
+          return "No live data yet. Connect a paired vehicle to receive fleet-specific guidance. Start by reviewing recent alerts and confirming service history for your highest-mileage vehicles.";
         }
-        return "AI Advisor is in pilot mode without live AI connectivity. Provide additional context or connect the backend to receive tailored guidance.";
+        return "AI Advisor is running in pilot mode without live AI connectivity. Provide more context on the vehicle or connect the backend to receive tailored guidance.";
       }
       throw new Error("AI request failed");
+    }
+
+    async function logMaintenanceFromAdvisor(silent){
+      if(!lastAdvisorQuestion){
+        toast("Nothing to log", "Ask the AI Advisor to log a maintenance event first.");
+        return;
+      }
+      if(!state.selectedVehicleId){
+        toast("Select a vehicle", "Choose a vehicle before logging maintenance.");
+        return;
+      }
+      try{
+        const res = await fetch(aiMaintenanceEndpoint, {
+          method:"POST",
+          headers:{ "Content-Type":"application/json" },
+          body: JSON.stringify({
+            orgId: localStorage.getItem("fleetai.orgId") || "",
+            vehicleId: state.selectedVehicleId,
+            naturalLanguage: lastAdvisorQuestion
+          })
+        });
+        if(!res.ok){
+          throw new Error("Failed to log maintenance");
+        }
+        const data = await res.json();
+        if(data && data.data){
+          if(!silent){
+            toast("Maintenance logged", `Saved ${maintenanceTypeLabel(data.data.type)} for ${state.selectedVehicleId}.`);
+          }
+          loadMaintenanceLogs();
+        }
+      } catch(err){
+        if(!silent){
+          toast("Log failed", "Unable to log maintenance from advisor.");
+        }
+      }
     }
 
     function aiAdvisorOpenSupport(open){
       const modal = $("aiAdvisorSupportModal");
       if(!modal) return;
       modal.classList.toggle("hide", !open);
+      document.body.classList.toggle("modal-open", !!open);
     }
 
     function aiAdvisorSubmitSupport(e){
@@ -3776,6 +6265,7 @@
         select.innerHTML = `<option value="">No vehicles yet</option>`;
         select.disabled = true;
         state.selectedVehicleId = "";
+        renderMaintenanceLogsVehicleSelect();
         return;
       }
       select.disabled = false;
@@ -3785,6 +6275,56 @@
       }
       select.value = state.selectedVehicleId;
       state.gps.selected = state.selectedVehicleId;
+      renderMaintenanceLogsVehicleSelect();
+    }
+
+    function renderMaintenanceLogsVehicleSelect(){
+      const select = $("maintLogsVehicle");
+      if(!select) return;
+      if(!state.vehicles.length){
+        select.innerHTML = `<option value="">No vehicles yet</option>`;
+        select.disabled = true;
+        return;
+      }
+      select.disabled = false;
+      select.innerHTML = state.vehicles.map(v=>`<option value="${v.vehicleId}">${formatVehicleLabelById(v.vehicleId)}</option>`).join("");
+      if(state.selectedVehicleId){
+        select.value = state.selectedVehicleId;
+      }
+    }
+
+    function applySelectedVehicle(vehicleId, opts = {}){
+      state.selectedVehicleId = vehicleId || "";
+      state.lastVals = {};
+      state.eventLog = [];
+      state.persist = {};
+      state.gps.selected = state.selectedVehicleId;
+      const pairSelect = $("pairVehicleSelect");
+      if(pairSelect && state.selectedVehicleId){
+        pairSelect.value = state.selectedVehicleId;
+      }
+      const truckSelect = $("truck");
+      if(truckSelect && truckSelect.value !== state.selectedVehicleId){
+        truckSelect.value = state.selectedVehicleId;
+      }
+      const maintSelect = $("maintLogsVehicle");
+      if(maintSelect && maintSelect.value !== state.selectedVehicleId){
+        maintSelect.value = state.selectedVehicleId;
+      }
+      if(!opts.silent && state.selectedVehicleId){
+        toast("Vehicle selected", `Now focusing Fleet AI on ${state.selectedVehicleId}.`);
+      }
+      renderEventLog();
+      updateTelemetryStatus();
+      fetchTelemetry();
+      if(typeof loadMaintenanceLogs === "function") loadMaintenanceLogs();
+      if(typeof loadRecommendations === "function") loadRecommendations();
+      if(typeof loadMaintenanceLogsV2 === "function") loadMaintenanceLogsV2();
+      safeInvoke("loadHealthRisk");
+      safeInvoke("loadPriorityActions");
+      safeInvoke("loadTelemetryHistory");
+      safeInvoke("loadFuelEvents");
+      safeInvoke("loadDtcHistory");
     }
 
     /* ---------- Simple local users (optional) ---------- */
@@ -3811,6 +6351,8 @@
       const el = $('loginOverlay');
       if(!el) return;
       el.classList.toggle('hide', !show);
+      el.style.pointerEvents = show ? 'auto' : 'none';
+      document.body.classList.toggle('modal-open', !!show);
       if(show){
         $('loginEmail').focus();
         if(opts.createMode) $('loginTitle').textContent = 'Create Admin Account';
@@ -3855,6 +6397,23 @@
     }
 
     document.addEventListener("DOMContentLoaded", ()=>{
+      window.onerror = (msg, src, line, col, err) => {
+        try{
+          document.querySelectorAll(".overlay").forEach(el=>el.classList.add("hide"));
+          if(typeof showBanner === "function"){
+            showBanner(`JS error: ${msg}`);
+          }
+        }catch(_){}
+      };
+      window.onunhandledrejection = (e) => {
+        try{
+          document.querySelectorAll(".overlay").forEach(el=>el.classList.add("hide"));
+          if(typeof showBanner === "function"){
+            showBanner(`Promise error: ${e.reason}`);
+          }
+        }catch(_){}
+      };
+      checkConfigStatus();
       document.querySelectorAll(".nav button").forEach(btn=>{
         const labelEl = btn.querySelector(".navLabel");
         const label = labelEl ? labelEl.textContent.trim() : btn.textContent.trim();
@@ -3862,6 +6421,20 @@
         btn.title = label;
       });
       initNav();
+      document.addEventListener("click", (e)=>{
+        const target = e.target;
+        if(!(target instanceof HTMLElement)) return;
+        const btn = target.closest("button, a");
+        if(!btn) return;
+        const id = btn.id ? `#${btn.id}` : "";
+        const route = btn.getAttribute("data-route") || "";
+        const label = btn.getAttribute("data-label") || btn.textContent.trim();
+        diagLog("UI ACTION", `${btn.tagName}${id}`, route, label);
+      });
+      // Start telemetry stream
+      telemetryStreamConnect();
+      if(activePollTimer) clearInterval(activePollTimer);
+      activePollTimer = setInterval(pollActiveStatus, 8000);
 
     // Sidebar toggle + persistence
     const __root = document.querySelector('.app');
@@ -3904,6 +6477,37 @@
     const btnLogout = $('btnLogout');
     if(btnLogout) btnLogout.addEventListener('click', doLogout);
 
+    const loginOverlay = $('loginOverlay');
+    if(loginOverlay){
+      loginOverlay.addEventListener('click', (e)=>{
+        if(e.target === loginOverlay){
+          showLoginOverlay(false);
+        }
+      });
+    }
+    const supportModal = $("aiAdvisorSupportModal");
+    if(supportModal){
+      supportModal.addEventListener("click", (e)=>{
+        if(e.target === supportModal){
+          aiAdvisorOpenSupport(false);
+        }
+      });
+    }
+    document.addEventListener('keydown', (e)=>{
+      if(e.key === 'Escape'){
+        if(!loginOverlay?.classList.contains('hide')){
+          showLoginOverlay(false);
+        }
+        if(supportModal && !supportModal.classList.contains("hide")){
+          aiAdvisorOpenSupport(false);
+        }
+        const maintLogsModal = $("maintLogsModal");
+        if(maintLogsModal && !maintLogsModal.classList.contains("hide")){
+          closeMaintLogsModal();
+        }
+      }
+    });
+
 
     // Ctrl+B / Meta+B to toggle sidebar
     document.addEventListener('keydown', (e)=>{
@@ -3924,16 +6528,178 @@
       fetchTelemetry();
       fetchTireRisk();
       fetchAlerts();
+      safeInvoke("loadPriorityActions");
+      safeInvoke("loadTelemetryHistory");
+      safeInvoke("loadFuelEvents");
+      safeInvoke("loadHealthRisk");
+      safeInvoke("loadDtcHistory");
     });
 
     $("btnExport").addEventListener("click", exportReport);
+    const telemetryHistoryRefresh = $("telemetryHistoryRefresh");
+    if(telemetryHistoryRefresh) telemetryHistoryRefresh.addEventListener("click", loadTelemetryHistory);
+    const telemetryHistoryMetric = $("telemetryHistoryMetric");
+    if(telemetryHistoryMetric) telemetryHistoryMetric.addEventListener("change", loadTelemetryHistory);
+    const telemetryHistoryRange = $("telemetryHistoryRange");
+    if(telemetryHistoryRange) telemetryHistoryRange.addEventListener("change", loadTelemetryHistory);
+    const dtcHistoryRefresh = $("dtcHistoryRefresh");
+    if(dtcHistoryRefresh) dtcHistoryRefresh.addEventListener("click", loadDtcHistory);
+    const dtcHistoryRange = $("dtcHistoryRange");
+    if(dtcHistoryRange) dtcHistoryRange.addEventListener("change", loadDtcHistory);
+    const maintLogsRefresh = $("maintLogsRefresh");
+    if(maintLogsRefresh) maintLogsRefresh.addEventListener("click", loadMaintenanceLogsV2);
+    const maintLogsAdd = $("maintLogsAdd");
+    if(maintLogsAdd) maintLogsAdd.addEventListener("click", ()=> openMaintLogsModal());
+    const maintLogsAddEmpty = $("maintLogsAddEmpty");
+    if(maintLogsAddEmpty) maintLogsAddEmpty.addEventListener("click", ()=> openMaintLogsModal());
+    const maintLogsRange = $("maintLogsRange");
+    if(maintLogsRange) maintLogsRange.addEventListener("change", loadMaintenanceLogsV2);
+    const maintLogsVehicle = $("maintLogsVehicle");
+    if(maintLogsVehicle) maintLogsVehicle.addEventListener("change", (e)=> applySelectedVehicle(e.target.value));
+    const maintLogType = $("maintLogType");
+    if(maintLogType) maintLogType.addEventListener("change", handleMaintLogTypeChange);
+    const maintLogsCancel = $("maintLogsCancel");
+    if(maintLogsCancel) maintLogsCancel.addEventListener("click", closeMaintLogsModal);
+    const maintLogsSave = $("maintLogsSave");
+    if(maintLogsSave) maintLogsSave.addEventListener("click", saveMaintenanceLogV2);
+    const maintLogsModal = $("maintLogsModal");
+    if(maintLogsModal){
+      maintLogsModal.addEventListener("click", (e)=>{
+        if(e.target === maintLogsModal) closeMaintLogsModal();
+      });
+    }
+    const maintLogsTableBody = $("maintLogsTableBody");
+    if(maintLogsTableBody){
+      maintLogsTableBody.addEventListener("click", (e)=>{
+        const target = e.target;
+        if(!(target instanceof HTMLElement)) return;
+        const row = target.closest("[data-maint-log]");
+        if(!row) return;
+        const logId = row.getAttribute("data-maint-log");
+        const log = state.maintenanceLogs.logs.find(l=> l.id === logId);
+        if(target.matches('[data-action="edit-log"]') && log){
+          openMaintLogsModal(log);
+        }
+        if(target.matches('[data-action="delete-log"]') && logId){
+          deleteMaintenanceLogV2(logId);
+        }
+      });
+    }
 
     const btnAddVehicle = $("btnAddVehicle");
     if(btnAddVehicle) btnAddVehicle.addEventListener("click", addVehicle);
     const btnAddDriver = $("btnAddDriver");
     if(btnAddDriver) btnAddDriver.addEventListener("click", addDriver);
-    const btnGeneratePair = $("btnGeneratePair");
-    if(btnGeneratePair) btnGeneratePair.addEventListener("click", generatePairCode);
+    if(!PAIRING_V2){
+      document.addEventListener("click", (e) => {
+        const target = e.target;
+        if(!(target instanceof HTMLElement)) return;
+        const btn = target.closest("#btnGeneratePairCode");
+        if(!btn) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const vehicleId = $("pairVehicleSelect")?.value || "";
+        const driverId = $("pairDriverSelect")?.value || "";
+        console.log("[PAIR] delegated click", { vehicleId, driverId });
+        updatePairDebug({
+          vehicleId,
+          driverId,
+          endpoint: pairCodeEndpoint,
+          status: "CLICKED",
+          error: "--",
+          conflict: "--",
+          code: "--",
+          response: "--"
+        });
+        generatePairCode();
+      });
+      const pairPing = $("pairPing");
+      if(pairPing) pairPing.addEventListener("click", async ()=>{
+        updatePairDebug({ endpoint: pairHealthEndpoint, status: "pending", error: "--" });
+        try{
+          const res = await fetch(pairHealthEndpoint, { credentials: "include" });
+          updatePairDebug({ status: String(res.status) });
+          if(!res.ok){
+            updatePairDebug({ error: `health_${res.status}` });
+            toast("Health check failed", `Status ${res.status}`);
+            return;
+          }
+          const parsed = await safeJsonResponse(res);
+          updatePairDebug({ error: "--", response: parsed.parsed ? JSON.stringify(parsed.data).slice(0, 200) : (parsed.raw || "").slice(0, 200) });
+          toast("Health check", "OK");
+        }catch(err){
+          updatePairDebug({ error: err && err.message ? err.message : "health_failed" });
+          toast("Health check failed", "Request failed");
+        }
+      });
+      initPairingDebug();
+      const pairUseExisting = $("pairUseExisting");
+      if(pairUseExisting) pairUseExisting.addEventListener("click", ()=>{
+        const box = $("pairConflict");
+        if(!box) return;
+        const data = {
+          pairingCode: box.dataset.code || "--",
+          expiresAt: box.dataset.expiresAt || null,
+          driverPin: box.dataset.driverPin || "--",
+          driverPinExpiresAt: box.dataset.driverPinExpiresAt || null
+        };
+        renderPairingCode(data);
+        clearPairConflict();
+        toast("Using existing code", `Code ${data.pairingCode}`);
+      });
+      const pairExpireGenerate = $("pairExpireGenerate");
+      if(pairExpireGenerate) pairExpireGenerate.addEventListener("click", async ()=>{
+        try{
+          const vehicleId = $("pairVehicleSelect").value;
+          const driverId = $("pairDriverSelect").value;
+          if(!vehicleId || !driverId){
+            toast("Missing selection", "Choose a vehicle and driver.");
+            return;
+          }
+          const box = $("pairConflict");
+          const pairId = box?.dataset?.pairId || "";
+          updatePairDebug({ endpoint: pairCodeRevokeEndpoint, status: "REQUESTING", error: "--" });
+          await fetchJson(pairCodeRevokeEndpoint, {
+            method: "POST",
+            body: JSON.stringify(pairId ? { pairId } : { vehicleId, driverId })
+          });
+          const data = await fetchJson(pairCodeEndpoint, {
+            method: "POST",
+            body: JSON.stringify({ vehicleId, driverId, force: true })
+          });
+          updatePairDebug({ code: data.code || data.pairingCode || "--", response: JSON.stringify(data).slice(0, 200) });
+          renderPairingCode(data);
+          clearPairConflict();
+          toast("Pairing regenerated", `New code ${data.code || data.pairingCode || "--"}`);
+          if(typeof loadFleetManagement === "function") loadFleetManagement();
+        }catch(err){
+          updatePairDebug({ error: err && err.message ? err.message : "revoke_failed" });
+          toast("Expire failed", err && err.message ? err.message : "Request failed");
+        }
+      });
+      const pairReplaceGenerate = $("pairReplaceGenerate");
+      if(pairReplaceGenerate) pairReplaceGenerate.addEventListener("click", async ()=>{
+        const vehicleId = $("pairVehicleSelect").value;
+        const driverId = $("pairDriverSelect").value;
+        if(!vehicleId || !driverId){
+          toast("Missing selection", "Choose a vehicle and driver.");
+          return;
+        }
+        try{
+          const data = await fetchJson(pairCodeReplaceEndpoint, {
+            method: "POST",
+            body: JSON.stringify({ vehicleId, driverId })
+          });
+          updatePairDebug({ code: data.code || data.pairingCode || "--" });
+          renderPairingCode(data);
+          clearPairConflict();
+          toast("Pairing replaced", `New code ${data.code || data.pairingCode || "--"}`);
+          loadFleetManagement();
+        }catch(err){
+          toast("Replace failed", err && err.message ? err.message : "Request failed");
+        }
+      });
+    }
     const btnSaveCompany = $("btnSaveCompany");
     if(btnSaveCompany){
       btnSaveCompany.addEventListener("click", ()=>{
@@ -3964,24 +6730,7 @@
     $("search").addEventListener("input", e => filterTable(e.target.value));
 
     $("truck").addEventListener("change", e=>{
-      state.selectedVehicleId = e.target.value;
-
-      // reset telemetry stream state
-      state.lastVals = {};
-      state.eventLog = [];
-      state.persist = {};
-
-      // sync GPS selection
-      state.gps.selected = state.selectedVehicleId;
-      const pairSelect = $("pairVehicleSelect");
-      if(pairSelect && state.selectedVehicleId){
-        pairSelect.value = state.selectedVehicleId;
-      }
-
-      toast("Vehicle selected", `Now focusing Fleet AI on ${state.selectedVehicleId}.`);
-      renderEventLog();
-      updateTelemetryStatus();
-      fetchTelemetry();
+      applySelectedVehicle(e.target.value);
     });
 
     $("toastX").addEventListener("click", ()=> $("toast").style.display="none");
@@ -4063,6 +6812,7 @@
 
     // AI Advisor init
     (function initAdvisor(){
+      if(!AI_ADVISOR_ENABLED) return;
       aiAdvisorLoadHistory();
       renderQuickPrompts();
       aiAdvisorRenderHistory();
@@ -4100,6 +6850,8 @@
 
     // particle flow removed - static blue background only
   </script>
+  <script defer src="/ui/js/operator-router.js"></script>
+  <script defer src="/ui/js/pairing.js"></script>
 </body>
 </html>
 

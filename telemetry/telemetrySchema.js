@@ -37,6 +37,8 @@ function createTelemetrySchema() {
       previousDTCs: EMPTY_ARRAY
     },
     meta: {
+      vin: null,
+      vinDecoded: null,
       supportedStandards: [],
       busHealth: {
         ok: false,

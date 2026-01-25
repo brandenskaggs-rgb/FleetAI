@@ -32,10 +32,10 @@ class MockApiService {
     }
 
     fun claimPairing(pairingCode: String, deviceId: String, deviceLabel: String): PairingClaimResponse {
-        if (pairingCode.length != 6 || !pairingCode.all { it.isDigit() }) {
+        if (pairingCode.length != 6 || !pairingCode.all { it.isLetterOrDigit() }) {
             throw IllegalArgumentException("invalid")
         }
-        if (pairingCode == "000000") {
+        if (pairingCode.uppercase() == "000000") {
             throw IllegalStateException("expired")
         }
         return PairingClaimResponse(

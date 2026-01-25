@@ -21,10 +21,24 @@ function decodePid(pid, data) {
       return { key: entry.name, value: bytes[0], unit: entry.unit };
     case "05":
       return { key: entry.name, value: bytes[0] - 40, unit: entry.unit };
+    case "0F":
+      return { key: entry.name, value: bytes[0] - 40, unit: entry.unit };
     case "2F":
       return { key: entry.name, value: (bytes[0] * 100) / 255, unit: entry.unit };
     case "11":
       return { key: entry.name, value: (bytes[0] * 100) / 255, unit: entry.unit };
+    case "04":
+      return { key: entry.name, value: (bytes[0] * 100) / 255, unit: entry.unit };
+    case "0B":
+      return { key: entry.name, value: bytes[0], unit: entry.unit };
+    case "0A":
+      return { key: entry.name, value: bytes[0] * 3, unit: entry.unit }; // fuel pressure
+    case "10": {
+      const v = bytesToInt(bytes);
+      return { key: entry.name, value: v / 100, unit: entry.unit };
+    }
+    case "33":
+      return { key: entry.name, value: bytes[0], unit: entry.unit };
     case "42": {
       const v = bytesToInt(bytes);
       return { key: entry.name, value: v / 1000, unit: entry.unit };

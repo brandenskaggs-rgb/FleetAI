@@ -76,5 +76,21 @@ data class PairingClaimRequest(
 data class PairingClaimResponse(
     val vehicleId: String,
     val driverId: String,
-    val status: String
+    val status: String,
+    val assignmentId: String? = null,
+    val deviceId: String? = null,
+    val deviceLabel: String? = null
+)
+
+data class TelemetryIngestRequest(
+    val vehicleId: String,
+    val driverId: String?,
+    val deviceId: String,
+    val orgId: String? = null,
+    val protocol: String = "OBD",
+    val timestamp: String,
+    val metrics: Map<String, Any?>,
+    val derivedMetrics: Map<String, Any?> = emptyMap(),
+    val obdConnected: Boolean = true,
+    val lastObdPacketAt: String = timestamp
 )

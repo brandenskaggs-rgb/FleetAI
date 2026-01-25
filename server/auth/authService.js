@@ -1,0 +1,163 @@
+const bcrypt = require("bcryptjs");
+const crypto = require("crypto");
+const { AUTH_ERRORS } = require("./authErrors");
+
+function normalizeEmail(email) {
+  return String(email || "").trim().toLowerCase();
+}
+
+function isCustomerRole(user) {
+  const role = String(user?.role || "").toUpperCase();
+  return role.startsWith("CUSTOMER") || role === "ORG_ADMIN";
+}
+
+function isEmployeeRole(user) {
+  if (!user) return false;
+  return !isCustomerRole(user);
+}
+
+function isActiveUser(user) {
+  if (!user) return false;
+  const status = String(user.status || "").toUpperCase();
+  if (status === "INACTIVE" || status === "DISABLED" || status === "LOCKED") return false;
+  return user.isActive !== false && user.active !== false;
+}
+
+function needsPasswordSetup(user) {
+  if (!user) return false;
+  const hashMissing = !user.passwordHash || String(user.passwordHash).trim() === "";
+  return hashMissing
+    || user.firstLoginRequired === true
+    || user.firstLogin === true
+    || user.mustSetPassword
+    || user.requirePasswordReset
+    || user.mustResetPassword
+    || user.isTemporaryPassword;
+}
+
+function shouldAutoRepair(email, devSetupMode, whitelist) {
+  if (!devSetupMode) return false;
+  if (!Array.isArray(whitelist) || whitelist.length === 0) return false;
+  const normalized = normalizeEmail(email);
+  return whitelist.includes(normalized);
+}
+
+async function setPassword(user, password) {
+  user.passwordHash = await bcrypt.hash(password, 12);
+  user.passwordAlgo = "bcrypt";
+  user.firstLogin = false;
+  user.firstLoginRequired = false;
+  user.mustSetPassword = false;
+  user.requirePasswordReset = false;
+  user.mustResetPassword = false;
+  user.isTemporaryPassword = false;
+  user.setupTokenHash = "";
+  user.setupTokenExpiresAt = null;
+  user.passwordLastSetAt = new Date().toISOString();
+  user.lastPasswordChangeAt = user.passwordLastSetAt;
+  return user;
+}
+
+function issueSetupToken(user) {
+  const token = crypto.randomBytes(24).toString("hex");
+  const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+  const expiresAt = Date.now() + 15 * 60 * 1000;
+  user.setupTokenHash = tokenHash;
+  user.setupTokenExpiresAt = expiresAt;
+  return { token, expiresAt };
+}
+
+function validateSetupToken(user, token) {
+  if (!user || !token) return false;
+  if (!user.setupTokenHash || !user.setupTokenExpiresAt) return false;
+  if (Date.now() > Number(user.setupTokenExpiresAt)) return false;
+  const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+  return tokenHash === user.setupTokenHash;
+}
+
+function createAuthService(options) {
+  const {
+    loadData,
+    saveData,
+    issueSession,
+    devSetupMode,
+    demoWhitelist = []
+  } = options;
+
+  async function getUserByEmail(scope, email) {
+    const emailNormalized = normalizeEmail(email);
+    if (!emailNormalized) return { user: null, emailNormalized };
+    const data = await loadData();
+    const user = (data.users || []).find((u) => normalizeEmail(u.email) === emailNormalized) || null;
+    if (!user) return { user: null, emailNormalized, data };
+    if (scope === "customer" && !isCustomerRole(user) && user.kind !== "customer") return { user: null, emailNormalized, data };
+    if (scope === "employee" && !isEmployeeRole(user) && user.kind !== "employee") return { user: null, emailNormalized, data };
+    return { user, emailNormalized, data };
+  }
+
+  async function authenticate(scope, email, password) {
+    const emailNormalized = normalizeEmail(email);
+    if (!emailNormalized || !password) {
+      return { ok: false, error: AUTH_ERRORS.INVALID_CREDENTIALS };
+    }
+    const result = await getUserByEmail(scope, emailNormalized);
+    const user = result.user;
+    const data = result.data;
+    if (!user) {
+      return { ok: false, error: AUTH_ERRORS.USER_NOT_FOUND };
+    }
+    if (!isActiveUser(user)) {
+      return { ok: false, error: AUTH_ERRORS.ACCOUNT_LOCKED };
+    }
+    if (needsPasswordSetup(user)) {
+      const tokenInfo = issueSetupToken(user);
+      await saveData(data);
+      return { ok: false, error: AUTH_ERRORS.PASSWORD_SETUP_REQUIRED, next: tokenInfo };
+    }
+    let ok = false;
+    try {
+      ok = await bcrypt.compare(password, user.passwordHash);
+    } catch (_) {
+      ok = false;
+    }
+    if (!ok && shouldAutoRepair(emailNormalized, devSetupMode, demoWhitelist)) {
+      await setPassword(user, password);
+      await saveData(data);
+      ok = true;
+    }
+    if (!ok) {
+      return { ok: false, error: AUTH_ERRORS.INVALID_CREDENTIALS };
+    }
+    user.lastLoginAt = new Date().toISOString();
+    await saveData(data);
+    const session = issueSession(scope, user);
+    return { ok: true, user, session };
+  }
+
+  async function setPasswordWithToken(token, newPassword) {
+    if (!token || !newPassword) {
+      return { ok: false, error: AUTH_ERRORS.INVALID_CREDENTIALS };
+    }
+    const data = await loadData();
+    const user = (data.users || []).find((u) => validateSetupToken(u, token)) || null;
+    if (!user) {
+      return { ok: false, error: AUTH_ERRORS.INVALID_CREDENTIALS };
+    }
+    await setPassword(user, newPassword);
+    await saveData(data);
+    return { ok: true, user };
+  }
+
+  return {
+    normalizeEmail,
+    authenticate,
+    getUserByEmail,
+    setPasswordWithToken,
+    needsPasswordSetup,
+    isCustomerRole,
+    isEmployeeRole,
+    issueSetupToken
+  };
+}
+
+module.exports = { createAuthService, normalizeEmail, needsPasswordSetup, isCustomerRole, isEmployeeRole };

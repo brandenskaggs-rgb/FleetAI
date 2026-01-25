@@ -24,6 +24,7 @@ import com.fleetai.driver.ui.components.LargeActionButton
 import com.fleetai.driver.ui.components.MetricRow
 import com.fleetai.driver.ui.components.WarningBanner
 import com.fleetai.driver.ui.viewmodel.HomeViewModel
+import com.fleetai.driver.ui.viewmodel.SensorViewModel
 import com.fleetai.driver.ui.viewmodel.SessionState
 
 @Composable
@@ -36,7 +37,9 @@ fun HomeScreen(
     onOpenSettings: () -> Unit
 ) {
     val viewModel: HomeViewModel = viewModel(factory = AppGraph.viewModelFactory)
+    val sensorViewModel: SensorViewModel = viewModel(factory = AppGraph.viewModelFactory)
     val state by viewModel.uiState.collectAsState()
+    val obdStatus by sensorViewModel.status.collectAsState()
 
     Column(
         modifier = Modifier
@@ -50,6 +53,7 @@ fun HomeScreen(
             MetricRow("Driver", sessionState.driverName.ifBlank { "--" })
             MetricRow("Vehicle", sessionState.vehicleId.ifBlank { "--" })
             MetricRow("Mode", if (sessionState.demoMode) "Demo" else "Live")
+            MetricRow("OBD", obdStatus)
         }
 
         FleetCard(modifier = Modifier.fillMaxWidth()) {

@@ -6,33 +6,36 @@ import retrofit2.http.POST
 import retrofit2.http.Query
 
 interface ApiService {
-    @POST("auth/driverLogin")
+    @POST("api/auth/driverLogin")
     suspend fun loginDriver(@Body request: LoginRequest): LoginResponse
 
-    @POST("pairings/claim")
+    @POST("api/pairings/claim")
     suspend fun claimPairing(@Body request: PairingClaimRequest): PairingClaimResponse
 
-    @GET("drivers/me")
+    @GET("api/drivers/me")
     suspend fun getDriverProfile(): DriverProfileResponse
 
-    @GET("vehicles")
+    @GET("api/vehicles")
     suspend fun getVehicles(@Query("tenantId") tenantId: String): VehicleListResponse
 
-    @POST("vehicles/select")
+    @POST("api/vehicles/select")
     suspend fun selectVehicle(@Body request: SelectVehicleRequest): BasicResponse
 
-    @POST("logs/hos")
+    @POST("api/logs/hos")
     suspend fun postHosLog(@Body request: DriverLogRequest): BasicResponse
 
-    @GET("logs/hos")
+    @GET("api/logs/hos")
     suspend fun getHosLogs(@Query("date") date: String): HosLogResponse
 
-    @POST("telemetry/snapshot")
+    @POST("api/telemetry/ingest")
+    suspend fun ingestTelemetry(@Body request: TelemetryIngestRequest): BasicResponse
+
+    @POST("api/telemetry/snapshot")
     suspend fun postTelemetrySnapshot(@Body request: TelemetrySnapshotRequest): BasicResponse
 
-    @POST("alerts")
+    @POST("api/alerts")
     suspend fun postAlert(@Body request: AlertRequest): BasicResponse
 
-    @GET("vehicle/dtcs")
+    @GET("api/vehicle/dtcs")
     suspend fun getDiagnosticCodes(): DtcResponse
 }

@@ -15,7 +15,9 @@ Fleet AI Driver is a tablet-first Android app for drivers. It provides a simple 
 
 ## Backend Connection
 - Base URL is configured in `driver_app/app/build.gradle` via `BuildConfig.BASE_URL`.
-- Default value uses emulator loopback: `http://10.0.2.2:8000/`.
+- Default value uses emulator loopback: `http://10.0.2.2:3000/`.
+- Override for a real device or hotspot network:
+  - Add `FLEETAI_BASE_URL=http://<your-server-ip>:3000/` to `driver_app/gradle.properties` (or pass `-PFLEETAI_BASE_URL=...` in Gradle).
 
 ## Demo Mode
 - Toggle Demo Mode in Settings to generate local sensor readings without a dongle.

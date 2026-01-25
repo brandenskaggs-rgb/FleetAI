@@ -1,0 +1,69 @@
+      <section id="view-pairing" class="section hide">
+        <div class="grid2">
+          <div class="card">
+            <div class="hd">
+              <h2>Generate Pair Code</h2>
+              <div class="meta">Choose a vehicle + driver to link</div>
+            </div>
+            <div class="bd">
+              <div style="display:grid; gap:8px;">
+                <select id="pairVehicleSelect"></select>
+                <select id="pairDriverSelect"></select>
+              </div>
+              <div class="rightStack" style="margin-top:12px;">
+                <button class="btn primary" id="btnGeneratePairCode">Generate Pair Code</button>
+              </div>
+              <div class="mini" id="pairCodeValue" style="margin-top:8px;">Code: --</div>
+              <div class="mini" id="pairExpiresValue" style="margin-top:6px;">Expires in --:--</div>
+              <div class="mini" id="pairDriverPinValue" style="margin-top:10px;">Driver PIN: --</div>
+              <div class="mini" id="pairPinExpiresValue" style="margin-top:6px;">PIN expires in --:--</div>
+              <div id="pairError" class="note" style="margin-top:10px; display:none;"></div>
+              <div id="pairConflict" class="note" style="margin-top:12px; display:none;">
+                <div style="font-weight:700; margin-bottom:6px;">Pairing already active</div>
+                <div id="pairConflictDetail" style="margin-bottom:8px;">--</div>
+                <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                  <button class="btn ghost" id="pairUseExisting" type="button">Use Existing Code</button>
+                  <button class="btn" id="pairExpireGenerate" type="button">Revoke Existing &amp; Generate New</button>
+                  <button class="btn primary" id="pairReplaceGenerate" type="button">Replace With New Code</button>
+                </div>
+              </div>
+              <details class="note" style="margin-top:12px;">
+                <summary style="cursor:pointer;">Pairing Debug</summary>
+                <div style="margin-top:6px; font-size:12px;">
+                  <div>Vehicle: <span id="pairingDebugVehicle">--</span></div>
+                  <div>Driver: <span id="pairingDebugDriver">--</span></div>
+                  <div>Endpoint: <span id="pairingDebugEndpoint">--</span></div>
+                  <div>Status: <span id="pairingDebugStatus">--</span></div>
+                  <div>Error: <span id="pairingDebugError">--</span></div>
+                  <div>Conflict: <span id="pairingDebugConflict">--</span></div>
+                  <div>Code: <span id="pairingDebugCode">--</span></div>
+                  <div>Response: <span id="pairingDebugResponse">--</span></div>
+                  <button class="btn ghost" id="pairPing" type="button" style="margin-top:8px;">Ping Pair Endpoint</button>
+                </div>
+              </details>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="hd">
+              <h2>Claim Status</h2>
+              <div class="meta">Active assignments from device pairing</div>
+            </div>
+            <div class="bd">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Vehicle</th>
+                    <th>Driver</th>
+                    <th>Device Label</th>
+                    <th>Last Seen</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody id="claimStatusTableBody"></tbody>
+              </table>
+              <div id="claimStatusEmpty" class="note" style="margin-top:10px; display:none;"><b>No pairings yet.</b> Generate a code and claim from a tablet.</div>
+            </div>
+          </div>
+        </div>
+      </section>
