@@ -1,0 +1,362 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Fleet AI - Pricing</title>
+  <link rel="stylesheet" href="/css/site-tokens.css" />
+  <link rel="stylesheet" href="/css/site-theme.css" />
+  <link rel="stylesheet" href="/css/site-components.css" />
+  <link rel="stylesheet" href="/css/site-layout.css" />
+  <link rel="stylesheet" href="/css/design-system.css" />
+</head>
+<body>
+  <!--
+  <div id="debugBanner" style="position:fixed;bottom:12px;right:12px;z-index:9999;background:#111827;color:#f9fafb;padding:10px 12px;border-radius:8px;font-size:12px;box-shadow:0 8px 20px rgba(0,0,0,0.25)">
+    <div><b>Debug</b></div>
+    <div id="debugUrl"></div>
+    <div id="debugCss"></div>
+  </div>
+  <script>
+    (function(){
+      var url = window.location.href;
+      var sheets = Array.prototype.slice.call(document.styleSheets).map(function(s){return s.href || 'inline';});
+      var elUrl = document.getElementById('debugUrl');
+      var elCss = document.getElementById('debugCss');
+      if(elUrl){ elUrl.textContent = 'URL: ' + url; }
+      if(elCss){ elCss.textContent = 'CSS: ' + sheets.join(', '); }
+    })();
+  </script>
+  -->
+  <header class="siteHeader">
+    <div class="container siteHeader__row">
+      <a class="wordmark" href="/index.html"><span class="brandFleet">Fleet</span><span class="brandAI">AI</span></a>
+      <nav class="siteNav" id="siteNav">
+        <a href="/product.html">Product</a>
+        <a class="is-active" href="/pricing.html">Pricing</a>
+        <a href="/pilot.html">Pilot Program</a>
+        <a href="/security.html">Security</a>
+        <a href="/about.html">About Us</a>
+      </nav>
+      <div class="siteActions">
+        <select class="themeSelect" id="siteThemeSelect" aria-label="Theme">
+          <option value="light-blue">Light</option>
+          <option value="dark-blue">Dark Blue</option>
+          <option value="dark-gray">Dark Gray</option>
+        </select>
+        <a class="btn secondary" href="/login.html">Sign In</a>
+        <a class="btn primary" href="/request-demo.html">Request Demo</a>
+        <button class="navToggle" id="navToggle" type="button">Menu</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="announceBar">
+    <div class="container">
+      <div class="announcePill"><a href="/pricing.html#plans">Pilot Program Active - $59/vehicle/mo (limited partners)</a></div>
+      <a class="btn ghost" href="/pilot.html">Apply for Pilot</a>
+    </div>
+  </div>
+
+  <section class="hero hero--spicy">
+    <div class="container heroGrid">
+      <div>
+        <span class="eyebrow">Fleet-first pricing</span>
+        <h1>Fleet-first pricing built for pilots and scale.</h1>
+        <p>Start with a pilot, validate outcomes in real operations, and scale with confidence. Core intelligence is always included.</p>
+        <div class="heroProof" style="margin-top:16px;">
+          <span class="pill">Pilot Program Active - $59 per vehicle / month</span>
+        </div>
+        <div class="heroActions">
+          <a class="btn primary" href="/request-demo.html">Request a Demo</a>
+          <a class="btn secondary" href="/pilot.html">Apply for Pilot</a>
+        </div>
+        <div class="heroQuickLinks">
+          <a href="/product.html#intelligence-layer">See Core Features</a>
+          <span class="dotSep">&middot;</span>
+          <a href="/pricing.html#addons">View Add-ons</a>
+          <span class="dotSep">&middot;</span>
+          <a href="/pilot.html">Apply for Pilot</a>
+        </div>
+        <div class="anchorTabs" style="margin-top:16px;">
+          <a href="#plans">Plans</a>
+          <a href="#core-intelligence">Core Intelligence</a>
+          <a href="#addons">Add-ons</a>
+          <a href="#faq">FAQ</a>
+        </div>
+      </div>
+      <div class="heroMock">
+        <!-- TODO: Replace skeleton preview with /assets/screens/hero-dashboard.png -->
+        <div class="mockScreen">
+          <div class="mockHeader">
+            <div class="mockPill"></div>
+            <div class="mockPill" style="width:60px"></div>
+          </div>
+          <div class="mockCard">
+            <div class="mockLine long"></div>
+            <div class="mockLine mid"></div>
+            <div class="mockLine short"></div>
+          </div>
+          <div class="mockRows" style="margin-top:12px;">
+            <div class="mockCard">
+              <div class="mockLine mid"></div>
+              <div class="mockLine long"></div>
+            </div>
+            <div class="mockCard">
+              <div class="mockLine short"></div>
+              <div class="mockLine long"></div>
+            </div>
+          </div>
+        </div>
+        <div class="card card--soft">
+          <div class="card__title">Insights, Alerts, Health</div>
+          <p class="card__meta">No fake metrics. Live data appears only when vehicles stream.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="plans" class="section">
+    <div class="container">
+      <div class="sectionHeader">
+        <h2>Pricing tiers</h2>
+        <p>Choose a pilot to validate outcomes, then scale with production-grade support.</p>
+      </div>
+      <div class="planGrid">
+        <div class="planCard highlight">
+          <div class="planTag">Pilot</div>
+          <div class="planTitle">Pilot Plan</div>
+          <div class="planMeta">Designed for real-world validation with full core intelligence included.</div>
+          <div class="planPrice">$59 <small>per vehicle / month</small></div>
+          <ul class="featureList">
+            <li><span class="dot"></span>Full Core Intelligence included</li>
+            <li><span class="dot"></span>Limited partner availability</li>
+            <li><span class="dot"></span>Direct feedback loop with Fleet AI product team</li>
+          </ul>
+          <div class="planActions">
+            <a class="btn primary" href="/pilot.html">Apply for Pilot</a>
+            <a class="btn secondary" href="/request-demo.html">Request a Demo</a>
+          </div>
+        </div>
+        <div class="planCard">
+          <div class="planTitle">Standard Plan (Post-Pilot)</div>
+          <div class="planMeta">Production deployment with SLA-backed support and fleet-wide learning.</div>
+          <div class="planPrice">Contact Sales <small>per-vehicle pricing</small></div>
+          <ul class="featureList">
+            <li><span class="dot"></span>Full Core Intelligence</li>
+            <li><span class="dot"></span>Fleet-wide learning enabled</li>
+            <li><span class="dot"></span>Deployment and success planning</li>
+          </ul>
+          <div class="planActions">
+            <a class="btn primary" href="/request-demo.html">Request a Demo</a>
+            <a class="btn secondary" href="/request-demo.html">Talk to Sales</a>
+          </div>
+        </div>
+        <div class="planCard">
+          <div class="planTitle">Enterprise Plan</div>
+          <div class="planMeta">Multi-region fleets with advanced security, data isolation, and custom integrations.</div>
+          <div class="planPrice">Custom pricing <small>Contact Sales</small></div>
+          <ul class="featureList">
+            <li><span class="dot"></span>Dedicated onboarding and support</li>
+            <li><span class="dot"></span>Advanced security posture</li>
+            <li><span class="dot"></span>Custom reporting and integrations</li>
+          </ul>
+          <div class="planActions">
+            <a class="btn primary" href="/request-demo.html">Request a Demo</a>
+            <a class="btn secondary" href="/request-demo.html">Contact Sales</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="core-intelligence" class="section section--tint">
+    <div class="container">
+      <div class="sectionHeader">
+        <h2>Core Intelligence - Included for every customer</h2>
+        <p>The learning system, predictive models, and operational intelligence are never paywalled.</p>
+      </div>
+      <div class="grid-3">
+        <div class="card">
+          <div class="card__title">Operations and Visibility</div>
+          <ul class="featureList">
+            <li><span class="dot"></span>GPS vehicle tracking (real-time when available)</li>
+            <li><span class="dot"></span>Fleet-wide asset visibility</li>
+            <li><span class="dot"></span>Centralized fleet dashboard</li>
+            <li><span class="dot"></span>Driver tablet and mobile interface</li>
+            <li><span class="dot"></span>Secure company-level data separation</li>
+          </ul>
+        </div>
+        <div class="card">
+          <div class="card__title">Predictive Maintenance</div>
+          <ul class="featureList">
+            <li><span class="dot"></span>AI-driven failure prediction</li>
+            <li><span class="dot"></span>Failure probability scoring</li>
+            <li><span class="dot"></span>Parts wear and lifecycle risk analysis</li>
+            <li><span class="dot"></span>Vehicle health monitoring</li>
+            <li><span class="dot"></span>Service window planning</li>
+            <li><span class="dot"></span>Downtime risk identification before breakdowns</li>
+          </ul>
+        </div>
+        <div class="card">
+          <div class="card__title">Compliance and Safety</div>
+          <ul class="featureList">
+            <li><span class="dot"></span>Compliance intelligence (HOS, violations, regulatory awareness)</li>
+            <li><span class="dot"></span>Driver logs and compliance monitoring</li>
+            <li><span class="dot"></span>Driver behavior analysis and safety scoring</li>
+            <li><span class="dot"></span>Safety event monitoring aligned with insurance needs</li>
+          </ul>
+        </div>
+        <div class="card">
+          <div class="card__title">Efficiency and Cost Optimization</div>
+          <ul class="featureList">
+            <li><span class="dot"></span>Fuel efficiency optimization</li>
+            <li><span class="dot"></span>Idle time detection and reduction</li>
+            <li><span class="dot"></span>Cost forecasting and operational insights</li>
+            <li><span class="dot"></span>Fleet performance benchmarking over time</li>
+          </ul>
+        </div>
+        <div class="card">
+          <div class="card__title">Analytics and AI Insights</div>
+          <ul class="featureList">
+            <li><span class="dot"></span>Executive-ready AI-generated reports</li>
+            <li><span class="dot"></span>Automated summaries and recommendations</li>
+            <li><span class="dot"></span>AI Advisor embedded in the dashboard</li>
+            <li><span class="dot"></span>Fleet-specific learning models</li>
+          </ul>
+        </div>
+        <div class="card">
+          <div class="card__title">Diagnostics</div>
+          <ul class="featureList">
+            <li><span class="dot"></span>Basic diagnostics support</li>
+            <li><span class="dot"></span>Fault code awareness and alerting</li>
+            <li><span class="dot"></span>Early-warning indicators tied to predictive models</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="addons" class="section">
+    <div class="container">
+      <div class="sectionHeader">
+        <h2>Optional Add-Ons</h2>
+        <p>Add-ons extend coverage and workflows without changing the core intelligence.</p>
+      </div>
+      <div class="addonGrid">
+        <div class="card addonCard">
+          <div class="statusBadge">Available</div>
+          <div class="card__title">Advanced camera systems</div>
+          <p class="card__meta">Expanded safety coverage and video workflows.</p>
+        </div>
+        <div class="card addonCard">
+          <div class="statusBadge">Available</div>
+          <div class="card__title">Custom enterprise integrations</div>
+          <p class="card__meta">Connect Fleet AI to your maintenance, ERP, or logistics stack.</p>
+        </div>
+        <div class="card addonCard">
+          <div class="statusBadge">Available</div>
+          <div class="card__title">White-label deployments</div>
+          <p class="card__meta">Private branded experiences for enterprise operations.</p>
+        </div>
+        <div class="card addonCard">
+          <div class="statusBadge">Available</div>
+          <div class="card__title">Advanced analytics modules</div>
+          <p class="card__meta">Deeper analytics for performance, cost exposure, and risk.</p>
+        </div>
+        <div class="card addonCard">
+          <div class="statusBadge">Available</div>
+          <div class="card__title">API access tiers</div>
+          <p class="card__meta">Programmatic access for enterprise data and workflows.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="faq" class="section section--tight">
+    <div class="container">
+      <div class="sectionHeader">
+        <h2>Pricing FAQ</h2>
+        <p>Answers for procurement and fleet leadership.</p>
+      </div>
+      <div class="accordion">
+        <div class="accordion__item">
+          <button class="accordion__trigger" aria-expanded="false">What data is required to get started?<span>+</span></button>
+          <div class="accordion__content">Fleet AI uses live vehicle telemetry when available. We will confirm device compatibility during onboarding.</div>
+        </div>
+        <div class="accordion__item">
+          <button class="accordion__trigger" aria-expanded="false">How long does pilot onboarding take?<span>+</span></button>
+          <div class="accordion__content">Most pilots start within a few weeks, depending on fleet size and device readiness.</div>
+        </div>
+        <div class="accordion__item">
+          <button class="accordion__trigger" aria-expanded="false">Is special hardware required?<span>+</span></button>
+          <div class="accordion__content">Fleet AI is hardware-agnostic and works with supported standards-based devices.</div>
+        </div>
+        <div class="accordion__item">
+          <button class="accordion__trigger" aria-expanded="false">How does Fleet AI learn over time?<span>+</span></button>
+          <div class="accordion__content">Models learn from your fleet's patterns and operational conditions, improving recommendations as data accumulates.</div>
+        </div>
+        <div class="accordion__item">
+          <button class="accordion__trigger" aria-expanded="false">Is data shared between fleets?<span>+</span></button>
+          <div class="accordion__content">No. Fleet AI maintains secure company-level data separation.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container ctaBand">
+      <div class="ctaInner">
+        <div>
+          <h3>Start with a pilot. Scale when ready.</h3>
+          <p>Validate outcomes in real operations and expand with confidence.</p>
+        </div>
+        <div class="heroActions">
+          <a class="btn primary" href="/request-demo.html">Request Demo</a>
+          <a class="btn secondary" href="/pilot.html">Apply for Pilot</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+    <footer class="footer">
+    <div class="container footerGrid">
+      <div class="footerCol footerBrand">
+        <div class="wordmark"><span class="brandFleet">Fleet</span><span class="brandAI">AI</span></div>
+        <div class="footerMeta">© 2026 Fleet AI</div>
+      </div>
+      <div class="footerCol">
+        <h4>Product</h4>
+        <a href="/product.html">Product</a>
+        <a href="/pricing.html">Pricing</a>
+        <a href="/pilot.html">Pilot Program</a>
+      </div>
+      <div class="footerCol">
+        <h4>Company</h4>
+        <a href="/security.html">Security</a>
+        <a href="/about.html">About</a>
+        <a href="/request-demo.html">Contact</a>
+        <a href="/employee-login.html" title="For Fleet AI staff only">Employee Portal</a>
+      </div>
+      <div class="footerCol">
+        <h4>Legal</h4>
+        <a href="/legal/privacy.html">Privacy Policy</a>
+        <a href="/legal/terms.html">Terms</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="/js/site.js"></script>
+  <script src="/js/scroll-reveal.js"></script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+

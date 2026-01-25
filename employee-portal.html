@@ -1,0 +1,383 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Fleet AI Super Admin Console</title>
+  <link rel="stylesheet" href="/css/site-tokens.css" />
+  <link rel="stylesheet" href="/css/site-theme.css" />
+  <link rel="stylesheet" href="/css/site-components.css" />
+  <link rel="stylesheet" href="/css/site-layout.css" />
+  <link rel="stylesheet" href="/css/design-system.css" />
+</head>
+<body>
+  <header class="siteHeader">
+    <div class="container siteHeader__row">
+      <a class="wordmark" href="/index.html"><span class="brandFleet">Fleet</span><span class="brandAI">AI</span></a>
+      <div class="siteActions">
+        <select class="themeSelect" id="siteThemeSelect" aria-label="Theme">
+          <option value="light-blue">Light</option>
+          <option value="dark-blue">Dark Blue</option>
+          <option value="dark-gray">Dark Gray</option>
+        </select>
+        <button class="btn secondary" id="employeeSignOut" type="button">Sign Out</button>
+      </div>
+    </div>
+  </header>
+
+  <section class="section portalShell">
+    <div class="container portalGrid">
+      <aside class="portalSidebar">
+        <div class="card">
+          <div class="card__title">Super Admin Console</div>
+          <p class="card__meta">Internal use only</p>
+        </div>
+        <nav class="portalNav" id="adminNav">
+          <button type="button" data-section="overview" class="is-active">Overview</button>
+          <button type="button" data-section="orgs">Organizations</button>
+          <button type="button" data-section="users">Users & Roles</button>
+          <button type="button" data-section="invites">Invites</button>
+          <button type="button" data-section="billing">Billing (Prep)</button>
+          <button type="button" data-section="features">Feature Flags</button>
+          <button type="button" data-section="leads">Leads / Demos</button>
+          <button type="button" data-section="system">System Health</button>
+          <button type="button" data-section="audit">Audit Log</button>
+          <button type="button" data-section="settings">Settings</button>
+        </nav>
+      </aside>
+
+      <main class="portalContent">
+        <div class="portalHeader">
+          <div>
+            <h2 class="portalTitle" id="portalTitle">Overview</h2>
+            <div class="card__meta" id="portalRole">Role: --</div>
+          </div>
+          <div class="heroActions">
+            <input type="search" id="adminSearch" placeholder="Search organizations or users" />
+            <button class="btn secondary" id="adminRefresh" type="button">Refresh</button>
+          </div>
+        </div>
+
+        <section class="portalSection" data-panel="overview">
+          <div class="grid-4">
+            <div class="card">
+              <div class="card__title">MRR estimate</div>
+              <div class="kpi" id="kpiMrr">--</div>
+            </div>
+            <div class="card">
+              <div class="card__title">Active orgs</div>
+              <div class="kpi" id="kpiActiveOrgs">--</div>
+            </div>
+            <div class="card">
+              <div class="card__title">Active pilots</div>
+              <div class="kpi" id="kpiActivePilots">--</div>
+            </div>
+            <div class="card">
+              <div class="card__title">Active vehicles</div>
+              <div class="kpi" id="kpiActiveVehicles">--</div>
+            </div>
+          </div>
+          <div class="card" style="margin-top:16px;">
+            <div class="card__title">Leads by stage</div>
+            <div class="card__meta" id="leadStageBreakdown">No lead data yet.</div>
+          </div>
+        </section>
+
+        <section class="portalSection" data-panel="orgs" hidden>
+          <div class="sectionHeader rowBetween">
+            <div>
+              <h3>Organizations</h3>
+              <p class="card__meta">Create and manage customer orgs.</p>
+            </div>
+            <button class="btn primary" id="orgCreateBtn" type="button">Create Org</button>
+          </div>
+          <div class="tableWrap">
+            <table class="dataTable">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Status</th>
+                  <th>Industry</th>
+                  <th>Fleet Size</th>
+                  <th>Updated</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="orgTable"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="portalSection" data-panel="users" hidden>
+          <div class="sectionHeader rowBetween">
+            <div>
+              <h3>Users & Roles</h3>
+              <p class="card__meta">Internal employees and customer accounts.</p>
+            </div>
+            <button class="btn primary" id="userCreateBtn" type="button">Create User</button>
+          </div>
+          <div class="tableWrap">
+            <table class="dataTable">
+              <thead>
+                <tr>
+                  <th>Email</th>
+                  <th>Role</th>
+                  <th>Org</th>
+                  <th>Status</th>
+                  <th>Last login</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="userTable"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="portalSection" data-panel="invites" hidden>
+          <div class="sectionHeader rowBetween">
+            <div>
+              <h3>Invites</h3>
+              <p class="card__meta">Generate onboarding invites.</p>
+            </div>
+            <button class="btn primary" id="inviteCreateBtn" type="button">Create Invite</button>
+          </div>
+          <div class="tableWrap">
+            <table class="dataTable">
+              <thead>
+                <tr>
+                  <th>Token</th>
+                  <th>Org</th>
+                  <th>Type</th>
+                  <th>Expires</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="inviteTable"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="portalSection" data-panel="billing" hidden>
+          <div class="sectionHeader">
+            <h3>Billing Prep</h3>
+            <p class="card__meta">Plan configuration for pilots and expansion.</p>
+          </div>
+          <div class="card">
+            <label class="field">
+              Organization
+              <select id="billingOrgSelect"></select>
+            </label>
+            <div class="grid-3">
+              <label class="field">Plan
+                <select id="billingPlan">
+                  <option value="PILOT">Pilot</option>
+                  <option value="STANDARD">Standard</option>
+                  <option value="ENTERPRISE">Enterprise</option>
+                </select>
+              </label>
+              <label class="field">Price per vehicle
+                <input id="billingPrice" type="number" min="0" step="1" />
+              </label>
+              <label class="field">Vehicle count
+                <input id="billingVehicles" type="number" min="0" step="1" />
+              </label>
+              <label class="field">Billing status
+                <select id="billingStatus">
+                  <option value="NOT_BILLING">Not billing</option>
+                  <option value="READY">Ready</option>
+                  <option value="BILLING">Billing</option>
+                  <option value="PAST_DUE">Past due</option>
+                </select>
+              </label>
+              <label class="field">Contract term (months)
+                <input id="billingTerm" type="number" min="0" step="1" />
+              </label>
+              <label class="field">MRR estimate
+                <input id="billingMrr" type="number" min="0" step="1" disabled />
+              </label>
+            </div>
+            <div class="heroActions">
+              <button class="btn primary" id="billingSave" type="button">Save Billing</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="portalSection" data-panel="features" hidden>
+          <div class="sectionHeader">
+            <h3>Feature Flags</h3>
+            <p class="card__meta">Org-level packages and toggles.</p>
+          </div>
+          <div class="card">
+            <label class="field">
+              Organization
+              <select id="featuresOrgSelect"></select>
+            </label>
+            <div class="grid-2">
+              <label class="toggleSwitch">
+                <input type="checkbox" id="featAiAdvisor" />
+                <span class="toggleTrack"></span>
+                <span class="toggleLabel">AI Advisor</span>
+              </label>
+              <label class="toggleSwitch">
+                <input type="checkbox" id="featSafetyPack" />
+                <span class="toggleTrack"></span>
+                <span class="toggleLabel">Safety Pack</span>
+              </label>
+              <label class="toggleSwitch">
+                <input type="checkbox" id="featCompliancePack" />
+                <span class="toggleTrack"></span>
+                <span class="toggleLabel">Compliance Pack</span>
+              </label>
+              <label class="toggleSwitch">
+                <input type="checkbox" id="featCameraIntegration" />
+                <span class="toggleTrack"></span>
+                <span class="toggleLabel">Camera Integration</span>
+              </label>
+              <label class="toggleSwitch">
+                <input type="checkbox" id="featAdvancedDiagnostics" />
+                <span class="toggleTrack"></span>
+                <span class="toggleLabel">Advanced Diagnostics</span>
+              </label>
+            </div>
+            <div class="heroActions">
+              <button class="btn primary" id="featuresSave" type="button">Save Features</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="portalSection" data-panel="leads" hidden>
+          <div class="sectionHeader rowBetween">
+            <div>
+              <h3>Leads / Demos</h3>
+              <p class="card__meta">Track pilot pipeline.</p>
+            </div>
+            <button class="btn primary" id="leadCreateBtn" type="button">Create Lead</button>
+          </div>
+          <div class="tableWrap">
+            <table class="dataTable">
+              <thead>
+                <tr>
+                  <th>Company</th>
+                  <th>Stage</th>
+                  <th>Contact</th>
+                  <th>Demo date</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="leadTable"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="portalSection" data-panel="system" hidden>
+          <div class="sectionHeader">
+            <h3>System Health</h3>
+            <p class="card__meta">Status and operational overview.</p>
+          </div>
+          <div class="grid-3">
+            <div class="card">
+              <div class="card__title">Service status</div>
+              <div class="card__meta" id="healthStatus">--</div>
+            </div>
+            <div class="card">
+              <div class="card__title">Server</div>
+              <div class="card__meta" id="healthMeta">--</div>
+            </div>
+            <div class="card">
+              <div class="card__title">Counts</div>
+              <div class="card__meta" id="healthCounts">--</div>
+            </div>
+          </div>
+        </section>
+
+        <section class="portalSection" data-panel="audit" hidden>
+          <div class="sectionHeader">
+            <h3>Audit Log</h3>
+            <p class="card__meta">Recent admin activity.</p>
+          </div>
+          <div class="tableWrap">
+            <table class="dataTable">
+              <thead>
+                <tr>
+                  <th>Time</th>
+                  <th>Event</th>
+                  <th>Detail</th>
+                </tr>
+              </thead>
+              <tbody id="auditTable"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="portalSection" data-panel="settings" hidden>
+          <div class="sectionHeader">
+            <h3>Settings</h3>
+            <p class="card__meta">Global defaults for pilot onboarding.</p>
+          </div>
+          <div class="card">
+            <div class="grid-3">
+              <label class="field">Default pilot price
+                <input id="settingsPilotPrice" type="number" min="0" step="1" />
+              </label>
+              <label class="field">Invite expiry hours
+                <input id="settingsInviteHours" type="number" min="1" step="1" />
+              </label>
+              <label class="field">Maintenance mode
+                <select id="settingsMaintenance">
+                  <option value="false">Off</option>
+                  <option value="true">On</option>
+                </select>
+              </label>
+            </div>
+            <div class="heroActions">
+              <button class="btn primary" id="settingsSave" type="button">Save Settings</button>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+  </section>
+
+  <div class="modal" id="modalOverlay" hidden aria-hidden="true">
+    <div class="modalBackdrop" data-modal-close></div>
+    <div class="modalCard" id="modalCard" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <div class="modalHeader">
+        <h3 id="modalTitle">Modal</h3>
+        <button class="btn ghost" id="modalClose" type="button" data-modal-close>Close</button>
+      </div>
+      <div id="modalBody"></div>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <div class="container footerGrid">
+      <div class="footerCol footerBrand">
+        <div class="wordmark"><span class="brandFleet">Fleet</span><span class="brandAI">AI</span></div>
+        <div class="footerMeta">© 2026 Fleet AI</div>
+      </div>
+      <div class="footerCol">
+        <h4>Product</h4>
+        <a href="/product.html">Product</a>
+        <a href="/pricing.html">Pricing</a>
+        <a href="/pilot.html">Pilot Program</a>
+      </div>
+      <div class="footerCol">
+        <h4>Company</h4>
+        <a href="/security.html">Security</a>
+        <a href="/about.html">About</a>
+        <a href="/request-demo.html">Contact</a>
+        <a href="/employee-login.html" title="For Fleet AI staff only">Employee Portal</a>
+      </div>
+      <div class="footerCol">
+        <h4>Legal</h4>
+        <a href="/legal/privacy.html">Privacy Policy</a>
+        <a href="/legal/terms.html">Terms</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="/js/site.js"></script>
+  <script src="/js/admin-portal.js"></script>
+  <script src="/js/scroll-reveal.js"></script>
+</body>
+</html>

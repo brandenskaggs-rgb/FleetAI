@@ -1,0 +1,4107 @@
+<!doctype html>
+<!--
+  Theme vars: --bg, --bg2, --panel, --panel2, --border, --text, --muted,
+  --primary, --primary-600, --primary-soft, --shadow-sm, --shadow-md,
+  --radius, --radius-lg, --focus-ring.
+  LocalStorage keys:
+  - fleetai.theme: "light-blue" | "dark-blue" | "dark-gray"
+  - fleetai.companyName: string
+  Flags:
+  - No simulated telemetry (live data only)
+  Defaults: update near the top of the script.
+  Nav: data-route on sidebar + top tabs drives renderRoute().
+  URLs:
+  - http://localhost:8000/ui/fleetai-dashboard.html
+  - http://localhost:8000/fleetai-dashboard.html
+-->
+<html lang="en" data-theme="light-blue">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link rel="stylesheet" href="/css/site-tokens.css" />
+  <title>Fleet AI - Operator Dashboard</title>
+
+  <style>
+    @import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap");
+    :root{
+      --bg:#F8FBFF;
+      --bg2:#FFFFFF;
+      --panel:#FFFFFF;
+      --panel2:#F2F6FF;
+      --border:rgba(30,64,175,.10);
+      --text:#0B1B2B;
+      --muted:#5C6F8A;
+      --primary:#2563EB;
+      --primary-600:#1D4ED8;
+      --primary-soft: rgba(37,99,235,0.12);
+      --shadow-sm: 0 4px 12px rgba(10,30,60,.08);
+      --shadow-md: 0 10px 24px rgba(10,30,60,.10);
+      --shadow-lg: 0 18px 40px rgba(10,30,60,.16);
+      --radius: 12px;
+      --radius-lg: 16px;
+      --focus-ring: 0 0 0 3px rgba(37,99,235,0.18);
+      --primary2: var(--primary-600);
+      --shadow: var(--shadow-md);
+      --focus: var(--focus-ring);
+
+      --good:#2bdc9b;
+      --warn:#ffb020;
+      --bad:#ff5c5c;
+
+      --chip: var(--primary-soft);
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      --font-body: "Manrope", "Segoe UI", Tahoma, Arial, sans-serif;
+      --font-display: "Space Grotesk", "Manrope", "Segoe UI", Tahoma, Arial, sans-serif;
+
+      --ink: var(--text);
+      --line: var(--border);
+      --bg-glow: rgba(60,140,255,.18);
+    }
+
+    *{box-sizing:border-box}
+
+    h1,h2,h3{
+      font-family: var(--font-display);
+      letter-spacing:.2px;
+    }
+    h2,h3,h4,.card h3,.card h4,.card .label,.metricTitle,.kpiTitle{
+      overflow-wrap:anywhere;
+      word-break:break-word;
+    }
+
+    :root[data-theme="light-blue"]{
+      --bg:#F8FBFF;
+      --bg2:#FFFFFF;
+      --panel:#FFFFFF;
+      --panel2:#F2F6FF;
+      --border:rgba(30,64,175,.10);
+      --text:#0B1B2B;
+      --muted:#5C6F8A;
+      --primary:#2563EB;
+      --primary-600:#1D4ED8;
+      --primary-soft: rgba(37,99,235,0.12);
+      --chip: rgba(37,99,235,.10);
+      --shadow-sm: 0 4px 12px rgba(10,30,60,.08);
+      --shadow-md: 0 10px 24px rgba(10,30,60,.10);
+      --shadow-lg: 0 18px 40px rgba(10,30,60,.16);
+      --radius: 12px;
+      --radius-lg: 16px;
+      --focus-ring: 0 0 0 3px rgba(37,99,235,0.18);
+      --ink: var(--text);
+      --line: var(--border);
+      --bg-glow: rgba(60,140,255,.16);
+    }
+
+    :root[data-theme="dark-blue"]{
+      --bg:#0B1220;
+      --bg2:#0A0F1A;
+      --panel:#111A2B;
+      --panel2:#141F33;
+      --border:rgba(84,116,173,.20);
+      --text:#E9F1FF;
+      --muted:#A1B3D1;
+      --primary:#4D8BFF;
+      --primary-600:#2F6FEA;
+      --primary-soft: rgba(77,139,255,0.18);
+      --chip: rgba(77,139,255,0.18);
+      --shadow-sm: 0 6px 16px rgba(0,0,0,.30);
+      --shadow-md: 0 16px 32px rgba(0,0,0,.35);
+      --shadow-lg: 0 24px 48px rgba(0,0,0,.45);
+      --radius: 12px;
+      --radius-lg: 16px;
+      --focus-ring: 0 0 0 3px rgba(77,139,255,0.25);
+      --ink: var(--text);
+      --line: var(--border);
+      --bg-glow: rgba(77,139,255,.25);
+    }
+
+    :root[data-theme="dark-gray"]{
+      --bg:#111315;
+      --bg2:#0E1012;
+      --panel:#1A1D22;
+      --panel2:#1F2329;
+      --border:rgba(120,130,150,.22);
+      --text:#F2F4F8;
+      --muted:#B3BBC7;
+      --primary:#4D8BFF;
+      --primary-600:#2F6FEA;
+      --primary-soft: rgba(77,139,255,0.16);
+      --chip: rgba(77,139,255,0.16);
+      --shadow-sm: 0 6px 16px rgba(0,0,0,.30);
+      --shadow-md: 0 16px 32px rgba(0,0,0,.35);
+      --shadow-lg: 0 24px 48px rgba(0,0,0,.45);
+      --radius: 12px;
+      --radius-lg: 16px;
+      --focus-ring: 0 0 0 3px rgba(77,139,255,0.22);
+      --ink: var(--text);
+      --line: var(--border);
+      --bg-glow: rgba(77,139,255,.20);
+    }
+    body{
+      margin:0;
+      font-family: var(--font-body);
+      color:var(--ink);
+      background:
+        radial-gradient(900px 520px at 12% -12%, var(--bg-glow) 0%, rgba(0,0,0,0) 60%),
+        radial-gradient(800px 520px at 88% -6%, color-mix(in srgb, var(--bg-glow) 70%, transparent) 0%, rgba(0,0,0,0) 55%),
+        radial-gradient(900px 640px at 30% 92%, color-mix(in srgb, var(--bg-glow) 55%, transparent) 0%, rgba(0,0,0,0) 60%),
+        linear-gradient(180deg, var(--bg) 0%, var(--bg2, var(--bg)) 100%);
+    }
+    body:before{
+      content:"";
+      position:fixed;
+      inset:-20%;
+      pointer-events:none;
+      background:
+        radial-gradient(900px 520px at 12% 8%, color-mix(in srgb, var(--bg-glow) 65%, transparent) 0%, rgba(0,0,0,0) 65%),
+        radial-gradient(720px 420px at 70% 10%, color-mix(in srgb, var(--bg-glow) 45%, transparent) 0%, rgba(0,0,0,0) 70%),
+        radial-gradient(860px 520px at 40% 78%, color-mix(in srgb, var(--bg-glow) 40%, transparent) 0%, rgba(0,0,0,0) 72%);
+      opacity:0.30;
+      filter: blur(22px);
+      z-index:0;
+    }
+
+    .app{
+      display:grid;
+      grid-template-columns: 260px 1fr;
+      min-height: 100vh;
+      position:relative;
+      z-index:1;
+      gap: 20px;
+      padding: 12px 12px 24px;
+    }
+    @media (max-width: 980px){
+      .app{grid-template-columns: 1fr; padding: 12px}
+      .sidebar{position:static; max-height:none; overflow:visible;}
+    }
+
+    /* Sidebar */
+    .sidebar{
+      padding:18px 14px;
+      border:1px solid var(--line);
+      border-radius: var(--radius-lg);
+      background: var(--panel);
+      box-shadow: var(--shadow-sm);
+      position: sticky;
+      top: 12px;
+      align-self: start;
+      max-height: none;
+      overflow: visible;
+    }
+    .brand{
+      display:flex; align-items:center; gap:12px;
+      padding:10px 10px 16px 10px;
+      border-bottom:1px solid var(--line);
+      margin-bottom:14px;
+    }
+    .logo{
+      width:42px;height:42px;border-radius:14px;
+      background: linear-gradient(135deg, rgba(77,163,255,.95) 0%, rgba(47,123,220,.95) 60%);
+      border:1px solid rgba(77,163,255,.35);
+      box-shadow: 0 14px 34px rgba(0,0,0,.35);
+      display:grid;place-items:center;
+      font-weight:900; letter-spacing:.4px;
+      color:#071225;
+    }
+    /* logo: simple FA marker (no halo) */
+    .logo{width:42px;height:42px;border-radius:14px;display:grid;place-items:center;position:relative;z-index:2}
+    /* ambient canvas layers removed (static blue theme) */
+    .brand h1{margin:0;font-size:15px;line-height:1.1;letter-spacing:.2px;font-family:var(--font-display)}
+    .brand small{display:block;margin-top:4px;font-size:12px;color:var(--muted)}
+
+    .nav{
+      display:flex; flex-direction:column; gap:8px;
+      margin-top:12px;
+    }
+    .nav button{
+      width:100%;
+      text-align:left;
+      border:1px solid transparent;
+      background: transparent;
+      border-radius:12px;
+      padding:10px 12px;
+      font-weight:700;
+      font-size:12px;
+      font-family: var(--font-display);
+      color:var(--text);
+      cursor:pointer;
+      box-shadow: none;
+      display:flex; justify-content:space-between; align-items:center;
+      transition: background .15s ease, border-color .15s ease, color .15s ease;
+      gap:10px;
+      height:44px;
+    }
+    .nav button .navItem{
+      display:flex; align-items:center; gap:10px;
+      min-width:0;
+    }
+    .nav button .navIcon{
+      width:20px; height:20px;
+      display:grid; place-items:center;
+      font-size:14px;
+      color:var(--primary2);
+    }
+    .nav button.active .navIcon{
+      color:var(--primary);
+    }
+    .nav button:hover{
+      border-color: color-mix(in srgb, var(--primary) 20%, var(--border));
+      background: color-mix(in srgb, var(--panel2) 70%, var(--primary) 30%);
+    }
+    .nav button.active{
+      border-color: color-mix(in srgb, var(--primary) 35%, var(--border));
+      background: color-mix(in srgb, var(--panel) 92%, var(--primary) 8%);
+      box-shadow: inset 3px 0 0 var(--primary);
+    }
+    .nav .tag{
+      font-size:10px;
+      font-weight:800;
+      padding:3px 8px;
+      border-radius:999px;
+      border:1px solid color-mix(in srgb, var(--primary) 35%, var(--border));
+      background: var(--chip);
+      color: var(--primary2);
+      white-space:nowrap;
+    }
+
+    .sidebar .note{
+      margin-top:14px;
+      font-size:12px;
+      color:var(--muted);
+      line-height:1.45;
+      padding:12px;
+      border-radius:14px;
+      border:1px dashed var(--border);
+      background: var(--panel2);
+    }
+    .sidebar .note b{color:var(--text)}
+    .sidebar .divider{
+      margin:14px 0;
+      height:1px;
+      background: rgba(77,163,255,.14);
+      border-radius:999px;
+    }
+
+    /* Collapsible sidebar: compact / expanded states */
+    .app.collapsed{ grid-template-columns: 72px 1fr; transition: grid-template-columns .22s ease; }
+    .app .sidebar{ transition: width .22s ease, padding .18s ease, background .18s ease; }
+    .app .sidebar .brand h1,
+    .app .sidebar .brand small,
+    .app .nav button .tag,
+    .app .sidebar .note{ transition: opacity .18s ease, visibility .18s ease; }
+
+    .app.collapsed .sidebar{ padding:14px 8px; }
+    .app.collapsed .sidebar .brand h1,
+    .app.collapsed .sidebar .brand small,
+    .app.collapsed .nav button .tag,
+    .app.collapsed .sidebar .note{
+      opacity:0; visibility:hidden; pointer-events:none; height:0; margin:0; padding:0;
+    }
+    .app.collapsed .nav button{ justify-content:center; padding:10px; }
+    .app.collapsed .nav button .navLabel,
+    .app.collapsed .nav button .tag{ display:none; }
+
+    /* Main */
+    .main{
+      padding: 0;
+      max-width: 1480px;
+      margin: 0 auto;
+      width: 100%;
+      display:flex;
+      flex-direction:column;
+      gap: 16px;
+    }
+
+    .siteHeader{
+      padding: 16px 20px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-sm);
+    }
+    .siteHeader__row{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:16px;
+      flex-wrap:wrap;
+    }
+    .brandBlock{
+      display:flex;
+      flex-direction:column;
+      gap:4px;
+    }
+    .brandTitle{
+      font-size:18px;
+      font-weight:800;
+      letter-spacing:.2px;
+      font-family: var(--font-display);
+      color: var(--text);
+    }
+    .brandMeta{
+      font-size:12px;
+      color: var(--muted);
+    }
+    .headerActions{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+    .headerTheme{
+      height:36px;
+      padding:6px 10px;
+      border-radius:10px;
+      border:1px solid var(--border);
+      background: var(--panel2);
+      color: var(--text);
+      font-weight:700;
+      font-size:12px;
+      font-family: var(--font-display);
+    }
+
+    .subHeader{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:16px;
+      padding: 12px 16px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-sm);
+      flex-wrap:wrap;
+    }
+    .subHeader__left{
+      min-width: 220px;
+    }
+    .subHeader__filters{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+    .subHeader__filters input{
+      min-width: 240px;
+    }
+
+    .topbar{
+      display:flex; gap:12px; align-items:center; justify-content:space-between;
+      margin-bottom:14px;
+      flex-wrap:wrap;
+    }
+    .topTabs{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      padding:6px;
+      border-radius: var(--radius-lg);
+      border:1px solid var(--border);
+      background: var(--panel);
+      box-shadow: var(--shadow-sm);
+    }
+    .tabBar{
+      align-items:center;
+      justify-content:flex-start;
+    }
+    .topTab{
+      border:1px solid transparent;
+      background: transparent;
+      color: var(--text);
+      border-radius:10px;
+      padding:8px 12px;
+      font-size:12px;
+      font-weight:700;
+      font-family: var(--font-display);
+      cursor:pointer;
+      transition: background .15s ease, border-color .15s ease;
+      height:36px;
+    }
+    .topTab:hover{
+      background: color-mix(in srgb, var(--primary) 8%, transparent);
+      border-color: color-mix(in srgb, var(--primary) 20%, transparent);
+    }
+    .topTab.active{
+      background: color-mix(in srgb, var(--primary) 10%, transparent);
+      border-color: color-mix(in srgb, var(--primary) 28%, transparent);
+      box-shadow: inset 0 -2px 0 var(--primary);
+      color: var(--text);
+    }
+    .crumb{
+      display:flex; flex-direction:column; gap:4px;
+    }
+    .crumb .viewTitle{
+      font-size:15px;
+      font-weight:800;
+      letter-spacing:.2px;
+      color:var(--text);
+      font-family: var(--font-display);
+    }
+    .crumb .sub{
+      font-size:12px; color:var(--muted);
+    }
+
+    .controls{
+      display:flex; gap:10px; align-items:center; flex-wrap:wrap;
+    }
+    .pill{
+      display:flex; gap:10px; align-items:center;
+      background: var(--panel);
+      border:1px solid var(--border);
+      border-radius:999px;
+      padding:6px 12px;
+      box-shadow: none;
+      height:40px;
+    }
+    .pill label{font-size:12px;color:var(--muted);white-space:nowrap}
+
+    select, input, textarea{
+      border:1px solid var(--border);
+      background: var(--panel);
+      color: var(--text);
+      border-radius:12px;
+      padding:9px 12px;
+      font-size:13px;
+      height:40px;
+      outline:none;
+      transition: border-color .15s ease, box-shadow .15s ease;
+    }
+    select:focus, input:focus, textarea:focus{
+      border-color: color-mix(in srgb, var(--primary) 60%, var(--border));
+      box-shadow: var(--focus);
+    }
+    select option{background:var(--panel);color:var(--text);}
+    input{min-width:220px}
+
+    .btn{
+      border:1px solid var(--border);
+      background: var(--panel);
+      border-radius:14px;
+      padding:0 14px;
+      font-weight:700;
+      font-family: var(--font-display);
+      font-size:13px;
+      cursor:pointer;
+      box-shadow: var(--shadow-md);
+      color: var(--text);
+      height:40px;
+      transition: transform .10s ease, box-shadow .15s ease, border-color .15s ease;
+    }
+    .btn:hover{transform: translateY(-1px); box-shadow: 0 16px 30px rgba(10,30,60,.10); border-color: color-mix(in srgb, var(--primary) 35%, var(--border));}
+    .btn.primary{
+      border-color: var(--primary-600);
+      background: linear-gradient(180deg, var(--primary) 0%, var(--primary-600) 100%);
+      color:#fff;
+    }
+    .btn.ghost{
+      background: transparent;
+    }
+
+    :focus-visible{
+      outline: none;
+      box-shadow: var(--focus);
+    }
+
+    /* Cards */
+    .card{
+      background: var(--panel);
+      border:1px solid var(--border);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-sm);
+      overflow:hidden;
+    }
+    .hd{
+      padding:14px 16px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      border-bottom: 1px solid color-mix(in srgb, var(--border) 75%, transparent);
+      background: var(--panel2);
+    }
+    .hd h2{margin:0;font-size:14px;letter-spacing:.2px;font-family:var(--font-display)}
+    .hd .meta{font-size:12px;color:var(--muted)}
+    .bd{padding:18px}
+
+    .grid2{display:grid; grid-template-columns: 1.2fr .8fr; gap:16px;}
+    @media (max-width: 980px){.grid2{grid-template-columns: 1fr}}
+
+    .kpis{
+      display:grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap:16px;
+      margin-bottom:16px;
+    }
+    @media (max-width: 980px){
+      .kpis{grid-template-columns: repeat(2, 1fr)}
+    }
+    .kpi{
+      background: var(--panel);
+      border:1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding:16px;
+      position:relative;
+      overflow:hidden;
+      min-height: 92px;
+      box-shadow: var(--shadow-sm);
+    }
+    .kpi:before{
+      content:"";
+      position:absolute; inset:-80px -80px auto auto;
+      width:180px; height:180px;
+      border-radius: 999px;
+      background: radial-gradient(circle at 30% 30%, rgba(77,163,255,.22) 0%, rgba(77,163,255,0) 60%);
+      transform: rotate(12deg);
+    }
+    .kpiHeader{
+      display:flex;
+      flex-direction:column;
+      align-items:flex-start;
+      gap:4px;
+      margin-bottom:8px;
+    }
+    .kpiLabel{
+      font-size:11px;
+      font-weight:800;
+      letter-spacing:.3px;
+      color:var(--primary2);
+      text-transform:uppercase;
+    }
+    .kpiHeader .t{
+      font-size:12px;
+      color:var(--muted);
+    }
+    .kpi .v{font-size:22px;font-weight:980;letter-spacing:.2px}
+    .kpi .s{font-size:12px;color:var(--muted);margin-top:6px}
+    .badge{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      font-size:11px;
+      font-weight:800;
+      padding:6px 10px;
+      border-radius:999px;
+      background: var(--chip);
+      border:1px solid color-mix(in srgb, var(--primary) 25%, var(--border));
+      color: var(--primary2);
+      max-width:140px;
+      text-overflow:ellipsis;
+      overflow:hidden;
+      white-space:nowrap;
+    }
+
+    /* Lists & chips */
+    .row{
+      display:flex; justify-content:space-between; align-items:flex-start; gap:12px;
+      padding:14px;
+      border:1px solid var(--border);
+      border-radius: var(--radius-lg);
+      background: var(--panel2);
+    }
+    .row + .row{margin-top:10px}
+    .row .l{min-width:0}
+    .row h3{margin:0;font-size:13px;letter-spacing:.2px}
+    .row p{margin:6px 0 0 0;font-size:12px;color:var(--muted);line-height:1.35}
+
+    .chip{
+      display:inline-flex; gap:8px; align-items:center;
+      padding:6px 10px; border-radius:999px;
+      border:1px solid color-mix(in srgb, var(--primary) 25%, var(--border));
+      background: var(--chip);
+      font-size:11px;
+      color:var(--primary2);
+      font-weight:700;
+      white-space:nowrap;
+    }
+    .mini{font-size:11px;color:var(--muted);white-space:nowrap}
+
+    .dot{width:10px;height:10px;border-radius:999px;display:inline-block;margin-right:8px}
+    .dot.good{background:var(--good); box-shadow:0 0 0 4px rgba(43,220,155,.12)}
+    .dot.warn{background:var(--warn); box-shadow:0 0 0 4px rgba(255,176,32,.12)}
+    .dot.bad{background:var(--bad); box-shadow:0 0 0 4px rgba(255,92,92,.12)}
+
+    .pill2{
+      padding:5px 10px;
+      border-radius:999px;
+      border:1px solid color-mix(in srgb, var(--primary) 25%, var(--border));
+      background: var(--chip);
+      font-size:11px;
+      font-weight:700;
+      color:var(--primary2);
+      white-space:nowrap;
+      display:inline-flex; align-items:center; gap:8px;
+    }
+    .pill2.good{background: rgba(43,220,155,.12); border-color: rgba(43,220,155,.25); color: #0d6b4f;}
+    .pill2.warn{background: rgba(255,176,32,.12); border-color: rgba(255,176,32,.25); color: #8a5d12;}
+    .pill2.bad{background: rgba(255,92,92,.12); border-color: rgba(255,92,92,.25); color: #8a2a2a;}
+
+    /* Tables */
+    table{
+      width:100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      overflow:hidden;
+      border-radius: 16px;
+      border:1px solid var(--border);
+      background: var(--panel);
+    }
+    thead th{
+      text-align:left;
+      padding:10px 12px;
+      font-size:12px;
+      color:var(--muted);
+      background: var(--panel2);
+      border-bottom:1px solid var(--border);
+    }
+    tbody td{
+      padding:10px 12px;
+      font-size:12px;
+      border-bottom:1px solid color-mix(in srgb, var(--border) 60%, transparent);
+      color:var(--text);
+      vertical-align:top;
+    }
+    tbody tr:hover{background: color-mix(in srgb, var(--panel2) 80%, var(--primary) 20%)}
+    tbody tr:last-child td{border-bottom:none}
+
+    /* Telemetry panel */
+    .telemetry{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:16px;
+    }
+    @media (max-width: 980px){.telemetry{grid-template-columns: 1fr}}
+
+    .teleCard{
+      border:1px solid var(--border);
+      border-radius:16px;
+      background: var(--panel);
+      padding:14px;
+      box-shadow: var(--shadow-sm);
+    }
+    .teleCard .k{
+      font-size:12px;color:var(--muted);
+      margin-bottom:8px;
+      display:flex; justify-content:space-between; gap:10px; align-items:center;
+    }
+    .teleCard .val{
+      font-size:22px; font-weight:980;
+      display:flex; gap:10px; align-items:baseline;
+    }
+    .teleCard .val span.unit{font-size:12px;color:var(--muted);font-weight:900}
+    .spark{
+      margin-top:10px;
+      height:10px;
+      border-radius:999px;
+      border:1px solid color-mix(in srgb, var(--primary) 25%, var(--border));
+      background: var(--panel2);
+      overflow:hidden;
+    }
+    .spark > i{
+      display:block;
+      height:100%;
+      width:0%;
+      background: linear-gradient(90deg, rgba(77,163,255,.28), rgba(77,163,255,.70));
+      transition: width .4s ease;
+    }
+
+    /* GPS / Map */
+    .gpsGrid{
+      display:grid;
+      grid-template-columns: 1.2fr .8fr;
+      gap:16px;
+    }
+    @media (max-width: 980px){.gpsGrid{grid-template-columns: 1fr}}
+
+    .mapWrap{
+      position:relative;
+      border-radius: 18px;
+      overflow:hidden;
+      border:1px solid var(--border);
+      background:
+        radial-gradient(800px 400px at 20% 15%, color-mix(in srgb, var(--primary) 16%, transparent) 0%, transparent 60%),
+        linear-gradient(180deg, var(--panel) 0%, var(--panel2) 100%);
+      box-shadow: var(--shadow-sm);
+      min-height: 440px;
+    }
+    .mapHud{
+      position:absolute;
+      left:14px; top:14px;
+      display:flex; gap:8px; flex-wrap:wrap;
+      z-index:5;
+    }
+    .hudPill{
+      padding:7px 10px;
+      border-radius:999px;
+      border:1px solid var(--border);
+      background: var(--panel);
+      font-size:11px;
+      font-weight:700;
+      color:var(--text);
+      backdrop-filter: blur(10px);
+    }
+    .mapCanvas{
+      width:100%;
+      height:100%;
+      display:block;
+    }
+    .mapLegend{
+      position:absolute;
+      right:14px; top:14px;
+      z-index:5;
+      width: 240px;
+    }
+    .legendBox{
+      border:1px solid var(--border);
+      background: var(--panel);
+      border-radius:16px;
+      padding:12px;
+      backdrop-filter: blur(10px);
+    }
+    .legendBox h4{margin:0 0 8px 0; font-size:12px; color:var(--text)}
+    .legendBox .li{
+      display:flex; justify-content:space-between; gap:10px;
+      font-size:11px; color:var(--muted);
+      padding:6px 0;
+      border-bottom:1px solid color-mix(in srgb, var(--border) 60%, transparent);
+    }
+    .legendBox .li:last-child{border-bottom:none}
+    .legendBox b{color:var(--text)}
+
+    /* Cameras */
+    .camGrid{
+      display:grid;
+      grid-template-columns: 1.25fr .75fr;
+      gap:16px;
+    }
+    @media (max-width: 980px){.camGrid{grid-template-columns: 1fr}}
+
+    .videoBox{
+      border:1px solid var(--border);
+      border-radius:18px;
+      background: var(--panel);
+      overflow:hidden;
+      box-shadow: var(--shadow-sm);
+      position:relative;
+      min-height: 360px;
+    }
+    .videoTop{
+      display:flex; justify-content:space-between; align-items:center; gap:10px;
+      padding:12px 14px;
+      border-bottom:1px solid var(--border);
+      background: var(--panel2);
+    }
+    .videoTop .title{
+      display:flex; flex-direction:column; gap:2px;
+    }
+    .videoTop .title b{font-size:13px}
+    .videoTop .title span{font-size:11px; color: var(--muted)}
+    .videoViewport{
+      position:relative;
+      height: 420px;
+      background: var(--panel2);
+    }
+    @media (max-width: 980px){ .videoViewport{ height: 320px; } }
+
+    video{
+      width:100%;
+      height:100%;
+      object-fit: cover;
+      display:none;
+    }
+    .videoPlaceholder{
+      position:absolute; inset:0;
+      display:flex; flex-direction:column;
+      align-items:center; justify-content:center;
+      padding:18px;
+      text-align:center;
+      color:var(--muted);
+    }
+    .scanline{
+      position:absolute; left:-25%;
+      width:150%;
+      height: 2px;
+      background: rgba(77,163,255,.32);
+      box-shadow: 0 0 18px rgba(77,163,255,.35);
+      animation: scan 2.8s linear infinite;
+      opacity:.65;
+    }
+    @keyframes scan{
+      0%{ top: 18%; opacity: .2; }
+      15%{ opacity:.65; }
+      50%{ top: 62%; opacity:.65; }
+      85%{ opacity:.65; }
+      100%{ top: 18%; opacity:.2; }
+    }
+    .camBadge{
+      position:absolute; left:14px; bottom:14px;
+      padding:7px 10px;
+      border-radius:999px;
+      border:1px solid var(--border);
+      background: var(--panel);
+      font-size:11px;
+      font-weight:700;
+      color:var(--text);
+      backdrop-filter: blur(10px);
+    }
+
+    .toast{
+      display:none;
+      position: fixed;
+      right: 18px;
+      bottom: 18px;
+      max-width: 460px;
+      border:1px solid var(--border);
+      border-radius:16px;
+      box-shadow: var(--shadow-sm);
+      background: var(--panel);
+      padding:12px 14px;
+      z-index: 999;
+      backdrop-filter: blur(10px);
+    }
+    /* Login / user modal overlay */
+    .overlay{
+      position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
+      background: linear-gradient(rgba(4,8,18,.55), rgba(4,8,18,.66));
+      z-index:2000;
+    }
+    .overlay .panel{
+      width:420px; max-width:92%; border-radius:14px; padding:18px; box-shadow:var(--shadow-md);
+      background: var(--panel);
+      border:1px solid var(--border);
+    }
+    .overlay h3{margin:0 0 8px 0; font-size:15px}
+    .overlay .f{display:flex; flex-direction:column; gap:8px}
+    .overlay input{width:100%; box-sizing:border-box}
+    .overlay .small{font-size:12px;color:var(--muted); margin-top:6px}
+    .toast .t{font-weight:950; font-size:13px}
+    .toast .d{margin-top:6px; font-size:12px; color:var(--muted); line-height:1.35}
+    .toast .x{
+      float:right;
+      border:none;background:transparent;cursor:pointer;
+      font-weight:700;color:var(--muted);
+    }
+
+    .hide{display:none !important;}
+    .overlay.hide{pointer-events:none;}
+    .section{margin-top:18px;}
+    .subtle{
+      font-size:11px;color:var(--muted);
+      margin-top:10px;
+      display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap;
+    }
+    .warnBanner{
+      border:1px solid rgba(255,176,32,.25);
+      background: rgba(255,176,32,.10);
+      color:#8a5d12;
+      border-radius:14px;
+      padding:10px 12px;
+      font-size:12px;
+    }
+    .kbd{
+      font-family: var(--mono);
+      padding:3px 7px;
+      border-radius: 10px;
+      border:1px solid var(--border);
+      background: var(--panel2);
+      color:var(--text);
+      font-size:11px;
+      font-weight:900;
+    }
+
+    /* AI Advisor */
+    .aiAdvisor-shell{
+      display:flex;
+      flex-direction:column;
+      gap:0;
+      min-height: 70vh;
+      background:#0f1622;
+      border:1px solid rgba(148,163,184,.22);
+    }
+    .aiAdvisor-head{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      padding:16px;
+      background:#0b111b;
+      border-bottom:1px solid rgba(148,163,184,.16);
+    }
+    .aiAdvisor-head h2{color:#e2e8f0}
+    .aiAdvisor-head .meta{color:#94a3b8}
+    .aiAdvisor-controls{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+    .aiAdvisor-status{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:6px 10px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.25);
+      background: rgba(30,41,59,.6);
+      font-size:12px;
+      font-weight:700;
+      color:#e2e8f0;
+    }
+    .aiAdvisor-statusDot{
+      width:8px;height:8px;border-radius:999px;
+      background: var(--good);
+      box-shadow: 0 0 0 3px rgba(96,165,250,.2);
+    }
+    .aiAdvisor-status.is-warn .aiAdvisor-statusDot{background: #f59e0b;}
+    .aiAdvisor-status.is-offline .aiAdvisor-statusDot{background: #ef4444;}
+    .aiAdvisor-quick{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      padding:14px 16px;
+      border-bottom:1px solid rgba(148,163,184,.12);
+      background:#0f1724;
+    }
+    .aiAdvisor-transcript{
+      position:relative;
+      padding:0;
+      min-height: 360px;
+      max-height: 520px;
+      overflow:auto;
+      background:#0f1622;
+    }
+    .aiAdvisor-msg{
+      display:flex;
+      flex-direction:column;
+      padding:16px 20px;
+      border-bottom:1px solid rgba(148,163,184,.12);
+    }
+    .aiAdvisor-msg:last-child{border-bottom:none}
+    .aiAdvisor-msg--user{
+      align-items:flex-end;
+      background: rgba(30,41,59,.45);
+    }
+    .aiAdvisor-msg--assistant{
+      align-items:flex-start;
+      background: transparent;
+    }
+    .aiAdvisor-meta{
+      font-size:11px;
+      color:#94a3b8;
+      margin-bottom:6px;
+    }
+    .aiAdvisor-bubble{
+      max-width:72%;
+      padding:0;
+      border:none;
+      background: transparent;
+      color:#e2e8f0;
+      font-size:13px;
+      line-height:1.6;
+      white-space:pre-wrap;
+      border-radius:0;
+    }
+    .aiAdvisor-msg--user .aiAdvisor-bubble{
+      text-align:right;
+    }
+    .aiAdvisor-bubble.is-error{
+      color:#fecaca;
+    }
+    .aiAdvisor-typing{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      font-size:12px;
+      color:#94a3b8;
+      padding:8px 16px;
+      border-top:1px solid rgba(148,163,184,.12);
+      background:#0f1622;
+    }
+    .aiAdvisor-dots{
+      display:flex;
+      align-items:center;
+      gap:4px;
+    }
+    .aiAdvisor-dot{
+      width:6px;height:6px;border-radius:999px;
+      background: #60a5fa;
+      animation: aiAdvisorPulse 1.2s infinite;
+      opacity:.35;
+    }
+    .aiAdvisor-dot:nth-child(2){animation-delay:.2s}
+    .aiAdvisor-dot:nth-child(3){animation-delay:.4s}
+    @keyframes aiAdvisorPulse{
+      0%,100%{transform:translateY(0); opacity:.35;}
+      50%{transform:translateY(-2px); opacity:.9;}
+    }
+    .aiAdvisor-composer{
+      display:flex;
+      gap:10px;
+      align-items:flex-end;
+      padding:14px 16px;
+      background:#0b111b;
+      border-top:1px solid rgba(148,163,184,.16);
+      position: sticky;
+      bottom:0;
+      z-index:2;
+    }
+    .aiAdvisor-composer textarea{
+      min-height: 72px;
+      max-height: 180px;
+      resize: vertical;
+      background:#0f1724;
+      border:1px solid rgba(148,163,184,.22);
+      color:#e2e8f0;
+    }
+    .aiAdvisor-composer .btn{box-shadow:none;}
+    .aiAdvisor-footer{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      flex-wrap:wrap;
+      padding:10px 16px 16px;
+      background:#0b111b;
+      border-top:1px solid rgba(148,163,184,.12);
+      color:#94a3b8;
+    }
+    .aiAdvisor-jump{
+      position:absolute;
+      right:14px;
+      bottom:14px;
+      padding:6px 10px;
+      font-size:12px;
+    }
+    .aiAdvisor-modal{
+      position:fixed;
+      inset:0;
+      display:grid;
+      place-items:center;
+      background: rgba(7,18,37,.5);
+      z-index: 40;
+      padding:20px;
+    }
+    .aiAdvisor-modalPanel{
+      width:min(520px, 100%);
+      background: var(--panel);
+      border:1px solid var(--border);
+      border-radius: 16px;
+      box-shadow: var(--shadow-lg);
+      padding:16px;
+    }
+    .aiAdvisor-modalHeader{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      margin-bottom:12px;
+    }
+    .aiAdvisor-formGrid{
+      display:grid;
+      gap:8px;
+      margin-bottom:10px;
+    }
+
+    /* Small helper */
+    .rightStack{display:flex; gap:10px; align-items:center; flex-wrap:wrap;}
+  </style>
+</head>
+
+<body>
+  <div class="app">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="logo" aria-hidden="false">FA</div>
+        <div>
+          <h1 id="companyName">Fleet AI</h1>
+          <small>Fleet AI - Operator Dashboard</small>
+        </div>
+      </div>
+
+      <div class="nav">
+        <button class="active" data-view="dashboard" data-route="dashboard">
+          <span class="navItem"><span class="navIcon" aria-hidden="true">&#x1F4CA;</span><span class="navLabel">Overview</span></span>
+          <span class="tag">Home</span>
+        </button>
+        <button data-view="telemetry" data-route="telemetry">
+          <span class="navItem"><span class="navIcon" aria-hidden="true">&#x1F50C;</span><span class="navLabel">Live Telemetry</span></span>
+          <span class="tag">Live</span>
+        </button>
+        <button data-view="alerts" data-route="alerts">
+          <span class="navItem"><span class="navIcon" aria-hidden="true">&#x1F514;</span><span class="navLabel">Alerts</span></span>
+          <span class="tag" id="alertCount">--</span>
+        </button>
+        <button data-view="safety" data-route="safety">
+          <span class="navItem"><span class="navIcon" aria-hidden="true">&#x1F6E1;</span><span class="navLabel">Safety</span></span>
+          <span class="tag">Score</span>
+        </button>
+        <button data-view="compliance" data-route="compliance">
+          <span class="navItem"><span class="navIcon" aria-hidden="true">&#x2705;</span><span class="navLabel">Compliance</span></span>
+          <span class="tag">HOS</span>
+        </button>
+
+        <div class="divider"></div>
+
+        <button data-view="gps" data-route="gps">
+          <span class="navItem"><span class="navIcon" aria-hidden="true">&#x1F5FA;</span><span class="navLabel">GPS / Tracking</span></span>
+          <span class="tag">Map</span>
+        </button>
+        <button data-view="cameras" data-route="cameras">
+          <span class="navItem"><span class="navIcon" aria-hidden="true">&#x1F4F7;</span><span class="navLabel">Cameras</span></span>
+          <span class="tag">Feed</span>
+        </button>
+        <button data-view="reports" data-route="reports">
+          <span class="navItem"><span class="navIcon" aria-hidden="true">&#x1F4C4;</span><span class="navLabel">Reports</span></span>
+          <span class="tag">Ops</span>
+        </button>
+        <button data-view="advisor" data-route="advisor">
+          <span class="navItem">
+            <span class="navIcon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 3l1.8 4.4L18 9l-4.2 1.6L12 15l-1.8-4.4L6 9l4.2-1.6L12 3z"></path>
+                <path d="M5 18h6"></path>
+                <path d="M13 18h6"></path>
+              </svg>
+            </span>
+            <span class="navLabel">AI Advisor</span>
+          </span>
+          <span class="tag">AI</span>
+        </button>
+
+        <div class="divider"></div>
+
+        <button data-view="vehicles" data-route="vehicles">
+          <span class="navItem"><span class="navIcon" aria-hidden="true">&#x1F69A;</span><span class="navLabel">Fleet</span></span>
+          <span class="tag">Vehicles</span>
+        </button>
+        <button data-view="drivers" data-route="drivers">
+          <span class="navItem"><span class="navIcon" aria-hidden="true">&#x1F465;</span><span class="navLabel">People</span></span>
+          <span class="tag">Drivers</span>
+        </button>
+        <button data-view="pairing" data-route="pairing">
+          <span class="navItem"><span class="navIcon" aria-hidden="true">&#x1F4F1;</span><span class="navLabel">Device Pairing</span></span>
+          <span class="tag">Tablets</span>
+        </button>
+        <button data-view="settings" data-route="settings">
+          <span class="navItem"><span class="navIcon" aria-hidden="true">&#9881;</span><span class="navLabel">Settings</span></span>
+          <span class="tag">Admin</span>
+        </button>
+      </div>
+
+      <div class="note">
+        <b>Focus:</b> Fleet AI prioritizes uptime and service planning.
+        GPS + Cameras provide context for faster resolution and safety workflows.
+      </div>
+
+      <div class="note">
+        <b>Signal status:</b> Live data appears only when a device is paired and streaming.
+        Use pairing to activate telemetry and alerts.
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <main class="main">
+      <header class="app-header siteHeader">
+        <div class="siteHeader__row">
+          <div class="brandBlock">
+            <div class="brandTitle">
+              <span id="headerCompanyName">Fleet AI</span>
+              <span id="headerCompanySuffix"> - Operator Dashboard</span>
+            </div>
+            <div class="brandMeta">Enterprise Fleet Intelligence</div>
+          </div>
+          <div class="headerActions">
+            <select id="headerThemeSelect" class="headerTheme">
+              <option value="light-blue">Light</option>
+              <option value="dark-blue">Dark Blue</option>
+              <option value="dark-gray">Dark Gray</option>
+            </select>
+            <button class="btn primary" id="btnRefresh">Refresh</button>
+            <button class="btn" id="btnExport">Export Report</button>
+            <button class="btn" id="btnAddUser" style="display:none">Add User</button>
+            <button class="btn ghost" id="btnLogout" style="display:none">Logout</button>
+          </div>
+        </div>
+      </header>
+
+      <div class="subHeader">
+        <div class="subHeader__left">
+          <div class="crumb">
+            <div class="viewTitle" id="viewTitle">Overview</div>
+            <div class="sub" id="viewSub">Instant value: uptime, risk, and prioritized actions</div>
+          </div>
+        </div>
+        <div class="subHeader__filters">
+          <button id="btnToggleSidebar" class="btn ghost" aria-pressed="false" aria-label="Toggle sidebar">&#9776;</button>
+          <div class="pill">
+            <label for="fleet">Fleet</label>
+            <select id="fleet">
+              <option>All Fleets</option>
+              <option>Linehaul / Semis</option>
+              <option>Construction Fleet</option>
+              <option>Service Vans</option>
+            </select>
+          </div>
+          <div class="pill">
+            <label for="truck">Current Vehicle</label>
+            <select id="truck"></select>
+          </div>
+          <input id="search" type="search" placeholder="Search vehicles or drivers..." />
+        </div>
+      </div>
+
+      <div class="topTabs tabBar" id="topTabs">
+        <button class="topTab" data-route="dashboard">Dashboard</button>
+        <button class="topTab" data-route="telemetry">Live Telemetry</button>
+        <button class="topTab" data-route="alerts">Alerts</button>
+        <button class="topTab" data-route="safety">Safety</button>
+        <button class="topTab" data-route="compliance">Compliance</button>
+        <button class="topTab" data-route="gps">GPS</button>
+        <button class="topTab" data-route="cameras">Cameras</button>
+        <button class="topTab" data-route="reports">Reports</button>
+        <button class="topTab" data-route="vehicles">Vehicles</button>
+        <button class="topTab" data-route="drivers">Drivers</button>
+        <button class="topTab" data-route="pairing">Device Pairing</button>
+        <button class="topTab" data-route="settings">Settings</button>
+      </div>
+
+      <div class="subtle" style="margin-top:10px;">
+        <div id="connectionStatus">Connection: Disconnected</div>
+      </div>
+      <div id="fileWarning" class="warnBanner hide" style="margin-top:10px;">
+        You opened this dashboard via <b>file://</b>. Start a local web server (ex: <span class="kbd">python -m http.server 8000</span>) to avoid CORS errors.
+      </div>
+
+      <!-- DASHBOARD VIEW -->
+      <section id="view-dashboard" class="section">
+        <div class="kpis">
+          <div class="kpi">
+            <div class="kpiHeader">
+              <div class="kpiLabel">Uptime</div>
+              <div class="t">Fleet Uptime (est.)</div>
+            </div>
+            <div class="v" id="kpiUptime">--</div>
+            <div class="s">No live data yet</div>
+          </div>
+          <div class="kpi">
+            <div class="kpiHeader">
+              <div class="kpiLabel">Avoided</div>
+              <div class="t">Estimated Downtime Cost Avoided</div>
+            </div>
+            <div class="v" id="kpiAvoided">--</div>
+            <div class="s">No live data yet</div>
+          </div>
+          <div class="kpi">
+            <div class="kpiHeader">
+              <div class="kpiLabel">Queue</div>
+              <div class="t">Priority Actions (next 14 days)</div>
+            </div>
+            <div class="v" id="kpiActions">--</div>
+            <div class="s">No live data yet</div>
+          </div>
+          <div class="kpi">
+            <div class="kpiHeader">
+              <div class="kpiLabel">ROI</div>
+              <div class="t">Projected ROI (pilot estimate)</div>
+            </div>
+            <div class="v" id="kpiROI">--</div>
+            <div class="s">No live data yet</div>
+          </div>
+        </div>
+
+        <div class="grid2">
+          <div class="card">
+            <div class="hd">
+              <h2>Priority Queue</h2>
+              <div class="meta">"Tell me what to fix first"</div>
+            </div>
+            <div class="bd" id="queue"></div>
+          </div>
+
+          <div class="card">
+            <div class="hd">
+              <h2>Fleet Manager Notifications</h2>
+              <div class="meta">Auto-generated from patterns</div>
+            </div>
+            <div class="bd" id="notifFeed"></div>
+            <div class="bd" style="padding-top:0;">
+              <div class="subtle">
+                <div><span class="kbd">Maintenance-first</span> actions are ranked by downtime risk</div>
+                <div><span class="kbd">Context</span> GPS + Cameras support faster resolution</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:14px;">
+          <div class="hd">
+            <h2>Tire Risk</h2>
+            <div class="meta">Awaiting live telemetry feed</div>
+          </div>
+          <div class="bd">
+            <div class="row">
+              <div class="l">
+                <h3>Risk Score</h3>
+                <p><b id="tireRiskScore">--</b> <span class="mini">confidence: <span id="tireRiskConfidence">--</span></span></p>
+              </div>
+              <div class="r" style="text-align:right;">
+                <div class="chip" id="tireRiskTimestamp">Last updated --</div>
+              </div>
+            </div>
+            <div class="row">
+              <div class="l">
+                <h3>Top Reasons</h3>
+                <div id="tireRiskReasons" class="mini">--</div>
+              </div>
+              <div class="r" style="text-align:right;">
+                <div class="chip">Tire Risk Model</div>
+              </div>
+            </div>
+            <div class="row">
+              <div class="l">
+                <h3>Recommended Actions</h3>
+                <div id="tireRiskActions" class="mini">--</div>
+              </div>
+              <div class="r" style="text-align:right;">
+                <div class="chip">Next Steps</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:14px;">
+          <div class="hd">
+            <h2>Fleet Health Table</h2>
+            <div class="meta">Snapshot from vehicles list</div>
+          </div>
+          <div class="bd" style="padding-top:12px;">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width:18%;">Vehicle</th>
+                  <th style="width:16%;">Status</th>
+                  <th>Assigned Driver</th>
+                  <th style="width:18%;">Last Service</th>
+                  <th style="width:16%;">Risk</th>
+                </tr>
+              </thead>
+              <tbody id="fleetTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- TELEMETRY VIEW -->
+      <section id="view-telemetry" class="section hide">
+        <div class="card">
+          <div class="hd">
+            <h2>Live Telemetry</h2>
+            <div class="meta">Live data only - abnormal behavior triggers alerts</div>
+          </div>
+          <div class="bd">
+            <div class="row" style="margin-bottom:12px;">
+              <div class="l">
+                <h3>Telemetry Status</h3>
+                <p id="telemetryStatusNote">Waiting for OBD-II connection...</p>
+              </div>
+              <div class="r" style="text-align:right;">
+                <div class="pill2 warn" id="telemetryStatusPill">Waiting for OBD-II connection</div>
+              </div>
+            </div>
+            <div class="telemetry" id="telemetryGrid"></div>
+
+            <div class="card" style="margin-top:12px; box-shadow:none; background:transparent; border:none;">
+              <div class="hd" style="border:none; padding:0 0 10px 0; background:transparent;">
+                <h2>Live Event Log</h2>
+                <div class="meta">Last 10 events for selected unit</div>
+              </div>
+              <table>
+                <thead>
+                  <tr>
+                    <th style="width:22%;">Time</th>
+                    <th style="width:16%;">Signal</th>
+                    <th>Observation</th>
+                    <th style="width:20%;">Action</th>
+                  </tr>
+                </thead>
+                <tbody id="eventLog"></tbody>
+              </table>
+            </div>
+
+            <div class="subtle">
+              <div><span class="kbd">Predictive</span> trend + threshold + correlation + persistence</div>
+              <div><span class="kbd">Semi focus</span> DPF/EGT/rail pressure/charging stability</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ALERTS VIEW -->
+      <section id="view-alerts" class="section hide">
+        <div class="card">
+          <div class="hd">
+            <h2>Alerts</h2>
+            <div class="meta">Alerts from paired vehicles</div>
+          </div>
+          <div class="bd" id="alertsList"></div>
+        </div>
+      </section>
+
+      <!-- SAFETY VIEW -->
+      <section id="view-safety" class="section hide">
+        <div class="kpis">
+          <div class="kpi">
+            <div class="kpiHeader">
+              <div class="kpiLabel">Score</div>
+              <div class="t">Safety Score</div>
+            </div>
+            <div class="v">--</div>
+            <div class="s">No data yet</div>
+          </div>
+          <div class="kpi">
+            <div class="kpiHeader">
+              <div class="kpiLabel">Events</div>
+              <div class="t">Hard Braking</div>
+            </div>
+            <div class="v">--</div>
+            <div class="s">No data yet</div>
+          </div>
+          <div class="kpi">
+            <div class="kpiHeader">
+              <div class="kpiLabel">Events</div>
+              <div class="t">Hard Accel</div>
+            </div>
+            <div class="v">--</div>
+            <div class="s">No data yet</div>
+          </div>
+          <div class="kpi">
+            <div class="kpiHeader">
+              <div class="kpiLabel">Events</div>
+              <div class="t">Speeding</div>
+            </div>
+            <div class="v">--</div>
+            <div class="s">No data yet</div>
+          </div>
+          <div class="kpi">
+            <div class="kpiHeader">
+              <div class="kpiLabel">Events</div>
+              <div class="t">Following Distance</div>
+            </div>
+            <div class="v">--</div>
+            <div class="s">No data yet</div>
+          </div>
+        </div>
+
+        <div class="grid2">
+          <div class="card">
+            <div class="hd">
+              <h2>Safety Events</h2>
+              <div class="meta">No events recorded yet</div>
+            </div>
+            <div class="bd">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Driver</th>
+                    <th>Vehicle</th>
+                    <th>Event Type</th>
+                    <th>Severity</th>
+                    <th>Time</th>
+                  </tr>
+                </thead>
+                <tbody id="safetyTable">
+                  <tr>
+                    <td colspan="5"><span class="mini">No safety events yet.</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="hd">
+              <h2>Action Center</h2>
+              <div class="meta">Prioritized follow-ups</div>
+            </div>
+            <div class="bd">
+              <div class="row">
+                <div class="l">
+                  <h3>Review speeding events</h3>
+                  <p>Assign coaching once safety events are available.</p>
+                </div>
+                <div class="r"><span class="chip">Pending</span></div>
+              </div>
+              <div class="row" style="margin-top:10px;">
+                <div class="l">
+                  <h3>Review harsh braking</h3>
+                  <p>No actions yet. Add follow-ups when data is available.</p>
+                </div>
+                <div class="r"><span class="chip">Pending</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- COMPLIANCE VIEW -->
+      <section id="view-compliance" class="section hide">
+        <div class="kpis">
+          <div class="kpi">
+            <div class="kpiHeader">
+              <div class="kpiLabel">HOS</div>
+              <div class="t">HOS Violations</div>
+            </div>
+            <div class="v">--</div>
+            <div class="s">No data yet</div>
+          </div>
+          <div class="kpi">
+            <div class="kpiHeader">
+              <div class="kpiLabel">Trips</div>
+              <div class="t">Unidentified Trips</div>
+            </div>
+            <div class="v">--</div>
+            <div class="s">No data yet</div>
+          </div>
+          <div class="kpi">
+            <div class="kpiHeader">
+              <div class="kpiLabel">DVIR</div>
+              <div class="t">Missing Inspections</div>
+            </div>
+            <div class="v">--</div>
+            <div class="s">No data yet</div>
+          </div>
+          <div class="kpi">
+            <div class="kpiHeader">
+              <div class="kpiLabel">Devices</div>
+              <div class="t">Disconnects</div>
+            </div>
+            <div class="v">--</div>
+            <div class="s">No data yet</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="hd">
+            <h2>Compliance Issues</h2>
+            <div class="meta">No compliance issues yet</div>
+          </div>
+          <div class="bd">
+            <table>
+              <thead>
+                <tr>
+                  <th>Driver</th>
+                  <th>Issue</th>
+                  <th>Count</th>
+                  <th>Last Occurrence</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="complianceTable">
+                <tr>
+                  <td colspan="5"><span class="mini">No compliance events yet.</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- GPS VIEW -->
+      <section id="view-gps" class="section hide">
+        <div class="card">
+          <div class="hd">
+            <h2>GPS Tracking</h2>
+            <div class="meta">Live positions appear when paired devices stream</div>
+          </div>
+          <div class="bd">
+            <div class="gpsGrid">
+              <div class="mapWrap">
+                <div class="mapHud" id="mapHud">
+                  <div class="hudPill" id="hudClock">Waiting</div>
+                  <div class="hudPill" id="hudSelected">Selected: -</div>
+                  <div class="hudPill">Mode: Waiting</div>
+                </div>
+
+                <div class="mapLegend">
+                  <div class="legendBox" id="legendBox">
+                    <h4>Unit Telemetry (GPS Layer)</h4>
+                    <div class="li"><span>Status</span><b id="gpsStatus">-</b></div>
+                    <div class="li"><span>Speed</span><b id="gpsSpeed">-</b></div>
+                    <div class="li"><span>Heading</span><b id="gpsHeading">-</b></div>
+                    <div class="li"><span>Lat/Lon</span><b id="gpsLatLon">-</b></div>
+                    <div class="li"><span>ETA to Yard</span><b id="gpsETA">-</b></div>
+                    <div class="li"><span>Maintenance Risk</span><b id="gpsRisk">-</b></div>
+                  </div>
+                  <div class="subtle" style="margin-top:10px;">
+                    <div><span class="kbd">Click</span> a marker to select unit</div>
+                  </div>
+                </div>
+
+                <canvas class="mapCanvas" id="mapCanvas" width="1100" height="540"></canvas>
+              </div>
+
+              <div>
+                <div class="card">
+                  <div class="hd">
+                    <h2>Location Feed</h2>
+                    <div class="meta">Last 8 updates</div>
+                  </div>
+                  <div class="bd" id="gpsFeed"></div>
+                </div>
+
+                <div class="card" style="margin-top:14px;">
+                  <div class="hd">
+                    <h2>Maintenance Context</h2>
+                    <div class="meta">Why GPS matters for preventable maintenance</div>
+                  </div>
+                  <div class="bd">
+                    <div class="row">
+                      <div class="l">
+                        <h3><span class="dot warn"></span>"Service window planning"</h3>
+                        <p>Use route + yard proximity to schedule repairs when the truck is naturally near your shop or a preferred vendor.</p>
+                      </div>
+                      <div class="r" style="text-align:right;">
+                        <div class="chip">Cuts downtime</div>
+                        <div class="mini" style="margin-top:8px;">Better than roadside events</div>
+                      </div>
+                    </div>
+                    <div class="row">
+                      <div class="l">
+                        <h3><span class="dot bad"></span>"Derate / risk recovery"</h3>
+                        <p>If an aftertreatment or charging anomaly escalates, GPS gives immediate context for routing to the safest/closest service point.</p>
+                      </div>
+                      <div class="r" style="text-align:right;">
+                        <div class="chip">Protects loads</div>
+                        <div class="mini" style="margin-top:8px;">Reduces tow exposure</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+            <div class="subtle">
+              <div><span class="kbd">Real Product</span> would use real GPS (ELD/telematics), geofences, and route history</div>
+              <div><span class="kbd">Live</span> feed appears after devices stream data</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- CAMERAS VIEW -->
+      <section id="view-cameras" class="section hide">
+        <div class="card">
+          <div class="hd">
+            <h2>Cameras</h2>
+            <div class="meta">Road-facing + Driver-facing - supports safety + maintenance verification</div>
+          </div>
+          <div class="bd">
+            <div class="camGrid">
+              <div>
+                <div class="videoBox">
+                  <div class="videoTop">
+                    <div class="title">
+                      <b id="camTitle">Road-Facing Camera</b>
+                    <span id="camSub">Waiting for live camera feed</span>
+                    </div>
+                    <div class="rightStack">
+                      <button class="btn ghost" id="btnStartCam">Use Device Camera (Optional)</button>
+                      <button class="btn" id="btnSnapshot">Save Snapshot</button>
+                    </div>
+                  </div>
+
+                  <div class="videoViewport" id="videoViewport">
+                    <video id="camVideo" autoplay playsinline muted></video>
+                    <div class="videoPlaceholder" id="videoPlaceholder">
+                      <div style="max-width:520px;">
+                        <div style="font-weight:980; font-size:14px;">Live Feed</div>
+                        <div style="margin-top:8px; font-size:12px; color: var(--muted); line-height:1.45;">
+                          In the real product, this panel would render a truck camera stream (RTSP/WebRTC), store clips for events,
+                          and link camera events to alerts (e.g., smoke/overheat event context, roadside breakdown verification).
+                        </div>
+                        <div style="margin-top:12px;">
+                        <span class="pill2 warn"><span class="dot warn"></span>Waiting for stream</span>
+                          <span class="pill2 good" style="margin-left:8px;"><span class="dot good"></span>Stream Ready</span>
+                        </div>
+                      </div>
+                      <div class="scanline"></div>
+                      <div class="camBadge" id="camBadge">CH 1 - Road</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="card" style="margin-top:14px;">
+                  <div class="hd">
+                    <h2>Camera + Maintenance</h2>
+                    <div class="meta">Keep it aligned with Fleet AI's core</div>
+                  </div>
+                  <div class="bd">
+                    <div class="row">
+                      <div class="l">
+                        <h3><span class="dot good"></span>Verification of "symptoms"</h3>
+                        <p>Use camera clips to validate smoke, overheating indicators, leaks, or driver-reported symptoms that correlate with sensor patterns.</p>
+                      </div>
+                      <div class="r" style="text-align:right;">
+                        <div class="chip">Reduces false positives</div>
+                      </div>
+                    </div>
+                    <div class="row">
+                      <div class="l">
+                        <h3><span class="dot warn"></span>Faster roadside decision-making</h3>
+                        <p>When an alert fires (EGT, coolant temp, voltage dips), camera context helps decide: continue, derate strategy, or route to service now.</p>
+                      </div>
+                      <div class="r" style="text-align:right;">
+                        <div class="chip">Cuts emergency costs</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <div class="card">
+                  <div class="hd">
+                    <h2>Channels</h2>
+                    <div class="meta">Select a feed</div>
+                  </div>
+                  <div class="bd" id="camChannels"></div>
+                </div>
+
+                <div class="card" style="margin-top:14px;">
+                  <div class="hd">
+                    <h2>Event Clips</h2>
+                    <div class="meta">Linked to alerts</div>
+                  </div>
+                  <div class="bd" id="clipList"></div>
+                </div>
+
+                <div class="subtle">
+                  <div><span class="kbd">Real Product</span> WebRTC/RTSP ingest + cloud clips + permissions</div>
+                  <div><span class="kbd">Live</span> camera feeds appear after devices stream</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- AI ADVISOR VIEW -->
+      <section id="view-advisor" class="section hide">
+        <div class="aiAdvisor-shell">
+          <div class="aiAdvisor-head">
+            <div>
+              <h2>AI Advisor</h2>
+              <div class="meta">Ask about maintenance, compliance, costs, and fleet operations.</div>
+            </div>
+            <div class="aiAdvisor-controls">
+              <span class="aiAdvisor-status" id="aiAdvisorStatus"><span class="aiAdvisor-statusDot"></span>Online</span>
+              <button class="btn ghost" id="aiAdvisorNewChat">New chat</button>
+              <button class="btn ghost" id="aiAdvisorClear">Clear</button>
+              <button class="btn ghost" id="aiAdvisorExport">Export</button>
+            </div>
+          </div>
+
+          <div class="aiAdvisor-quick" id="quickPrompts"></div>
+
+          <div class="aiAdvisor-transcript" id="chatLog" aria-live="polite">
+            <button class="btn ghost aiAdvisor-jump hide" id="aiAdvisorJump">Jump to latest</button>
+          </div>
+
+          <div class="aiAdvisor-typing hide" id="aiAdvisorTyping">
+            <div class="aiAdvisor-dots">
+              <span class="aiAdvisor-dot"></span>
+              <span class="aiAdvisor-dot"></span>
+              <span class="aiAdvisor-dot"></span>
+            </div>
+            <span>Advisor is drafting a response...</span>
+          </div>
+
+          <div class="aiAdvisor-composer">
+            <textarea id="chatInput" placeholder="Ask the AI Advisor about your fleet operations..."></textarea>
+            <button class="btn primary" id="btnSend">Send</button>
+            <button class="btn" id="aiAdvisorSupport">Request Human Support</button>
+          </div>
+
+          <div class="aiAdvisor-footer">
+            <div class="mini">AI Advisor is informational and may require human review.</div>
+          </div>
+        </div>
+
+        <div class="aiAdvisor-modal hide" id="aiAdvisorSupportModal" role="dialog" aria-modal="true">
+          <div class="aiAdvisor-modalPanel">
+            <div class="aiAdvisor-modalHeader">
+              <h3>Request Human Support</h3>
+              <button class="btn ghost" id="aiAdvisorSupportClose">Close</button>
+            </div>
+            <form id="aiAdvisorSupportForm">
+              <div class="aiAdvisor-formGrid">
+                <input id="aiAdvisorSupportTopic" type="text" placeholder="Topic (e.g., inspection schedule, compliance, downtime)" />
+                <select id="aiAdvisorSupportUrgency">
+                  <option value="normal">Urgency: Normal</option>
+                  <option value="high">Urgency: High</option>
+                  <option value="critical">Urgency: Critical</option>
+                </select>
+                <input id="aiAdvisorSupportContact" type="text" placeholder="Preferred contact (email or phone)" />
+                <textarea id="aiAdvisorSupportNotes" placeholder="Notes or context for the support team"></textarea>
+              </div>
+              <div class="rightStack">
+                <button class="btn" type="button" id="aiAdvisorSupportCancel">Cancel</button>
+                <button class="btn primary" type="submit">Submit</button>
+              </div>
+              <div class="mini" id="aiAdvisorSupportMsg" style="margin-top:8px;"></div>
+            </form>
+          </div>
+        </div>
+      </section>
+
+      <!-- REPORTS VIEW -->
+      <section id="view-reports" class="section hide">
+        <div class="card">
+          <div class="hd">
+            <h2>Pilot Reports</h2>
+            <div class="meta">Simple, sellable summaries operators actually use</div>
+          </div>
+            <div class="bd">
+              <div class="row">
+                <div class="l">
+                  <h3>30-Day Summary</h3>
+                  <p>Uptime trend, prevented urgent events, recommended maintenance windows, and a clear next-step plan.</p>
+                </div>
+              <div class="r">
+                <button class="btn primary" id="btnPilotSummary">Generate</button>
+              </div>
+            </div>
+            <div class="row">
+              <div class="l">
+                <h3>Cost Avoidance Breakdown</h3>
+                <p>Conservative view of avoided tow/emergency labor + time-loss reduction by early scheduling.</p>
+              </div>
+              <div class="r">
+                <button class="btn" id="btnCostReport">Generate</button>
+              </div>
+            </div>
+            <div class="row">
+              <div class="l">
+                <h3>Maintenance Priority Plan</h3>
+                <p>A simple list: "Do now / Do soon / Can wait" with reasons and due windows.</p>
+              </div>
+              <div class="r">
+                <button class="btn" id="btnPriorityPlan">Generate</button>
+              </div>
+            </div>
+
+            <div class="note" style="margin-top:12px;">
+              <b>Operator-friendly reporting:</b> avoid jargon, show decisions. A fleet manager should be able to act in under 60 seconds.
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- VEHICLES VIEW -->
+      <section id="view-vehicles" class="section hide">
+        <div class="grid2">
+          <div class="card">
+            <div class="hd">
+              <h2>Fleet Vehicles</h2>
+              <div class="meta">Assigned driver + device shown when paired</div>
+            </div>
+            <div class="bd">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Vehicle</th>
+                    <th>VIN / Type</th>
+                    <th>Driver</th>
+                    <th>Device</th>
+                  </tr>
+                </thead>
+                <tbody id="vehiclesTable"></tbody>
+              </table>
+              <div id="vehiclesEmpty" class="note" style="margin-top:10px; display:none;"><b>No vehicles yet.</b> Create a vehicle to start pairing.</div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="hd">
+              <h2>Create Vehicle</h2>
+              <div class="meta">Vehicle ID, VIN, and type are required</div>
+            </div>
+            <div class="bd">
+              <div style="display:grid; gap:8px;">
+                <input id="addVehicleId" type="text" placeholder="Vehicle ID (e.g. VEHICLE_A)" />
+                <input id="addVehicleName" type="text" placeholder="Unit name (e.g. Cascadia)" />
+                <input id="addVehicleVin" type="text" placeholder="VIN" />
+                <input id="addVehicleType" type="text" placeholder="Type (Truck, Van, etc.)" />
+              </div>
+              <div class="rightStack" style="margin-top:12px;">
+                <button class="btn primary" id="btnAddVehicle">Create Vehicle</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- DRIVERS VIEW -->
+      <section id="view-drivers" class="section hide">
+        <div class="grid2">
+          <div class="card">
+            <div class="hd">
+              <h2>Drivers</h2>
+              <div class="meta">Driver PINs are issued during pairing</div>
+            </div>
+            <div class="bd">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Phone</th>
+                    <th>Assigned Vehicle</th>
+                    <th>PIN</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="driversTable"></tbody>
+              </table>
+              <div id="driversEmpty" class="note" style="margin-top:10px; display:none;"><b>No drivers yet.</b> Add drivers to start pairing.</div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="hd">
+              <h2>Create Driver</h2>
+              <div class="meta">Create a driver profile for pairing</div>
+            </div>
+            <div class="bd">
+              <div style="display:grid; gap:8px;">
+                <input id="addDriverFirst" type="text" placeholder="First name" />
+                <input id="addDriverLast" type="text" placeholder="Last name" />
+                <input id="addDriverPhone" type="text" placeholder="Phone" />
+              </div>
+              <div class="rightStack" style="margin-top:12px;">
+                <button class="btn primary" id="btnAddDriver">Create Driver</button>
+              </div>
+              <div class="mini" id="driverPinOutput" style="margin-top:8px;">PIN issued during pairing.</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- DEVICE PAIRING VIEW -->
+      <section id="view-pairing" class="section hide">
+        <div class="grid2">
+          <div class="card">
+            <div class="hd">
+              <h2>Generate Pair Code</h2>
+              <div class="meta">Choose a vehicle + driver to link</div>
+            </div>
+            <div class="bd">
+              <div style="display:grid; gap:8px;">
+                <select id="pairVehicleSelect"></select>
+                <select id="pairDriverSelect"></select>
+              </div>
+              <div class="rightStack" style="margin-top:12px;">
+                <button class="btn primary" id="btnGeneratePair">Generate Pair Code</button>
+              </div>
+              <div class="mini" id="pairCodeOutput" style="margin-top:8px;">Code: --</div>
+              <div class="mini" id="pairCodeCountdown" style="margin-top:6px;">Expires in --:--</div>
+              <div class="mini" id="pairDriverPinOutput" style="margin-top:10px;">Driver PIN: --</div>
+              <div class="mini" id="pairDriverPinCountdown" style="margin-top:6px;">PIN expires in --:--</div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="hd">
+              <h2>Claim Status</h2>
+              <div class="meta">Active assignments from device pairing</div>
+            </div>
+            <div class="bd">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Vehicle</th>
+                    <th>Driver</th>
+                    <th>Device Label</th>
+                    <th>Last Seen</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody id="pairingsTable"></tbody>
+              </table>
+              <div id="pairingsEmpty" class="note" style="margin-top:10px; display:none;"><b>No pairings yet.</b> Generate a code and claim from a tablet.</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SETTINGS VIEW -->
+      <section id="view-settings" class="section hide">
+        <div class="grid2">
+          <div class="card">
+            <div class="hd">
+              <h2>Organization</h2>
+              <div class="meta">Company identity</div>
+            </div>
+            <div class="bd">
+              <div style="display:grid; gap:8px;">
+                <input id="companyNameInput" type="text" placeholder="Company name" />
+              </div>
+              <div class="rightStack" style="margin-top:12px;">
+                <button class="btn primary" id="btnSaveCompany">Save Company</button>
+              </div>
+              <div class="mini" id="companySaveStatus" style="margin-top:8px;"></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="hd">
+              <h2>Appearance</h2>
+              <div class="meta">Light default with two dark enterprise themes</div>
+            </div>
+            <div class="bd">
+              <div style="display:grid; gap:8px;">
+                <select id="themeToggle">
+                  <option value="light-blue">Light (Cool Blue)</option>
+                  <option value="dark-blue">Dark Blue</option>
+                  <option value="dark-gray">Dark Gray</option>
+                </select>
+              </div>
+              <div class="rightStack" style="margin-top:12px;">
+                <button class="btn" id="btnApplyTheme">Apply Theme</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:14px;">
+          <div class="hd">
+            <h2>Admin Controls</h2>
+            <div class="meta">Access management</div>
+          </div>
+          <div class="bd">
+            <div class="note">
+              <b>User access:</b> Admin login + user management is handled in the sign-in modal for this environment.
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- ambient canvases removed -->
+  <!-- Login overlay (appears when no session) -->
+  <div class="overlay hide" id="loginOverlay" role="dialog" aria-modal="true">
+    <div class="panel">
+      <h3 id="loginTitle">Sign in to Fleet AI</h3>
+      <div class="f">
+        <input id="loginEmail" type="email" placeholder="Email address" />
+        <input id="loginPass" type="password" placeholder="Password" />
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:6px;">
+          <button class="btn" id="btnLogin">Login</button>
+          <button class="btn ghost" id="btnCreateAdmin">Create Admin</button>
+        </div>
+        <div class="small">If no users exist, press <b>Create Admin</b> to initialize an admin account.</div>
+        <div class="small" id="loginMsg" style="display:none;color:#FFD0D0;margin-top:8px"></div>
+      </div>
+    </div>
+  </div>
+  <!-- Toast -->
+  <div class="toast" id="toast">
+    <button class="x" id="toastX">x</button>
+    <div class="t" id="toastT">Alert</div>
+    <div class="d" id="toastD">Details</div>
+  </div>
+
+  <script src="/js/guard.js"></script>
+  <script>
+    /***********************
+     * LIVE-ONLY CONFIG
+     ***********************/
+    const priorityQueue = [];
+
+    // Telemetry catalog (labels + units only)
+    const signalCatalog = [
+      { key:"vehicle_id",   label:"Vehicle ID",   unit:"",   base:[0,1],       hard:[0,1],       msg:"", apiOnly:true },
+      { key:"vin",          label:"VIN",          unit:"",   base:[0,1],       hard:[0,1],       msg:"", apiOnly:true },
+      { key:"timestamp",    label:"Timestamp",    unit:"",   base:[0,1],       hard:[0,1],       msg:"", apiOnly:true },
+      { key:"speed",        label:"Speed",        unit:"mph",base:[0,70],      hard:[80,90],     msg:"Speed above expected range", apiOnly:true },
+      { key:"rpm",          label:"RPM",          unit:"rpm",base:[700,2200],  hard:[2500,3200], msg:"RPM above expected range", apiOnly:true },
+      { key:"fuel_level",   label:"Fuel Level",   unit:"%",  base:[15,80],     hard:[5,10],      invert:true, msg:"Fuel level low", apiOnly:true },
+      { key:"mileage",      label:"Mileage",      unit:"mi", base:[10000,200000], hard:[200000,300000], msg:"Mileage above expected range", apiOnly:true },
+      { key:"engine_hours", label:"Engine Hours", unit:"hrs",base:[100,4000],  hard:[4000,6000], msg:"Engine hours above expected range", apiOnly:true },
+      { key:"coolant_temp", label:"Coolant Temp", unit:" degF", base:[185,205], hard:[215,235], msg:"Cooling trend abnormal under load" },
+      { key:"oil_temp",     label:"Oil Temp",     unit:" degF", base:[195,220], hard:[230,250], msg:"Oil temperature elevated vs baseline" },
+      { key:"battery_v",    label:"Battery / Charging", unit:"V",  base:[13.6,14.4], hard:[12.2,12.8], invert:true, msg:"Charging volatility / low voltage events" },
+      { key:"boost_psi",    label:"Boost",        unit:"psi",base:[18,28], hard:[30,38], msg:"Boost out of normal envelope" },
+      { key:"egt",          label:"EGT",          unit:" degF", base:[650,950], hard:[1000,1200], msg:"EGT elevated; check regen/load behavior" },
+      { key:"fuel_mpg",     label:"Fuel Efficiency", unit:"mpg", base:[5.6,7.0], hard:[4.2,5.2], invert:true, msg:"Efficiency drop suggests hidden issue or behavior shift" },
+      { key:"fuel_rail",    label:"Fuel Rail Pressure (trend)", unit:"psi", base:[24000,29000], hard:[20000,22000], invert:true, msg:"Fuel pressure trend suggests restriction or pump wear" },
+      { key:"dpf_delta",    label:"DPF DeltaP (restriction)", unit:"kPa", base:[1.4,3.2], hard:[4.0,5.2], msg:"DPF restriction rising; regen efficiency at risk" },
+      { key:"trans_temp",   label:"Transmission Temp", unit:" degF", base:[160,195], hard:[205,235], msg:"Transmission temperature elevated vs baseline" },
+      { key:"intake_temp",  label:"Intake Air Temp", unit:" degF", base:[75,105], hard:[115,140], msg:"Intake temp high; charge air cooling underperforming" }
+    ];
+
+    const camChannels = [
+      { id:"road", title:"Road-Facing Camera", sub:"CH 1 - Forward view - incident context" },
+      { id:"driver", title:"Driver-Facing Camera", sub:"CH 2 - Driver view - compliance/safety" },
+      { id:"cargo", title:"Cargo / Trailer Camera", sub:"CH 3 - Load view - door/strap checks" }
+    ];
+
+    const mockClips = [];
+
+    /***********************
+     * STATE
+     ***********************/
+    const state = {
+      view: "dashboard",
+      selectedVehicleId: "",
+      vehicles: [],
+      drivers: [],
+      pairings: [],
+      telemetryLastSeen: null,
+      alerts: [],
+      alertsLoaded: false,
+      notifFeed: [],
+      eventLog: [],
+      lastVals: {},
+      tick: 0,
+      persist: {},
+      apiTelemetry: null,
+      lastAlertId: null,
+
+      // GPS state
+      gps: {
+        // normalized demo coords (0..1) for the canvas
+        units: {},         // {id:{x,y,vx,vy,heading,speed,trail:[]}}
+        feed: [],
+        selected: ""
+      },
+
+      // Camera state
+      camera: {
+        channel: "road",
+        stream: null
+      }
+    };
+
+    /***********************
+     * HELPERS
+     ***********************/
+    const $ = (id)=>document.getElementById(id);
+    const API_BASE_URL = window.location.origin;
+    const MOCK_MODE = false;
+    const REQUIRE_LOGIN = false;
+    const DEV_LOG_NAV = false;
+    const LOG_ERRORS = false;
+    const THEME_STORAGE_KEY = "fleetai.theme";
+    const COMPANY_STORAGE_KEY = "fleetai.companyName";
+    const MOCK_KEYS = {
+      vehicles: "fleetai.vehicles",
+      drivers: "fleetai.drivers",
+      pairings: "fleetai.pairings"
+    };
+    const PAIRING_EXPIRY_MINUTES = 10;
+    const isFileProtocol = window.location.protocol === "file:";
+    const apiEndpoint = () => `${API_BASE_URL}/api/telemetry?vehicle_id=${encodeURIComponent(state.selectedVehicleId || "")}`;
+    const tireRiskEndpoint = () => `${API_BASE_URL}/api/tire-risk?vehicle_id=${encodeURIComponent(state.selectedVehicleId || "")}`;
+    const vehiclesEndpoint = `${API_BASE_URL}/vehicles`;
+    const driversEndpoint = `${API_BASE_URL}/drivers`;
+    const pairingGenerateEndpoint = `${API_BASE_URL}/pairings/generate`;
+    const pairingClaimEndpoint = `${API_BASE_URL}/pairings/claim`;
+    const pairingActiveEndpoint = `${API_BASE_URL}/pairings/active`;
+    const healthEndpoint = `${API_BASE_URL}/health`;
+    const alertsEndpoint = () => `${API_BASE_URL}/api/alerts?vehicle_id=${encodeURIComponent(state.selectedVehicleId || "")}&limit=20`;
+    const insightsLatestEndpoint = () => `${API_BASE_URL}/api/insights/latest?vehicle_id=${encodeURIComponent(state.selectedVehicleId || "")}`;
+    const insightsGenerateEndpoint = () => `${API_BASE_URL}/api/insights/generate?vehicle_id=${encodeURIComponent(state.selectedVehicleId || "")}`;
+    const aiAdvisorEndpoint = `${API_BASE_URL}/api/ai/chat`;
+    const AI_ADVISOR_STORAGE_KEY = "fleetai_ai_advisor_history";
+    const AI_ADVISOR_SUPPORT_KEY = "fleetai_ai_support_requests";
+    const AI_ADVISOR_CONFIG = {
+      endpoint: aiAdvisorEndpoint,
+      mockEnabled: true
+    };
+
+    function loadStore(key, fallback){
+      try{
+        const raw = localStorage.getItem(key);
+        return raw ? JSON.parse(raw) : fallback;
+      } catch(e){
+        return fallback;
+      }
+    }
+
+    function saveStore(key, value){
+      try{ localStorage.setItem(key, JSON.stringify(value)); }catch(e){}
+    }
+    const apiTelemetryKeys = new Set([
+      "vehicle_id",
+      "vin",
+      "timestamp",
+      "speed",
+      "rpm",
+      "coolant_temp",
+      "fuel_level",
+      "mileage",
+      "engine_hours"
+    ]);
+
+    function logError(){
+      if(LOG_ERRORS){
+        console.error.apply(console, arguments);
+      }
+    }
+
+    function formatTelemetryValue(key, value){
+      if(value === undefined || value === null) return "--";
+      if(key === "vehicle_id" || key === "vin" || key === "timestamp"){
+        return String(value);
+      }
+      if(typeof value === "number"){
+        if(key === "rpm") return String(Math.round(value));
+        if(key === "mileage" || key === "engine_hours") return String(Math.round(value));
+        return String(Math.round(value * 10) / 10);
+      }
+      return String(value);
+    }
+
+    function updateConnectionStatus(ok, message){
+      const el = $("connectionStatus");
+      if(!el) return;
+      if(MOCK_MODE){
+        el.textContent = "Connection: Connected";
+        el.style.color = "var(--good)";
+        return;
+      }
+      if(ok){
+        el.textContent = "Connection: Connected";
+        el.style.color = "var(--good)";
+      } else {
+        el.textContent = `Connection: Disconnected (${message || "error"})`;
+        el.style.color = "var(--bad)";
+      }
+    }
+
+    function applyApiTelemetry(data){
+      state.apiTelemetry = {
+        vehicle_id: data.vehicle_id ?? "--",
+        vin: data.vin ?? "--",
+        timestamp: data.ts ?? data.timestamp ?? "--",
+        speed: data.speed,
+        rpm: data.rpm,
+        coolant_temp: data.coolant_temp,
+        fuel_level: data.fuel_level,
+        mileage: data.mileage,
+        engine_hours: data.engine_hours
+      };
+    }
+
+    function hasTelemetryPayload(data){
+      if(!data) return false;
+      const metrics = data.metrics || {};
+      if(metrics && Object.keys(metrics).length){
+        return true;
+      }
+      return ["speed","rpm","coolant_temp","fuel_level","mileage","engine_hours"].some(k=>{
+        return data[k] !== undefined && data[k] !== null;
+      });
+    }
+
+    function buildTelemetryValues(){
+      const api = state.apiTelemetry || {};
+      return Object.fromEntries(signalCatalog.map(sig=>{
+        const apiVal = api[sig.key];
+        if(apiVal !== undefined && apiVal !== null){
+          return [sig.key, { value: formatTelemetryValue(sig.key, apiVal), pct: 0, sev: "good" }];
+        }
+        return [sig.key, { value: "--", pct: 0, sev: "none" }];
+      }));
+    }
+
+    function updateTelemetryStatus(){
+      const pill = $("telemetryStatusPill");
+      const note = $("telemetryStatusNote");
+      if(!pill || !note) return;
+      if(!state.selectedVehicleId){
+        pill.className = "pill2";
+        pill.textContent = "No vehicles yet";
+        note.textContent = "Create a vehicle to begin pairing devices.";
+        return;
+      }
+      const pairing = state.pairings.find(p=>p.status === "active" && p.vehicleId === state.selectedVehicleId);
+      if(!pairing){
+        pill.className = "pill2 warn";
+        pill.textContent = "Waiting for pairing";
+        note.textContent = "Waiting for a pairing code to be claimed by a tablet.";
+        return;
+      }
+      const lastSeen = state.telemetryLastSeen ? new Date(state.telemetryLastSeen).getTime() : 0;
+      const fresh = lastSeen && (Date.now() - lastSeen) < 30000;
+      if(fresh){
+        pill.className = "pill2 good";
+        pill.textContent = "Receiving data";
+        note.textContent = "Live OBD data is streaming from the paired tablet.";
+      } else {
+        pill.className = "pill2 warn";
+        pill.textContent = "Waiting for OBD-II connection";
+        note.textContent = "Pairing is active, waiting for OBD-II data from the tablet.";
+      }
+    }
+
+    async function fetchTelemetry(){
+      try{
+        if(!state.selectedVehicleId){
+          updateTelemetryStatus();
+          return;
+        }
+        if(MOCK_MODE){
+          return;
+        }
+        const res = await fetch(apiEndpoint());
+        if(!res.ok){
+          updateTelemetryStatus();
+          return;
+        }
+        const data = await res.json();
+        if(!hasTelemetryPayload(data)){
+          state.apiTelemetry = null;
+          state.telemetryLastSeen = null;
+          renderTelemetryCards(buildTelemetryValues());
+          updateTelemetryStatus();
+          return;
+        }
+        applyApiTelemetry(data);
+        state.telemetryLastSeen = data.ts || data.timestamp || new Date().toISOString();
+        renderTelemetryCards(buildTelemetryValues());
+        updateTelemetryStatus();
+      } catch(err){
+        logError("Telemetry fetch failed", err);
+        updateTelemetryStatus();
+      }
+    }
+
+    function formatAlertTime(ts){
+      if(!ts) return nowTime();
+      const d = new Date(ts);
+      if(Number.isNaN(d.getTime())) return nowTime();
+      return d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+    }
+
+    function normalizeAlert(alert){
+      const severity = (alert && alert.severity) ? String(alert.severity) : "";
+      const sev = severity === "critical" ? "bad" : severity === "warning" ? "warn" : "good";
+      return {
+        id: alert.alert_id || `${alert.vehicle_id || "vehicle"}-${alert.timestamp || Date.now()}`,
+        sev,
+        unit: alert.vehicle_id || "--",
+        title: alert.title || "Alert",
+        desc: alert.details || alert.recommended_action || "No details available.",
+        time: formatAlertTime(alert.timestamp),
+        action: alert.recommended_action || ""
+      };
+    }
+
+    async function fetchAlerts(){
+      try{
+        if(!state.selectedVehicleId){
+          state.alertsLoaded = false;
+          if($("alertCount")) $("alertCount").textContent = "--";
+          return;
+        }
+        if(MOCK_MODE){
+          return;
+        }
+        const res = await fetch(alertsEndpoint());
+        if(res.status === 204 || res.status === 404){
+          state.alerts = [];
+          state.notifFeed = [];
+          state.alertsLoaded = true;
+          renderNotifFeed();
+          renderAlerts();
+          return;
+        }
+        if(!res.ok){
+          throw new Error(`HTTP ${res.status}`);
+        }
+        const data = await res.json();
+        const alerts = Array.isArray(data) ? data.map(normalizeAlert) : [];
+        state.alerts = alerts;
+        state.notifFeed = alerts;
+        state.alertsLoaded = true;
+        renderNotifFeed();
+        renderAlerts();
+        if(alerts[0] && state.lastAlertId && alerts[0].id !== state.lastAlertId){
+          toast(alerts[0].title, `${alerts[0].unit}: ${alerts[0].desc}`);
+        }
+        if(alerts[0]){
+          state.lastAlertId = alerts[0].id;
+        }
+      } catch(err){
+        logError("Alerts fetch failed", err);
+        state.alerts = [];
+        state.notifFeed = [];
+        state.alertsLoaded = false;
+        renderNotifFeed();
+        renderAlerts();
+      }
+    }
+
+    function formatInsight(insight){
+      if(!insight){
+        return "No AI insight available yet.";
+      }
+      const summary = insight.summary || "No summary available.";
+      const actions = Array.isArray(insight.recommended_actions) ? insight.recommended_actions : [];
+      const confidence = insight.confidence || "low";
+      const actionLines = actions.length ? actions.map((a, i)=>`${i + 1}. ${a}`).join("\n") : "- No recommended actions provided.";
+      return `Summary:\n${summary}\n\nRecommended actions:\n${actionLines}\n\nConfidence: ${confidence}`;
+    }
+
+    async function fetchLatestInsight(){
+      try{
+        if(MOCK_MODE){
+          return null;
+        }
+        const res = await fetch(insightsLatestEndpoint());
+        if(res.status === 404){
+          return null;
+        }
+        if(!res.ok){
+          throw new Error(`HTTP ${res.status}`);
+        }
+        const data = await res.json();
+        return data && data.insight ? data.insight : null;
+      } catch(err){
+        logError("Latest insight fetch failed", err);
+        return null;
+      }
+    }
+
+    async function generateInsight(question){
+      if(MOCK_MODE){
+        return {
+          summary: "Insights are unavailable without a backend connection.",
+          recommended_actions: ["Connect to the backend to fetch live insights."],
+          confidence: "low"
+        };
+      }
+      const payload = {
+        rules_output: question ? { question } : {}
+      };
+      const res = await fetch(insightsGenerateEndpoint(), {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify(payload)
+      });
+      if(!res.ok){
+        throw new Error(`HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      return data && data.insight ? data.insight : null;
+    }
+
+    function renderTireRisk(data){
+      const hasData = data && (data.riskScore !== undefined || (Array.isArray(data.topReasons) && data.topReasons.length));
+      if(!hasData){
+        $("tireRiskScore").textContent = "--";
+        $("tireRiskConfidence").textContent = "--";
+        $("tireRiskTimestamp").textContent = "Waiting for live data";
+        $("tireRiskReasons").textContent = "No telemetry yet.";
+        $("tireRiskActions").textContent = "Connect a device to populate tire risk.";
+        return;
+      }
+      $("tireRiskScore").textContent = data.riskScore ?? "--";
+      $("tireRiskConfidence").textContent = data.confidence ?? "--";
+      $("tireRiskTimestamp").textContent = `Last updated ${data.timestamp || "--"}`;
+      const reasons = Array.isArray(data.topReasons) ? data.topReasons : [];
+      const actions = Array.isArray(data.recommendedActions) ? data.recommendedActions : [];
+      $("tireRiskReasons").textContent = reasons.length ? reasons.join(" | ") : "--";
+      $("tireRiskActions").textContent = actions.length ? actions.join(" | ") : "--";
+    }
+
+    async function fetchTireRisk(){
+      try{
+        if(!state.selectedVehicleId){
+          return;
+        }
+        if(MOCK_MODE){
+          return;
+        }
+        const res = await fetch(tireRiskEndpoint());
+        if(res.status === 204 || res.status === 404){
+          renderTireRisk(null);
+          return;
+        }
+        if(!res.ok){
+          throw new Error(`HTTP ${res.status}`);
+        }
+        const data = await res.json();
+        renderTireRisk(data);
+      } catch(err){
+        logError("Tire risk fetch failed", err);
+        renderTireRisk(null);
+      }
+    }
+
+    function loadMock(key, fallback){
+      try{
+        const raw = localStorage.getItem(key);
+        return raw ? JSON.parse(raw) : fallback;
+      } catch(e){
+        return fallback;
+      }
+    }
+
+    function saveMock(key, value){
+      try{ localStorage.setItem(key, JSON.stringify(value)); }catch(e){}
+    }
+
+    function ensureMockStore(){
+      // No mock seeding in live mode.
+    }
+
+    function generateDigits(length){
+      let out = "";
+      for(let i=0;i<length;i++){
+        out += Math.floor(Math.random() * 10);
+      }
+      return out;
+    }
+
+    function generatePairingCode(){
+      return generateDigits(6);
+    }
+
+    function pairingStatusPill(status){
+      const s = (status || "").toLowerCase();
+      if(s === "active") return `<span class="pill2 good">Active</span>`;
+      if(s === "pending") return `<span class="pill2 warn">Pending</span>`;
+      if(s === "expired") return `<span class="pill2 bad">Expired</span>`;
+      return `<span class="pill2">${status || "unknown"}</span>`;
+    }
+
+    function getAssignments(pairings){
+      const active = pairings.filter(p=>p.status === "active");
+      const byVehicle = new Map();
+      const byDriver = new Map();
+      active.forEach(p=>{
+        byVehicle.set(p.vehicleId, p);
+        byDriver.set(p.driverId, p);
+      });
+      return { active, byVehicle, byDriver };
+    }
+
+    function renderVehiclesTable(vehicles, drivers, pairings){
+      const body = $("vehiclesTable");
+      if(!body) return;
+      const empty = $("vehiclesEmpty");
+      if(!vehicles.length){
+        body.innerHTML = "";
+        if(empty) empty.style.display = "block";
+        return;
+      }
+      if(empty) empty.style.display = "none";
+      const driverById = new Map(drivers.map(d=>[d.driverId, d]));
+      const assignments = getAssignments(pairings).byVehicle;
+      body.innerHTML = vehicles.map(v=>{
+        const pairing = assignments.get(v.vehicleId);
+        const driver = pairing ? driverById.get(pairing.driverId) : null;
+        const driverLabel = driver ? `${driver.firstName} ${driver.lastName}` : "Unassigned";
+        const deviceLabel = pairing ? (pairing.deviceLabel || "--") : "Unassigned";
+        return `
+          <tr>
+            <td><b>${v.unitName}</b><div class="mini">${v.vehicleId}</div></td>
+            <td>${v.vin}<div class="mini">${v.type}</div></td>
+            <td>${driverLabel}</td>
+            <td>${deviceLabel}</td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+    function renderDriversTable(drivers, vehicles, pairings){
+      const body = $("driversTable");
+      if(!body) return;
+      const empty = $("driversEmpty");
+      if(!drivers.length){
+        body.innerHTML = "";
+        if(empty) empty.style.display = "block";
+        return;
+      }
+      if(empty) empty.style.display = "none";
+      const vehicleById = new Map(vehicles.map(v=>[v.vehicleId, v]));
+      const assignments = getAssignments(pairings).byDriver;
+      body.innerHTML = drivers.map(d=>{
+        const pairing = assignments.get(d.driverId);
+        const vehicle = pairing ? vehicleById.get(pairing.vehicleId) : null;
+        const vehicleLabel = vehicle ? `${vehicle.unitName}` : "Unassigned";
+        const pinLabel = pairing ? "Issued" : "Not issued";
+        return `
+          <tr>
+            <td><b>${d.firstName} ${d.lastName}</b><div class="mini">${d.driverId}</div></td>
+            <td>${d.phone || "--"}</td>
+            <td>${vehicleLabel}</td>
+            <td>${pinLabel}</td>
+            <td><span class="chip">Issue via pairing</span></td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+    function renderPairingsTable(pairings, vehicles, drivers){
+      const body = $("pairingsTable");
+      if(!body) return;
+      const empty = $("pairingsEmpty");
+      if(!pairings.length){
+        body.innerHTML = "";
+        if(empty) empty.style.display = "block";
+        return;
+      }
+      if(empty) empty.style.display = "none";
+      const vehicleById = new Map(vehicles.map(v=>[v.vehicleId, v]));
+      const driverById = new Map(drivers.map(d=>[d.driverId, d]));
+      const rows = pairings
+        .slice()
+        .sort((a,b)=> (a.status === "active" ? -1 : 1) - (b.status === "active" ? -1 : 1));
+      body.innerHTML = rows.map(p=>{
+        const vehicle = vehicleById.get(p.vehicleId);
+        const driver = driverById.get(p.driverId);
+        const vehicleLabel = vehicle ? vehicle.unitName : p.vehicleId;
+        const driverLabel = driver ? `${driver.firstName} ${driver.lastName}` : p.driverId;
+        return `
+          <tr>
+            <td>${vehicleLabel}</td>
+            <td>${driverLabel}</td>
+            <td>${p.deviceLabel || "--"}</td>
+            <td>${p.lastSeen || "--"}</td>
+            <td>${pairingStatusPill(p.status)}</td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+    function renderPairingSelects(vehicles, drivers){
+      const vehicleSelect = $("pairVehicleSelect");
+      if(vehicleSelect){
+        if(!vehicles.length){
+          vehicleSelect.innerHTML = `<option value="">No vehicles yet</option>`;
+          vehicleSelect.disabled = true;
+        } else {
+          vehicleSelect.disabled = false;
+          vehicleSelect.innerHTML = vehicles.map(v=>`<option value="${v.vehicleId}">${v.unitName} (${v.vehicleId})</option>`).join("");
+          if(state.selectedVehicleId){
+            vehicleSelect.value = state.selectedVehicleId;
+          }
+        }
+      }
+      const driverSelect = $("pairDriverSelect");
+      if(driverSelect){
+        if(!drivers.length){
+          driverSelect.innerHTML = `<option value="">No drivers yet</option>`;
+          driverSelect.disabled = true;
+        } else {
+          driverSelect.disabled = false;
+          driverSelect.innerHTML = drivers.map(d=>`<option value="${d.driverId}">${d.firstName} ${d.lastName}</option>`).join("");
+        }
+      }
+    }
+
+    async function fetchJson(url, options){
+      const opts = options || {};
+      const headers = Object.assign({"Content-Type":"application/json"}, opts.headers || {});
+      try{
+        const res = await fetch(url, Object.assign({}, opts, { headers }));
+        if(!res.ok){
+          throw new Error(`HTTP ${res.status}`);
+        }
+        updateConnectionStatus(true);
+        return res.json();
+      } catch(err){
+        updateConnectionStatus(false, err && err.message ? err.message : "Fetch failed");
+        throw err;
+      }
+    }
+
+    function setTheme(theme){
+      const supported = ["light-blue","dark-blue","dark-gray"];
+      const legacyMap = { light: "light-blue", haze: "light-blue" };
+      const mode = supported.includes(theme) ? theme : (legacyMap[theme] || "light-blue");
+      document.documentElement.dataset.theme = mode;
+      try{ localStorage.setItem(THEME_STORAGE_KEY, mode); }catch(e){}
+      return mode;
+    }
+
+    function loadTheme(){
+      let theme = "light-blue";
+      try{
+        const saved = localStorage.getItem(THEME_STORAGE_KEY);
+        if(saved) theme = saved;
+      }catch(e){}
+      theme = setTheme(theme);
+      const toggle = $("themeToggle");
+      if(toggle) toggle.value = theme;
+      const headerToggle = $("headerThemeSelect");
+      if(headerToggle) headerToggle.value = theme;
+    }
+
+    function setCompanyName(name){
+      const safe = name && name.trim() ? name.trim() : "Fleet AI";
+      const el = $("companyName");
+      if(el) el.textContent = safe;
+      const header = $("headerCompanyName");
+      if(header) header.textContent = safe;
+      const suffix = $("headerCompanySuffix");
+      if(suffix){
+        suffix.textContent = safe === "Fleet AI" ? " - Operator Dashboard" : " - Fleet AI";
+      }
+      try{ localStorage.setItem(COMPANY_STORAGE_KEY, safe); }catch(e){}
+    }
+
+    function loadCompanyName(){
+      let name = "Fleet AI";
+      try{
+        const saved = localStorage.getItem(COMPANY_STORAGE_KEY);
+        if(saved) name = saved;
+      }catch(e){}
+      const input = $("companyNameInput");
+      if(input) input.value = name;
+      setCompanyName(name);
+    }
+
+    async function getVehicles(){
+      if(MOCK_MODE){
+        return loadMock(MOCK_KEYS.vehicles, []);
+      }
+      return fetchJson(vehiclesEndpoint);
+    }
+
+    async function getDrivers(){
+      if(MOCK_MODE){
+        return loadMock(MOCK_KEYS.drivers, []);
+      }
+      return fetchJson(driversEndpoint);
+    }
+
+    async function getPairings(){
+      if(MOCK_MODE){
+        const pairings = loadMock(MOCK_KEYS.pairings, []);
+        const now = Date.now();
+        let dirty = false;
+        pairings.forEach(p=>{
+          if(p.status === "pending" && p.expiresAt){
+            const expiresAt = new Date(p.expiresAt).getTime();
+            if(Number.isFinite(expiresAt) && expiresAt < now){
+              p.status = "expired";
+              dirty = true;
+            }
+          }
+        });
+        if(dirty){
+          saveMock(MOCK_KEYS.pairings, pairings);
+        }
+        return pairings;
+      }
+      return fetchJson(pairingActiveEndpoint);
+    }
+
+    async function loadFleetManagement(){
+      try{
+        const [vehicles, drivers, pairings] = await Promise.all([
+          getVehicles(),
+          getDrivers(),
+          getPairings()
+        ]);
+        state.vehicles = Array.isArray(vehicles) ? vehicles : [];
+        state.drivers = Array.isArray(drivers) ? drivers : [];
+        state.pairings = Array.isArray(pairings) ? pairings : [];
+        renderVehiclesTable(state.vehicles, state.drivers, state.pairings);
+        renderDriversTable(state.drivers, state.vehicles, state.pairings);
+        renderPairingsTable(state.pairings, state.vehicles, state.drivers);
+        renderPairingSelects(state.vehicles, state.drivers);
+        updateVehicleDropdown();
+        renderTable();
+        initGPS();
+        renderGPSFeed();
+        updateTelemetryStatus();
+      } catch(err){
+        logError("Fleet management fetch failed", err);
+      }
+    }
+
+    async function addVehicle(){
+      const vehicleId = $("addVehicleId").value.trim();
+      const unitName = $("addVehicleName").value.trim();
+      const vin = $("addVehicleVin").value.trim();
+      const type = $("addVehicleType").value.trim();
+      if(!vehicleId || !unitName || !vin || !type){
+        toast("Missing fields", "Fill in vehicle ID, unit name, VIN, and type.");
+        return;
+      }
+      try{
+        if(MOCK_MODE){
+          const vehicles = loadMock(MOCK_KEYS.vehicles, []);
+          vehicles.push({ vehicleId, unitName, vin, type, createdAt: nowTime() });
+          saveMock(MOCK_KEYS.vehicles, vehicles);
+        } else {
+          await fetchJson(`${vehiclesEndpoint}/create`, {
+            method: "POST",
+            body: JSON.stringify({ vehicleId, unitName, vin, type })
+          });
+        }
+        $("addVehicleId").value = "";
+        $("addVehicleName").value = "";
+        $("addVehicleVin").value = "";
+        $("addVehicleType").value = "";
+        toast("Vehicle added", `${vehicleId} created.`);
+        loadFleetManagement();
+      } catch(err){
+        logError("Add vehicle failed", err);
+        toast("Vehicle add failed", "Check console for details.");
+      }
+    }
+
+    async function addDriver(){
+      const firstName = $("addDriverFirst").value.trim();
+      const lastName = $("addDriverLast").value.trim();
+      const phone = $("addDriverPhone").value.trim();
+      if(!firstName || !lastName || !phone){
+        toast("Missing fields", "Fill in first name, last name, and phone.");
+        return;
+      }
+      try{
+        if(MOCK_MODE){
+          const drivers = loadMock(MOCK_KEYS.drivers, []);
+          const driverId = `DRIVER_${generateDigits(5)}`;
+          drivers.push({ driverId, firstName, lastName, phone, createdAt: nowTime() });
+          saveMock(MOCK_KEYS.drivers, drivers);
+        } else {
+          await fetchJson(`${driversEndpoint}/create`, {
+            method: "POST",
+            body: JSON.stringify({ firstName, lastName, phone })
+          });
+        }
+        $("addDriverFirst").value = "";
+        $("addDriverLast").value = "";
+        $("addDriverPhone").value = "";
+        $("driverPinOutput").textContent = "PIN issued during pairing.";
+        toast("Driver created", `${firstName} ${lastName} added.`);
+        loadFleetManagement();
+      } catch(err){
+        logError("Add driver failed", err);
+        toast("Driver add failed", "Check console for details.");
+      }
+    }
+
+    let pairCountdownTimer = null;
+    function startPairCountdown(expiresAt){
+      const output = $("pairCodeCountdown");
+      if(!output) return;
+      if(pairCountdownTimer){
+        clearInterval(pairCountdownTimer);
+      }
+      const expiryMs = new Date(expiresAt).getTime();
+      pairCountdownTimer = setInterval(()=>{
+        const now = Date.now();
+        const diff = expiryMs - now;
+        if(diff <= 0){
+          output.textContent = "Expires in 00:00";
+          clearInterval(pairCountdownTimer);
+          return;
+        }
+        const mins = Math.floor(diff / 60000);
+        const secs = Math.floor((diff % 60000) / 1000);
+        output.textContent = `Expires in ${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+      }, 1000);
+    }
+
+    let pairPinCountdownTimer = null;
+    function startPinCountdown(expiresAt){
+      const output = $("pairDriverPinCountdown");
+      if(!output) return;
+      if(pairPinCountdownTimer){
+        clearInterval(pairPinCountdownTimer);
+      }
+      const expiryMs = new Date(expiresAt).getTime();
+      pairPinCountdownTimer = setInterval(()=>{
+        const now = Date.now();
+        const diff = expiryMs - now;
+        if(diff <= 0){
+          output.textContent = "PIN expires in 00:00";
+          clearInterval(pairPinCountdownTimer);
+          return;
+        }
+        const mins = Math.floor(diff / 60000);
+        const secs = Math.floor((diff % 60000) / 1000);
+        output.textContent = `PIN expires in ${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+      }, 1000);
+    }
+
+    async function generatePairCode(){
+      const vehicleId = $("pairVehicleSelect").value;
+      const driverId = $("pairDriverSelect").value;
+      if(!vehicleId || !driverId){
+        toast("Missing selection", "Choose a vehicle and driver.");
+        return;
+      }
+      try{
+        let data = null;
+        if(MOCK_MODE){
+          const pairings = loadMock(MOCK_KEYS.pairings, []);
+          const pairing_code = generatePairingCode();
+          const expires_at = new Date(Date.now() + PAIRING_EXPIRY_MINUTES * 60000).toISOString();
+          const record = {
+            pairingCode: pairing_code,
+            vehicleId,
+            driverId,
+            status: "pending",
+            expiresAt: expires_at,
+            createdAt: nowTime()
+          };
+          pairings.push(record);
+          saveMock(MOCK_KEYS.pairings, pairings);
+          data = { pairingCode: pairing_code, expiresAt: expires_at, driverPin: "--", driverPinExpiresAt: expires_at };
+        } else {
+          data = await fetchJson(pairingGenerateEndpoint, {
+            method: "POST",
+            body: JSON.stringify({ vehicleId, driverId })
+          });
+        }
+        const code = data.pairingCode || data.code || data.pairing_code || "--";
+        const expiresAt = data.expiresAt || data.expires_at;
+        const driverPin = data.driverPin || data.driver_pin || "--";
+        const driverPinExpiresAt = data.driverPinExpiresAt || data.driver_pin_expires_at || expiresAt;
+        $("pairCodeOutput").textContent = `Code: ${code}`;
+        $("pairDriverPinOutput").textContent = `Driver PIN: ${driverPin}`;
+        if(expiresAt){
+          startPairCountdown(expiresAt);
+          startPinCountdown(driverPinExpiresAt || expiresAt);
+        }
+        toast("Pairing generated", `Share code ${code} and driver PIN with the driver.`);
+        loadFleetManagement();
+      } catch(err){
+        logError("Generate pair code failed", err);
+        $("pairCodeOutput").textContent = "Code: --";
+        $("pairDriverPinOutput").textContent = "Driver PIN: --";
+      }
+    }
+
+    function sevDot(sev){
+      if(sev==="none") return "";
+      if(sev==="bad") return `<span class="dot bad"></span>`;
+      if(sev==="warn") return `<span class="dot warn"></span>`;
+      return `<span class="dot good"></span>`;
+    }
+    function sevPill(sev, text){
+      if(sev==="none") return `<span class="pill2">${text}</span>`;
+      if(sev==="bad") return `<span class="pill2 bad">${sevDot("bad")}${text}</span>`;
+      if(sev==="warn") return `<span class="pill2 warn">${sevDot("warn")}${text}</span>`;
+      return `<span class="pill2 good">${sevDot("good")}${text}</span>`;
+    }
+    function pillClass(status){
+      const s = status.toLowerCase();
+      if(s.includes("action")) return "pill2 bad";
+      if(s.includes("due") || s.includes("monitor")) return "pill2 warn";
+      return "pill2 good";
+    }
+    function riskPill(risk){
+      const r = risk.toLowerCase();
+      if(r.includes("high")) return "pill2 bad";
+      if(r.includes("med")) return "pill2 warn";
+      return "pill2 good";
+    }
+    function nowTime(){
+      const d = new Date();
+      return d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+    }
+    function clamp(x, a, b){ return Math.max(a, Math.min(b, x)); }
+    function rand(a,b){ return a + Math.random()*(b-a); }
+    function round(x, n=1){ const p=Math.pow(10,n); return Math.round(x*p)/p; }
+
+    function toast(title, desc){
+      $("toastT").textContent = title;
+      $("toastD").textContent = desc;
+      $("toast").style.display = "block";
+      clearTimeout(window.__toastTimer);
+      window.__toastTimer = setTimeout(()=> $("toast").style.display="none", 5200);
+    }
+
+    function renderRoute(route){
+      state.view = route;
+      if(DEV_LOG_NAV){
+        console.log("[nav] route =", route);
+      }
+      const titles = {
+        dashboard:["Overview","Uptime, risk, and prioritized actions"],
+        telemetry:["Live Telemetry","Live OBD/telematics feed when paired"],
+        alerts:["Alerts","Fleet alert history filtered by vehicle selection"],
+        safety:["Safety","Driver events, safety score, and coaching actions"],
+        compliance:["Compliance","HOS and inspection compliance overview"],
+        gps:["GPS / Tracking","Live unit locations for service and incident context"],
+        cameras:["Cameras","Road and driver feeds when available"],
+        advisor:["AI Advisor","Ask questions on maintenance and operations insights"],
+        reports:["Reports","Operational reporting and summaries"],
+        vehicles:["Fleet","Fleet inventory with assigned driver and device"],
+        drivers:["People","Driver roster and pairing PINs"],
+        pairing:["Device Pairing","Generate pairing codes and view claim status"],
+        settings:["Settings","Admin controls and access"]
+      };
+      if(titles[route]){
+        $("viewTitle").textContent = titles[route][0];
+        $("viewSub").textContent = titles[route][1];
+      }
+
+      ["dashboard","telemetry","alerts","safety","compliance","gps","cameras","advisor","reports","vehicles","drivers","pairing","settings"].forEach(v=>{
+        $("view-"+v).classList.toggle("hide", v!==route);
+      });
+
+      document.querySelectorAll(".nav button").forEach(b=>{
+        b.classList.toggle("active", b.dataset.route===route);
+      });
+      document.querySelectorAll(".topTab").forEach(b=>{
+        b.classList.toggle("active", b.dataset.route===route);
+      });
+
+      if(route==="gps"){
+        $("hudSelected").textContent = `Selected: ${state.gps.selected}`;
+      }
+      if(route==="cameras"){
+        renderCameraChannels();
+        renderClipList();
+      }
+      if(route==="advisor"){
+        renderQuickPrompts();
+      }
+      if(route==="vehicles" || route==="drivers" || route==="pairing"){
+        loadFleetManagement();
+      }
+    }
+
+    function initNav(){
+      document.querySelectorAll(".nav button").forEach(btn=>{
+        if(!btn.dataset.route && btn.dataset.view){
+          btn.dataset.route = btn.dataset.view;
+        }
+        const route = btn.dataset.route;
+        btn.addEventListener("click", (e)=>{
+          e.preventDefault();
+          if(DEV_LOG_NAV){
+            console.log("[nav] click =", route);
+          }
+          renderRoute(route);
+        });
+      });
+      document.querySelectorAll(".topTab").forEach(btn=>{
+        const route = btn.dataset.route;
+        btn.addEventListener("click", (e)=>{
+          e.preventDefault();
+          if(DEV_LOG_NAV){
+            console.log("[tab] click =", route);
+          }
+          renderRoute(route);
+        });
+      });
+    }
+
+    function initUI(){
+      loadTheme();
+      loadCompanyName();
+      pingServer();
+      loadFleetManagement();
+      renderQueue();
+      renderTable();
+      renderNotifFeed();
+      renderAlerts();
+      renderRoute("dashboard");
+      renderTelemetryCards(buildTelemetryValues());
+      renderEventLog();
+      fetchTelemetry();
+      fetchTireRisk();
+      fetchAlerts();
+      bindMapClicks();
+    }
+
+    function renderQueue(){
+      if(!priorityQueue.length){
+        $("queue").innerHTML = `<div class="note"><b>No recommendations yet.</b> Action items appear once live data is streaming.</div>`;
+        return;
+      }
+      $("queue").innerHTML = priorityQueue.map(x=>`
+        <div class="row">
+          <div class="l">
+            <h3>${sevDot(x.sev)}${x.title}</h3>
+            <p>${x.desc}</p>
+          </div>
+          <div class="r" style="text-align:right;">
+            <div class="chip">${x.chip}</div>
+            <div class="mini" style="margin-top:8px;">Due: <b>${x.due}</b></div>
+          </div>
+        </div>
+      `).join("");
+    }
+
+    function renderTable(rows){
+      const list = rows || state.vehicles || [];
+      if(!list.length){
+        $("fleetTable").innerHTML = `<tr><td colspan="5"><span class="mini">No vehicles yet.</span></td></tr>`;
+        return;
+      }
+      $("fleetTable").innerHTML = list.map(v=>{
+        const activePairing = state.pairings.find(p=>p.vehicleId===v.vehicleId && p.status==="active");
+        const driver = activePairing ? state.drivers.find(d=>d.driverId===activePairing.driverId) : null;
+        const driverName = driver ? `${driver.firstName || ""} ${driver.lastName || ""}`.trim() : "--";
+        const status = activePairing ? "Paired" : "Unpaired";
+        const statusClass = activePairing ? "pill2 good" : "pill2 warn";
+        return `
+        <tr>
+          <td><b>${v.unitName || v.vehicleId}</b><div class="mini">ID: ${v.vehicleId}</div></td>
+          <td><span class="${statusClass}">${status}</span></td>
+          <td>${driverName || "--"}</td>
+          <td><span class="pill2">--</span></td>
+          <td><span class="pill2">--</span></td>
+        </tr>
+        `;
+      }).join("");
+    }
+
+    function renderNotifFeed(){
+      const items = state.notifFeed.slice(0,6);
+      if(items.length === 0){
+        $("notifFeed").innerHTML = `<div class="note"><b>No alerts yet.</b> Pair a device to begin streaming live data.</div>`;
+        return;
+      }
+      $("notifFeed").innerHTML = items.map(a=>`
+        <div class="row">
+          <div class="l">
+            <h3>${sevDot(a.sev)}${a.title}</h3>
+            <p>${a.desc}</p>
+          </div>
+          <div class="r" style="text-align:right;">
+            <div class="chip">${a.unit}</div>
+            <div class="mini" style="margin-top:8px;">${a.time}</div>
+          </div>
+        </div>
+      `).join("");
+    }
+
+    function renderAlerts(){
+      const items = state.alerts.slice(0,25);
+      if(items.length === 0){
+        $("alertsList").innerHTML = `<div class="note"><b>No alerts generated yet.</b> Alerts appear once paired vehicles stream data.</div>`;
+        $("alertCount").textContent = state.alertsLoaded ? "0" : "--";
+        return;
+      }
+      $("alertsList").innerHTML = items.map(a=>`
+        <div class="row">
+          <div class="l">
+            <h3>${sevDot(a.sev)}${a.title}</h3>
+            <p>${a.desc}</p>
+          </div>
+          <div class="r" style="text-align:right;">
+            <div class="chip">${a.unit}</div>
+            <div class="mini" style="margin-top:8px;">${a.time}</div>
+          </div>
+        </div>
+      `).join("");
+      $("alertCount").textContent = String(state.alerts.length);
+    }
+
+    function renderTelemetryCards(signalValues){
+      $("telemetryGrid").innerHTML = signalCatalog.map(s=>{
+        const v = signalValues[s.key];
+        const sev = v.sev;
+        const sevLabel = sev==="none" ? "No data" : sev==="bad" ? "Anomaly" : sev==="warn" ? "Watch" : "Normal";
+        const pill = sevPill(sev, sevLabel);
+        return `
+          <div class="teleCard">
+            <div class="k">
+              <div><b>${s.label}</b></div>
+              <div>${pill}</div>
+            </div>
+            <div class="val">
+              <span id="${s.key}">${v.value}</span> <span class="unit">${s.unit}</span>
+            </div>
+            <div class="spark"><i style="width:${v.pct}%"></i></div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function renderEventLog(){
+      const items = state.eventLog.slice(0,10);
+      if(!items.length){
+        $("eventLog").innerHTML = `<tr><td colspan="4"><span class="mini">Waiting for live telemetry events.</span></td></tr>`;
+        return;
+      }
+      $("eventLog").innerHTML = items.map(e=>`
+        <tr>
+          <td><span style="font-family:var(--mono);font-weight:900;">${e.time}</span></td>
+          <td><b>${e.signal}</b></td>
+          <td>${e.obs}</td>
+          <td>${e.action}</td>
+        </tr>
+      `).join("");
+    }
+
+    function filterTable(q){
+      const query = q.trim().toLowerCase();
+      if(!query){
+        renderTable();
+        return;
+      }
+      const filtered = (state.vehicles || []).filter(v=>{
+        const pairing = state.pairings.find(p=>p.vehicleId===v.vehicleId && p.status==="active");
+        const driver = pairing ? state.drivers.find(d=>d.driverId===pairing.driverId) : null;
+        const driverName = driver ? `${driver.firstName || ""} ${driver.lastName || ""} ${driver.phone || ""}` : "";
+        const blob = `${v.vehicleId || ""} ${v.unitName || ""} ${v.vin || ""} ${v.type || ""} ${driverName}`.toLowerCase();
+        return blob.includes(query);
+      });
+      if(filtered.length === 0){
+        $("fleetTable").innerHTML = `<tr><td colspan="5"><span class="mini">No matches.</span></td></tr>`;
+        return;
+      }
+      renderTable(filtered);
+    }
+
+    function exportReport(){
+      alert("Export is available once live data is collected for the selected fleet and date range.");
+    }
+
+    function pilotSummary(kind){
+      const text = {
+        summary:
+`Pilot Summary
+- Summary will appear once live telemetry and maintenance history are available.
+- Connect vehicles and stream data to generate this view.`,
+        cost:
+`Cost Avoidance
+- Cost analysis populates after live alerts and service actions are recorded.`,
+        priority:
+`Maintenance Priority Plan
+- Priority queue populates after real telemetry establishes baselines.`
+      }[kind];
+      alert(text);
+    }
+
+    /***********************
+     * LIVE TELEMETRY SIM
+     ***********************/
+    function simulateTelemetryTick(){
+      state.tick++;
+      renderTelemetryCards(buildTelemetryValues());
+      renderEventLog();
+    }
+
+    /***********************
+     * GPS SIM + MAP RENDER
+     ***********************/
+    function initGPS(){
+      state.gps.units = {};
+      state.gps.selected = state.selectedVehicleId;
+      if($("hudSelected")) $("hudSelected").textContent = `Selected: ${state.gps.selected || "--"}`;
+      setGpsPlaceholder();
+    }
+
+    function gpsTick(){
+      const c = $("mapCanvas");
+      const ctx = c.getContext("2d");
+      const w = c.width, h = c.height;
+      $("hudClock").textContent = "Waiting for GPS data";
+      renderEmptyGpsMap(ctx, w, h);
+      setGpsPlaceholder();
+      renderGPSFeed();
+    }
+
+    function updateGPSDetails(){
+      setGpsPlaceholder();
+      renderGPSFeed();
+    }
+
+    function setGpsPlaceholder(){
+      if($("gpsStatus")) $("gpsStatus").textContent = "--";
+      if($("gpsSpeed")) $("gpsSpeed").textContent = "--";
+      if($("gpsHeading")) $("gpsHeading").textContent = "--";
+      if($("gpsLatLon")) $("gpsLatLon").textContent = "--";
+      if($("gpsETA")) $("gpsETA").textContent = "--";
+      if($("gpsRisk")) $("gpsRisk").textContent = "--";
+    }
+
+    function renderEmptyGpsMap(ctx, w, h){
+      ctx.clearRect(0, 0, w, h);
+      ctx.fillStyle = "rgba(45,107,255,0.10)";
+      ctx.fillRect(0, 0, w, h);
+      ctx.fillStyle = "rgba(14,27,44,0.75)";
+      ctx.font = "14px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial";
+      ctx.textAlign = "center";
+      ctx.fillText("Waiting for live GPS data", w/2, h/2);
+    }
+
+    function renderGPSFeed(){
+      const items = state.gps.feed;
+      if(items.length===0){
+        $("gpsFeed").innerHTML = `<div class="note"><b>No updates yet.</b> Pair a device to receive GPS updates.</div>`;
+        return;
+      }
+      $("gpsFeed").innerHTML = items.map(i=>`
+        <div class="row">
+          <div class="l">
+            <h3><span class="dot good"></span>${i.unit} - GPS Update</h3>
+            <p>${i.line}</p>
+          </div>
+          <div class="r" style="text-align:right;">
+            <div class="chip">Live</div>
+            <div class="mini" style="margin-top:8px;">${i.time}</div>
+          </div>
+        </div>
+      `).join("");
+    }
+
+    function bindMapClicks(){
+      const c = $("mapCanvas");
+      c.addEventListener("click", (e)=>{
+        const rect = c.getBoundingClientRect();
+        const mx = (e.clientX - rect.left) * (c.width / rect.width);
+        const my = (e.clientY - rect.top) * (c.height / rect.height);
+
+        // find nearest marker
+        let best = null, bestD = 999999;
+        for(const id of Object.keys(state.gps.units)){
+          const u = state.gps.units[id];
+          const px = u.x*c.width, py = u.y*c.height;
+          const d = Math.hypot(mx-px, my-py);
+          if(d < bestD){ bestD = d; best = id; }
+        }
+        if(best && bestD < 28){
+          state.gps.selected = best;
+          state.selectedVehicleId = best;
+          $("truck").value = best;
+          const pairSelect = $("pairVehicleSelect");
+          if(pairSelect){
+            pairSelect.value = best;
+          }
+          updateTelemetryStatus();
+          toast("GPS unit selected", `Now focusing map + panels on ${best}.`);
+        }
+      });
+    }
+
+    /***********************
+     * CAMERAS
+     ***********************/
+    function renderCameraChannels(){
+      $("camChannels").innerHTML = camChannels.map(ch=>`
+        <div class="row" style="cursor:pointer;" data-channel="${ch.id}">
+          <div class="l">
+            <h3>${ch.id===state.camera.channel ? '<span class="dot good"></span>' : '<span class="dot warn"></span>'}${ch.title}</h3>
+            <p>${ch.sub}</p>
+          </div>
+          <div class="r" style="text-align:right;">
+            <div class="chip">${ch.id.toUpperCase()}</div>
+            <div class="mini" style="margin-top:8px;">${ch.id===state.camera.channel ? '<b>Active</b>' : 'Select'}</div>
+          </div>
+        </div>
+      `).join("");
+
+      document.querySelectorAll('[data-channel]').forEach(el=>{
+        el.addEventListener("click", ()=>{
+          const id = el.getAttribute("data-channel");
+          setCameraChannel(id);
+        });
+      });
+
+      setCameraChannel(state.camera.channel, true);
+    }
+
+    function setCameraChannel(id, silent=false){
+      state.camera.channel = id;
+
+      const ch = camChannels.find(c=>c.id===id) || camChannels[0];
+      $("camTitle").textContent = ch.title;
+      $("camSub").textContent = ch.sub;
+      $("camBadge").textContent = id==="road" ? "CH 1 - Road" : id==="driver" ? "CH 2 - Driver" : "CH 3 - Cargo";
+
+      if(!silent){
+        toast("Camera channel", `Switched to ${ch.title}.`);
+      }
+      renderCameraChannels(); // refresh active highlight
+    }
+
+    function renderClipList(){
+      if(!mockClips.length){
+        $("clipList").innerHTML = `<div class="note"><b>No clips yet.</b> Camera clips appear after paired devices start streaming.</div>`;
+        return;
+      }
+      $("clipList").innerHTML = mockClips.map(c=>`
+        <div class="row">
+          <div class="l">
+            <h3>${sevDot(c.sev)}${c.title}</h3>
+            <p>${c.note}</p>
+          </div>
+          <div class="r" style="text-align:right;">
+            <div class="chip">${c.time}</div>
+            <div class="mini" style="margin-top:8px;">Linked to alert</div>
+          </div>
+        </div>
+      `).join("");
+    }
+
+    async function startDeviceCamera(){
+      try{
+        if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+          toast("Camera not available", "This browser/device does not support getUserMedia().");
+          return;
+        }
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        state.camera.stream = stream;
+
+        const v = $("camVideo");
+        v.srcObject = stream;
+        v.style.display = "block";
+        $("videoPlaceholder").style.display = "none";
+
+        toast("Device camera active", "Using your device camera as the live feed.");
+      } catch(err){
+        toast("Camera permission denied", "No problem - the placeholder feed remains active.");
+      }
+    }
+
+    function stopDeviceCamera(){
+      if(state.camera.stream){
+        state.camera.stream.getTracks().forEach(t=>t.stop());
+        state.camera.stream = null;
+      }
+      const v = $("camVideo");
+      v.pause();
+      v.srcObject = null;
+      v.style.display = "none";
+      $("videoPlaceholder").style.display = "flex";
+    }
+
+    function snapshotCapture(){
+      toast("Snapshot saved", "In production: save a still image + associate with unit + timestamp + alert context.");
+    }
+
+    /***********************
+     * AI ADVISOR
+     ***********************/
+    let aiAdvisorHistory = [];
+    let aiAdvisorAutoScroll = true;
+
+    function getAdvisorStorageKey(){
+      const fleetId = localStorage.getItem("fleetai.companyId") || localStorage.getItem("fleetai.companyName") || "default";
+      return `${AI_ADVISOR_STORAGE_KEY}_${fleetId}`;
+    }
+
+    function aiAdvisorSetStatus(label, mode){
+      const el = $("aiAdvisorStatus");
+      if(!el) return;
+      el.classList.toggle("is-warn", mode === "warn");
+      el.classList.toggle("is-offline", mode === "offline");
+      el.innerHTML = `<span class="aiAdvisor-statusDot"></span>${label}`;
+    }
+
+    function aiAdvisorFormatTime(ts){
+      try{
+        const d = new Date(ts || Date.now());
+        return d.toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"});
+      } catch(e){
+        return "";
+      }
+    }
+
+    function aiAdvisorSaveHistory(){
+      saveStore(getAdvisorStorageKey(), aiAdvisorHistory);
+    }
+
+    function aiAdvisorLoadHistory(){
+      aiAdvisorHistory = loadStore(getAdvisorStorageKey(), []);
+      if(!Array.isArray(aiAdvisorHistory)) aiAdvisorHistory = [];
+    }
+
+    function aiAdvisorClearHistory(){
+      aiAdvisorHistory = [];
+      aiAdvisorAutoScroll = true;
+      aiAdvisorSaveHistory();
+      aiAdvisorRenderHistory();
+      aiAdvisorSeed();
+    }
+
+    function aiAdvisorRenderHistory(){
+      const log = $("chatLog");
+      if(!log) return;
+      const jump = $("aiAdvisorJump");
+      log.innerHTML = "";
+      if(jump) log.appendChild(jump);
+      aiAdvisorHistory.forEach(msg => aiAdvisorAppendMessage(msg, false));
+      aiAdvisorScrollToBottom(true);
+    }
+
+    function aiAdvisorAppendMessage(msg, persist=true){
+      const log = $("chatLog");
+      if(!log) return;
+      const wrapper = document.createElement("div");
+      wrapper.className = `aiAdvisor-msg ${msg.role === "user" ? "aiAdvisor-msg--user" : "aiAdvisor-msg--assistant"}`;
+
+      const meta = document.createElement("div");
+      meta.className = "aiAdvisor-meta";
+      meta.textContent = `${msg.role === "user" ? "Operator" : "AI Advisor"} - ${msg.meta || aiAdvisorFormatTime(msg.ts)}`;
+
+      const body = document.createElement("div");
+      body.className = `aiAdvisor-bubble${msg.type === "error" ? " is-error" : ""}`;
+      body.textContent = msg.content;
+
+      wrapper.appendChild(meta);
+      wrapper.appendChild(body);
+
+      log.appendChild(wrapper);
+      if(persist){
+        aiAdvisorHistory.push(msg);
+        aiAdvisorSaveHistory();
+      }
+      aiAdvisorScrollToBottom();
+    }
+
+    function aiAdvisorScrollToBottom(force){
+      const log = $("chatLog");
+      if(!log) return;
+      if(force || aiAdvisorAutoScroll){
+        log.scrollTop = log.scrollHeight;
+      } else {
+        const jump = $("aiAdvisorJump");
+        if(jump) jump.classList.remove("hide");
+      }
+    }
+
+    function aiAdvisorUpdateAutoScroll(){
+      const log = $("chatLog");
+      if(!log) return;
+      const threshold = 80;
+      const atBottom = (log.scrollHeight - (log.scrollTop + log.clientHeight)) < threshold;
+      aiAdvisorAutoScroll = atBottom;
+      const jump = $("aiAdvisorJump");
+      if(jump) jump.classList.toggle("hide", atBottom);
+    }
+
+    function aiAdvisorSeed(){
+      if(aiAdvisorHistory.length) return;
+      aiAdvisorAppendMessage({
+        role:"assistant",
+        content:"Welcome to Fleet AI Advisor. Ask about maintenance planning, compliance readiness, cost exposure, downtime risk, and fleet operations. Responses are based only on your fleet's data.",
+        ts: Date.now()
+      });
+    }
+
+    function renderQuickPrompts(){
+      const prompts = [
+        "Summarize alerts from the last 7 days",
+        "Explain downtime risk by vehicle",
+        "Generate fleet risk overview",
+        "Draft inspection window plan",
+        "Draft work order for highest-risk vehicle"
+      ];
+      const el = $("quickPrompts");
+      if(!el) return;
+      el.innerHTML = prompts.map(p=>`<button class="btn ghost" style="padding:9px 12px;" data-prompt="${encodeURIComponent(p)}">${p}</button>`).join("");
+      document.querySelectorAll("[data-prompt]").forEach(btn=>{
+        btn.addEventListener("click", ()=>{
+          const p = decodeURIComponent(btn.getAttribute("data-prompt"));
+          const input = $("chatInput");
+          if(input){
+            input.value = p;
+            input.focus();
+            updateSendState();
+          }
+        });
+      });
+    }
+
+    function updateSendState(){
+      const input = $("chatInput");
+      const btn = $("btnSend");
+      if(!input || !btn) return;
+      btn.disabled = !input.value.trim();
+    }
+
+    async function aiAdvisorSend(){
+      const input = $("chatInput");
+      if(!input) return;
+      const text = input.value.trim();
+      if(!text) return;
+      input.value = "";
+      updateSendState();
+
+      aiAdvisorAppendMessage({ role:"user", content:text, ts: Date.now() });
+      aiAdvisorSetStatus("Connecting", "warn");
+      const typing = $("aiAdvisorTyping");
+      if(typing) typing.classList.remove("hide");
+
+      try{
+        const reply = await sendMessageToAdvisor(text, {
+          fleetId: localStorage.getItem("fleetai.companyId") || null,
+          vehicleId: state.selectedVehicleId || null,
+          vehicleIds: (state.vehicles || []).map(v=>v.vehicleId),
+          telemetryAvailable: !!state.telemetryLastSeen,
+          telemetrySnapshot: state.apiTelemetry || null
+        });
+        aiAdvisorAppendMessage({ role:"assistant", content:reply, ts: Date.now() });
+        aiAdvisorSetStatus("Online", "ok");
+      } catch(err){
+        logError("AI Advisor error", err);
+        aiAdvisorAppendMessage({
+          role:"assistant",
+          content:"AI Advisor is currently unavailable. Please try again later or contact support if this persists.",
+          ts: Date.now(),
+          type:"error"
+        });
+        aiAdvisorSetStatus("Offline", "offline");
+      } finally {
+        if(typing) typing.classList.add("hide");
+      }
+    }
+
+    async function sendMessageToAdvisor(message, context){
+      const history = aiAdvisorHistory
+        .filter(m => m.role === "user" || m.role === "assistant")
+        .slice(-12)
+        .map(m => ({ role: m.role, content: m.content }));
+      const payload = { messages: history, context: context || {} };
+
+      try{
+        const res = await fetch(AI_ADVISOR_CONFIG.endpoint, {
+          method:"POST",
+          headers:{ "Content-Type":"application/json" },
+          body: JSON.stringify(payload)
+        });
+        if(res.ok){
+          const data = await res.json();
+          if(data && data.reply) return data.reply;
+        }
+      } catch(err){
+      }
+
+      if(AI_ADVISOR_CONFIG.mockEnabled){
+        if(!context || !context.telemetryAvailable){
+          return "No live data yet. Connect a paired vehicle to receive fleet-specific guidance.";
+        }
+        return "AI Advisor is in pilot mode without live AI connectivity. Provide additional context or connect the backend to receive tailored guidance.";
+      }
+      throw new Error("AI request failed");
+    }
+
+    function aiAdvisorOpenSupport(open){
+      const modal = $("aiAdvisorSupportModal");
+      if(!modal) return;
+      modal.classList.toggle("hide", !open);
+    }
+
+    function aiAdvisorSubmitSupport(e){
+      e.preventDefault();
+      const topic = ($("aiAdvisorSupportTopic") || {}).value || "";
+      const urgency = ($("aiAdvisorSupportUrgency") || {}).value || "normal";
+      const contact = ($("aiAdvisorSupportContact") || {}).value || "";
+      const notes = ($("aiAdvisorSupportNotes") || {}).value || "";
+      const payload = {
+        topic: topic.trim(),
+        urgency,
+        contact: contact.trim(),
+        notes: notes.trim(),
+        createdAt: new Date().toISOString()
+      };
+      const list = loadStore(AI_ADVISOR_SUPPORT_KEY, []);
+      list.push(payload);
+      saveStore(AI_ADVISOR_SUPPORT_KEY, list);
+      const msg = $("aiAdvisorSupportMsg");
+      if(msg){
+        msg.textContent = "Support request saved. A Fleet AI advisor will follow up.";
+      }
+      if(e.target && typeof e.target.reset === "function"){
+        e.target.reset();
+      }
+      setTimeout(()=> aiAdvisorOpenSupport(false), 900);
+    }
+
+    function aiAdvisorExport(){
+      if(!aiAdvisorHistory.length){
+        toast("No conversation", "There is no AI Advisor history to export.");
+        return;
+      }
+      const lines = aiAdvisorHistory.map(msg=>{
+        const who = msg.role === "user" ? "User" : "Advisor";
+        const stamp = msg.ts ? aiAdvisorFormatTime(msg.ts) : "";
+        return `[${stamp}] ${who}: ${msg.content}`;
+      });
+      const blob = new Blob([lines.join("\n\n")], { type: "text/plain" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "fleet-ai-advisor-chat.txt";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(()=> URL.revokeObjectURL(url), 0);
+    }
+
+    /***********************
+     * INIT + EVENTS
+     ***********************/
+
+    (function initWarnings(){
+      const warn = $("fileWarning");
+      if(warn){
+        warn.classList.toggle("hide", !isFileProtocol);
+      }
+      if(isFileProtocol && !MOCK_MODE){
+        updateConnectionStatus(false, "file://");
+      }
+    })();
+
+    async function pingServer(){
+      if(MOCK_MODE){
+        updateConnectionStatus(true);
+        return;
+      }
+      try{
+        await fetchJson(healthEndpoint);
+      } catch(err){
+      }
+    }
+
+    if(MOCK_MODE){
+      ensureMockStore();
+      updateConnectionStatus(true);
+    }
+    
+    function updateVehicleDropdown(){
+      const select = $("truck");
+      if(!select) return;
+      if(!state.vehicles.length){
+        select.innerHTML = `<option value="">No vehicles yet</option>`;
+        select.disabled = true;
+        state.selectedVehicleId = "";
+        return;
+      }
+      select.disabled = false;
+      select.innerHTML = state.vehicles.map(v=>`<option value="${v.vehicleId}">${v.unitName} (${v.vehicleId})</option>`).join("");
+      if(!state.selectedVehicleId){
+        state.selectedVehicleId = state.vehicles[0].vehicleId;
+      }
+      select.value = state.selectedVehicleId;
+      state.gps.selected = state.selectedVehicleId;
+    }
+
+    /* ---------- Simple local users (optional) ---------- */
+    function loadUsers(){
+      try{ return JSON.parse(localStorage.getItem('fleetai.users')||'[]'); }catch(e){ return []; }
+    }
+    function saveUsers(u){ try{ localStorage.setItem('fleetai.users', JSON.stringify(u||[])); }catch(e){}
+    }
+    function addUser(email, pass, role='operator'){
+      if(!email || !pass) return false;
+      const users = loadUsers();
+      if(users.find(x=>x.email===email)) return false;
+      users.push({ email, pass, role });
+      saveUsers(users);
+      return true;
+    }
+    function findUser(email, pass){
+      const users = loadUsers();
+      return users.find(u=>u.email===email && u.pass===pass) || null;
+    }
+    function getUserByEmail(email){ const users = loadUsers(); return users.find(u=>u.email===email) || null; }
+
+    function showLoginOverlay(show, opts={}){
+      const el = $('loginOverlay');
+      if(!el) return;
+      el.classList.toggle('hide', !show);
+      if(show){
+        $('loginEmail').focus();
+        if(opts.createMode) $('loginTitle').textContent = 'Create Admin Account';
+        else $('loginTitle').textContent = 'Sign in to Fleet AI';
+      }
+    }
+
+    function doLogin(){
+      const em = $('loginEmail').value.trim();
+      const pw = $('loginPass').value;
+      const u = findUser(em,pw);
+      if(u){
+        state.user = { email: u.email, role: u.role };
+        try{ localStorage.setItem('fleetai.sessionEmail', u.email); }catch(e){}
+        $('btnAddUser').style.display = (u.role==='admin')? 'inline-block':'none';
+        $('btnLogout').style.display = 'inline-block';
+        showLoginOverlay(false);
+        toast('Signed in', `Welcome back, ${u.email}`);
+        return;
+      }
+      // wrong credentials
+      const m = $('loginMsg'); m.style.display='block'; m.textContent = 'Invalid credentials.';
+    }
+
+    function doCreateAdmin(){
+      const em = $('loginEmail').value.trim();
+      const pw = $('loginPass').value;
+      if(!em || !pw){ const m=$('loginMsg'); m.style.display='block'; m.textContent='Email + password required.'; return; }
+      const ok = addUser(em,pw,'admin');
+      if(!ok){ const m=$('loginMsg'); m.style.display='block'; m.textContent='User already exists.'; return; }
+      $('loginMsg').style.display='block'; $('loginMsg').textContent='Admin created - you can now log in.';
+      setTimeout(()=>{ $('loginMsg').style.display='none'; $('loginPass').value=''; }, 1400);
+    }
+
+    function doLogout(){
+      state.user = null;
+      try{ localStorage.removeItem('fleetai.sessionEmail'); }catch(e){}
+      $('btnAddUser').style.display='none';
+      $('btnLogout').style.display='none';
+      showLoginOverlay(true);
+      toast('Signed out','You have been signed out.');
+    }
+
+    document.addEventListener("DOMContentLoaded", ()=>{
+      document.querySelectorAll(".nav button").forEach(btn=>{
+        const labelEl = btn.querySelector(".navLabel");
+        const label = labelEl ? labelEl.textContent.trim() : btn.textContent.trim();
+        btn.dataset.label = label;
+        btn.title = label;
+      });
+      initNav();
+
+    // Sidebar toggle + persistence
+    const __root = document.querySelector('.app');
+    const __sidebarKey = 'fleetai.sidebarCollapsed';
+    function applySidebarState(collapsed){
+      __root.classList.toggle('collapsed', !!collapsed);
+      const t = $('btnToggleSidebar');
+      if(t) t.setAttribute('aria-pressed', collapsed? 'true':'false');
+      const sub = $('viewSub');
+      if(sub) sub.style.display = (collapsed? 'none':'');
+    }
+    // init from localStorage
+    try{
+      const saved = localStorage.getItem(__sidebarKey) === 'true';
+      applySidebarState(saved);
+    }catch(e){ /* ignore */ }
+
+    const btnToggle = $('btnToggleSidebar');
+    if(btnToggle){
+      btnToggle.addEventListener('click', ()=>{
+        const next = !__root.classList.contains('collapsed');
+        applySidebarState(next);
+        try{ localStorage.setItem(__sidebarKey, next? 'true':'false'); }catch(e){}
+      });
+    }
+
+    // Login events
+    const btnLogin = $('btnLogin');
+    if(btnLogin) btnLogin.addEventListener('click', doLogin);
+    const btnCreateAdmin = $('btnCreateAdmin');
+    if(btnCreateAdmin) btnCreateAdmin.addEventListener('click', doCreateAdmin);
+
+    const btnAddUser = $('btnAddUser');
+    if(btnAddUser){
+      btnAddUser.addEventListener('click', ()=>{
+        // open overlay in create mode for admin to add a user
+        showLoginOverlay(true, {createMode:true});
+      });
+    }
+    const btnLogout = $('btnLogout');
+    if(btnLogout) btnLogout.addEventListener('click', doLogout);
+
+
+    // Ctrl+B / Meta+B to toggle sidebar
+    document.addEventListener('keydown', (e)=>{
+      if((e.ctrlKey || e.metaKey) && (e.key === 'b' || e.key === 'B')){
+        e.preventDefault();
+        const next = !__root.classList.contains('collapsed');
+        applySidebarState(next);
+        try{ localStorage.setItem(__sidebarKey, next? 'true':'false'); }catch(e){}
+      }
+    });
+
+    $("btnRefresh").addEventListener("click", ()=>{
+      if(priorityQueue.length > 1){
+        priorityQueue.unshift(priorityQueue.pop());
+      }
+      renderQueue();
+      renderNotifFeed();
+      fetchTelemetry();
+      fetchTireRisk();
+      fetchAlerts();
+    });
+
+    $("btnExport").addEventListener("click", exportReport);
+
+    const btnAddVehicle = $("btnAddVehicle");
+    if(btnAddVehicle) btnAddVehicle.addEventListener("click", addVehicle);
+    const btnAddDriver = $("btnAddDriver");
+    if(btnAddDriver) btnAddDriver.addEventListener("click", addDriver);
+    const btnGeneratePair = $("btnGeneratePair");
+    if(btnGeneratePair) btnGeneratePair.addEventListener("click", generatePairCode);
+    const btnSaveCompany = $("btnSaveCompany");
+    if(btnSaveCompany){
+      btnSaveCompany.addEventListener("click", ()=>{
+        const name = $("companyNameInput").value.trim();
+        if(!name){
+          $("companySaveStatus").textContent = "Company name required.";
+          return;
+        }
+        $("companySaveStatus").textContent = "Saved.";
+        setCompanyName(name);
+      });
+    }
+    const btnApplyTheme = $("btnApplyTheme");
+    if(btnApplyTheme){
+      btnApplyTheme.addEventListener("click", ()=>{
+        setTheme($("themeToggle").value);
+      });
+    }
+    const headerThemeSelect = $("headerThemeSelect");
+    if(headerThemeSelect){
+      headerThemeSelect.addEventListener("change", (e)=>{
+        setTheme(e.target.value);
+        const toggle = $("themeToggle");
+        if(toggle) toggle.value = e.target.value;
+      });
+    }
+
+    $("search").addEventListener("input", e => filterTable(e.target.value));
+
+    $("truck").addEventListener("change", e=>{
+      state.selectedVehicleId = e.target.value;
+
+      // reset telemetry stream state
+      state.lastVals = {};
+      state.eventLog = [];
+      state.persist = {};
+
+      // sync GPS selection
+      state.gps.selected = state.selectedVehicleId;
+      const pairSelect = $("pairVehicleSelect");
+      if(pairSelect && state.selectedVehicleId){
+        pairSelect.value = state.selectedVehicleId;
+      }
+
+      toast("Vehicle selected", `Now focusing Fleet AI on ${state.selectedVehicleId}.`);
+      renderEventLog();
+      updateTelemetryStatus();
+      fetchTelemetry();
+    });
+
+    $("toastX").addEventListener("click", ()=> $("toast").style.display="none");
+
+    document.addEventListener("click", (e)=>{
+      if(e.target && e.target.id==="btnPilotSummary") pilotSummary("summary");
+      if(e.target && e.target.id==="btnCostReport") pilotSummary("cost");
+      if(e.target && e.target.id==="btnPriorityPlan") pilotSummary("priority");
+    });
+
+    $("btnStartCam").addEventListener("click", async ()=>{
+      if(state.camera.stream){
+        stopDeviceCamera();
+        toast("Device camera stopped", "Back to the placeholder feed.");
+        $("btnStartCam").textContent = "Use Device Camera (Optional)";
+      } else {
+        await startDeviceCamera();
+        if(state.camera.stream){
+          $("btnStartCam").textContent = "Stop Device Camera";
+        }
+      }
+    });
+
+      $("btnSnapshot").addEventListener("click", snapshotCapture);
+
+      const chatInput = $("chatInput");
+      const chatLog = $("chatLog");
+      const btnSend = $("btnSend");
+      if(btnSend) btnSend.addEventListener("click", aiAdvisorSend);
+      if(chatInput){
+        chatInput.addEventListener("input", updateSendState);
+        chatInput.addEventListener("keydown", (e)=>{
+          if(e.key === "Enter" && !e.shiftKey){
+            e.preventDefault();
+            aiAdvisorSend();
+          }
+        });
+      }
+      if(chatLog) chatLog.addEventListener("scroll", aiAdvisorUpdateAutoScroll);
+
+      const btnJump = $("aiAdvisorJump");
+      if(btnJump) btnJump.addEventListener("click", ()=>{
+        aiAdvisorAutoScroll = true;
+        aiAdvisorScrollToBottom(true);
+        btnJump.classList.add("hide");
+      });
+
+      const btnClear = $("aiAdvisorClear");
+      if(btnClear) btnClear.addEventListener("click", ()=>{
+        if(aiAdvisorHistory.length && !confirm("Clear this chat?")){
+          return;
+        }
+        aiAdvisorClearHistory();
+      });
+
+      const btnNew = $("aiAdvisorNewChat");
+      if(btnNew) btnNew.addEventListener("click", ()=>{
+        if(aiAdvisorHistory.length && !confirm("Start a new chat? This will clear the current conversation.")){
+          return;
+        }
+        aiAdvisorClearHistory();
+      });
+      const btnExport = $("aiAdvisorExport");
+      if(btnExport) btnExport.addEventListener("click", aiAdvisorExport);
+
+      const btnSupport = $("aiAdvisorSupport");
+      if(btnSupport) btnSupport.addEventListener("click", ()=> aiAdvisorOpenSupport(true));
+      const btnSupportClose = $("aiAdvisorSupportClose");
+      if(btnSupportClose) btnSupportClose.addEventListener("click", ()=> aiAdvisorOpenSupport(false));
+      const btnSupportCancel = $("aiAdvisorSupportCancel");
+      if(btnSupportCancel) btnSupportCancel.addEventListener("click", ()=> aiAdvisorOpenSupport(false));
+      const supportForm = $("aiAdvisorSupportForm");
+      if(supportForm) supportForm.addEventListener("submit", aiAdvisorSubmitSupport);
+
+    /***********************
+     * INITIAL RENDER
+     ***********************/
+    initUI();
+
+    // AI Advisor init
+    (function initAdvisor(){
+      aiAdvisorLoadHistory();
+      renderQuickPrompts();
+      aiAdvisorRenderHistory();
+      aiAdvisorSeed();
+      aiAdvisorSetStatus("Online", "ok");
+      updateSendState();
+    })();
+
+    // tickers
+    setInterval(gpsTick, 1000);
+    setInterval(fetchTelemetry, 5000);
+    setInterval(fetchAlerts, 5000);
+    setInterval(pingServer, 8000);
+    setInterval(loadFleetManagement, 6000);
+
+    // session / users: restore session if present
+    (function initAuth(){
+      try{
+        const sess = localStorage.getItem('fleetai.sessionEmail');
+        if(sess){
+          const u = getUserByEmail(sess);
+          if(u){
+            state.user = {email:u.email, role:u.role};
+            $('btnAddUser').style.display = (u.role==='admin')? 'inline-block':'none';
+            $('btnLogout').style.display='inline-block';
+          }
+        }
+      }catch(e){}
+      if(REQUIRE_LOGIN && !state.user) showLoginOverlay(true);
+    })();
+
+    });
+
+    // ambient starfield removed - using static blue background
+
+    // particle flow removed - static blue background only
+  </script>
+</body>
+</html>
+
+
+

@@ -1,0 +1,34 @@
+{
+  "tenantSettings": {
+    "companyName": "Fleet AI",
+    "logoUrl": "",
+    "themeMode": "blue",
+    "accentColor": ""
+  },
+  "vehicles": [],
+  "drivers": [],
+  "pairings": [],
+  "users": [
+    {
+      "id": "EMP_1768239265977",
+      "email": "brandenwooley07@icloud.com",
+      "role": "SUPER_ADMIN",
+      "passwordHash": "$2a$12$yAVW/Fy8twFv6fx8IRMZl.ABvXTfaEeycExq0ZhbOYjRB7FMjc2FC",
+      "createdAt": "2026-01-12T17:34:25.977Z",
+      "lastLoginAt": "2026-01-12T23:56:48.106Z"
+    }
+  ],
+  "audit": [
+    {
+      "event": "SUPER_ADMIN_CREATED",
+      "email": "brandenwooley07@icloud.com",
+      "ts": "2026-01-12T17:34:25.977Z"
+    }
+  ],
+  "orgs": [],
+  "settings": {
+    "defaultPilotPrice": 59,
+    "inviteExpiryHours": 72,
+    "maintenanceMode": false
+  }
+}

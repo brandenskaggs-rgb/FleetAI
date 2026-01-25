@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Fleet AI Internal Setup</title>
+  <link rel="stylesheet" href="/css/site-tokens.css" />
+  <link rel="stylesheet" href="/css/site-theme.css" />
+  <link rel="stylesheet" href="/css/site-components.css" />
+  <link rel="stylesheet" href="/css/site-layout.css" />
+  <link rel="stylesheet" href="/css/design-system.css" />
+</head>
+<body>
+  <header class="siteHeader">
+    <div class="container siteHeader__row">
+      <a class="wordmark" href="/index.html"><span class="brandFleet">Fleet</span><span class="brandAI">AI</span></a>
+      <div class="siteActions">
+        <select class="themeSelect" id="siteThemeSelect" aria-label="Theme">
+          <option value="light-blue">Light</option>
+          <option value="dark-blue">Dark Blue</option>
+          <option value="dark-gray">Dark Gray</option>
+        </select>
+        <a class="btn secondary" href="/employee-login.html">Back to Employee Login</a>
+      </div>
+    </div>
+  </header>
+
+  <section class="section">
+    <div class="container">
+      <div class="sectionHeader">
+        <h2>Fleet AI Internal Setup</h2>
+        <p>Create the first Super Admin account (one-time).</p>
+      </div>
+      <div class="card" style="margin-bottom:16px;">
+        <p class="card__meta">This setup page is for Fleet AI internal use only. It is disabled automatically after a Super Admin account is created.</p>
+      </div>
+      <div class="card" style="margin-bottom:16px;">
+        <p class="card__meta" id="setupStatus">Checking setup status...</p>
+      </div>
+      <div class="formCard" style="max-width:520px;">
+        <div id="setupError" class="formSuccess" style="display:none;"></div>
+        <label>
+          Setup Key
+          <input id="setupKey" type="password" placeholder="Setup key" required />
+        </label>
+        <label>
+          Email
+          <input id="setupEmail" type="email" placeholder="name@fleetai.com" required />
+        </label>
+        <label>
+          Password
+          <input id="setupPassword" type="password" placeholder="Minimum 10 characters" required />
+        </label>
+        <label>
+          Confirm Password
+          <input id="setupConfirm" type="password" placeholder="Confirm password" required />
+        </label>
+        <div class="heroActions">
+          <button class="btn primary" id="setupSubmit" type="button">Create Super Admin</button>
+          <a class="btn secondary" href="/employee-login.html">Back to Employee Login</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <script src="/js/site.js"></script>
+  <script src="/js/admin-setup.js"></script>
+  <script src="/js/scroll-reveal.js"></script>
+</body>
+</html>
+

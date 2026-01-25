@@ -1,0 +1,126 @@
+:root{
+  --container-max: 1200px;
+  --section-y: 88px;
+  --gutter: 24px;
+  --stack-1: 8px;
+  --stack-2: 12px;
+  --stack-3: 16px;
+  --stack-4: 24px;
+  --stack-5: 32px;
+  --stack-6: 48px;
+  --stack-7: 64px;
+}
+
+html{
+  scroll-behavior: smooth;
+}
+
+.container{
+  max-width: var(--container-max);
+  padding: 0 var(--gutter);
+}
+
+.section{
+  padding: var(--section-y) 0;
+}
+
+.section--tight{
+  padding: calc(var(--section-y) * 0.7) 0;
+}
+
+.stack-1 > * + *,
+.stack-2 > * + *,
+.stack-3 > * + *,
+.stack-4 > * + *,
+.stack-5 > * + *,
+.stack-6 > * + *,
+.stack-7 > * + *{
+  margin-top: var(--stack-3);
+}
+.stack-1 > * + *{ margin-top: var(--stack-1); }
+.stack-2 > * + *{ margin-top: var(--stack-2); }
+.stack-3 > * + *{ margin-top: var(--stack-3); }
+.stack-4 > * + *{ margin-top: var(--stack-4); }
+.stack-5 > * + *{ margin-top: var(--stack-5); }
+.stack-6 > * + *{ margin-top: var(--stack-6); }
+.stack-7 > * + *{ margin-top: var(--stack-7); }
+
+.grid-2{
+  display:grid;
+  grid-template-columns: repeat(2, minmax(0,1fr));
+  gap: var(--stack-4);
+}
+.grid-3{
+  display:grid;
+  grid-template-columns: repeat(3, minmax(0,1fr));
+  gap: var(--stack-4);
+}
+.grid-4{
+  display:grid;
+  grid-template-columns: repeat(4, minmax(0,1fr));
+  gap: var(--stack-4);
+}
+
+.panel{
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--stack-4);
+  box-shadow: var(--shadow-sm);
+}
+.panel-muted{
+  background: color-mix(in srgb, var(--panel) 90%, var(--bg) 10%);
+}
+.divider{
+  height:1px;
+  background: color-mix(in srgb, var(--border) 75%, transparent);
+  margin: var(--stack-5) 0;
+}
+
+.anchor{
+  scroll-margin-top: 96px;
+}
+
+.reveal{
+  opacity:0;
+  transform: translateY(10px);
+  transition: opacity 300ms ease, transform 300ms ease;
+}
+.reveal.is-visible{
+  opacity:1;
+  transform:none;
+}
+
+.tableWrap{
+  overflow-x:auto;
+}
+.dataTable{
+  min-width: 720px;
+}
+
+@media (max-width: 1024px){
+  :root{
+    --section-y: 72px;
+    --container-max: 1100px;
+  }
+  .grid-4{ grid-template-columns: repeat(2, minmax(0,1fr)); }
+}
+
+@media (max-width: 768px){
+  :root{
+    --section-y: 56px;
+    --gutter: 16px;
+  }
+  .grid-3,
+  .grid-2{ grid-template-columns: 1fr; }
+  .grid-4{ grid-template-columns: 1fr; }
+}
+
+@media (prefers-reduced-motion: reduce){
+  html{ scroll-behavior: auto; }
+  .reveal{
+    opacity:1;
+    transform:none;
+    transition: none;
+  }
+}

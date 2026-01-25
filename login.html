@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Fleet AI - Sign In</title>
+  <link rel="stylesheet" href="/css/site-tokens.css" />
+  <link rel="stylesheet" href="/css/site-theme.css" />
+  <link rel="stylesheet" href="/css/site-components.css" />
+  <link rel="stylesheet" href="/css/site-layout.css" />
+  <link rel="stylesheet" href="/css/design-system.css" />
+</head>
+<body>
+  <!--
+  <div id="debugBanner" style="position:fixed;bottom:12px;right:12px;z-index:9999;background:#111827;color:#f9fafb;padding:10px 12px;border-radius:8px;font-size:12px;box-shadow:0 8px 20px rgba(0,0,0,0.25)">
+    <div><b>Debug</b></div>
+    <div id="debugUrl"></div>
+    <div id="debugCss"></div>
+  </div>
+  <script>
+    (function(){
+      var url = window.location.href;
+      var sheets = Array.prototype.slice.call(document.styleSheets).map(function(s){return s.href || 'inline';});
+      var elUrl = document.getElementById('debugUrl');
+      var elCss = document.getElementById('debugCss');
+      if(elUrl){ elUrl.textContent = 'URL: ' + url; }
+      if(elCss){ elCss.textContent = 'CSS: ' + sheets.join(', '); }
+    })();
+  </script>
+  -->
+  <header class="siteHeader">
+    <div class="container siteHeader__row">
+      <a class="wordmark" href="/index.html"><span class="brandFleet">Fleet</span><span class="brandAI">AI</span></a>
+      <nav class="siteNav" id="siteNav">
+        <a href="/product.html">Product</a>
+        <a href="/pricing.html">Pricing</a>
+        <a href="/pilot.html">Pilot Program</a>
+        <a href="/security.html">Security</a>
+        <a href="/about.html">About Us</a>
+      </nav>
+      <div class="siteActions">
+        <select class="themeSelect" id="siteThemeSelect" aria-label="Theme">
+          <option value="light-blue">Light</option>
+          <option value="dark-blue">Dark Blue</option>
+          <option value="dark-gray">Dark Gray</option>
+        </select>
+        <a class="btn secondary" href="/login.html">Sign In</a>
+        <a class="btn primary" href="/request-demo.html">Request Demo</a>
+        <button class="navToggle" id="navToggle" type="button">Menu</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="announceBar">
+    <div class="container">
+      <div class="announcePill"><a href="/pricing.html#plans">Pilot Program Active - $59/vehicle/mo (limited partners)</a></div>
+      <a class="btn ghost" href="/pilot.html">Apply for Pilot</a>
+    </div>
+  </div>
+
+  <section class="section">
+    <div class="container loginSplit">
+      <div class="loginPanel">
+        <span class="eyebrow">Fleet AI access</span>
+        <h2>Sign in to the Fleet AI dashboard</h2>
+        <p>Use your pilot access code to unlock the operator dashboard. Enterprise access is managed by your account team.</p>
+        <div class="card" style="margin-top:16px;">
+          <div class="card__title">Need access?</div>
+          <p class="card__meta">Request a demo or review pilot pricing.</p>
+          <div class="heroActions" style="margin-top:12px;">
+            <a class="btn secondary" href="/request-demo.html">Request Demo</a>
+            <a class="btn ghost" href="/pricing.html#plans">Pilot Pricing</a>
+          </div>
+        </div>
+      </div>
+      <div class="card" style="padding:28px;">
+        <div class="sectionHeader" style="margin-bottom:16px;">
+          <h2>Sign in</h2>
+          <p>Enter your credentials to continue.</p>
+        </div>
+        <div class="formGrid">
+          <input id="loginEmail" type="email" placeholder="Work email" />
+          <input id="loginOrg" type="text" placeholder="Organization name" />
+          <input id="loginPass" type="password" placeholder="Password (pilot mode)" />
+          <input id="loginCode" type="text" placeholder="Pilot access code (optional)" />
+          <button class="btn primary" id="btnLogin">Sign In</button>
+          <div class="formNote">Need a pilot code? <a href="/request-demo.html">Request a demo</a>.</div>
+          <div class="formSuccess" id="loginMessage" style="display:none;"></div>
+          <div class="formNote">Want to see the dashboard now? <a href="/ui/fleetai-dashboard.html">Dashboard Preview</a>.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+    <footer class="footer">
+    <div class="container footerGrid">
+      <div class="footerCol footerBrand">
+        <div class="wordmark"><span class="brandFleet">Fleet</span><span class="brandAI">AI</span></div>
+        <div class="footerMeta">© 2026 Fleet AI</div>
+      </div>
+      <div class="footerCol">
+        <h4>Product</h4>
+        <a href="/product.html">Product</a>
+        <a href="/pricing.html">Pricing</a>
+        <a href="/pilot.html">Pilot Program</a>
+      </div>
+      <div class="footerCol">
+        <h4>Company</h4>
+        <a href="/security.html">Security</a>
+        <a href="/about.html">About</a>
+        <a href="/request-demo.html">Contact</a>
+        <a href="/employee-login.html" title="For Fleet AI staff only">Employee Portal</a>
+      </div>
+      <div class="footerCol">
+        <h4>Legal</h4>
+        <a href="/legal/privacy.html">Privacy Policy</a>
+        <a href="/legal/terms.html">Terms</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="/js/site.js"></script>
+  <script src="/js/auth.js"></script>
+  <script src="/js/scroll-reveal.js"></script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+

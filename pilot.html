@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Fleet AI - Pilot Program</title>
+  <link rel="stylesheet" href="/css/site-tokens.css" />
+  <link rel="stylesheet" href="/css/site-theme.css" />
+  <link rel="stylesheet" href="/css/site-components.css" />
+  <link rel="stylesheet" href="/css/site-layout.css" />
+  <link rel="stylesheet" href="/css/design-system.css" />
+</head>
+<body>
+  <header class="siteHeader">
+    <div class="container siteHeader__row">
+      <a class="wordmark" href="/index.html"><span class="brandFleet">Fleet</span><span class="brandAI">AI</span></a>
+      <nav class="siteNav" id="siteNav">
+        <a href="/product.html">Product</a>
+        <a href="/pricing.html">Pricing</a>
+        <a class="is-active" href="/pilot.html">Pilot Program</a>
+        <a href="/security.html">Security</a>
+        <a href="/about.html">About Us</a>
+      </nav>
+      <div class="siteActions">
+        <select class="themeSelect" id="siteThemeSelect" aria-label="Theme">
+          <option value="light-blue">Light</option>
+          <option value="dark-blue">Dark Blue</option>
+          <option value="dark-gray">Dark Gray</option>
+        </select>
+        <a class="btn secondary" href="/login.html">Sign In</a>
+        <a class="btn primary" href="/request-demo.html">Request Demo</a>
+        <button class="navToggle" id="navToggle" type="button">Menu</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="announceBar">
+    <div class="container">
+      <div class="announcePill"><a href="/pricing.html#plans">Pilot Program Active - $59/vehicle/mo (limited partners)</a></div>
+      <a class="btn ghost" href="/pricing.html#plans">View Pilot Pricing</a>
+    </div>
+  </div>
+
+  <section class="hero hero--split">
+    <div class="container heroGrid">
+      <div>
+        <span class="eyebrow">Pilot program</span>
+        <h1>Apply for a Fleet AI pilot and validate outcomes quickly.</h1>
+        <p>Pilots are structured, time-boxed engagements designed to prove impact, align workflows, and prepare for rollout.</p>
+        <div class="heroActions">
+          <a class="btn primary" href="#pilotFormSection">Apply for Pilot</a>
+          <a class="btn secondary" href="/pricing.html#plans">View Pilot Pricing</a>
+          <a class="btn ghost" href="/ui/fleetai-dashboard.html">Dashboard Preview</a>
+        </div>
+        <div class="heroQuickLinks">
+          <a href="/product.html#core">Core Features</a>
+          <span class="dotSep">&middot;</span>
+          <a href="/pricing.html#addons">Optional Add-ons</a>
+          <span class="dotSep">&middot;</span>
+          <a href="/security.html">Security</a>
+        </div>
+      </div>
+      <div class="heroMock">
+        <!-- TODO: Replace with /assets/images/pilot-hero.png -->
+        <div class="mockScreen">
+          <div class="mockHeader">
+            <div class="mockPill"></div>
+            <div class="mockPill" style="width:60px"></div>
+          </div>
+          <div class="mockCard">
+            <div class="mockLine long"></div>
+            <div class="mockLine mid"></div>
+            <div class="mockLine short"></div>
+          </div>
+          <div class="mockRows" style="margin-top:12px;">
+            <div class="mockCard">
+              <div class="mockLine mid"></div>
+              <div class="mockLine long"></div>
+            </div>
+            <div class="mockCard">
+              <div class="mockLine short"></div>
+              <div class="mockLine long"></div>
+            </div>
+          </div>
+        </div>
+        <div class="card card--soft">
+          <div class="card__title">Pilot structure</div>
+          <p class="card__meta">Discovery, setup, live validation, and review. No fake metrics.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <div class="sectionHeader">
+        <h2>Pilot program outline</h2>
+        <p>We align on goals, connect data, and deliver a clear action plan.</p>
+      </div>
+      <div class="grid-3">
+        <div class="card">
+          <div class="card__title">Phase 1: Discovery</div>
+          <p class="card__meta">Define fleet goals, target vehicles, and the baseline needed for risk guidance.</p>
+        </div>
+        <div class="card">
+          <div class="card__title">Phase 2: Live pilot</div>
+          <p class="card__meta">Stream data, confirm alerts, and tune inspection windows to real operations.</p>
+        </div>
+        <div class="card">
+          <div class="card__title">Phase 3: Review</div>
+          <p class="card__meta">Summarize outcomes and prepare the rollout plan if the pilot meets targets.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section section--soft" id="pilotFormSection">
+    <div class="container grid-2">
+      <div>
+        <div class="sectionHeader">
+          <h2>Apply for a pilot</h2>
+          <p>Tell us about your fleet and the outcomes you want to validate.</p>
+        </div>
+        <form id="pilotForm" class="formCard">
+          <div class="formGrid">
+            <input id="pilotName" type="text" placeholder="Full name" required />
+            <input id="pilotCompany" type="text" placeholder="Company name" required />
+            <input id="pilotEmail" type="email" placeholder="Work email" required />
+            <input id="pilotPhone" type="text" placeholder="Phone (optional)" />
+            <select id="pilotFleet" required>
+              <option value="">Fleet size</option>
+              <option value="1-25">1-25 vehicles</option>
+              <option value="26-100">26-100 vehicles</option>
+              <option value="101-250">101-250 vehicles</option>
+              <option value="251-1000">251-1000 vehicles</option>
+              <option value="1000+">1000+ vehicles</option>
+            </select>
+            <textarea id="pilotNotes" placeholder="What outcomes are you hoping to validate?"></textarea>
+          </div>
+          <button class="btn primary" type="submit">Submit pilot request</button>
+          <div id="pilotSuccess" class="formSuccess">Thanks - your pilot request has been received. We will follow up soon.</div>
+          <div class="formNote">We will reach out with next steps and a pilot timeline.</div>
+        </form>
+      </div>
+      <div>
+        <div class="card">
+          <div class="card__title">Pilot pricing</div>
+          <p class="card__meta">$59 per vehicle per month (temporary pilot pricing).</p>
+          <ul class="featureList">
+            <li><span class="check"></span>Core intelligence included</li>
+            <li><span class="check"></span>Fleet-wide learning</li>
+            <li><span class="check"></span>Actionable inspection windows</li>
+          </ul>
+        </div>
+        <div class="card" style="margin-top:16px;">
+          <div class="card__title">What we will validate</div>
+          <ul class="featureList">
+            <li><span class="check"></span>Early warning signals</li>
+            <li><span class="check"></span>Maintenance planning cadence</li>
+            <li><span class="check"></span>Operational workflow fit</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+    <footer class="footer">
+    <div class="container footerGrid">
+      <div class="footerCol footerBrand">
+        <div class="wordmark"><span class="brandFleet">Fleet</span><span class="brandAI">AI</span></div>
+        <div class="footerMeta">© 2026 Fleet AI</div>
+      </div>
+      <div class="footerCol">
+        <h4>Product</h4>
+        <a href="/product.html">Product</a>
+        <a href="/pricing.html">Pricing</a>
+        <a href="/pilot.html">Pilot Program</a>
+      </div>
+      <div class="footerCol">
+        <h4>Company</h4>
+        <a href="/security.html">Security</a>
+        <a href="/about.html">About</a>
+        <a href="/request-demo.html">Contact</a>
+        <a href="/employee-login.html" title="For Fleet AI staff only">Employee Portal</a>
+      </div>
+      <div class="footerCol">
+        <h4>Legal</h4>
+        <a href="/legal/privacy.html">Privacy Policy</a>
+        <a href="/legal/terms.html">Terms</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="/js/site.js"></script>
+  <script src="/js/scroll-reveal.js"></script>
+</body>
+</html>
+
+
+
+
+
+

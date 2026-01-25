@@ -1,0 +1,19 @@
+{
+  "name": "fleet-ai",
+  "version": "1.0.0",
+  "description": "Run the backend (FastAPI) and open the UI to view mock telemetry.",
+  "main": "index.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "dotenv": "^16.4.5",
+    "express": "^5.2.1"
+  }
+}

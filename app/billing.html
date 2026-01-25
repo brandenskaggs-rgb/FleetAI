@@ -1,0 +1,108 @@
+﻿<!doctype html>
+<html lang="en" data-theme="light-blue">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Fleet AI - Billing</title>
+  <link rel="stylesheet" href="/css/tokens.css" />
+  <link rel="stylesheet" href="/css/components.css" />
+  <link rel="stylesheet" href="/css/layout.css" />
+  <link rel="stylesheet" href="/css/app.css" />
+</head>
+<body>
+  <div class="page container">
+    <header class="siteHeader">
+      <div class="siteHeader__row">
+        <div class="brandBlock">
+          <div class="brandTitle">Fleet AI - <span id="appOrgName">Organization</span></div>
+          <div class="brandMeta">Billing & Subscriptions</div>
+        </div>
+        <div class="headerActions">
+          <a class="btn" href="/app/dashboard.html">Dashboard</a>
+          <a class="btn" href="/app/settings.html">Settings</a>
+          <button class="btn ghost" id="btnAppLogout">Logout</button>
+        </div>
+      </div>
+    </header>
+
+    <section class="section">
+      <div class="SectionHeader">
+        <div>
+          <div class="SectionHeader__title">Current Plan</div>
+          <div class="SectionHeader__sub">Billing & Subscriptions</div>
+        </div>
+        <div class="badge" id="billingStatus">No plan selected</div>
+      </div>
+      <div class="Card" style="margin-top:14px;">
+        <div class="Card__bd">
+          <div class="grid2">
+            <div style="display:grid;gap:8px;">
+              <div class="SectionHeader__title">Core Fleet Intelligence</div>
+              <div class="SectionHeader__sub">Active — Included in pilot</div>
+              <div class="SectionHeader__sub">Vehicles covered: <span id="billingVehicles">--</span></div>
+              <div class="SectionHeader__sub">Monthly cost: <span id="billingCost">$0 during pilot</span></div>
+              <div class="SectionHeader__sub">Billing cycle: <span id="billingCycle">Pilot</span></div>
+            </div>
+            <div style="display:grid;gap:10px;align-content:start;">
+              <input id="billingCode" type="text" placeholder="Pilot access code" />
+              <button class="btn primary" id="btnActivatePilot">Activate Pilot</button>
+              <div class="emptyState" id="billingMsg" style="display:none;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="SectionHeader">
+        <div>
+          <div class="SectionHeader__title">Modules</div>
+          <div class="SectionHeader__sub">Core is active. Add-ons are planned and will be available soon.</div>
+        </div>
+      </div>
+      <div class="grid3" style="margin-top:16px;">
+        <div class="featureCard">
+          <div class="badge">Active</div>
+          <h3>Core Fleet Intelligence</h3>
+          <p>Included during pilot. Predictive maintenance, alerts, and operational insights.</p>
+        </div>
+        <div class="featureCard" style="opacity:0.8;filter:saturate(0.9);">
+          <div class="badge">Coming Soon</div>
+          <h3>Safety Score Pack</h3>
+          <p>Risk scoring and coaching workflows.</p>
+        </div>
+        <div class="featureCard" style="opacity:0.8;filter:saturate(0.9);">
+          <div class="badge">Coming Soon</div>
+          <h3>Compliance Pack</h3>
+          <p>HOS and readiness indicators.</p>
+        </div>
+        <div class="featureCard" style="opacity:0.8;filter:saturate(0.9);">
+          <div class="badge">Coming Soon</div>
+          <h3>Camera Integration</h3>
+          <p>Fleet camera streams and safety review.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="SectionHeader">
+        <div>
+          <div class="SectionHeader__title">Payment Method</div>
+          <div class="SectionHeader__sub">Payment method configuration will be available during pilot onboarding.</div>
+        </div>
+      </div>
+      <div class="Card" style="margin-top:12px;">
+        <div class="Card__bd">
+          <p class="SectionHeader__sub">Billing activation and payment collection will be enabled when your pilot converts. No payment is collected during pilot.</p>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script src="/js/guard.js"></script>
+  <script src="/js/theme.js"></script>
+  <script src="/js/app.js"></script>
+  <script src="/js/billing.js"></script>
+</body>
+</html>
+

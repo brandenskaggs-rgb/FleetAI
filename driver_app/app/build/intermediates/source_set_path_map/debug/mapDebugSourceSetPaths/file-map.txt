@@ -1,0 +1,82 @@
+com.fleetai.driver.app-pngs-0 C:\Dev\Fleet AI\Fleet AI\driver_app\app\build\generated\res\pngs\debug
+com.fleetai.driver.app-resValues-1 C:\Dev\Fleet AI\Fleet AI\driver_app\app\build\generated\res\resValues\debug
+com.fleetai.driver.app-packageDebugResources-2 C:\Dev\Fleet AI\Fleet AI\driver_app\app\build\intermediates\incremental\debug\packageDebugResources\merged.dir
+com.fleetai.driver.app-packageDebugResources-3 C:\Dev\Fleet AI\Fleet AI\driver_app\app\build\intermediates\incremental\debug\packageDebugResources\stripped.dir
+com.fleetai.driver.app-debug-4 C:\Dev\Fleet AI\Fleet AI\driver_app\app\build\intermediates\merged_res\debug\mergeDebugResources
+com.fleetai.driver.app-debug-5 C:\Dev\Fleet AI\Fleet AI\driver_app\app\src\debug\res
+com.fleetai.driver.app-main-6 C:\Dev\Fleet AI\Fleet AI\driver_app\app\src\main\res
+com.fleetai.driver.app-core-runtime-2.2.0-7 C:\Users\minsh\.gradle\caches\transforms-3\01473d2d82096ad1297599b15a94dd51\transformed\core-runtime-2.2.0\res
+com.fleetai.driver.app-navigation-runtime-2.7.7-8 C:\Users\minsh\.gradle\caches\transforms-3\09e22f4d84897cd04bb3989378974668\transformed\navigation-runtime-2.7.7\res
+com.fleetai.driver.app-material-icons-core-release-9 C:\Users\minsh\.gradle\caches\transforms-3\0bcd28f270c926471e1079bd2a059c76\transformed\material-icons-core-release\res
+com.fleetai.driver.app-lifecycle-runtime-ktx-2.7.0-10 C:\Users\minsh\.gradle\caches\transforms-3\0c8ed6062763d38a0651d7c6bbe93f09\transformed\lifecycle-runtime-ktx-2.7.0\res
+com.fleetai.driver.app-activity-compose-1.8.2-11 C:\Users\minsh\.gradle\caches\transforms-3\0e17c619452e2a059b5bf61db46e5b4e\transformed\activity-compose-1.8.2\res
+com.fleetai.driver.app-lifecycle-viewmodel-compose-2.7.0-12 C:\Users\minsh\.gradle\caches\transforms-3\100c3c17d54a55c56c16c80e63162443\transformed\lifecycle-viewmodel-compose-2.7.0\res
+com.fleetai.driver.app-lifecycle-runtime-compose-2.7.0-13 C:\Users\minsh\.gradle\caches\transforms-3\13523c3d47795f9f6627e276bb2239a5\transformed\lifecycle-runtime-compose-2.7.0\res
+com.fleetai.driver.app-animation-core-release-14 C:\Users\minsh\.gradle\caches\transforms-3\15e88fbc90790c023e5167797f40ec76\transformed\animation-core-release\res
+com.fleetai.driver.app-ui-unit-release-15 C:\Users\minsh\.gradle\caches\transforms-3\166976874d52de8426e33f4e19450916\transformed\ui-unit-release\res
+com.fleetai.driver.app-room-runtime-2.6.1-16 C:\Users\minsh\.gradle\caches\transforms-3\1a2905f5954c339e85e3b57c1208301c\transformed\room-runtime-2.6.1\res
+com.fleetai.driver.app-sqlite-framework-2.4.0-17 C:\Users\minsh\.gradle\caches\transforms-3\1fd2062c983bb5e066d1dacf48e87b9e\transformed\sqlite-framework-2.4.0\res
+com.fleetai.driver.app-ui-tooling-preview-release-18 C:\Users\minsh\.gradle\caches\transforms-3\20bdb4a129860abf1d1adbd1296b4ad6\transformed\ui-tooling-preview-release\res
+com.fleetai.driver.app-play-services-base-18.0.1-19 C:\Users\minsh\.gradle\caches\transforms-3\22ba48003be3dfa11bfdfe67c9d256f5\transformed\play-services-base-18.0.1\res
+com.fleetai.driver.app-recyclerview-1.1.0-20 C:\Users\minsh\.gradle\caches\transforms-3\318a74e8669aeede657adbbba08ceeb3\transformed\recyclerview-1.1.0\res
+com.fleetai.driver.app-material-ripple-release-21 C:\Users\minsh\.gradle\caches\transforms-3\36e9858f0861a604318d2195d53fb444\transformed\material-ripple-release\res
+com.fleetai.driver.app-material3-release-22 C:\Users\minsh\.gradle\caches\transforms-3\38af515df40652cde7248afb5a3feb92\transformed\material3-release\res
+com.fleetai.driver.app-activity-1.8.2-23 C:\Users\minsh\.gradle\caches\transforms-3\39106a9167ec2977096a3d8c0026e0ea\transformed\activity-1.8.2\res
+com.fleetai.driver.app-emoji2-1.3.0-24 C:\Users\minsh\.gradle\caches\transforms-3\3ef33854ee63631fbb1b48e60c0fb308\transformed\emoji2-1.3.0\res
+com.fleetai.driver.app-ui-util-release-25 C:\Users\minsh\.gradle\caches\transforms-3\44541287c2270783e8ab149c70e7c0db\transformed\ui-util-release\res
+com.fleetai.driver.app-material-1.12.0-26 C:\Users\minsh\.gradle\caches\transforms-3\4cebfad1d6735f5e3ed899454cbcadc6\transformed\material-1.12.0\res
+com.fleetai.driver.app-navigation-runtime-ktx-2.7.7-27 C:\Users\minsh\.gradle\caches\transforms-3\4d4744ba1dd4c32ad2018b6efe34871d\transformed\navigation-runtime-ktx-2.7.7\res
+com.fleetai.driver.app-appcompat-1.6.1-28 C:\Users\minsh\.gradle\caches\transforms-3\4ec4dda93a36244a45795f008a87e3bb\transformed\appcompat-1.6.1\res
+com.fleetai.driver.app-lifecycle-runtime-2.7.0-29 C:\Users\minsh\.gradle\caches\transforms-3\533bdfb3119261b2bcde1dcd67764264\transformed\lifecycle-runtime-2.7.0\res
+com.fleetai.driver.app-annotation-experimental-1.4.0-30 C:\Users\minsh\.gradle\caches\transforms-3\54f17bf8d8c3ec877cede08cf184b7fa\transformed\annotation-experimental-1.4.0\res
+com.fleetai.driver.app-ui-tooling-data-release-31 C:\Users\minsh\.gradle\caches\transforms-3\582d28787896a7fd12fef3450752510d\transformed\ui-tooling-data-release\res
+com.fleetai.driver.app-runtime-release-32 C:\Users\minsh\.gradle\caches\transforms-3\594600b297fabcef1e833fa6f7ef6993\transformed\runtime-release\res
+com.fleetai.driver.app-coordinatorlayout-1.1.0-33 C:\Users\minsh\.gradle\caches\transforms-3\5c4a349f73c9dae9e40324ef8f2384ca\transformed\coordinatorlayout-1.1.0\res
+com.fleetai.driver.app-work-runtime-ktx-2.9.0-34 C:\Users\minsh\.gradle\caches\transforms-3\62846c0d40b357b8075378f07f99e4b7\transformed\work-runtime-ktx-2.9.0\res
+com.fleetai.driver.app-foundation-layout-release-35 C:\Users\minsh\.gradle\caches\transforms-3\64b20e534b1876a51e274ceb9a2ef412\transformed\foundation-layout-release\res
+com.fleetai.driver.app-lifecycle-livedata-core-2.7.0-36 C:\Users\minsh\.gradle\caches\transforms-3\652b54d7bb2bbb60f27e1551663357d1\transformed\lifecycle-livedata-core-2.7.0\res
+com.fleetai.driver.app-foundation-release-37 C:\Users\minsh\.gradle\caches\transforms-3\6594c70cf38762af450f76a029df1087\transformed\foundation-release\res
+com.fleetai.driver.app-core-ktx-1.13.0-38 C:\Users\minsh\.gradle\caches\transforms-3\66d01ff617d29c3a02c50b6f2aca510c\transformed\core-ktx-1.13.0\res
+com.fleetai.driver.app-animation-release-39 C:\Users\minsh\.gradle\caches\transforms-3\67b90358a220d39051ac42b02b6c99f2\transformed\animation-release\res
+com.fleetai.driver.app-lifecycle-process-2.7.0-40 C:\Users\minsh\.gradle\caches\transforms-3\688b58e5528ed91b172e6da0ffd0b122\transformed\lifecycle-process-2.7.0\res
+com.fleetai.driver.app-activity-ktx-1.8.2-41 C:\Users\minsh\.gradle\caches\transforms-3\6a919311b4061dc5a3fadf6b4cb90b39\transformed\activity-ktx-1.8.2\res
+com.fleetai.driver.app-navigation-common-ktx-2.7.7-42 C:\Users\minsh\.gradle\caches\transforms-3\6c5687796deca84da344cc93b38ea241\transformed\navigation-common-ktx-2.7.7\res
+com.fleetai.driver.app-lifecycle-livedata-core-ktx-2.7.0-43 C:\Users\minsh\.gradle\caches\transforms-3\6d6907c33bdc782f24eacb97a886f96a\transformed\lifecycle-livedata-core-ktx-2.7.0\res
+com.fleetai.driver.app-material-icons-extended-release-44 C:\Users\minsh\.gradle\caches\transforms-3\748111406e4eee3ec4a52259a25200bd\transformed\material-icons-extended-release\res
+com.fleetai.driver.app-viewpager2-1.0.0-45 C:\Users\minsh\.gradle\caches\transforms-3\79f4a8d174441f99cfd83b6aa8ab4261\transformed\viewpager2-1.0.0\res
+com.fleetai.driver.app-room-ktx-2.6.1-46 C:\Users\minsh\.gradle\caches\transforms-3\80f43a371ddf2d59e0fa8bbf0aa56618\transformed\room-ktx-2.6.1\res
+com.fleetai.driver.app-play-services-basement-18.1.0-47 C:\Users\minsh\.gradle\caches\transforms-3\8374ff0127ce937a2ccf415517a39e9f\transformed\play-services-basement-18.1.0\res
+com.fleetai.driver.app-lifecycle-livedata-2.7.0-48 C:\Users\minsh\.gradle\caches\transforms-3\86efa78a0bd173608504999bd3aee358\transformed\lifecycle-livedata-2.7.0\res
+com.fleetai.driver.app-profileinstaller-1.3.0-49 C:\Users\minsh\.gradle\caches\transforms-3\90eb31ea37da75de43d0ecf321f67cf6\transformed\profileinstaller-1.3.0\res
+com.fleetai.driver.app-transition-1.5.0-50 C:\Users\minsh\.gradle\caches\transforms-3\949af9943cadeb6f5f350f7804ebbb8c\transformed\transition-1.5.0\res
+com.fleetai.driver.app-work-runtime-2.9.0-51 C:\Users\minsh\.gradle\caches\transforms-3\94d7f6714c98f20c3a0ed7a34eaf82ff\transformed\work-runtime-2.9.0\res
+com.fleetai.driver.app-emoji2-views-helper-1.3.0-52 C:\Users\minsh\.gradle\caches\transforms-3\9a24df2a8d919ffdf2b86bb88e5b9315\transformed\emoji2-views-helper-1.3.0\res
+com.fleetai.driver.app-ui-text-release-53 C:\Users\minsh\.gradle\caches\transforms-3\9ac39e960da56781c070f6eaabb8d215\transformed\ui-text-release\res
+com.fleetai.driver.app-fragment-1.3.6-54 C:\Users\minsh\.gradle\caches\transforms-3\9f68443e4e344e2dcc4f1b5dd69f7898\transformed\fragment-1.3.6\res
+com.fleetai.driver.app-sqlite-2.4.0-55 C:\Users\minsh\.gradle\caches\transforms-3\a6b6293afa54c6409d9699e978a5c7c2\transformed\sqlite-2.4.0\res
+com.fleetai.driver.app-lifecycle-viewmodel-savedstate-2.7.0-56 C:\Users\minsh\.gradle\caches\transforms-3\ac014bcb1a814d981a7a061ef32b1ed9\transformed\lifecycle-viewmodel-savedstate-2.7.0\res
+com.fleetai.driver.app-customview-poolingcontainer-1.0.0-57 C:\Users\minsh\.gradle\caches\transforms-3\b788f2cb7da676ef09209538fb129bbd\transformed\customview-poolingcontainer-1.0.0\res
+com.fleetai.driver.app-savedstate-ktx-1.2.1-58 C:\Users\minsh\.gradle\caches\transforms-3\be542adb3b31e4ecd08a98d1759d810a\transformed\savedstate-ktx-1.2.1\res
+com.fleetai.driver.app-firebase-common-20.4.2-59 C:\Users\minsh\.gradle\caches\transforms-3\c277fdfc98d815dbfb403b37031fd2dc\transformed\firebase-common-20.4.2\res
+com.fleetai.driver.app-cardview-1.0.0-60 C:\Users\minsh\.gradle\caches\transforms-3\c2fab9724d8b22dfc28cdf432ca4bcd6\transformed\cardview-1.0.0\res
+com.fleetai.driver.app-material-release-61 C:\Users\minsh\.gradle\caches\transforms-3\c4494352a0b1f66cb04996f4387a3cc0\transformed\material-release\res
+com.fleetai.driver.app-ui-graphics-release-62 C:\Users\minsh\.gradle\caches\transforms-3\c56ed007ded365a232fae12057b8171c\transformed\ui-graphics-release\res
+com.fleetai.driver.app-datastore-core-release-63 C:\Users\minsh\.gradle\caches\transforms-3\c6bb778157666497f069fe3d4edb9e98\transformed\datastore-core-release\res
+com.fleetai.driver.app-savedstate-1.2.1-64 C:\Users\minsh\.gradle\caches\transforms-3\c8c2f2a9d256b90343341cf612d994d4\transformed\savedstate-1.2.1\res
+com.fleetai.driver.app-navigation-common-2.7.7-65 C:\Users\minsh\.gradle\caches\transforms-3\d64e7178f0b70af940815f806ff7191c\transformed\navigation-common-2.7.7\res
+com.fleetai.driver.app-lifecycle-viewmodel-ktx-2.7.0-66 C:\Users\minsh\.gradle\caches\transforms-3\d6cfb6616dc453c20c8b61505ccd6a71\transformed\lifecycle-viewmodel-ktx-2.7.0\res
+com.fleetai.driver.app-lifecycle-service-2.7.0-67 C:\Users\minsh\.gradle\caches\transforms-3\df91ac3ab17c093dc7c74d0b78474728\transformed\lifecycle-service-2.7.0\res
+com.fleetai.driver.app-ui-geometry-release-68 C:\Users\minsh\.gradle\caches\transforms-3\e28caf7793cd8cb590d923fb850bc612\transformed\ui-geometry-release\res
+com.fleetai.driver.app-datastore-release-69 C:\Users\minsh\.gradle\caches\transforms-3\e4858f44009bb4fb76558aaa131f7ad9\transformed\datastore-release\res
+com.fleetai.driver.app-constraintlayout-2.0.1-70 C:\Users\minsh\.gradle\caches\transforms-3\e5da9d3f7b0e446341794583d8d056d4\transformed\constraintlayout-2.0.1\res
+com.fleetai.driver.app-lifecycle-viewmodel-2.7.0-71 C:\Users\minsh\.gradle\caches\transforms-3\e7d158dcff532bf8da777edbafba882c\transformed\lifecycle-viewmodel-2.7.0\res
+com.fleetai.driver.app-datastore-preferences-release-72 C:\Users\minsh\.gradle\caches\transforms-3\e83bb7b52e59ba4586e4b80d07b51905\transformed\datastore-preferences-release\res
+com.fleetai.driver.app-runtime-saveable-release-73 C:\Users\minsh\.gradle\caches\transforms-3\e9452f1e8651b06e9e881f7194e9aaaa\transformed\runtime-saveable-release\res
+com.fleetai.driver.app-firebase-messaging-23.4.1-74 C:\Users\minsh\.gradle\caches\transforms-3\e9f10f48840451b45094faed06103ea3\transformed\firebase-messaging-23.4.1\res
+com.fleetai.driver.app-navigation-compose-2.7.7-75 C:\Users\minsh\.gradle\caches\transforms-3\eab7cda5df9b0c3ad726ee66137af333\transformed\navigation-compose-2.7.7\res
+com.fleetai.driver.app-drawerlayout-1.1.1-76 C:\Users\minsh\.gradle\caches\transforms-3\ed4baada43d4ac3c9931428f61d52701\transformed\drawerlayout-1.1.1\res
+com.fleetai.driver.app-ui-tooling-release-77 C:\Users\minsh\.gradle\caches\transforms-3\ee97621676ff9e133221cb3f53173564\transformed\ui-tooling-release\res
+com.fleetai.driver.app-ui-release-78 C:\Users\minsh\.gradle\caches\transforms-3\f19fcaca96a3d9761d9e2ecaa2fcb58b\transformed\ui-release\res
+com.fleetai.driver.app-appcompat-resources-1.6.1-79 C:\Users\minsh\.gradle\caches\transforms-3\f2c61c263859acde57ed7f376646b38e\transformed\appcompat-resources-1.6.1\res
+com.fleetai.driver.app-startup-runtime-1.1.1-80 C:\Users\minsh\.gradle\caches\transforms-3\f4aa152574e82b671c948795349c867b\transformed\startup-runtime-1.1.1\res
+com.fleetai.driver.app-core-1.13.0-81 C:\Users\minsh\.gradle\caches\transforms-3\fe3961844a5e03776115b3827c40394c\transformed\core-1.13.0\res

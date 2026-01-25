@@ -1,0 +1,751 @@
+﻿<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Fleet AI - Driver Tablet</title>
+  <style>
+    @import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap");
+
+    :root{
+      --bg:#F8FBFF;
+      --bg2:#FFFFFF;
+      --panel:#FFFFFF;
+      --panel2:#F3F7FF;
+      --border:rgba(18,52,89,.12);
+      --text:#0E1B2C;
+      --muted:#5B6F8A;
+      --primary:#2D6BFF;
+      --primary2:#1F57D6;
+      --shadow: 0 14px 32px rgba(10,30,60,.10);
+      --radius: 16px;
+      --chip: rgba(45,107,255,.12);
+      --font-body: "Manrope", "Segoe UI", Tahoma, Arial, sans-serif;
+      --font-display: "Space Grotesk", "Manrope", "Segoe UI", Tahoma, Arial, sans-serif;
+    }
+
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family: var(--font-body);
+      color:var(--text);
+      background:
+        radial-gradient(1100px 620px at 12% -10%, rgba(60,140,255,.20) 0%, rgba(60,140,255,0.0) 55%),
+        linear-gradient(180deg, var(--bg) 0%, var(--bg2) 100%);
+      min-height:100vh;
+    }
+    .app{
+      max-width: 980px;
+      margin:0 auto;
+      padding:24px;
+    }
+    .topbar{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:12px;
+      margin-bottom:18px;
+    }
+    .tabs{
+      display:flex;
+      gap:8px;
+      margin-bottom:16px;
+      flex-wrap:wrap;
+    }
+    .tabBtn{
+      border:1px solid var(--border);
+      background: var(--panel);
+      color: var(--text);
+      border-radius:12px;
+      padding:10px 14px;
+      font-weight:700;
+      font-size:13px;
+      cursor:pointer;
+    }
+    .tabBtn.active{
+      border-color: rgba(45,107,255,.45);
+      background: rgba(45,107,255,.12);
+      color:#0f3aa8;
+    }
+    .brand{
+      display:flex; gap:12px; align-items:center;
+    }
+    .logo{
+      width:46px;height:46px;border-radius:16px;
+      background: linear-gradient(135deg, rgba(77,163,255,.95) 0%, rgba(47,123,220,.95) 60%);
+      border:1px solid rgba(77,163,255,.35);
+      display:grid;place-items:center;
+      font-weight:800;
+      font-family: var(--font-display);
+      color:#071225;
+    }
+    .brand h1{margin:0;font-size:18px;font-family:var(--font-display)}
+    .brand small{display:block;margin-top:4px;color:var(--muted);font-size:12px}
+
+    .pill{
+      padding:8px 12px;
+      border-radius:999px;
+      border:1px solid var(--border);
+      background: var(--panel);
+      font-size:12px;
+      font-weight:700;
+      color:var(--text);
+    }
+    .pill.good{border-color: rgba(43,220,155,.35); background: rgba(43,220,155,.12); color:#0d6b4f;}
+    .pill.warn{border-color: rgba(255,176,32,.35); background: rgba(255,176,32,.12); color:#8a5d12;}
+
+    .grid{
+      display:grid;
+      grid-template-columns: repeat(2, minmax(0,1fr));
+      gap:16px;
+    }
+    @media (max-width: 860px){
+      .grid{grid-template-columns: 1fr}
+    }
+    .card{
+      background: var(--panel);
+      border:1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+    }
+    .hd{
+      padding:16px;
+      border-bottom:1px solid var(--border);
+      background: var(--panel2);
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+    }
+    .hd h2{margin:0;font-size:15px;font-family:var(--font-display)}
+    .bd{padding:16px}
+    .field{
+      display:grid;
+      gap:8px;
+      margin-bottom:12px;
+    }
+    label{font-size:12px;color:var(--muted);font-weight:700}
+    input{
+      border:1px solid var(--border);
+      background: var(--panel);
+      color: var(--text);
+      border-radius:12px;
+      padding:12px 12px;
+      font-size:14px;
+      outline:none;
+    }
+    input:focus{
+      border-color: rgba(45,107,255,.45);
+      box-shadow: 0 0 0 3px rgba(45,107,255,.16);
+    }
+    .btn{
+      border:1px solid var(--border);
+      background: var(--panel);
+      border-radius:12px;
+      padding:12px 14px;
+      font-weight:700;
+      font-size:14px;
+      font-family: var(--font-display);
+      cursor:pointer;
+    }
+    .btn.primary{
+      border-color: var(--primary2);
+      background: linear-gradient(180deg, var(--primary) 0%, var(--primary2) 100%);
+      color:#fff;
+    }
+    .note{
+      padding:12px 14px;
+      border-radius:12px;
+      border:1px dashed var(--border);
+      background: var(--panel2);
+      color: var(--muted);
+      font-size:12px;
+      line-height:1.5;
+    }
+    .statusRow{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:12px;
+    }
+    .statusValue{
+      font-size:18px;
+      font-weight:800;
+      font-family: var(--font-display);
+    }
+    .hide{display:none}
+    .driverChat{
+      display:flex;
+      flex-direction:column;
+      gap:0;
+      border-radius: var(--radius);
+      border:1px solid rgba(148,163,184,.22);
+      overflow:hidden;
+      background:#0f1622;
+      color:#e2e8f0;
+    }
+    .driverChatHeader{
+      padding:14px 16px;
+      background:#0b111b;
+      border-bottom:1px solid rgba(148,163,184,.16);
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:12px;
+    }
+    .driverChatHeader h2{margin:0;font-size:16px;font-family:var(--font-display)}
+    .driverChatHeader small{color:#94a3b8}
+    .driverChatPrompts{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      padding:12px 16px;
+      background:#0f1724;
+      border-bottom:1px solid rgba(148,163,184,.12);
+    }
+    .driverChatPrompts .btn{
+      background:transparent;
+      color:#e2e8f0;
+      border-color: rgba(148,163,184,.25);
+      font-size:12px;
+      padding:8px 10px;
+    }
+    .driverChatLog{
+      max-height: 360px;
+      overflow:auto;
+      background:#0f1622;
+    }
+    .driverMsg{
+      padding:14px 16px;
+      border-bottom:1px solid rgba(148,163,184,.12);
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+    }
+    .driverMsg .meta{color:#94a3b8;font-size:11px}
+    .driverMsg.user{
+      align-items:flex-end;
+      background: rgba(30,41,59,.45);
+    }
+    .driverMsg.ai{
+      align-items:flex-start;
+    }
+    .driverMsgText{
+      font-size:15px;
+      line-height:1.6;
+      color:#e2e8f0;
+      max-width: 75%;
+      text-align:left;
+      word-break:break-word;
+    }
+    .driverMsg.user .driverMsgText{
+      text-align:right;
+    }
+    .driverChatInput{
+      display:flex;
+      gap:10px;
+      align-items:flex-end;
+      padding:12px 16px;
+      background:#0b111b;
+      border-top:1px solid rgba(148,163,184,.16);
+      position: sticky;
+      bottom:0;
+      z-index:2;
+    }
+    .inputWrap{
+      position:relative;
+      flex:1;
+    }
+    .inputWrap textarea{
+      width:100%;
+      min-height:64px;
+      max-height:140px;
+      padding:10px 38px 10px 12px;
+      border-radius:12px;
+      border:1px solid rgba(148,163,184,.22);
+      background:#0f1724;
+      color:#e2e8f0;
+      resize:vertical;
+      font-size:15px;
+    }
+    .micBtn{
+      position:absolute;
+      right:8px;
+      bottom:8px;
+      width:28px;
+      height:28px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.25);
+      background:rgba(30,41,59,.6);
+      color:#e2e8f0;
+      display:grid;
+      place-items:center;
+      cursor:pointer;
+      font-size:12px;
+    }
+    .micBtn.active{
+      border-color:#60a5fa;
+      box-shadow:0 0 0 3px rgba(96,165,250,.2);
+    }
+    .voiceNotice{
+      font-size:12px;
+      color:#94a3b8;
+      padding:8px 16px;
+      background:#0b111b;
+      border-top:1px solid rgba(148,163,184,.12);
+    }
+    .recIndicator{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      font-size:12px;
+      color:#e2e8f0;
+    }
+    .recDot{
+      width:8px;height:8px;border-radius:999px;background:#ef4444;
+      animation: pulse 1s infinite;
+    }
+    @keyframes pulse{
+      0%,100%{transform:scale(1);opacity:.5;}
+      50%{transform:scale(1.2);opacity:1;}
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="topbar">
+      <div class="brand">
+        <div class="logo">FA</div>
+        <div>
+          <h1 id="companyName">Fleet AI</h1>
+          <small>Driver Tablet</small>
+        </div>
+      </div>
+      <div class="pill" id="telemetryStatus">Waiting for live data</div>
+    </div>
+
+    <div class="tabs">
+      <button class="tabBtn active" id="tabOps" type="button">Operations</button>
+      <button class="tabBtn" id="tabAdvisor" type="button">AI Advisor</button>
+    </div>
+
+    <div class="grid" id="opsPanel">
+      <div class="card">
+        <div class="hd">
+          <h2>Driver Sign-In</h2>
+          <span class="pill warn" id="authStatus">Not signed in</span>
+        </div>
+        <div class="bd">
+          <div class="field">
+            <label for="companyCode">Company Code</label>
+            <input id="companyCode" type="text" placeholder="Company code" />
+          </div>
+          <div class="field">
+            <label for="driverPin">Driver PIN</label>
+            <input id="driverPin" type="password" inputmode="numeric" placeholder="Enter PIN" />
+          </div>
+          <button class="btn primary" id="btnLogin">Sign In</button>
+          <div class="note" id="authNote" style="margin-top:12px;">Waiting for a time-limited driver PIN from dispatch.</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="hd">
+          <h2>Device Pairing</h2>
+          <span class="pill warn" id="pairStatus">Not paired</span>
+        </div>
+        <div class="bd">
+          <div class="field">
+            <label for="pairCode">Vehicle Pair Code</label>
+            <input id="pairCode" type="text" inputmode="numeric" placeholder="Enter pair code" />
+          </div>
+          <div class="field">
+            <label for="deviceLabel">Tablet Label</label>
+            <input id="deviceLabel" type="text" placeholder="e.g. Tablet - Cab 1" />
+          </div>
+          <button class="btn primary" id="btnPair">Pair Device</button>
+          <div class="note" id="pairNote" style="margin-top:12px;">Pairing links this tablet to the selected vehicle.</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="hd">
+          <h2>Vehicle Confirmation</h2>
+          <span class="pill" id="vehicleStatus">Unassigned</span>
+        </div>
+        <div class="bd">
+          <div class="statusRow">
+            <div>
+              <div style="font-size:12px;color:var(--muted);font-weight:700;">Assigned Vehicle</div>
+              <div class="statusValue" id="vehicleId">--</div>
+            </div>
+            <div>
+              <div style="font-size:12px;color:var(--muted);font-weight:700;">Driver</div>
+              <div class="statusValue" id="driverName">--</div>
+            </div>
+          </div>
+          <div class="note" style="margin-top:12px;">Confirm with dispatch if vehicle assignment is incorrect.</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="hd">
+          <h2>Live Telemetry</h2>
+          <span class="pill" id="streamStatus">Waiting</span>
+        </div>
+        <div class="bd">
+          <div class="note" id="streamNote">Waiting for OBD-II/J1939 connection and telemetry stream.</div>
+          <div class="statusRow" style="margin-top:12px;">
+            <div>
+              <div style="font-size:12px;color:var(--muted);font-weight:700;">J1939 Status</div>
+              <div class="statusValue" id="j1939Status">Disconnected</div>
+            </div>
+            <div>
+              <div style="font-size:12px;color:var(--muted);font-weight:700;">Last Frame</div>
+              <div class="statusValue" id="j1939LastFrame">--</div>
+            </div>
+          </div>
+          <div class="statusRow" style="margin-top:10px;">
+            <div>
+              <div style="font-size:12px;color:var(--muted);font-weight:700;">Diagnostics</div>
+              <div class="statusValue" id="j1939DiagStatus">Unavailable</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="advisorPanel" class="hide">
+      <div class="driverChat">
+        <div class="driverChatHeader">
+          <div>
+            <h2>AI Advisor</h2>
+            <small>Driver-safe guidance and explanations.</small>
+          </div>
+          <button class="btn" id="driverClear">Clear</button>
+        </div>
+        <div class="driverChatPrompts" id="driverPrompts"></div>
+        <div class="driverChatLog" id="driverChatLog"></div>
+        <div class="driverChatInput">
+          <div class="inputWrap">
+            <textarea id="driverInput" placeholder="Ask the AI Advisor..."></textarea>
+            <button class="micBtn" id="driverMic" aria-label="Voice input">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 3a3 3 0 0 1 3 3v5a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3z"></path>
+                <path d="M5 11a7 7 0 0 0 14 0"></path>
+                <path d="M12 18v3"></path>
+              </svg>
+            </button>
+          </div>
+          <button class="btn primary" id="driverSend">Send</button>
+        </div>
+        <div class="voiceNotice" id="voiceNotice">Voice disabled until vehicle speed is available.</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE_URL = window.location.origin;
+    const LOG_ERRORS = false;
+    const DRIVER_CHAT_KEY = "fleetai.driverChatHistory";
+
+    const $ = (id)=>document.getElementById(id);
+    function logError(){
+      if(LOG_ERRORS){
+        console.error.apply(console, arguments);
+      }
+    }
+
+    function loadCompanyName(){
+      try{
+        const saved = localStorage.getItem("fleetai.companyName");
+        if(saved) $("companyName").textContent = saved;
+      }catch(e){}
+    }
+
+    function getDeviceId(){
+      try{
+        const existing = localStorage.getItem("fleetai.deviceId");
+        if(existing) return existing;
+        const fresh = (crypto && crypto.randomUUID) ? crypto.randomUUID() : `device_${Date.now()}`;
+        localStorage.setItem("fleetai.deviceId", fresh);
+        return fresh;
+      }catch(e){
+        return `device_${Date.now()}`;
+      }
+    }
+
+    function getVehicleId(){
+      return $("vehicleId")?.textContent?.trim() || "";
+    }
+
+    function setActiveTab(target){
+      $("tabOps").classList.toggle("active", target === "ops");
+      $("tabAdvisor").classList.toggle("active", target === "advisor");
+      $("opsPanel").classList.toggle("hide", target !== "ops");
+      $("advisorPanel").classList.toggle("hide", target !== "advisor");
+    }
+
+    let driverChat = [];
+    let driverSpeedKph = null;
+    let recognition = null;
+    let recording = false;
+
+    function saveDriverChat(){
+      try{ localStorage.setItem(DRIVER_CHAT_KEY, JSON.stringify(driverChat)); }catch(e){}
+    }
+
+    function loadDriverChat(){
+      try{
+        const raw = localStorage.getItem(DRIVER_CHAT_KEY);
+        if(raw) driverChat = JSON.parse(raw) || [];
+      }catch(e){}
+    }
+
+    function appendDriverMessage(role, text){
+      const log = $("driverChatLog");
+      if(!log) return;
+      const wrap = document.createElement("div");
+      wrap.className = `driverMsg ${role}`;
+      const meta = document.createElement("div");
+      meta.className = "meta";
+      meta.textContent = `${role === "user" ? "Driver" : "AI Advisor"} - ${new Date().toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"})}`;
+      const body = document.createElement("div");
+      body.className = "driverMsgText";
+      body.textContent = text;
+      wrap.appendChild(meta);
+      wrap.appendChild(body);
+      log.appendChild(wrap);
+      log.scrollTop = log.scrollHeight;
+      driverChat.push({ role, content: text, ts: Date.now() });
+      saveDriverChat();
+    }
+
+    function renderDriverChat(){
+      const log = $("driverChatLog");
+      if(!log) return;
+      log.innerHTML = "";
+      driverChat.forEach((msg)=>{
+        const wrap = document.createElement("div");
+        wrap.className = `driverMsg ${msg.role}`;
+        const meta = document.createElement("div");
+        meta.className = "meta";
+        meta.textContent = `${msg.role === "user" ? "Driver" : "AI Advisor"} - ${new Date(msg.ts || Date.now()).toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"})}`;
+        const body = document.createElement("div");
+        body.className = "driverMsgText";
+        body.textContent = msg.content;
+        wrap.appendChild(meta);
+        wrap.appendChild(body);
+        log.appendChild(wrap);
+      });
+      log.scrollTop = log.scrollHeight;
+    }
+
+    function renderDriverPrompts(){
+      const prompts = [
+        "Any issues detected on my vehicle?",
+        "What should I check today?",
+        "Is my truck safe to continue driving?",
+        "Explain this alert in simple terms."
+      ];
+      const el = $("driverPrompts");
+      if(!el) return;
+      el.innerHTML = prompts.map(p=>`<button class="btn" data-driver-prompt="${encodeURIComponent(p)}">${p}</button>`).join("");
+      document.querySelectorAll("[data-driver-prompt]").forEach(btn=>{
+        btn.addEventListener("click", ()=>{
+          const text = decodeURIComponent(btn.getAttribute("data-driver-prompt"));
+          $("driverInput").value = text;
+          $("driverInput").focus();
+        });
+      });
+    }
+
+    function updateVoiceNotice(){
+      const notice = $("voiceNotice");
+      if(!notice) return;
+      if(recording){
+        notice.innerHTML = '<span class="recIndicator"><span class="recDot"></span>Recording...</span>';
+        return;
+      }
+      if(driverSpeedKph === null){
+        notice.textContent = "Voice disabled until vehicle speed is available.";
+      } else if(driverSpeedKph > 0){
+        notice.textContent = "Voice disabled while vehicle is moving.";
+      } else {
+        notice.textContent = "Voice input available (vehicle stopped).";
+      }
+    }
+
+    function updateSpeedFromStorage(){
+      try{
+        const raw = localStorage.getItem("fleetai.currentSpeedKph");
+        if(raw !== null && raw !== ""){
+          const v = Number(raw);
+          driverSpeedKph = Number.isFinite(v) ? v : null;
+        }
+      }catch(e){}
+      updateVoiceNotice();
+    }
+
+    function initSpeech(){
+      const Speech = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if(!Speech){
+        return;
+      }
+      recognition = new Speech();
+      recognition.lang = "en-US";
+      recognition.interimResults = true;
+      recognition.onresult = (e)=>{
+        let transcript = "";
+        for(let i = e.resultIndex; i < e.results.length; i += 1){
+          transcript += e.results[i][0].transcript;
+        }
+        $("driverInput").value = transcript.trim();
+      };
+      recognition.onend = ()=>{
+        recording = false;
+        $("driverMic").classList.remove("active");
+      };
+    }
+
+    function toggleVoice(){
+      if(driverSpeedKph === null || driverSpeedKph > 0){
+        updateVoiceNotice();
+        return;
+      }
+      if(!recognition){
+        updateVoiceNotice();
+        return;
+      }
+      if(recording){
+        recognition.stop();
+        recording = false;
+      } else {
+        recognition.start();
+        recording = true;
+        $("driverMic").classList.add("active");
+      }
+      updateVoiceNotice();
+    }
+
+    async function sendDriverMessage(){
+      const input = $("driverInput");
+      const text = input.value.trim();
+      if(!text) return;
+      input.value = "";
+      appendDriverMessage("user", text);
+
+      const vehicleId = getVehicleId();
+      if(!vehicleId || vehicleId === "--"){
+        appendDriverMessage("ai", "No live data yet. Pair a vehicle to receive guidance.");
+        return;
+      }
+      try{
+        const res = await postJson(`${API_BASE_URL}/api/ai/chat`, {
+          messages: driverChat.slice(-8).map(m=>({ role: m.role === "user" ? "user" : "assistant", content: m.content })),
+          context: { vehicleId, deviceId: getDeviceId(), driverName: $("driverName").textContent || "" }
+        });
+        appendDriverMessage("ai", res.reply || "No response available.");
+      }catch(err){
+        appendDriverMessage("ai", "Unable to reach AI service. Try again later.");
+      }
+    }
+
+    async function postJson(url, payload){
+      const res = await fetch(url, {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify(payload || {})
+      });
+      if(!res.ok){
+        const err = await res.json().catch(()=>({}));
+        throw new Error(err.error || `HTTP ${res.status}`);
+      }
+      return res.json();
+    }
+
+    async function login(){
+      const companyCode = $("companyCode").value.trim();
+      const driverPin = $("driverPin").value.trim();
+      if(!companyCode || !driverPin){
+        $("authNote").textContent = "Company code and driver PIN required.";
+        return;
+      }
+      try{
+        const data = await postJson(`${API_BASE_URL}/auth/driverLogin`, { companyCode, driverPin });
+        $("authStatus").textContent = "Signed in";
+        $("authStatus").className = "pill good";
+        $("driverName").textContent = data.driverName || "--";
+        $("vehicleId").textContent = data.vehicleId || "--";
+        $("vehicleStatus").textContent = data.vehicleId ? "Assigned" : "Unassigned";
+        $("authNote").textContent = "Signed in. Proceed to device pairing.";
+      }catch(err){
+        logError("Driver login failed", err);
+        $("authStatus").textContent = "Not signed in";
+        $("authStatus").className = "pill warn";
+        $("authNote").textContent = err.message || "Unable to sign in.";
+      }
+    }
+
+    async function pairDevice(){
+      const pairingCode = $("pairCode").value.trim();
+      const deviceLabel = $("deviceLabel").value.trim();
+      if(!pairingCode || !deviceLabel){
+        $("pairNote").textContent = "Pair code and tablet label required.";
+        return;
+      }
+      try{
+        await postJson(`${API_BASE_URL}/pairings/claim`, {
+          pairingCode,
+          deviceId: getDeviceId(),
+          deviceLabel
+        });
+        $("pairStatus").textContent = "Paired";
+        $("pairStatus").className = "pill good";
+        $("pairNote").textContent = "Device paired. Waiting for telemetry stream.";
+        $("telemetryStatus").textContent = "Waiting for live data";
+        $("streamStatus").textContent = "Waiting";
+        $("j1939Status").textContent = "Waiting";
+        $("j1939LastFrame").textContent = "--";
+        $("j1939DiagStatus").textContent = "Pending";
+      }catch(err){
+        logError("Pairing failed", err);
+        $("pairStatus").textContent = "Not paired";
+        $("pairStatus").className = "pill warn";
+        $("pairNote").textContent = err.message || "Unable to pair device.";
+      }
+    }
+
+    function init(){
+      loadCompanyName();
+      loadDriverChat();
+      renderDriverChat();
+      renderDriverPrompts();
+      initSpeech();
+      updateSpeedFromStorage();
+      setInterval(updateSpeedFromStorage, 2000);
+      $("btnLogin").addEventListener("click", login);
+      $("btnPair").addEventListener("click", pairDevice);
+      $("tabOps").addEventListener("click", ()=> setActiveTab("ops"));
+      $("tabAdvisor").addEventListener("click", ()=> setActiveTab("advisor"));
+      $("driverSend").addEventListener("click", sendDriverMessage);
+      $("driverInput").addEventListener("keydown", (e)=>{
+        if(e.key === "Enter" && !e.shiftKey){
+          e.preventDefault();
+          sendDriverMessage();
+        }
+      });
+      $("driverClear").addEventListener("click", ()=>{
+        driverChat = [];
+        saveDriverChat();
+        renderDriverChat();
+      });
+      $("driverMic").addEventListener("click", toggleVoice);
+    }
+
+    document.addEventListener("DOMContentLoaded", init);
+  </script>
+</body>
+</html>
+
