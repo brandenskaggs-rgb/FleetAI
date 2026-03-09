@@ -20,3 +20,5 @@ fleet_ai/models/*.joblib
 # Keep env templates trackable
 !.env.example
 !**/.env.example
+
+*.hprof
