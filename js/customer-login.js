@@ -13,13 +13,22 @@ function clearCustomerLoginMessage() {
   el.textContent = "";
 }
 
-function resolveApiUrl(path) {
+function resolveCustomerApiUrl(path) {
   if (typeof window.resolveApiUrl === "function") return window.resolveApiUrl(path);
   if (typeof window.apiUrl === "function") return window.apiUrl(path);
   const base = window.__FLEETAI__?.apiBase || "";
   if (!base) return path;
   if (path.startsWith("http://") || path.startsWith("https://")) return path;
   return path.startsWith("/") ? `${base}${path}` : `${base}/${path}`;
+}
+
+function setCustomerDebug({ endpoint, status, error }) {
+  const endpointEl = document.getElementById("customerDbgEndpoint");
+  const statusEl = document.getElementById("customerDbgStatus");
+  const errorEl = document.getElementById("customerDbgError");
+  if (endpointEl && endpoint !== undefined) endpointEl.textContent = endpoint || "--";
+  if (statusEl && status !== undefined) statusEl.textContent = status || "--";
+  if (errorEl && error !== undefined) errorEl.textContent = error || "--";
 }
 
 async function safeJson(res) {
@@ -43,14 +52,18 @@ async function submitCustomerLogin() {
   }
   try {
     if (btn) btn.disabled = true;
-    const res = await fetch(resolveApiUrl("/api/auth/customer/login"), {
+    const endpoint = "/api/auth/customer/login";
+    setCustomerDebug({ endpoint, status: "sending", error: "--" });
+    const res = await fetch(resolveCustomerApiUrl(endpoint), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
       body: JSON.stringify({ email, password })
     });
+    setCustomerDebug({ status: String(res.status) });
     const parsed = await safeJson(res);
     if (!parsed.okParse) {
+      setCustomerDebug({ error: "invalid json response" });
       showCustomerLoginMessage("Server returned non-JSON. Please retry.", false);
       return;
     }
@@ -64,13 +77,16 @@ async function submitCustomerLogin() {
         return;
       }
       if (code === "USER_NOT_FOUND") {
+        setCustomerDebug({ error: "USER_NOT_FOUND" });
         showCustomerLoginMessage("User not found.", false);
         return;
       }
       if (code === "INVALID_CREDENTIALS") {
+        setCustomerDebug({ error: "INVALID_CREDENTIALS" });
         showCustomerLoginMessage("Invalid credentials.", false);
         return;
       }
+      setCustomerDebug({ error: code || "LOGIN_FAILED" });
       showCustomerLoginMessage("Login failed. Try again.", false);
       return;
     }
@@ -88,6 +104,7 @@ async function submitCustomerLogin() {
     }
     window.location.href = data.redirectTo || "/ui/fleetai-dashboard.html";
   } catch (err) {
+    setCustomerDebug({ status: "ERR", error: err?.message || "request failed" });
     showCustomerLoginMessage("Login failed. Try again.", false);
   } finally {
     if (btn) btn.disabled = false;
@@ -95,6 +112,7 @@ async function submitCustomerLogin() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
+  setCustomerDebug({ endpoint: "/api/auth/customer/login", status: "--", error: "--" });
   const btn = document.getElementById("customerLoginBtn");
   if (btn) btn.addEventListener("click", submitCustomerLogin);
   const password = document.getElementById("customerPassword");

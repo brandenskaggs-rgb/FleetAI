@@ -55,6 +55,8 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
     private var debugJob: Job? = null
     private val ema = mutableMapOf<String, Double>()
     private val history = mutableMapOf<String, MutableList<Double>>()
+    private val lastGood = mutableMapOf<String, Pair<Double, Long>>()
+    private val valueTtlMs = 10_000L
     private var lastReadError: String? = null
 
     init {
@@ -173,10 +175,22 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
                 val load = readPidValue("0104") { ObdParser.parseLoad(it) }
                 val throttle = readPidValue("0111") { ObdParser.parseThrottle(it) }
                 val map = readPidValue("010B") { ObdParser.parseMap(it) }
-                val baro = readPidValue("0133") { it.toDoubleOrNull() }
+                val baro = readPidValue("0133") { ObdParser.parseBaro(it) }
                 val maf = readPidValue("0110") { ObdParser.parseMaf(it) }
-                val fuelLevel = readPidValue("012F") { it.toDoubleOrNull() }
-                val oilTemp = readPidValue("015C") { it.toDoubleOrNull()?.minus(40) }
+                val fuelLevel = readPidValue("012F") { ObdParser.parseFuelLevel(it) }
+                val oilTemp = readPidValue("015C") { ObdParser.parseOilTemp(it) }
+                val rpmValue = withLastGood("010C", rpm.value, now)
+                val speedValue = withLastGood("010D", speed.value, now)
+                val coolantValue = withLastGood("0105", coolant.value, now)
+                val voltageValue = withLastGood("0142", voltage.value, now)
+                val intakeValue = withLastGood("010F", intake.value, now)
+                val loadValue = withLastGood("0104", load.value, now)
+                val throttleValue = withLastGood("0111", throttle.value, now)
+                val mapValue = withLastGood("010B", map.value, now)
+                val baroValue = withLastGood("0133", baro.value, now)
+                val mafValue = withLastGood("0110", maf.value, now)
+                val fuelLevelValue = withLastGood("012F", fuelLevel.value, now)
+                val oilTempValue = withLastGood("015C", oilTemp.value, now)
                 val loopError = listOf(
                     rpm.error,
                     speed.error,
@@ -195,24 +209,24 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
                     Log.w("FleetAI", "[OBD] read error: $loopError")
                 }
                 lastReadError = loopError
-                val boost = deriveBoost(map.value, baro.value)
+                val boost = deriveBoost(mapValue, baroValue)
 
                 val unit = _unitPrefs.value
                 val coreReadings = listOfNotNull(
-                    buildReading("010C", "RPM", rpm.value, "rpm", now, unit, decimals = 0),
-                    buildReading("010D", "Speed", speed.value?.let { if (unit.speedMph) it * 0.621371 else it }, if (unit.speedMph) "mph" else "kph", now, unit, decimals = 0),
-                    buildReading("0105", "Coolant Temp", applyTempUnit(coolant.value, unit.tempF), if (unit.tempF) "°F" else "°C", now, unit),
-                    buildReading("010F", "Intake Temp", applyTempUnit(intake.value, unit.tempF), if (unit.tempF) "°F" else "°C", now, unit),
-                    buildReading("0142", "Voltage", voltage.value, "V", now, unit, decimals = 2),
-                    buildReading("0104", "Engine Load", load.value?.times(100)?.div(100.0), "%", now, unit),
-                    buildReading("010B", "MAP", map.value, "kPa", now, unit),
-                    buildReading("0111", "Throttle", throttle.value, "%", now, unit)
+                    buildReading("010C", "RPM", rpmValue, "rpm", now, unit, decimals = 0),
+                    buildReading("010D", "Speed", speedValue?.let { if (unit.speedMph) it * 0.621371 else it }, if (unit.speedMph) "mph" else "kph", now, unit, decimals = 0),
+                    buildReading("0105", "Coolant Temp", applyTempUnit(coolantValue, unit.tempF), if (unit.tempF) "F" else "C", now, unit),
+                    buildReading("010F", "Intake Temp", applyTempUnit(intakeValue, unit.tempF), if (unit.tempF) "F" else "C", now, unit),
+                    buildReading("0142", "Voltage", voltageValue, "V", now, unit, decimals = 2),
+                    buildReading("0104", "Engine Load", loadValue?.times(100)?.div(100.0), "%", now, unit),
+                    buildReading("010B", "MAP", mapValue, "kPa", now, unit),
+                    buildReading("0111", "Throttle", throttleValue, "%", now, unit)
                 )
                 val advanced = listOfNotNull(
-                    buildReading("0110", "MAF", maf.value, "g/s", now, unit, decimals = 2),
-                    buildReading("012F", "Fuel Level", fuelLevel.value, "%", now, unit),
-                    buildReading("0133", "BARO", baro.value, "kPa", now, unit),
-                    buildReading("015C", "Oil Temp", applyTempUnit(oilTemp.value, unit.tempF), if (unit.tempF) "°F" else "°C", now, unit),
+                    buildReading("0110", "MAF", mafValue, "g/s", now, unit, decimals = 2),
+                    buildReading("012F", "Fuel Level", fuelLevelValue, "%", now, unit),
+                    buildReading("0133", "BARO", baroValue, "kPa", now, unit),
+                    buildReading("015C", "Oil Temp", applyTempUnit(oilTempValue, unit.tempF), if (unit.tempF) "F" else "C", now, unit),
                     boost?.let { buildReading("BOOST", "Boost (Derived)", it, "psi", now, unit, derived = true, decimals = 2) }
                 )
                 _readings.value = coreReadings + advanced
@@ -232,12 +246,12 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
         pollJob = viewModelScope.launch {
             while (isActive) {
                 _readings.value = listOf(
-                    SensorReading("0105", "Coolant Temp", demoValue(78.0, 96.0), "°F", SensorStatus.LIVE, Trend.FLAT, null, null, System.currentTimeMillis()),
+                    SensorReading("0105", "Coolant Temp", demoValue(78.0, 96.0), "F", SensorStatus.LIVE, Trend.FLAT, null, null, System.currentTimeMillis()),
                     SensorReading("010C", "RPM", demoValue(900.0, 2100.0), "rpm", SensorStatus.LIVE, Trend.FLAT, null, null, System.currentTimeMillis()),
                     SensorReading("010D", "Speed", demoValue(0.0, 100.0), "mph", SensorStatus.LIVE, Trend.FLAT, null, null, System.currentTimeMillis()),
                     SensorReading("0142", "Voltage", demoValue(12.4, 14.2), "V", SensorStatus.LIVE, Trend.FLAT, null, null, System.currentTimeMillis()),
-                    SensorReading("010F", "Intake Temp", demoValue(20.0, 45.0), "°F", SensorStatus.LIVE, Trend.FLAT, null, null, System.currentTimeMillis()),
-                    SensorReading("015C", "Oil Temp", demoValue(70.0, 105.0), "°F", SensorStatus.LIVE, Trend.FLAT, null, null, System.currentTimeMillis())
+                    SensorReading("010F", "Intake Temp", demoValue(20.0, 45.0), "F", SensorStatus.LIVE, Trend.FLAT, null, null, System.currentTimeMillis()),
+                    SensorReading("015C", "Oil Temp", demoValue(70.0, 105.0), "F", SensorStatus.LIVE, Trend.FLAT, null, null, System.currentTimeMillis())
                 )
                 delay(2000)
             }
@@ -326,6 +340,15 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
             delta < -0.5 -> Trend.DOWN
             else -> Trend.FLAT
         }
+    }
+
+    private fun withLastGood(pid: String, value: Double?, ts: Long): Double? {
+        if (value != null) {
+            lastGood[pid] = value to ts
+            return value
+        }
+        val cached = lastGood[pid] ?: return null
+        return if (ts - cached.second <= valueTtlMs) cached.first else null
     }
 
     private fun applyTempUnit(valueC: Double?, tempF: Boolean): Double? {

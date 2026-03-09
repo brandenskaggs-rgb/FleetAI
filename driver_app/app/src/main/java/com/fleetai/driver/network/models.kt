@@ -87,7 +87,7 @@ data class TelemetryIngestRequest(
     val driverId: String?,
     val deviceId: String,
     val orgId: String? = null,
-    val protocol: String = "OBD",
+    val protocol: String = "OBD2",
     val timestamp: String,
     val metrics: Map<String, Any?>,
     val derivedMetrics: Map<String, Any?> = emptyMap(),

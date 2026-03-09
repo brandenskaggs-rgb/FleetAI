@@ -1,0 +1,51 @@
+{
+  "fleet_size": 100000,
+  "assumptions": {
+    "annual_preventive_per_truck_usd": 6500.0,
+    "annual_preventive_total_usd": 650000000.0,
+    "intervention_success_rate": 0.62,
+    "avg_breakdown_direct_cost_usd": 1850.0,
+    "avg_downtime_hours": 9.0,
+    "downtime_cost_per_hour_usd": 160.0,
+    "inspection_cost_per_false_alert_usd": 115.0,
+    "extra_proactive_maintenance_pct": 0.1
+  },
+  "modes": {
+    "balanced": {
+      "alerts": 3632,
+      "precision": 0.3025881057268722,
+      "recall": 0.4120734908136483,
+      "prevented_breakdowns_est": 681.38,
+      "gross_avoided_cost_usd": 2241740.2,
+      "false_alert_cost_usd": 291295.0,
+      "additional_proactive_maintenance_usd": 65000000.0,
+      "net_annual_savings_usd": -63049554.8,
+      "roi_percent": -97.0,
+      "savings_vs_pm_percent": -9.7
+    },
+    "high_precision": {
+      "alerts": 813,
+      "precision": 0.43050430504305043,
+      "recall": 0.13123359580052493,
+      "prevented_breakdowns_est": 217.0,
+      "gross_avoided_cost_usd": 713930.0,
+      "false_alert_cost_usd": 53245.0,
+      "additional_proactive_maintenance_usd": 65000000.0,
+      "net_annual_savings_usd": -64339315.0,
+      "roi_percent": -98.98,
+      "savings_vs_pm_percent": -9.9
+    },
+    "high_recall": {
+      "alerts": 10497,
+      "precision": 0.167952748404306,
+      "recall": 0.661042369703787,
+      "prevented_breakdowns_est": 1093.06,
+      "gross_avoided_cost_usd": 3596167.4,
+      "false_alert_cost_usd": 1004410.0,
+      "additional_proactive_maintenance_usd": 65000000.0,
+      "net_annual_savings_usd": -62408242.6,
+      "roi_percent": -96.01,
+      "savings_vs_pm_percent": -9.6
+    }
+  }
+}

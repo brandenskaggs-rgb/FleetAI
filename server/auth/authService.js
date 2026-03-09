@@ -36,7 +36,9 @@ function needsPasswordSetup(user) {
 }
 
 function shouldAutoRepair(email, devSetupMode, whitelist) {
-  if (!devSetupMode) return false;
+  const envDevSetup = String(process.env.DEV_SETUP || "").toLowerCase() === "true";
+  const enabled = devSetupMode || envDevSetup;
+  if (!enabled) return false;
   if (!Array.isArray(whitelist) || whitelist.length === 0) return false;
   const normalized = normalizeEmail(email);
   return whitelist.includes(normalized);

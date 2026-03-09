@@ -11,7 +11,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.time.Instant
-import java.time.format.DateTimeFormatter
 
 class TelemetrySender(
     private val obd: com.fleetai.driver.obd.ObdConnectionManager,
@@ -51,7 +50,13 @@ class TelemetrySender(
             } catch (_: Exception) {
                 cachedVin = null
             }
-            val pidPlan = J1979Spec.extendedSet().filter { supported.contains(it.pid) }
+            val pidPlan = if (supported.isEmpty()) {
+                J1979Spec.minimumSet()
+            } else {
+                J1979Spec.extendedSet().filter { supported.contains(it.pid) }
+                    .ifEmpty { J1979Spec.minimumSet() }
+            }
+            val protocolHint = if (supported.isEmpty()) "J1939" else "OBD2"
             while (isActive) {
                 val loopStart = System.currentTimeMillis()
                 val metrics = mutableMapOf<String, Any?>()
@@ -71,6 +76,9 @@ class TelemetrySender(
                                 "0104" -> raw?.let { com.fleetai.driver.obd.ObdParser.parseLoad(it) }
                                 "0111" -> raw?.let { com.fleetai.driver.obd.ObdParser.parseThrottle(it) }
                                 "010B" -> raw?.let { com.fleetai.driver.obd.ObdParser.parseMap(it) }
+                                "012F" -> raw?.let { com.fleetai.driver.obd.ObdParser.parseFuelLevel(it) }
+                                "0133" -> raw?.let { com.fleetai.driver.obd.ObdParser.parseBaro(it) }
+                                "015C" -> raw?.let { com.fleetai.driver.obd.ObdParser.parseOilTemp(it) }
                                 else -> null
                             }
                             val now = System.currentTimeMillis()
@@ -81,13 +89,13 @@ class TelemetrySender(
                                 metrics[nameForPid(spec.pid, spec.name)] = smoothed
                             } else {
                                 val cached = lastGood[spec.pid]
-                            if (cached != null && now - cached.second < ttlMs) {
-                                metrics[nameForPid(spec.pid, spec.name)] = cached.first
+                                if (cached != null && now - cached.second < ttlMs) {
+                                    metrics[nameForPid(spec.pid, spec.name)] = cached.first
+                                }
                             }
-                        }
-                    } catch (ex: Exception) {
+                        } catch (ex: Exception) {
                         debug = debug.copy(lastError = ex.message ?: "pid_error", errors = debug.errors + 1)
-                    }
+                        }
                         delay(spec.minIntervalMs.coerceAtLeast(100L))
                     }
                 }
@@ -111,6 +119,7 @@ class TelemetrySender(
                                 vehicleId = vehicleId,
                                 driverId = resolveDriverId(),
                                 deviceId = deviceId,
+                                protocol = protocolHint,
                                 timestamp = now,
                                 metrics = metrics,
                                 obdConnected = obdConnected,
@@ -153,6 +162,9 @@ class TelemetrySender(
             "0104" -> "engineLoadPct"
             "0111" -> "throttlePosPct"
             "010B" -> "mapKpa"
+            "012F" -> "fuelLevelPct"
+            "0133" -> "baroKpa"
+            "015C" -> "oilTempC"
             else -> fallbackName.lowercase().replace(" ", "_")
         }
     }
@@ -164,6 +176,9 @@ class TelemetrySender(
             "0105", "010F" -> if (value in -40.0..200.0) value else null
             "0142" -> if (value in 6.0..18.5) value else null
             "0110" -> if (value in 0.0..500.0) value else null
+            "012F" -> if (value in 0.0..100.0) value else null
+            "0133" -> if (value in 60.0..120.0) value else null
+            "015C" -> if (value in -40.0..220.0) value else null
             else -> value
         }
     }

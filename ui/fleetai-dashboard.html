@@ -2772,6 +2772,7 @@
         lastHeartbeat: null,
         lastMessage: null,
         obdConnected: false,
+        currentVehicleId: null,
         deviceOnline: null
       },
       alerts: [],
@@ -3052,6 +3053,7 @@
       const lastMsg = state.telemetryStream.lastMessage ? new Date(state.telemetryStream.lastMessage).getTime() : 0;
       const deviceFresh = lastMsg && (Date.now() - lastMsg) < 10000;
       const obdConnected = state.telemetryStream.obdConnected && deviceFresh;
+      const streamVehicle = state.telemetryStream.currentVehicleId || "";
       if(!state.selectedVehicleId){
         pill.className = "pill2";
         pill.textContent = "No vehicles yet";
@@ -3067,9 +3069,11 @@
       }
       if(backendConnected && deviceFresh){
         pill.className = obdConnected ? "pill2 good" : "pill2 warn";
-        pill.textContent = obdConnected ? "OBD Connected" : "Device online, OBD offline";
+        pill.textContent = obdConnected ? "Telemetry Connected" : "Device online, OBD offline";
         note.textContent = obdConnected
-          ? "Live OBD data is streaming from the paired tablet."
+          ? (streamVehicle && streamVehicle !== state.selectedVehicleId
+              ? `Live data is streaming for ${streamVehicle}. Switch vehicle selection to view it.`
+              : "Live OBD data is streaming from the paired tablet.")
           : "Tablet online; waiting for OBD-II dongle data.";
         return;
       }
@@ -3818,6 +3822,12 @@
       el.textContent = label || "Preview Mode";
     }
 
+    function redirectToCustomerLogin(){
+      const current = `${window.location.pathname || ""}${window.location.search || ""}${window.location.hash || ""}`;
+      const returnTo = encodeURIComponent(current || "/ui/fleetai-dashboard.html");
+      window.location.href = `/customer-login.html?returnTo=${returnTo}`;
+    }
+
     function setOrgBranding(orgName){
       const name = orgName && orgName.trim ? orgName.trim() : "";
       if(!name) return;
@@ -3885,6 +3895,7 @@
       try{
         const res = await fetch(`${API_BASE_URL}/api/auth/password/update`, {
           method: "POST",
+          credentials: "include",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ currentPassword: current, newPassword: next })
         });
@@ -3922,9 +3933,33 @@
 
     async function loadCustomerProfile(){
       try{
-        const res = await fetch(`${API_BASE_URL}/api/me`);
-        if(res.status === 401){
+        const profileUrls = [];
+        if(API_BASE_URL){
+          profileUrls.push(`${API_BASE_URL}/api/me`);
+        }
+        if(window.location && window.location.origin){
+          const sameOriginProfile = `${window.location.origin}/api/me`;
+          if(!profileUrls.includes(sameOriginProfile)){
+            profileUrls.push(sameOriginProfile);
+          }
+        }
+        let res = null;
+        for(const url of profileUrls){
+          try{
+            const attempt = await fetch(url, { credentials: "include", cache: "no-store" });
+            if(attempt.ok || attempt.status === 401){
+              res = attempt;
+              break;
+            }
+            if(!res) res = attempt;
+          }catch(_){}
+        }
+        if(!res){
           setHeaderUserLabel("Preview Mode");
+          return;
+        }
+        if(res.status === 401){
+          redirectToCustomerLogin();
           return;
         }
         if(!res.ok){
@@ -3938,12 +3973,15 @@
         }
         const user = data.user || {};
         currentUserProfile = user;
-        const display = user.displayName || user.email || "";
-        setHeaderUserLabel(display ? `Signed in as ${display}` : "Signed in");
+        const display = user.displayName || user.email || user.id || "Unknown User";
+        setHeaderUserLabel(`Logged in as ${display}`);
         updatePasswordSection(user);
         if(user.orgId){
           try{ localStorage.setItem("fleetai.orgId", user.orgId); }catch(e){}
-          const orgRes = await fetch(`${API_BASE_URL}/api/orgs/${encodeURIComponent(user.orgId)}/public-profile`);
+          const orgRes = await fetch(`${API_BASE_URL}/api/orgs/${encodeURIComponent(user.orgId)}/public-profile`, {
+            credentials: "include",
+            cache: "no-store"
+          });
           if(orgRes.ok){
             const orgData = await orgRes.json();
             const orgName = orgData && orgData.data ? orgData.data.name : "";
@@ -5584,6 +5622,10 @@
           state.telemetryStream.lastMessage = data.ts || data.timestamp || now;
           state.telemetryStream.obdConnected = Boolean(data.obdConnected);
           state.telemetryStream.deviceOnline = now;
+          if(data.vehicleId){
+            state.telemetryStream.currentVehicleId = data.vehicleId;
+          }
+          maybeAutoSelectTelemetryVehicle(data.vehicleId);
           if(state.selectedVehicleId && data.vehicleId && data.vehicleId !== state.selectedVehicleId){
             updateTelemetryStatus();
             return;
@@ -5619,7 +5661,15 @@
           if(data.lastSampleAt){
             state.telemetryStream.lastMessage = data.lastSampleAt;
             state.telemetryStream.deviceOnline = Date.now();
-            state.telemetryStream.obdConnected = Boolean(data.connected);
+            if(typeof data.obdConnected === "boolean"){
+              state.telemetryStream.obdConnected = data.obdConnected;
+            } else {
+              state.telemetryStream.obdConnected = Boolean(data.connected);
+            }
+            if(data.vehicleId){
+              state.telemetryStream.currentVehicleId = data.vehicleId;
+              maybeAutoSelectTelemetryVehicle(data.vehicleId);
+            }
             updateTelemetryStatus();
           }
           if(typeof data.connected === "boolean"){
@@ -5628,6 +5678,23 @@
           }
         })
         .catch(()=>{});
+    }
+
+    function maybeAutoSelectTelemetryVehicle(vehicleId){
+      if(!vehicleId) return;
+      if(!state.selectedVehicleId){
+        applySelectedVehicle(vehicleId, { silent: true });
+        return;
+      }
+      if(state.selectedVehicleId === vehicleId) return;
+      const selectedFresh = state.telemetryLastSeen
+        ? (Date.now() - new Date(state.telemetryLastSeen).getTime()) < 15000
+        : false;
+      const selectedPairing = state.pairings.find(p=>p.status === "active" && p.vehicleId === state.selectedVehicleId);
+      const incomingPairing = state.pairings.find(p=>p.status === "active" && p.vehicleId === vehicleId);
+      if(!selectedFresh && incomingPairing && !selectedPairing){
+        applySelectedVehicle(vehicleId, { silent: true });
+      }
     }
 
     function renderEventLog(){

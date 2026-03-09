@@ -1,0 +1,68 @@
+{
+  "fleet_size": 12,
+  "annual_preventive_maintenance_usd": 78000.0,
+  "model_metrics_used": {
+    "precision": 0.3515850144092219,
+    "recall": 0.45899172310007524
+  },
+  "scenarios": {
+    "conservative": {
+      "assumptions": {
+        "breakdowns_per_truck_per_year": 1.6,
+        "breakdown_total_cost_usd": 5400.0,
+        "planned_intervention_cost_per_alert_usd": 180.0
+      },
+      "results": {
+        "annual_breakdowns_est": 19.2,
+        "detected_breakdowns_est": 8.81,
+        "prevented_breakdowns_est": 5.46,
+        "predicted_alerts_est": 25.07,
+        "false_alerts_est": 16.25,
+        "gross_avoided_cost_usd": 29504.72,
+        "proactive_intervention_cost_usd": 4511.78,
+        "net_annual_savings_usd": 24992.94,
+        "roi_percent": 553.95,
+        "savings_vs_pm_percent": 32.04
+      }
+    },
+    "base": {
+      "assumptions": {
+        "breakdowns_per_truck_per_year": 2.3,
+        "breakdown_total_cost_usd": 9500.0,
+        "planned_intervention_cost_per_alert_usd": 220.0
+      },
+      "results": {
+        "annual_breakdowns_est": 27.6,
+        "detected_breakdowns_est": 12.67,
+        "prevented_breakdowns_est": 7.85,
+        "predicted_alerts_est": 36.03,
+        "false_alerts_est": 23.36,
+        "gross_avoided_cost_usd": 74615.53,
+        "proactive_intervention_cost_usd": 7926.95,
+        "net_annual_savings_usd": 66688.58,
+        "roi_percent": 841.29,
+        "savings_vs_pm_percent": 85.5
+      }
+    },
+    "catastrophic_west": {
+      "assumptions": {
+        "breakdowns_per_truck_per_year": 3.1,
+        "breakdown_total_cost_usd": 16500.0,
+        "planned_intervention_cost_per_alert_usd": 260.0
+      },
+      "results": {
+        "annual_breakdowns_est": 37.2,
+        "detected_breakdowns_est": 17.07,
+        "prevented_breakdowns_est": 10.59,
+        "predicted_alerts_est": 48.56,
+        "false_alerts_est": 31.49,
+        "gross_avoided_cost_usd": 174672.05,
+        "proactive_intervention_cost_usd": 12626.73,
+        "net_annual_savings_usd": 162045.33,
+        "roi_percent": 1283.35,
+        "savings_vs_pm_percent": 207.75
+      }
+    }
+  },
+  "notes": "Scenario economics use all-in breakdown cost assumptions (repair+tow+downtime impact). Replace with your real accounting values per customer for final proposal."
+}

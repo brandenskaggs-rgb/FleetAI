@@ -1,4 +1,14 @@
 (() => {
+  function normalizeBase(value) {
+    if (!value) return "";
+    try {
+      const parsed = new URL(String(value), window.location.origin);
+      return parsed.origin;
+    } catch (e) {
+      return String(value).trim().replace(/\/+$/, "");
+    }
+  }
+
   const stored = (() => {
     try {
       return localStorage.getItem("fleetai.apiBase") || "";
@@ -7,7 +17,18 @@
     }
   })();
   const injected = window.FLEETAI_API_BASE_URL || window.__FLEETAI_API_BASE_URL__ || window.FLEETAI_API_BASE || "";
-  const base = String(injected || stored || "").trim().replace(/\/+$/, "");
+  const currentOrigin = window.location.origin;
+  let base = normalizeBase(injected || stored || "");
+  if (!injected && stored) {
+    try {
+      const storedUrl = new URL(base);
+      if (storedUrl.hostname.toLowerCase() !== window.location.hostname.toLowerCase()) {
+        base = currentOrigin;
+        try { localStorage.setItem("fleetai.apiBase", base); } catch (e) {}
+      }
+    } catch (e) {}
+  }
+  if (!base) base = currentOrigin;
   window.API_BASE_URL = base;
   window.FLEETAI_API_BASE_URL = base;
   window.apiUrl = (path) => {

@@ -1,0 +1,27 @@
+{
+  "fleet_size": 12,
+  "annual_preventive_maintenance_usd": 78000.0,
+  "assumptions": {
+    "breakdowns_per_truck_per_year": 2.3,
+    "average_breakdown_direct_cost_usd": 1850.0,
+    "average_downtime_hours_per_breakdown": 9.0,
+    "downtime_cost_per_hour_usd": 160.0,
+    "intervention_success_rate": 0.62,
+    "extra_proactive_maintenance_pct": 0.1,
+    "inspection_cost_per_false_alert_usd": 115.0
+  },
+  "model_metrics_used": {
+    "precision": 0.3515850144092219,
+    "recall": 0.45899172310007524
+  },
+  "results": {
+    "annual_breakdowns_estimated": 27.6,
+    "prevented_breakdowns_estimated": 7.85,
+    "gross_avoided_cost_usd": 25840.54,
+    "false_alert_cost_usd": 1665.81,
+    "additional_proactive_maintenance_usd": 7800.0,
+    "net_annual_savings_usd": 16374.72,
+    "roi_percent": 209.93
+  },
+  "notes": "This is a planning model, not proof. Replace assumptions with observed fleet maintenance events, downtime, and accounting data for production ROI."
+}

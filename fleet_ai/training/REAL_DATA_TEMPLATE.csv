@@ -1,0 +1,4 @@
+timestamp,truck_id,rpm,engine_temp,fuel_pressure,battery_voltage,vibration,ambient_temp_c,elevation_ft,payload_ratio,road_grade_pct,idle_hours_day,failure_within_14d
+2026-01-01T08:00:00Z,TRK_001,1780,96.2,58.4,13.4,0.62,18.0,1200,0.78,1.4,1.2,0
+2026-01-01T12:00:00Z,TRK_001,1905,99.5,56.8,13.3,0.74,21.0,1350,0.82,2.0,1.0,0
+2026-01-01T16:00:00Z,TRK_001,2050,104.1,52.1,13.1,0.98,30.0,2400,0.90,3.6,2.1,1

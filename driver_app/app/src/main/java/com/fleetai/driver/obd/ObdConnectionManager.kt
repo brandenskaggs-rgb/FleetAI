@@ -7,6 +7,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.BufferedInputStream
 import java.io.BufferedOutputStream
+import java.net.SocketTimeoutException
 import java.nio.charset.Charset
 import java.util.UUID
 
@@ -15,6 +16,7 @@ class ObdConnectionManager {
     private var socket: BluetoothSocket? = null
     private var input: BufferedInputStream? = null
     private var output: BufferedOutputStream? = null
+    private val ioLock = Any()
 
     fun hasBluetooth(): Boolean = adapter != null
 
@@ -45,6 +47,7 @@ class ObdConnectionManager {
         val uuid = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
         val btSocket = device.createRfcommSocketToServiceRecord(uuid)
         btSocket.connect()
+        btSocket.soTimeout = 1200
         socket = btSocket
         input = BufferedInputStream(btSocket.inputStream)
         output = BufferedOutputStream(btSocket.outputStream)
@@ -89,20 +92,60 @@ class ObdConnectionManager {
         sendCommand("ATSP0")
     }
 
-    private suspend fun sendCommand(command: String): String? {
-        val out = output ?: return null
-        val inputStream = input ?: return null
-        val payload = "${command}\r"
-        out.write(payload.toByteArray(Charset.forName("US-ASCII")))
-        out.flush()
+    private suspend fun sendCommand(command: String): String? = withContext(Dispatchers.IO) {
+        val out = output ?: return@withContext null
+        val inputStream = input ?: return@withContext null
+        synchronized(ioLock) {
+            drainInput(inputStream)
+            val payload = "${command.trim()}\r"
+            out.write(payload.toByteArray(Charset.forName("US-ASCII")))
+            out.flush()
 
-        val buffer = ByteArray(512)
-        val read = inputStream.read(buffer)
-        if (read <= 0) return null
-        return String(buffer, 0, read, Charset.forName("US-ASCII"))
+            val response = StringBuilder()
+            val buffer = ByteArray(256)
+            val deadline = System.currentTimeMillis() + 1800L
+            while (System.currentTimeMillis() < deadline) {
+                val read = try {
+                    inputStream.read(buffer)
+                } catch (_: SocketTimeoutException) {
+                    if (response.isNotEmpty()) break
+                    continue
+                }
+                if (read <= 0) {
+                    if (response.isNotEmpty()) break
+                    continue
+                }
+                val chunk = String(buffer, 0, read, Charset.forName("US-ASCII"))
+                response.append(chunk)
+                if (chunk.contains(">")) break
+            }
+
+            val raw = response.toString()
+            if (raw.isBlank()) return@withContext null
+            return@withContext parseObdResponse(raw, command)
+        }
     }
 
-    private fun parseObdResponse(raw: String): String? {
-        return raw.replace("\r", " ").replace(">", " ").trim().ifBlank { null }
+    private fun drainInput(inputStream: BufferedInputStream) {
+        while (inputStream.available() > 0) {
+            val skipped = inputStream.skip(inputStream.available().toLong())
+            if (skipped <= 0) break
+        }
+    }
+
+    private fun parseObdResponse(raw: String, command: String): String? {
+        val cleaned = raw
+            .replace(">", " ")
+            .replace("\r", "\n")
+            .lines()
+            .map { it.trim() }
+            .filter { line ->
+                line.isNotBlank() &&
+                    !line.equals(command, ignoreCase = true) &&
+                    !line.startsWith("SEARCHING", ignoreCase = true)
+            }
+            .joinToString(" ")
+            .trim()
+        return cleaned.ifBlank { null }
     }
 }

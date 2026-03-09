@@ -2,6 +2,8 @@ const crypto = require("crypto");
 
 const MIN_SAMPLES = 200;
 const EWMA_ALPHA = 0.18;
+const SEASONAL_MIN_SAMPLES = 40;
+const CLIMATE_WINDOW_DAYS = 30;
 
 const METRIC_KEYS = [
   "rpm",
@@ -101,6 +103,59 @@ function computeBaselines(samples) {
   return baselines;
 }
 
+function getSeasonFromMonth(monthIndex) {
+  if (monthIndex === 11 || monthIndex <= 1) return "winter";
+  if (monthIndex >= 2 && monthIndex <= 4) return "spring";
+  if (monthIndex >= 5 && monthIndex <= 7) return "summer";
+  return "fall";
+}
+
+function getSeasonFromTimestamp(timestamp) {
+  const parsed = new Date(timestamp);
+  if (Number.isNaN(parsed.getTime())) return "unknown";
+  return getSeasonFromMonth(parsed.getUTCMonth());
+}
+
+function computeSeasonalBaselines(samples) {
+  const seasonalValues = {};
+  const seasons = ["winter", "spring", "summer", "fall"];
+  seasons.forEach((season) => {
+    seasonalValues[season] = {};
+    METRIC_KEYS.forEach((key) => {
+      seasonalValues[season][key] = [];
+    });
+  });
+
+  samples.forEach((sample) => {
+    const season = getSeasonFromTimestamp(sample.ts);
+    if (!seasonalValues[season]) return;
+    METRIC_KEYS.forEach((key) => {
+      const value = toNumber(sample.metrics?.[key]);
+      if (value != null) seasonalValues[season][key].push(value);
+    });
+  });
+
+  const seasonalBaselines = {};
+  Object.entries(seasonalValues).forEach(([season, byMetric]) => {
+    seasonalBaselines[season] = {};
+    METRIC_KEYS.forEach((key) => {
+      seasonalBaselines[season][key] = computeBaseline(byMetric[key]);
+    });
+  });
+  return seasonalBaselines;
+}
+
+function resolveBaseline(metricKey, baselines, seasonalBaselines, seasonKey) {
+  const globalBaseline = baselines[metricKey];
+  if (!seasonalBaselines || !seasonKey) return globalBaseline;
+  const seasonalBaseline = seasonalBaselines[seasonKey]?.[metricKey];
+  if (!seasonalBaseline) return globalBaseline;
+  if (seasonalBaseline.count >= SEASONAL_MIN_SAMPLES && seasonalBaseline.mean != null) {
+    return seasonalBaseline;
+  }
+  return globalBaseline;
+}
+
 function computeCoverage(baselines) {
   const total = METRIC_KEYS.length;
   const available = METRIC_KEYS.filter((key) => {
@@ -110,7 +165,7 @@ function computeCoverage(baselines) {
   return total ? available / total : 0;
 }
 
-function computeAnomaly(latest, baselines) {
+function computeAnomaly(latest, baselines, seasonalBaselines = null, seasonKey = null) {
   if (!latest) {
     return { score: null, contributors: [], confidence: 0 };
   }
@@ -119,7 +174,7 @@ function computeAnomaly(latest, baselines) {
   let weightSum = 0;
   METRIC_KEYS.forEach((key) => {
     const value = toNumber(latest.metrics?.[key]);
-    const baseline = baselines[key];
+    const baseline = resolveBaseline(key, baselines, seasonalBaselines, seasonKey);
     if (value == null || !baseline || baseline.mean == null || !baseline.std) return;
     const z = Math.abs((value - baseline.mean) / (baseline.std || 1));
     const contrib = clamp(z / 4, 0, 1);
@@ -128,7 +183,8 @@ function computeAnomaly(latest, baselines) {
         metric: key,
         value,
         zScore: z,
-        reason: `${key} deviated by ${z.toFixed(2)} std dev.`
+        reason: `${key} deviated by ${z.toFixed(2)} std dev.`,
+        baseline: baseline.count >= SEASONAL_MIN_SAMPLES ? "seasonal_or_global" : "global"
       });
     }
     scoreSum += contrib;
@@ -141,7 +197,55 @@ function computeAnomaly(latest, baselines) {
   };
 }
 
-function computeRisk(samples, baselines) {
+function computeClimateContext(samples, baselines, seasonalBaselines, seasonKey) {
+  if (!samples.length) return null;
+  const latest = getLatestSample(samples);
+  if (!latest) return null;
+
+  const latestAmbient = toNumber(latest.metrics?.ambientTemp);
+  const ambientGlobal = baselines.ambientTemp || null;
+  const ambientSeasonal = resolveBaseline("ambientTemp", baselines, seasonalBaselines, seasonKey);
+
+  const latestTs = new Date(latest.ts);
+  if (Number.isNaN(latestTs.getTime())) return null;
+  const windowStartTs = new Date(latestTs.getTime() - CLIMATE_WINDOW_DAYS * 86400000);
+  const recentAmbient = samples
+    .filter((s) => {
+      const ts = new Date(s.ts);
+      return !Number.isNaN(ts.getTime()) && ts >= windowStartTs;
+    })
+    .map((s) => toNumber(s.metrics?.ambientTemp))
+    .filter((v) => v != null);
+
+  const recentMean = recentAmbient.length
+    ? recentAmbient.reduce((sum, v) => sum + v, 0) / recentAmbient.length
+    : null;
+  const seasonalMean = ambientSeasonal?.mean ?? null;
+  const seasonalStd = ambientSeasonal?.std ?? null;
+  const overallMean = ambientGlobal?.mean ?? null;
+
+  const ambientAnomalyZ =
+    latestAmbient != null && seasonalMean != null && seasonalStd
+      ? (latestAmbient - seasonalMean) / seasonalStd
+      : null;
+  const climateShiftC =
+    recentMean != null && overallMean != null ? recentMean - overallMean : null;
+  const extremeWeatherStress = Boolean(
+    (ambientAnomalyZ != null && Math.abs(ambientAnomalyZ) >= 2.0) ||
+      (climateShiftC != null && Math.abs(climateShiftC) >= 8.0)
+  );
+
+  return {
+    season: seasonKey || "unknown",
+    latestAmbientC: latestAmbient,
+    ambientAnomalyZ,
+    recent30dAmbientMeanC: recentMean,
+    climateShift30dC: climateShiftC,
+    extremeWeatherStress
+  };
+}
+
+function computeRisk(samples, baselines, climateContext = null) {
   const lastSamples = samples.slice(-MIN_SAMPLES);
   const result = {
     cooling: null,
@@ -160,33 +264,39 @@ function computeRisk(samples, baselines) {
   };
   const cooling = computeMetricTrend("coolantTemp");
   if (cooling) {
-    const risk = clamp((cooling.drift * 1.2) + (cooling.slope * 0.15), 0, 1);
+    const heatStress = clamp((((climateContext?.ambientAnomalyZ ?? 0) - 1) / 2), 0, 1);
+    const climateShift = clamp(Math.abs(climateContext?.climateShift30dC ?? 0) / 12, 0, 1);
+    const risk = clamp((cooling.drift * 1.2) + (cooling.slope * 0.15) + (heatStress * 0.2) + (climateShift * 0.1), 0, 1);
     result.cooling = {
       risk7: toRisk(risk * 0.6),
       risk14: toRisk(risk * 0.8),
       risk30: toRisk(risk),
-      reason: "Coolant temperature trend vs baseline."
+      reason: "Coolant temperature trend vs baseline with seasonal climate weighting."
     };
   }
   const charging = computeMetricTrend("batteryVoltage");
   if (charging) {
     const drop = charging.baselineMean ? Math.max(0, (charging.baselineMean - charging.current) / charging.baselineMean) : 0;
-    const risk = clamp(drop * 1.4 + Math.abs(charging.slope) * 0.1, 0, 1);
+    const coldStress = clamp((((-(climateContext?.ambientAnomalyZ ?? 0)) - 1) / 2), 0, 1);
+    const climateShift = clamp(Math.abs(climateContext?.climateShift30dC ?? 0) / 12, 0, 1);
+    const risk = clamp(drop * 1.4 + Math.abs(charging.slope) * 0.1 + (coldStress * 0.22) + (climateShift * 0.06), 0, 1);
     result.charging = {
       risk7: toRisk(risk * 0.6),
       risk14: toRisk(risk * 0.8),
       risk30: toRisk(risk),
-      reason: "Voltage sag/instability detected."
+      reason: "Voltage sag/instability detected with cold-weather stress weighting."
     };
   }
   const fuelRate = computeMetricTrend("fuelRate");
   if (fuelRate) {
-    const risk = clamp((fuelRate.drift * 1.2) + (fuelRate.slope * 0.12), 0, 1);
+    const ambientStress = clamp(Math.abs(climateContext?.ambientAnomalyZ ?? 0) / 3, 0, 1);
+    const climateShift = clamp(Math.abs(climateContext?.climateShift30dC ?? 0) / 12, 0, 1);
+    const risk = clamp((fuelRate.drift * 1.2) + (fuelRate.slope * 0.12) + (ambientStress * 0.12) + (climateShift * 0.08), 0, 1);
     result.fuel = {
       risk7: toRisk(risk * 0.6),
       risk14: toRisk(risk * 0.8),
       risk30: toRisk(risk),
-      reason: "Fuel rate variance against baseline."
+      reason: "Fuel rate variance against baseline with weather-normalized adjustments."
     };
   }
   return result;
@@ -268,7 +378,10 @@ function computeModelState(data, vehicleId) {
   const sampleCount = samples.length;
   const latest = getLatestSample(samples);
   const baselines = computeBaselines(samples);
+  const seasonalBaselines = computeSeasonalBaselines(samples);
+  const seasonKey = latest ? getSeasonFromTimestamp(latest.ts) : "unknown";
   const coverage = computeCoverage(baselines);
+  const climateContext = computeClimateContext(samples, baselines, seasonalBaselines, seasonKey);
   if (sampleCount < MIN_SAMPLES || coverage === 0) {
     return {
       vehicleId,
@@ -276,12 +389,13 @@ function computeModelState(data, vehicleId) {
       sampleCount,
       coverage,
       insufficientHistory: true,
+      climateContext,
       updatedAt: new Date().toISOString(),
       routeSignature: computeRouteSignature(samples)
     };
   }
-  const anomaly = computeAnomaly(latest, baselines);
-  const risk = computeRisk(samples, baselines);
+  const anomaly = computeAnomaly(latest, baselines, seasonalBaselines, seasonKey);
+  const risk = computeRisk(samples, baselines, climateContext);
   const confidence = confidenceFrom(sampleCount, coverage);
   return {
     vehicleId,
@@ -293,6 +407,7 @@ function computeModelState(data, vehicleId) {
     topContributors: anomaly.contributors,
     confidence,
     risk,
+    climateContext,
     updatedAt: new Date().toISOString(),
     routeSignature: computeRouteSignature(samples)
   };
@@ -445,6 +560,13 @@ function generateAlertsFromState(state) {
       "Check fuel filters and lines.",
       "Review fuel rate anomalies.",
       "Verify injector health."
+    ]);
+  }
+  if (state.climateContext?.extremeWeatherStress && confidence >= 0.4) {
+    pushAlert("CLIMATE_STRESS", "warning", "Extreme ambient conditions detected relative to learned seasonal baseline.", [
+      "Review route weather exposure and idling policy.",
+      "Inspect cooling and charging systems for climate stress.",
+      "Recompute model after next 24h of telemetry."
     ]);
   }
   return alerts;

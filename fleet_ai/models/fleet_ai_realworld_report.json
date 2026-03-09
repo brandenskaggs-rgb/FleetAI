@@ -1,0 +1,72 @@
+{
+  "rows_total": 3,
+  "rows_train": 2,
+  "rows_test": 1,
+  "features": [
+    "rpm",
+    "engine_temp",
+    "fuel_pressure",
+    "battery_voltage",
+    "vibration",
+    "ambient_temp_c",
+    "elevation_ft",
+    "payload_ratio",
+    "road_grade_pct",
+    "idle_hours_day",
+    "engine_temp_delta_30d",
+    "fuel_pressure_delta_30d",
+    "battery_voltage_delta_30d",
+    "vibration_delta_30d",
+    "rpm_roll7_mean",
+    "engine_temp_roll7_mean",
+    "fuel_pressure_roll7_mean",
+    "vibration_roll7_std"
+  ],
+  "thresholds": {
+    "balanced": 0.05,
+    "high_precision": 0.6,
+    "high_recall": 0.2
+  },
+  "metrics_balanced": {
+    "accuracy": 0.0,
+    "precision": 0.0,
+    "recall": 0.0,
+    "f1": 0.0,
+    "roc_auc": NaN,
+    "pr_auc": 1.0,
+    "confusion_matrix": {
+      "tn": 0,
+      "fp": 0,
+      "fn": 1,
+      "tp": 0
+    }
+  },
+  "metrics_high_precision": {
+    "accuracy": 0.0,
+    "precision": 0.0,
+    "recall": 0.0,
+    "f1": 0.0,
+    "roc_auc": NaN,
+    "pr_auc": 1.0,
+    "confusion_matrix": {
+      "tn": 0,
+      "fp": 0,
+      "fn": 1,
+      "tp": 0
+    }
+  },
+  "metrics_high_recall": {
+    "accuracy": 0.0,
+    "precision": 0.0,
+    "recall": 0.0,
+    "f1": 0.0,
+    "roc_auc": NaN,
+    "pr_auc": 1.0,
+    "confusion_matrix": {
+      "tn": 0,
+      "fp": 0,
+      "fn": 1,
+      "tp": 0
+    }
+  }
+}

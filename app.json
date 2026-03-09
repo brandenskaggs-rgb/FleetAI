@@ -1,0 +1,18 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "9f78ec97-d9ad-4f9e-9aa9-fadcb3b2c67d"
+      }
+    },
+    "android": {
+      "package": "com.sentinelxinc.fleetai"
+    },
+    "ios": {
+      "bundleIdentifier": "com.sentinelxinc.fleetai",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    }
+  }
+}

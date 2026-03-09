@@ -1,2 +1,14 @@
 server/data.json.bak-*
 server/data.json.bad-*
+
+# Environment and secret files
+.env
+.env.*
+*.env
+**/.env
+**/.env.*
+**/*.env
+
+# Keep env templates trackable
+!.env.example
+!**/.env.example

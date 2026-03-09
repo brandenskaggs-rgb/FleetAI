@@ -61,6 +61,14 @@
           <button class="btn primary" id="customerLoginBtn">Sign In</button>
           <div class="formNote">First login requires setting a new password.</div>
           <div class="formSuccess" id="customerLoginMessage" style="display:none;"></div>
+          <details id="customerDebugPanel" style="margin-top:12px;">
+            <summary style="cursor:pointer;">Auth Debug</summary>
+            <div class="muted" style="margin-top:8px;">
+              <div>Endpoint: <span id="customerDbgEndpoint">--</span></div>
+              <div>Last status: <span id="customerDbgStatus">--</span></div>
+              <div>Last error: <span id="customerDbgError">--</span></div>
+            </div>
+          </details>
         </div>
       </div>
     </div>

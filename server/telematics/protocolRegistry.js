@@ -11,7 +11,20 @@ function registerAdapter(name, adapter) {
 
 function getAdapter(protocol) {
   if (!protocol) return null;
-  return adapters.get(String(protocol).toUpperCase()) || null;
+  const normalized = String(protocol).trim().toUpperCase();
+  const aliases = {
+    OBD: "OBD2",
+    OBDII: "OBD2",
+    J1979: "OBD2",
+    HDOBD: "OBD2",
+    J1939CAN: "J1939",
+    J1939_CAN: "J1939",
+    CAN_J1939: "J1939",
+    SAEJ1939: "J1939",
+    J1708J1587: "J1708",
+    J1587: "J1708"
+  };
+  return adapters.get(aliases[normalized] || normalized) || null;
 }
 
 function detectAdapter(payload) {

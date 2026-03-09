@@ -13,9 +13,14 @@ function clearSetPasswordMessage() {
   el.textContent = "";
 }
 
-function resolveApiUrl(path) {
-  if (typeof window.resolveApiUrl === "function") return window.resolveApiUrl(path);
-  if (typeof window.apiUrl === "function") return window.apiUrl(path);
+const externalResolveApiUrl =
+  typeof window.resolveApiUrl === "function" ? window.resolveApiUrl.bind(window) : null;
+const externalApiUrl =
+  typeof window.apiUrl === "function" ? window.apiUrl.bind(window) : null;
+
+function buildApiUrl(path) {
+  if (externalResolveApiUrl) return externalResolveApiUrl(path);
+  if (externalApiUrl) return externalApiUrl(path);
   const base = window.__FLEETAI__?.apiBase || "";
   if (!base) return path;
   if (path.startsWith("http://") || path.startsWith("https://")) return path;
@@ -27,11 +32,15 @@ function updateDebug(partial) {
   const statusEl = document.getElementById("setPwdDbgStatus");
   const errorEl = document.getElementById("setPwdDbgError");
   const rawEl = document.getElementById("setPwdDbgRaw");
+  const tokenEl = document.getElementById("setPwdDbgToken");
+  const cookieEl = document.getElementById("setPwdDbgCookie");
   if (!partial) partial = {};
   if (endpointEl && partial.endpoint !== undefined) endpointEl.textContent = partial.endpoint || "--";
   if (statusEl && partial.status !== undefined) statusEl.textContent = partial.status || "--";
   if (errorEl && partial.error !== undefined) errorEl.textContent = partial.error || "--";
   if (rawEl && partial.raw !== undefined) rawEl.textContent = partial.raw || "--";
+  if (tokenEl && partial.token !== undefined) tokenEl.textContent = partial.token || "--";
+  if (cookieEl && partial.cookie !== undefined) cookieEl.textContent = partial.cookie || "--";
 }
 
 async function safeJson(res) {
@@ -87,7 +96,11 @@ async function submitSetPassword() {
     }
     const endpoint = "/api/auth/set-password";
     updateDebug({ endpoint, status: "sending", error: "--", raw: "--" });
-    const res = await fetch(resolveApiUrl(endpoint), {
+    updateDebug({
+      token: token ? `${token.slice(0, 8)}...` : "--",
+      cookie: document.cookie ? "present" : "missing"
+    });
+    const res = await fetch(buildApiUrl(endpoint), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",

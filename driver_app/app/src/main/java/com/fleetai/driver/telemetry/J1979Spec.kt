@@ -23,7 +23,10 @@ object J1979Spec {
         PidSpec("0104", "Engine load", 1, "%", 1000),
         PidSpec("0110", "MAF", 2, "g/s", 1000),
         PidSpec("0111", "Throttle position", 1, "%", 1000),
-        PidSpec("010B", "MAP", 1, "kPa", 1000)
+        PidSpec("010B", "MAP", 1, "kPa", 1000),
+        PidSpec("012F", "Fuel level", 1, "%", 1200),
+        PidSpec("0133", "BARO", 1, "kPa", 1200),
+        PidSpec("015C", "Oil temp", 1, "C", 1200)
     )
 
     fun minimumSet(): List<PidSpec> = core

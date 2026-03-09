@@ -47,6 +47,24 @@ object ObdParser {
         return a.toDouble() // kPa
     }
 
+    fun parseBaro(response: String): Double? {
+        val bytes = extractBytes(response, "41 33") ?: return null
+        val a = bytes.firstOrNull() ?: return null
+        return a.toDouble()
+    }
+
+    fun parseFuelLevel(response: String): Double? {
+        val bytes = extractBytes(response, "41 2F") ?: return null
+        val a = bytes.firstOrNull() ?: return null
+        return (a * 100.0) / 255.0
+    }
+
+    fun parseOilTemp(response: String): Double? {
+        val bytes = extractBytes(response, "41 5C") ?: return null
+        val a = bytes.firstOrNull() ?: return null
+        return (a - 40).toDouble()
+    }
+
     fun parseVin(response: String): String? {
         // Accept typical multi-line 09 02 response, pull ASCII bytes after the service/header tokens
         val cleaned = response.replace("\r", " ").replace(">", " ").trim()
@@ -89,37 +107,44 @@ object ObdParser {
     }
 
     fun parseSupportedPids(response: String): Set<String> {
-        val cleaned = response.replace("\r", " ").replace(">", " ").trim()
-        val parts = cleaned.split(" ").filter { it.isNotBlank() }
-        if (parts.size < 3) return emptySet()
-        // Expect mode 41 followed by base PID and 4 bytes bitmask
-        val mode = parts.getOrNull(0) ?: return emptySet()
-        val basePidHex = parts.getOrNull(1) ?: return emptySet()
-        if (mode != "41") return emptySet()
-        val basePid = basePidHex.toIntOrNull(16) ?: return emptySet()
-        val masks = parts.drop(2).take(4).mapNotNull { it.toIntOrNull(16) }
-        if (masks.size < 4) return emptySet()
+        val parts = tokenizeHex(response)
+        if (parts.size < 6) return emptySet()
         val supported = mutableSetOf<String>()
-        var pidOffset = basePid + 1
-        masks.forEach { mask ->
-            for (bit in 7 downTo 0) {
-                if ((mask shr bit) and 0x1 == 1) {
-                    val pid = pidOffset + (7 - bit)
-                    supported.add(String.format("01%02X", pid))
+        for (i in 0 until (parts.size - 5)) {
+            if (parts[i] != "41") continue
+            val basePid = parts[i + 1].toIntOrNull(16) ?: continue
+            val masks = parts.subList(i + 2, i + 6).mapNotNull { it.toIntOrNull(16) }
+            if (masks.size < 4) continue
+            var pidOffset = basePid + 1
+            masks.forEach { mask ->
+                for (bit in 7 downTo 0) {
+                    if ((mask shr bit) and 0x1 == 1) {
+                        val pid = pidOffset + (7 - bit)
+                        supported.add(String.format("01%02X", pid))
+                    }
                 }
+                pidOffset += 8
             }
-            pidOffset += 8
         }
         return supported
     }
 
     private fun extractBytes(response: String, prefix: String): List<Int>? {
-        val normalized = response.replace("\r", " ").replace(">", " ")
-        val tokens = normalized.split(" ").filter { it.isNotBlank() }
-        val prefixTokens = prefix.split(" ")
+        val tokens = tokenizeHex(response)
+        val prefixTokens = prefix.split(" ").map { it.uppercase() }
         val start = tokens.windowed(prefixTokens.size).indexOf(prefixTokens)
         if (start < 0) return null
         val bytes = tokens.drop(start + prefixTokens.size).mapNotNull { it.toIntOrNull(16) }
         return bytes
+    }
+
+    private fun tokenizeHex(response: String): List<String> {
+        return response
+            .replace("\r", " ")
+            .replace("\n", " ")
+            .replace(">", " ")
+            .split(" ")
+            .map { it.trim().uppercase() }
+            .filter { it.matches(Regex("^[0-9A-F]{2}$")) }
     }
 }
