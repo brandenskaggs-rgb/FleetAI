@@ -1,0 +1,8 @@
+{
+  "functions": [
+    {"name":"renderRoute","files":["ui/fleetai-dashboard.html"]},
+    {"name":"loadFleetManagement","files":["ui/fleetai-dashboard.html"]},
+    {"name":"renderPairingSelects","files":["ui/fleetai-dashboard.html"]},
+    {"name":"telemetryStreamConnect","files":["ui/fleetai-dashboard.html"]}
+  ]
+}

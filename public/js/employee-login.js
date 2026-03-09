@@ -82,6 +82,7 @@
 
     try {
       const url = window.resolveApiUrl ? window.resolveApiUrl(EMPLOYEE_LOGIN_ENDPOINT) : EMPLOYEE_LOGIN_ENDPOINT;
+      console.log(url)
       const res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

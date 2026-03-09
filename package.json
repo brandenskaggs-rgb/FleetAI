@@ -14,7 +14,11 @@
     "check:dashboard": "node scripts/check-dashboard-pairing.js",
     "validate-config": "node scripts/validate-config.js",
     "check:ui": "node scripts/ui-smoke.js",
-    "pairing:selftest": "node scripts/pairing-selftest.js"
+    "pairing:selftest": "node scripts/pairing-selftest.js",
+    "preflight": "node tools/preflight-check.js",
+    "audit:links": "node tools/link-audit.js",
+    "verify": "npm run preflight && npm run audit:links",
+    "tag:known-good": "node tools/print-tag-instructions.js"
   },
   "keywords": [],
   "author": "",

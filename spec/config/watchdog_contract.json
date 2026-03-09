@@ -1,0 +1,12 @@
+{
+  "endpoints": [
+    {"name":"health","path":"/health","timeoutMs":2000,"requiredFields":["ok"]},
+    {"name":"apiHealth","path":"/api/health","timeoutMs":2000,"requiredFields":["ok"]},
+    {"name":"pairingHealth","path":"/api/pairing/health","timeoutMs":2000,"requiredFields":["ok"]},
+    {"name":"telemetryHealth","path":"/api/telemetry/health","timeoutMs":2000,"requiredFields":["ok"]},
+    {"name":"telemetryStatus","path":"/api/system/telemetry/status","timeoutMs":2000,"requiredFields":["telemetryRecent","lastTelemetryAt"]},
+    {"name":"pairingStatus","path":"/api/system/pairing/status","timeoutMs":2000,"requiredFields":["pairingEnabled","activeClaimsCount"]}
+  ],
+  "intervalMs": 10000,
+  "maxTimeoutMs": 2000
+}

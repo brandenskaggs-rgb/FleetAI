@@ -1,0 +1,11 @@
+const now = new Date();
+const pad = (n) => String(n).padStart(2, "0");
+const tag = `fleetai-known-good-${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}`;
+console.log("Suggested tag:", tag);
+console.log("Commands:");
+console.log(`  git tag -a ${tag} -m \"Known good\"`);
+console.log(`  git push origin ${tag}`);
+console.log("Rollback:");
+console.log(`  git checkout ${tag}`);
+console.log("Or:");
+console.log(`  git reset --hard ${tag}`);

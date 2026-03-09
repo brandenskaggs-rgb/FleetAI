@@ -1,0 +1,19 @@
+{
+  "uiFiles": [
+    "index.html",
+    "login.html",
+    "employee-login.html",
+    "customer-login.html",
+    "employee-portal.html",
+    "ui/fleetai-dashboard.html",
+    "ui/driver-tablet.html",
+    "ui/settings/set-password.html",
+    "ui/force-reset.html",
+    "admin/setup.html",
+    "admin/debug.html",
+    "org/reset-password.html",
+    "app/dashboard.html",
+    "app/settings.html",
+    "app/billing.html"
+  ]
+}

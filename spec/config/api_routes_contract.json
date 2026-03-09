@@ -1,0 +1,53 @@
+{
+  "routes": [
+    {"method":"GET","path":"/health"},
+    {"method":"GET","path":"/api/health"},
+    {"method":"GET","path":"/api/active"},
+    {"method":"GET","path":"/active"},
+
+    {"method":"POST","path":"/api/auth/customer/login"},
+    {"method":"POST","path":"/api/auth/employee/login"},
+    {"method":"GET","path":"/api/auth/whoami"},
+    {"method":"GET","path":"/api/auth/customer/session"},
+    {"method":"POST","path":"/api/auth/reset-password"},
+    {"method":"POST","path":"/api/auth/password/update"},
+    {"method":"GET","path":"/api/employee/session"},
+    {"method":"POST","path":"/api/employee/logout"},
+
+    {"method":"GET","path":"/api/orgs"},
+    {"method":"GET","path":"/api/orgs/:orgId/public-profile"},
+
+    {"method":"GET","path":"/api/vehicles"},
+    {"method":"POST","path":"/api/vehicles"},
+    {"method":"GET","path":"/api/orgs/:orgId/vehicles"},
+    {"method":"POST","path":"/api/orgs/:orgId/vehicles"},
+    {"method":"DELETE","path":"/api/orgs/:orgId/vehicles/:vehicleId"},
+
+    {"method":"GET","path":"/api/drivers"},
+    {"method":"POST","path":"/api/drivers"},
+    {"method":"GET","path":"/api/orgs/:orgId/drivers"},
+    {"method":"POST","path":"/api/orgs/:orgId/drivers"},
+    {"method":"DELETE","path":"/api/orgs/:orgId/drivers/:driverId"},
+
+    {"method":"GET","path":"/api/pairing/health"},
+    {"method":"GET","path":"/api/pairings/health"},
+    {"method":"GET","path":"/api/pairing/options"},
+    {"method":"POST","path":"/api/pairing/generate"},
+    {"method":"POST","path":"/api/pairings/generate"},
+    {"method":"POST","path":"/api/pairing/claim"},
+    {"method":"POST","path":"/api/pairings/claim"},
+    {"method":"POST","path":"/api/pairing/claim-device"},
+    {"method":"GET","path":"/api/pairings/active"},
+
+    {"method":"POST","path":"/api/telemetry/ingest"},
+    {"method":"GET","path":"/api/telemetry"},
+    {"method":"GET","path":"/api/telemetry/latest"},
+    {"method":"GET","path":"/api/telemetry/stream"},
+    {"method":"GET","path":"/api/telemetry/active"},
+    {"method":"GET","path":"/api/telemetry/health"},
+
+    {"method":"GET","path":"/api/system/watchdog"},
+    {"method":"GET","path":"/api/system/telemetry/status"},
+    {"method":"GET","path":"/api/system/pairing/status"}
+  ]
+}

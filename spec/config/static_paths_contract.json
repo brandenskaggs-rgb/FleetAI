@@ -1,0 +1,15 @@
+{
+  "staticRoots": [
+    "/ui",
+    "/js",
+    "/css",
+    "/assets",
+    "/public",
+    "/admin",
+    "/app",
+    "/legal",
+    "/org",
+    "/spec",
+    "/tools"
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "optionsEndpoint": {
+    "path": "/api/pairing/options",
+    "response": {
+      "vehicles": "array",
+      "drivers": "array"
+    }
+  },
+  "generateEndpoint": {
+    "path": "/api/pairing/generate",
+    "response": {
+      "pairing": "object",
+      "pairing.pairingCode": "string",
+      "pairing.driverPin": "string"
+    }
+  },
+  "activeEndpoint": {
+    "path": "/api/pairings/active",
+    "response": {
+      "pairings": "array"
+    }
+  }
+}

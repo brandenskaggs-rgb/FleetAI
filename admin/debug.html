@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Fleet AI Debug (Read-Only)</title>
+  <style>
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;margin:24px;background:#0b1220;color:#e5e7eb;}
+    h1{font-size:20px;margin-bottom:10px;}
+    .card{background:#111827;border:1px solid #1f2937;border-radius:10px;padding:14px;margin-bottom:12px;}
+    .kv{display:grid;grid-template-columns:180px 1fr;gap:6px;font-size:14px;}
+    .muted{color:#9ca3af;}
+    pre{white-space:pre-wrap;background:#0f172a;border:1px solid #1f2937;padding:10px;border-radius:8px;font-size:12px;}
+  </style>
+</head>
+<body>
+  <h1>Fleet AI Debug (Read-Only)</h1>
+  <div class="card">
+    <div class="kv">
+      <div>Health</div><div id="healthStatus" class="muted">Loading…</div>
+      <div>Server Time</div><div id="healthTime" class="muted">--</div>
+      <div>Watchdog</div><div id="watchdogState" class="muted">--</div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="muted">Raw watchdog state</div>
+    <pre id="watchdogRaw">Loading…</pre>
+  </div>
+  <script>
+    async function loadJson(path){
+      const res = await fetch(path, { credentials: "include" });
+      if(!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.json();
+    }
+    (async ()=>{
+      try{
+        const health = await loadJson("/api/health");
+        document.getElementById("healthStatus").textContent = health.ok ? "OK" : "Error";
+        document.getElementById("healthTime").textContent = health.time || "--";
+      }catch(err){
+        document.getElementById("healthStatus").textContent = "Unreachable";
+      }
+      try{
+        const watchdog = await loadJson("/api/system/watchdog");
+        document.getElementById("watchdogState").textContent = watchdog.lastOkAt ? "Active" : "Idle";
+        document.getElementById("watchdogRaw").textContent = JSON.stringify(watchdog, null, 2);
+      }catch(err){
+        document.getElementById("watchdogRaw").textContent = "Watchdog not available.";
+      }
+    })();
+  </script>
+</body>
+</html>

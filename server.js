@@ -16,6 +16,7 @@ const { cToF, kphToMph, kmToMiles, milesToKm } = require("./server/telematics/no
 const ml = require("./server/ml");
 const { createDataStore } = require("./server/storage/dataStore");
 const { createPairingRouter } = require("./server/routes/pairing");
+const { startWatchdog } = require("./tools/watchdog");
 const { normalizeAuthData, loadAuthStore, saveAuthStore } = require("./server/authStore");
 const { createAuthService } = require("./server/auth/authService");
 const { AUTH_ERRORS, formatAuthError } = require("./server/auth/authErrors");
@@ -323,6 +324,7 @@ const telemetryState = {
   lastSampleAt: null,
   ageMs: null
 };
+let watchdogInstance = null;
 
 function setTelemetryState(status, lastSampleAt, ageMs) {
   if (telemetryState.status !== status) {
@@ -5566,6 +5568,50 @@ app.get("/api/admin/config-status", requireSuperAdmin, (req, res) => {
   });
 });
 
+app.get("/api/system/watchdog", (req, res) => {
+  if (!watchdogInstance) {
+    return res.json({ ok: false, error: "watchdog_not_started" });
+  }
+  return res.json({ ok: true, ...watchdogInstance.getState() });
+});
+
+app.get("/api/system/telemetry/status", (req, res) => {
+  const lastTelemetryAt = telemetryLastSeen?.ts || telemetryState.lastSampleAt || null;
+  const ageMs = lastTelemetryAt ? Date.now() - new Date(lastTelemetryAt).getTime() : null;
+  res.json({
+    ok: true,
+    connectedDevicesCount: telemetryLatest.size,
+    lastTelemetryAt,
+    telemetryRecent: ageMs !== null && ageMs < 30000,
+    telemetryAgeMs: ageMs
+  });
+});
+
+app.get("/api/system/pairing/status", async (req, res) => {
+  try {
+    const data = await readData();
+    const pairings = Array.isArray(data.pairings) ? data.pairings : [];
+    let lastPairCodeCreatedAt = null;
+    let activeClaimsCount = 0;
+    pairings.forEach((p) => {
+      if (p?.createdAt) {
+        if (!lastPairCodeCreatedAt || new Date(p.createdAt) > new Date(lastPairCodeCreatedAt)) {
+          lastPairCodeCreatedAt = p.createdAt;
+        }
+      }
+      if (p?.status === "active" && !isExpired(p.expiresAt)) activeClaimsCount += 1;
+    });
+    res.json({
+      ok: true,
+      pairingEnabled: true,
+      lastPairCodeCreatedAt,
+      activeClaimsCount
+    });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: "pairing_status_error" });
+  }
+});
+
 app.get("/api/me", requireCustomerApi, (req, res) => {
   const session = req.customer;
   readData()
@@ -8083,6 +8129,17 @@ async function startServer() {
   console.log(`Employee login: http://localhost:${PORT}/employee-login.html`);
   console.log(`Run: npm start (PowerShell: node .\\server.js)`);
   logApiRoutes();
+  try {
+    const baseUrl = `http://localhost:${PORT}`;
+    watchdogInstance = startWatchdog({
+      baseUrl,
+      contractPath: path.join(__dirname, "spec", "config", "watchdog_contract.json"),
+      logPath: path.join(__dirname, "server", "logs", "watchdog.log")
+    });
+    console.log("[WATCHDOG] started");
+  } catch (err) {
+    console.warn("[WATCHDOG] failed to start", err && err.message ? err.message : err);
+  }
   console.log("PAIRING CLAIM ROUTES ENABLED:");
   [
     "POST /api/pairings/claim",

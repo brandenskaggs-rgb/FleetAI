@@ -48,4 +48,4 @@
 
 11) Public pages + legal links
 - Verify `/legal/privacy.html` and `/legal/terms.html` load
-- Ensure no “API route not found” banners on any UI action
+- Ensure no ï¿½API route not foundï¿½ banners on any UI action
