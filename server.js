@@ -16,6 +16,7 @@ const { cToF, kphToMph, kmToMiles, milesToKm } = require("./server/telematics/no
 const ml = require("./server/ml");
 const { createDataStore } = require("./server/storage/dataStore");
 const { createPairingRouter } = require("./server/routes/pairing");
+const { registerSystemStatusRoutes } = require("./server/routes/systemStatus");
 const { startWatchdog } = require("./tools/watchdog");
 const { normalizeAuthData, loadAuthStore, saveAuthStore } = require("./server/authStore");
 const { createAuthService } = require("./server/auth/authService");
@@ -565,32 +566,36 @@ async function healthPayload() {
   return payload;
 }
 
-app.get("/health", async (req, res) => {
-  res.status(200).json(await healthPayload());
-});
+const SYSTEM_STATUS_ROUTE_MANIFEST = [
+  "/health",
+  "/api/health",
+  "/api/auth/health",
+  "/version",
+  "/whoami",
+  "/api/admin/config-status",
+  "/api/system/watchdog",
+  "/api/system/telemetry/status",
+  "/api/system/pairing/status"
+];
 
-app.get("/api/health", async (req, res) => {
-  res.status(200).json(await healthPayload());
-});
-
-app.get("/api/auth/health", async (req, res) => {
-  try {
-    const data = await readData();
-    const users = Array.isArray(data.users) ? data.users : [];
-    const bootstrapAllowed = SETUP_ALLOWED && Boolean(SETUP_KEY);
-    res.status(200).json({
-      ok: true,
-      usersLoaded: users.length,
-      authStorePath: DATA_PATH,
-      lastLoadedAt: lastDataLoadAt,
-      dataLoadStatus,
-      dataLoadError,
-      bootstrapAllowed,
-      emailExists: req.query?.email ? users.some((u) => String(u.email || "").toLowerCase() === String(req.query.email || "").toLowerCase()) : undefined
-    });
-  } catch (err) {
-    res.status(500).json({ ok: false, error: err.message || "auth_health_error" });
-  }
+registerSystemStatusRoutes(app, {
+  healthPayload,
+  readData,
+  DATA_PATH,
+  SETUP_ALLOWED,
+  SETUP_KEY,
+  requireSuperAdmin: (req, res, next) => requireSuperAdmin(req, res, next),
+  getDataLoadStatus: () => ({ dataLoadStatus, lastDataLoadAt }),
+  getDataLoadError: () => dataLoadError,
+  getDataLoadNote: () => dataLoadNote,
+  getLastDataWriteAt: () => lastDataWriteAt,
+  DATA_SCHEMA_VERSION,
+  APP_VERSION,
+  getWatchdogInstance: () => watchdogInstance,
+  getTelemetryLastSeen: () => telemetryLastSeen,
+  getTelemetryState: () => telemetryState,
+  getTelemetryLatestSize: () => telemetryLatest.size,
+  isExpired
 });
 
 // First-login password setter (token-based)
@@ -700,32 +705,6 @@ app.post("/api/admin/users", async (req, res) => {
   } catch (err) {
     return res.status(500).json({ ok: false, error: err.message || "create_user_failed" });
   }
-});
-
-app.get("/version", (req, res) => {
-  res.status(200).json({
-    ok: true,
-    version: APP_VERSION,
-    timestamp: new Date().toISOString()
-  });
-});
-
-app.get("/whoami", (req, res) => {
-  res.status(200).json({
-    ip: req.ip,
-    ips: req.ips,
-    method: req.method,
-    path: req.path,
-    hostHeader: req.headers.host,
-    userAgent: req.headers["user-agent"],
-    origin: req.headers.origin,
-    referer: req.headers.referer,
-    headersSubset: {
-      accept: req.headers.accept,
-      "accept-language": req.headers["accept-language"],
-      "x-forwarded-for": req.headers["x-forwarded-for"]
-    }
-  });
 });
 
 app.use("/", express.static(SITE_ROOT));
@@ -5589,64 +5568,6 @@ app.get("/api/auth/whoami", (req, res) => {
     });
   }
   return res.status(401).json({ ok: false, error: "Not authenticated" });
-});
-
-app.get("/api/admin/config-status", requireSuperAdmin, (req, res) => {
-  res.json({
-    ok: true,
-    data: {
-      status: dataLoadStatus,
-      lastError: dataLoadError,
-      note: dataLoadNote,
-      lastWriteAt: lastDataWriteAt
-    },
-    schemaVersion: DATA_SCHEMA_VERSION,
-    dataPath: DATA_PATH
-  });
-});
-
-app.get("/api/system/watchdog", (req, res) => {
-  if (!watchdogInstance) {
-    return res.json({ ok: false, error: "watchdog_not_started" });
-  }
-  return res.json({ ok: true, ...watchdogInstance.getState() });
-});
-
-app.get("/api/system/telemetry/status", (req, res) => {
-  const lastTelemetryAt = telemetryLastSeen?.ts || telemetryState.lastSampleAt || null;
-  const ageMs = lastTelemetryAt ? Date.now() - new Date(lastTelemetryAt).getTime() : null;
-  res.json({
-    ok: true,
-    connectedDevicesCount: telemetryLatest.size,
-    lastTelemetryAt,
-    telemetryRecent: ageMs !== null && ageMs < 30000,
-    telemetryAgeMs: ageMs
-  });
-});
-
-app.get("/api/system/pairing/status", async (req, res) => {
-  try {
-    const data = await readData();
-    const pairings = Array.isArray(data.pairings) ? data.pairings : [];
-    let lastPairCodeCreatedAt = null;
-    let activeClaimsCount = 0;
-    pairings.forEach((p) => {
-      if (p?.createdAt) {
-        if (!lastPairCodeCreatedAt || new Date(p.createdAt) > new Date(lastPairCodeCreatedAt)) {
-          lastPairCodeCreatedAt = p.createdAt;
-        }
-      }
-      if (p?.status === "active" && !isExpired(p.expiresAt)) activeClaimsCount += 1;
-    });
-    res.json({
-      ok: true,
-      pairingEnabled: true,
-      lastPairCodeCreatedAt,
-      activeClaimsCount
-    });
-  } catch (err) {
-    res.status(500).json({ ok: false, error: "pairing_status_error" });
-  }
 });
 
 app.get("/api/me", requireCustomerApi, (req, res) => {
