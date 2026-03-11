@@ -36,6 +36,7 @@ COOKIE_SECURE=true
 - `TRUST_PROXY=loopback, linklocal, uniquelocal` trusts only local proxy hops by default instead of blindly trusting any forwarded header.
 - `CORS_ALLOWED_ORIGINS` prevents credentialed browser requests from arbitrary origins.
 - Unsafe browser requests now require a trusted `Origin` in production, reducing CSRF risk for cookie-authenticated flows.
+- Employee session auth no longer accepts URL query tokens or auto-promotes bearer tokens into cookies, reducing session hijack risk from leaked links or headers.
 - `FLEETAI_SESSION_SECRET` is mandatory in production; startup now refuses weak/missing values.
 - `DEV_SETUP*` must stay off in production; startup now refuses unsafe production config.
 

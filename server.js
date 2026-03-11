@@ -1444,8 +1444,6 @@ function getSessionFromRequest(req) {
   let token = "";
   const auth = req.headers.authorization || "";
   if (auth.startsWith("Bearer ")) token = auth.slice(7).trim();
-  if (!token && req.headers["x-fleetai-token"]) token = String(req.headers["x-fleetai-token"]);
-  if (!token && req.query && req.query.token) token = String(req.query.token);
   if (!token) return null;
   const session = sessionStore.get(token);
   if (!session) return null;
@@ -1506,9 +1504,6 @@ function requireEmployeeSession(req, res, next) {
   if (!result) {
     return res.redirect("/employee-login.html");
   }
-  if (result.source === "token") {
-    setSessionCookie(res, result.token);
-  }
   req.employee = result.session;
   next();
 }
@@ -1554,9 +1549,6 @@ function requireSuperAdmin(req, res, next) {
     }
     return res.redirect("/employee-login.html");
   }
-  if (result.source === "token") {
-    setSessionCookie(res, result.token);
-  }
   if (result.session.role !== "SUPER_ADMIN") {
     if (req.path.startsWith("/api")) {
       return res.status(403).json({ error: "Forbidden" });
@@ -1571,9 +1563,6 @@ function requireEmployeeApi(req, res, next) {
   const result = getSessionFromRequest(req);
   if (!result) {
     return res.status(401).json({ error: "Unauthorized" });
-  }
-  if (result.source === "token") {
-    setSessionCookie(res, result.token);
   }
   req.employee = result.session;
   next();
