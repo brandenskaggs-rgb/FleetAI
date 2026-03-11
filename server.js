@@ -597,6 +597,8 @@ registerSystemStatusRoutes(app, {
   getTelemetryLastSeen: () => telemetryLastSeen,
   getTelemetryState: () => telemetryState,
   getTelemetryLatestSize: () => telemetryLatest.size,
+  getTelemetryLatestEntries: () => Array.from(telemetryLatest.entries()),
+  nowIso,
   isExpired
 });
 
@@ -1700,6 +1702,13 @@ function requireEmployeeSession(req, res, next) {
 
 function formatAuthResponse({ ok, code, message, session = null, next = null }) {
   return { ok, code, message, next, session };
+}
+
+function sendEmployeeLoginResponse(res, status, body) {
+  if (res.headersSent) return;
+  res.status(status);
+  res.setHeader("Content-Type", "application/json");
+  return res.json(body);
 }
 
 function issueFirstLoginToken(user) {

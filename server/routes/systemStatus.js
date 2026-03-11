@@ -15,6 +15,8 @@ function registerSystemStatusRoutes(app, deps) {
     getTelemetryLastSeen,
     getTelemetryState,
     getTelemetryLatestSize,
+    getTelemetryLatestEntries,
+    nowIso,
     isExpired
   } = deps;
 
@@ -133,6 +135,60 @@ function registerSystemStatusRoutes(app, deps) {
     } catch (err) {
       res.status(500).json({ ok: false, error: "pairing_status_error" });
     }
+  });
+
+  function buildActiveStatusPayload() {
+    const entries = Array.isArray(getTelemetryLatestEntries()) ? getTelemetryLatestEntries() : [];
+    const now = Date.now();
+    let latest = null;
+    entries.forEach(([, snap]) => {
+      if (!snap || !snap.ts) return;
+      const ts = new Date(snap.ts).getTime();
+      if (!ts) return;
+      if (!latest || ts > latest.tsMs) {
+        latest = {
+          tsMs: ts,
+          vehicleId: snap.vehicleId || null,
+          driverId: snap.driverId || null,
+          deviceId: snap.deviceId || null
+        };
+      }
+    });
+    const ageMs = latest ? now - latest.tsMs : null;
+    return {
+      ok: true,
+      serverTime: nowIso(),
+      serverUptimeSec: Math.round(process.uptime()),
+      connected: ageMs !== null && ageMs < 10000,
+      lastTelemetryAt: latest ? new Date(latest.tsMs).toISOString() : null,
+      ageMs,
+      source: "tablet",
+      vehicleId: latest ? latest.vehicleId : null,
+      driverId: latest ? latest.driverId : null,
+      activePair: latest
+    };
+  }
+
+  app.get("/api/active", (req, res) => {
+    res.set({
+      "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+      Pragma: "no-cache",
+      Expires: "0",
+      "Surrogate-Control": "no-store",
+      "Content-Type": "application/json"
+    });
+    res.json(buildActiveStatusPayload());
+  });
+
+  app.get("/active", (req, res) => {
+    res.set({
+      "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+      Pragma: "no-cache",
+      Expires: "0",
+      "Surrogate-Control": "no-store",
+      "Content-Type": "application/json"
+    });
+    res.json(buildActiveStatusPayload());
   });
 }
 

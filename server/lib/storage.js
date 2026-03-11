@@ -97,19 +97,23 @@ function createStorage(options) {
 
     if (fs.existsSync(dataPath)) {
       try {
-        await fsp.rename(dataPath, backupPath);
+        await fsp.copyFile(dataPath, backupPath);
         status.lastBackup = backupPath;
-      } catch (err) {
-        try {
-          await fsp.copyFile(dataPath, backupPath);
-          await fsp.unlink(dataPath);
-          status.lastBackup = backupPath;
-        } catch (backupErr) {
-          console.warn(`[STORAGE] backup failed: ${backupPath}`);
-        }
+      } catch (backupErr) {
+        console.warn(`[STORAGE] backup failed: ${backupPath}`);
       }
     }
-    await fsp.rename(tmpPath, dataPath);
+
+    try {
+      await fsp.copyFile(tmpPath, dataPath);
+    } finally {
+      try {
+        await fsp.unlink(tmpPath);
+      } catch (_) {
+        // ignore temp cleanup failure
+      }
+    }
+
     pruneBackups();
     status.lastWriteAt = new Date().toISOString();
   }
