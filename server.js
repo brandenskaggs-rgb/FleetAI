@@ -1685,7 +1685,7 @@ function getCustomerSession(req) {
     customerSessionStore.delete(sessionId);
     return null;
   }
-  return { session, source: "cookie" };
+  return session;
 }
 
 function requireEmployeeSession(req, res, next) {
