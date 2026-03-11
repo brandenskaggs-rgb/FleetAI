@@ -50,9 +50,11 @@
 - Send a message -> expect non-empty response and next steps
 
 9) Billing (stub)
+- Sign in as a real customer session first
 - Visit `http://localhost:3000/app/billing.html`
 - Save billing settings -> no errors
 - Save payment method -> no errors
+- Confirm unauthenticated requests to billing endpoints return `401`
 
 10) Pairing
 - In dashboard pairing view, generate pairing code

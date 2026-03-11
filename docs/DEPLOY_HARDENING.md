@@ -35,6 +35,7 @@ COOKIE_SECURE=true
 - `HOST=127.0.0.1` keeps the app off the public interface; Cloudflare Tunnel can still reach it locally.
 - `TRUST_PROXY=loopback, linklocal, uniquelocal` trusts only local proxy hops by default instead of blindly trusting any forwarded header.
 - `CORS_ALLOWED_ORIGINS` prevents credentialed browser requests from arbitrary origins.
+- Unsafe browser requests now require a trusted `Origin` in production, reducing CSRF risk for cookie-authenticated flows.
 - `FLEETAI_SESSION_SECRET` is mandatory in production; startup now refuses weak/missing values.
 - `DEV_SETUP*` must stay off in production; startup now refuses unsafe production config.
 

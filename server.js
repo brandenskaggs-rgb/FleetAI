@@ -162,6 +162,31 @@ function isOriginAllowed(origin) {
   return CORS_ALLOWED_ORIGINS.includes(origin);
 }
 
+function isTrustedBrowserOrigin(req) {
+  const origin = req.headers.origin;
+  if (!origin) return true;
+  if (!IS_PROD) return true;
+  if (isOriginAllowed(origin)) return true;
+  const host = req.headers.host;
+  if (!host) return false;
+  try {
+    return new URL(origin).host === host;
+  } catch (err) {
+    return false;
+  }
+}
+
+function requireTrustedBrowserOrigin(req, res, next) {
+  const method = String(req.method || "GET").toUpperCase();
+  if (["GET", "HEAD", "OPTIONS"].includes(method)) {
+    return next();
+  }
+  if (isTrustedBrowserOrigin(req)) {
+    return next();
+  }
+  return res.status(403).json({ ok: false, error: "Untrusted browser origin." });
+}
+
 function applySecurityHeaders(req, res, next) {
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("X-Frame-Options", "DENY");
@@ -447,6 +472,7 @@ const corsOptions = {
 };
 app.use(cors(corsOptions));
 app.options(/.*/, cors(corsOptions));
+app.use(requireTrustedBrowserOrigin);
 // Disable caching for API/active/telemetry so status never lies
 app.set("etag", false);
 app.use((req, res, next) => {
@@ -4327,7 +4353,7 @@ app.patch("/api/orgs/:orgId/feature-flags", requireEmployeeApi, requireRole(["SU
   }
 });
 
-app.get("/api/org/billing", async (req, res, next) => {
+app.get("/api/org/billing", requireCustomerApi, async (req, res, next) => {
   try {
     const data = await readData();
     const billing = Object.assign({}, defaultBillingSettings(data), data.orgBillingSettings || {});
@@ -4337,7 +4363,7 @@ app.get("/api/org/billing", async (req, res, next) => {
   }
 });
 
-app.post("/api/org/billing", async (req, res, next) => {
+app.post("/api/org/billing", requireCustomerApi, async (req, res, next) => {
   try {
     const data = await readData();
     const current = Object.assign({}, defaultBillingSettings(data), data.orgBillingSettings || {});
@@ -4369,7 +4395,7 @@ app.post("/api/org/billing", async (req, res, next) => {
   }
 });
 
-app.get("/api/org/billing-settings", async (req, res, next) => {
+app.get("/api/org/billing-settings", requireCustomerApi, async (req, res, next) => {
   try {
     const data = await readData();
     const billing = Object.assign({}, defaultBillingSettings(data), data.orgBillingSettings || {});
@@ -4379,7 +4405,7 @@ app.get("/api/org/billing-settings", async (req, res, next) => {
   }
 });
 
-app.post("/api/org/billing-settings", async (req, res, next) => {
+app.post("/api/org/billing-settings", requireCustomerApi, async (req, res, next) => {
   try {
     const data = await readData();
     const current = Object.assign({}, defaultBillingSettings(data), data.orgBillingSettings || {});
@@ -4421,7 +4447,7 @@ app.post("/api/billing/settings", (req, res, next) => {
   app.handle(req, res, next);
 });
 
-app.get("/api/org/payment-method", async (req, res, next) => {
+app.get("/api/org/payment-method", requireCustomerApi, async (req, res, next) => {
   try {
     const data = await readData();
     const payment = Object.assign({}, defaultPaymentMethod(), data.paymentMethod || {});
@@ -4431,7 +4457,7 @@ app.get("/api/org/payment-method", async (req, res, next) => {
   }
 });
 
-app.post("/api/org/payment-method", async (req, res, next) => {
+app.post("/api/org/payment-method", requireCustomerApi, async (req, res, next) => {
   try {
     const payload = req.body || {};
     const allowedTypes = ["CARD_STUB", "ACH_STUB"];
