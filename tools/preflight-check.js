@@ -25,6 +25,62 @@ function loadText(p) {
   return fs.readFileSync(p, "utf8");
 }
 
+function listServerSourceFiles() {
+  const out = [];
+  const roots = [
+    path.join(ROOT, "server.js"),
+    path.join(ROOT, "server")
+  ];
+  for (const entry of roots) {
+    if (!fileExists(entry)) continue;
+    const stat = fs.statSync(entry);
+    if (stat.isFile()) {
+      out.push(entry);
+      continue;
+    }
+    const stack = [entry];
+    while (stack.length) {
+      const current = stack.pop();
+      const items = fs.readdirSync(current, { withFileTypes: true });
+      for (const item of items) {
+        const full = path.join(current, item.name);
+        if (item.isDirectory()) {
+          stack.push(full);
+        } else if (item.isFile() && full.endsWith(".js")) {
+          out.push(full);
+        }
+      }
+    }
+  }
+  return Array.from(new Set(out));
+}
+
+function normalizePathPattern(p) {
+  return String(p || "").replace(/:[A-Za-z0-9_]+/g, "[^\"'`]+?");
+}
+
+function escapeRegex(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function buildRouteRegex(method, routePath) {
+  const parts = String(routePath || "").split(/:[A-Za-z0-9_]+/g).map((part) => escapeRegex(part));
+  const pathPattern = parts.join("[^\"'`]+");
+  const methodPattern = method.toLowerCase() === "all"
+    ? "all"
+    : `${method.toLowerCase()}|all`;
+  return new RegExp(`\\b(?:app|router)\\.(?:${methodPattern})\\s*\\(\\s*[\"\'\`]${pathPattern}[\"\'\`]`, "m");
+}
+
+function buildTextCorpus(files) {
+  return files.map((file) => ({ file, text: loadText(file) }));
+}
+
+function routeExists(corpus, method, routePath) {
+  const matcher = buildRouteRegex(method, routePath);
+  return corpus.some(({ text }) => matcher.test(text));
+}
+
 function checkUiFiles() {
   const uiContract = readJson(path.join(SPEC_DIR, "ui_files_contract.json"));
   (uiContract.uiFiles || []).forEach((rel) => {
@@ -45,12 +101,10 @@ function checkStaticPaths() {
 
 function checkRoutes() {
   const routes = readJson(path.join(SPEC_DIR, "api_routes_contract.json"));
-  const serverPath = path.join(ROOT, "server.js");
-  const serverText = loadText(serverPath);
+  const corpus = buildTextCorpus(listServerSourceFiles());
   (routes.routes || []).forEach((r) => {
-    const p = r.path;
-    if (!serverText.includes(`"${p}"`) && !serverText.includes(`'${p}'`)) {
-      fail(`Route missing in server.js: ${r.method} ${p}`);
+    if (!routeExists(corpus, r.method, r.path)) {
+      fail(`Route missing in server source: ${r.method} ${r.path}`);
     }
   });
   ok("API routes contract ok");

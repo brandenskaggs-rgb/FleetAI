@@ -19,6 +19,7 @@ const { createPairingRouter } = require("./server/routes/pairing");
 const { registerSystemStatusRoutes } = require("./server/routes/systemStatus");
 const { registerLegacyPairingRoutes } = require("./server/routes/legacyPairing");
 const { registerAuthRoutes } = require("./server/routes/authRoutes");
+const { registerFleetOpsRoutes } = require("./server/routes/fleetOpsRoutes");
 const { startWatchdog } = require("./tools/watchdog");
 const { normalizeAuthData, loadAuthStore, saveAuthStore } = require("./server/authStore");
 const { createAuthService } = require("./server/auth/authService");
@@ -777,337 +778,39 @@ registerLegacyPairingRoutes(app, {
 });
 
 
-async function handleListVehicles(req, res, next) {
-  try {
-    const data = await readData();
-    const orgId = sanitizeString(req.query.orgId || "", 80);
-    const vehicles = orgId
-      ? (data.vehicles || []).filter((v) => (v.orgId || "") === orgId)
-      : (data.vehicles || []);
-    res.json(vehicles);
-  } catch (err) {
-    next(err);
-  }
-}
+const FLEET_OPS_ROUTE_MANIFEST = [
+  "/api/vehicles",
+  "/api/orgs/:orgId/vehicles",
+  "/api/orgs/:orgId/vehicles/:vehicleId",
+  "/api/drivers",
+  "/api/orgs/:orgId/drivers",
+  "/api/orgs/:orgId/drivers/:driverId",
+  "/api/pairing/options",
+  "/api/telemetry",
+  "/api/telemetry/latest",
+  "/api/telemetry/stream",
+  "/api/telemetry/active",
+  "/api/telemetry/health"
+];
 
-async function handleCreateVehicle(req, res, next) {
-  const { vehicleId, unitName, vin, type } = req.body || {};
-  if (!vehicleId || !unitName || !vin || !type) {
-    return res.status(400).json({ error: "vehicleId, unitName, vin, type required" });
-  }
-  try {
-    const data = await readData();
-    const exists = data.vehicles.some((v) => v.vehicleId === vehicleId);
-    if (exists) {
-      return res.status(409).json({ error: "Vehicle already exists" });
-    }
-    const vehicle = {
-      vehicleId,
-      unitName,
-      vin,
-      type,
-      orgId: sanitizeString(req.body?.orgId || "", 80),
-      year: parseNumberField(req.body?.year, null),
-      make: sanitizeString(req.body?.make || "", 80),
-      model: sanitizeString(req.body?.model || "", 80),
-      createdAt: nowIso()
-    };
-    data.vehicles.push(vehicle);
-    await writeData(data);
-    res.json(vehicle);
-  } catch (err) {
-    next(err);
-  }
-}
-
-app.get("/vehicles", handleListVehicles);
-app.get("/api/vehicles", handleListVehicles);
-
-app.post("/vehicles/create", handleCreateVehicle);
-app.post("/api/vehicles/create", handleCreateVehicle);
-
-app.post("/api/vehicles", async (req, res, next) => {
-  const { vehicleId, unitName, vin, type } = req.body || {};
-  if (!vehicleId || !unitName || !vin || !type) {
-    return res.status(400).json({ error: "vehicleId, unitName, vin, type required" });
-  }
-  try {
-    const data = await readData();
-    if ((data.vehicles || []).some((v) => v.vehicleId === vehicleId)) {
-      return res.status(409).json({ error: "Vehicle already exists" });
-    }
-    const vehicle = {
-      id: makeId("VEH"),
-      orgId: sanitizeString(req.body?.orgId || "", 80),
-      vehicleId,
-      vin,
-      unitName,
-      type,
-      year: parseNumberField(req.body?.year, null),
-      make: sanitizeString(req.body?.make || "", 80),
-      model: sanitizeString(req.body?.model || "", 80),
-      createdAt: nowIso()
-    };
-    data.vehicles.push(vehicle);
-    await writeData(data);
-    res.json({ ok: true, data: vehicle });
-  } catch (err) {
-    next(err);
-  }
-});
-
-app.get("/api/vehicles/:id", async (req, res, next) => {
-  try {
-    const data = await readData();
-    const vehicle = (data.vehicles || []).find(
-      (v) => v.vehicleId === req.params.id || v.id === req.params.id
-    );
-    if (!vehicle) return res.status(404).json({ error: "Vehicle not found" });
-    res.json({ ok: true, data: vehicle });
-  } catch (err) {
-    next(err);
-  }
-});
-
-app.patch("/api/vehicles/:id", requireEmployeeOrCustomerApi, async (req, res, next) => {
-  try {
-    const data = await readData();
-    const vehicle = (data.vehicles || []).find(
-      (v) => v.vehicleId === req.params.id || v.id === req.params.id
-    );
-    if (!vehicle) return res.status(404).json({ error: "Vehicle not found" });
-    if (req.customer?.orgId && vehicle.orgId && req.customer.orgId !== vehicle.orgId) {
-      return res.status(403).json({ error: "Forbidden" });
-    }
-    const payload = req.body || {};
-    if (payload.unitName !== undefined) vehicle.unitName = sanitizeString(payload.unitName || "", 120);
-    if (payload.type !== undefined) vehicle.type = sanitizeString(payload.type || "", 80);
-    if (payload.vin !== undefined) vehicle.vin = sanitizeString(payload.vin || "", 80);
-    if (payload.make !== undefined) vehicle.make = sanitizeString(payload.make || "", 80);
-    if (payload.model !== undefined) vehicle.model = sanitizeString(payload.model || "", 80);
-    if (payload.year !== undefined) vehicle.year = parseNumberField(payload.year, null);
-    vehicle.updatedAt = nowIso();
-    addAudit(data, "VEHICLE_UPDATED", vehicle.vehicleId || vehicle.id || "vehicle");
-    await writeData(data);
-    res.json({ ok: true, data: vehicle });
-  } catch (err) {
-    next(err);
-  }
-});
-
-app.get("/api/vehicles/:id/baselines", async (req, res, next) => {
-  try {
-    const data = await readData();
-    const list = (data.baselines || []).filter(
-      (b) => b.vehicleId === req.params.id
-    );
-    res.json({ ok: true, data: list });
-  } catch (err) {
-    next(err);
-  }
-});
-
-async function handleListDrivers(req, res, next) {
-  try {
-    const data = await readData();
-    const orgId = sanitizeString(req.query.orgId || "", 80);
-    const drivers = orgId
-      ? (data.drivers || []).filter((d) => (d.orgId || "") === orgId)
-      : (data.drivers || []);
-    res.json(drivers);
-  } catch (err) {
-    next(err);
-  }
-}
-
-async function handleCreateDriver(req, res, next) {
-  const { firstName, lastName, phone } = req.body || {};
-  if (!firstName || !lastName || !phone) {
-    return res.status(400).json({ error: "firstName, lastName, phone required" });
-  }
-  try {
-    const data = await readData();
-    const driverId = `DRIVER_${generateDigits(5)}`;
-    const driver = {
-      driverId,
-      firstName,
-      lastName,
-      phone,
-      orgId: sanitizeString(req.body?.orgId || "", 80),
-      createdAt: nowIso()
-    };
-    data.drivers.push(driver);
-    await writeData(data);
-    res.json({ driverId });
-  } catch (err) {
-    next(err);
-  }
-}
-
-app.get("/drivers", handleListDrivers);
-app.get("/api/drivers", handleListDrivers);
-
-app.post("/drivers/create", handleCreateDriver);
-app.post("/api/drivers/create", handleCreateDriver);
-
-app.post("/api/drivers", async (req, res, next) => {
-  const { driverId, firstName, lastName, phone } = req.body || {};
-  if (!firstName || !lastName || !phone) {
-    return res.status(400).json({ error: "firstName, lastName, phone required" });
-  }
-  try {
-    const data = await readData();
-    const id = driverId || `DRIVER_${generateDigits(5)}`;
-    if ((data.drivers || []).some((d) => d.driverId === id)) {
-      return res.status(409).json({ error: "Driver already exists" });
-    }
-    const driver = {
-      id: makeId("DRV"),
-      driverId: id,
-      orgId: sanitizeString(req.body?.orgId || "", 80),
-      firstName,
-      lastName,
-      phone,
-      createdAt: nowIso()
-    };
-    data.drivers.push(driver);
-    await writeData(data);
-    res.json({ ok: true, data: driver });
-  } catch (err) {
-    next(err);
-  }
-});
-
-app.get("/api/drivers/:id", async (req, res, next) => {
-  try {
-    const data = await readData();
-    const driver = (data.drivers || []).find(
-      (d) => d.driverId === req.params.id || d.id === req.params.id
-    );
-    if (!driver) return res.status(404).json({ error: "Driver not found" });
-    res.json({ ok: true, data: driver });
-  } catch (err) {
-    next(err);
-  }
-});
-
-app.post("/api/driver/register-device", (req, res) => {
-  const deviceId = sanitizeString(req.body?.deviceId || "", 120) || makeId("DEVICE");
-  res.json({ ok: true, deviceId });
-});
-
-app.post("/api/driver/trips/start", (req, res) => {
-  res.json({ ok: true, trip_id: makeId("TRIP") });
-});
-
-app.post("/api/driver/trips/end", (req, res) => {
-  res.json({ ok: true });
-});
-
-app.post("/api/driver/telemetry", (req, res) => {
-  (async () => {
-    const payload = req.body || {};
-    const vehicleId = sanitizeString(payload.vehicle_id || "", 80);
-    const samples = Array.isArray(payload.samples) ? payload.samples : [];
-    if (!vehicleId || samples.length === 0) {
-      return res.status(400).json({ error: "vehicle_id and samples required" });
-    }
-    const data = await readData();
-    const orgId = resolveOrgIdForVehicle(data, vehicleId);
-    if (req.customer && req.customer.orgId && orgId && req.customer.orgId !== orgId) {
-      return res.status(403).json({ error: "Forbidden" });
-    }
-    for (const sample of samples) {
-      const ts = sample.ts || nowIso();
-      const decodedMetrics = {
-        speedKph: sample.speed ?? null,
-        rpm: sample.rpm ?? null,
-        coolantTempC: sample.coolant_temp ?? null,
-        fuelLevelPct: sample.fuel_level ?? null,
-        batteryVoltageV: sample.voltage ?? null,
-        odometerMiles: sample.odometer ?? null
-      };
-      const decoded = { metrics: decodedMetrics, dtc: { active: [] } };
-      const normalized = normalizeMetrics({
-        decoded,
-        protocol: "OBD2",
-        timestamp: ts,
-        orgId,
-        vehicleId
-      });
-      storeNormalizedSnapshot(data, normalized, {
-        driverId: sanitizeString(payload.driver_id || "", 80) || null,
-        deviceId: sanitizeString(payload.device_id || "", 80) || null,
-        rawPids: decodedMetrics,
-        derivedMetrics: {}
-      });
-    }
-    await writeData(data);
-    triggerTelemetryPipeline();
-    return res.json({ received: samples.length, stored: true });
-  })().catch((err) => {
-    res.status(500).json({ error: err.message || "Telemetry ingest failed" });
-  });
-});
-
-app.get("/api/driver/alerts", (req, res) => {
-  (async () => {
-    const vehicleId = sanitizeString(req.query.vehicle_id || "", 80);
-    if (!vehicleId) {
-      return res.status(400).json({ error: "vehicle_id required" });
-    }
-    const data = await readData();
-    const items = (data.notifications || []).filter(
-      (n) =>
-        n.recipient_type === "driver" &&
-        n.vehicle_id === vehicleId &&
-        n.status !== "read"
-    );
-    const alerts = items.map((n) => ({
-      id: n.id,
-      severity: n.severity,
-      message: n.title ? `${n.title}: ${n.body}` : n.body,
-      created_at: n.created_at
-    }));
-    return res.json(alerts);
-  })().catch((err) => {
-    res.status(500).json({ error: err.message || "Failed to load alerts" });
-  });
-});
-
-app.post("/api/driver/alerts/:id/ack", (req, res) => {
-  (async () => {
-    const data = await readData();
-    const notif = (data.notifications || []).find((n) => n.id === req.params.id);
-    if (!notif) {
-      return res.status(404).json({ error: "Alert not found" });
-    }
-    notif.status = "read";
-    await writeData(data);
-    return res.json({ acknowledged: true });
-  })().catch((err) => {
-    res.status(500).json({ error: err.message || "Failed to acknowledge alert" });
-  });
-});
-
-app.get("/api/driver/config", (req, res) => {
-  res.json({ ok: true, pairingEnabled: true });
-});
-
-app.get("/api/drivers/me", (req, res) => {
-  res.json({ ok: true, driver: null });
-});
-
-app.post("/api/vehicles/select", (req, res) => {
-  res.json({ ok: true });
-});
-
-app.post("/api/logs/hos", (req, res) => {
-  res.json({ ok: true });
-});
-
-app.get("/api/logs/hos", (req, res) => {
-  res.json({ ok: true, logs: [] });
+registerFleetOpsRoutes(app, {
+  readData,
+  writeData,
+  sanitizeString,
+  parseNumberField,
+  nowIso,
+  makeId,
+  generateDigits,
+  addAudit,
+  requireEmployeeOrCustomerApi: (req, res, next) => requireEmployeeOrCustomerApi(req, res, next),
+  resolveOrgIdForVehicle,
+  telemetryLatest,
+  telemetrySubscribers,
+  getTelemetryLastSeen: () => telemetryLastSeen,
+  getTelemetryState: () => telemetryState,
+  triggerTelemetryPipeline,
+  storeNormalizedSnapshot,
+  normalizeMetrics
 });
 
 app.post("/api/telemetry/snapshot", (req, res) => {

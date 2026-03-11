@@ -142,6 +142,7 @@ function createStorage(options) {
   }
 
   async function loadData() {
+    await writeChain.catch(() => null);
     await ensureFile();
     const raw = await fsp.readFile(dataPath, "utf8");
     const cleaned = stripBom(raw);
