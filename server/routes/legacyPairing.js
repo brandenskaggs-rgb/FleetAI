@@ -1,3 +1,5 @@
+const crypto = require("crypto");
+
 function registerLegacyPairingRoutes(app, deps) {
   const {
     readData,
@@ -95,6 +97,38 @@ function registerLegacyPairingRoutes(app, deps) {
       deviceName: sanitizeString(deviceNameRaw || "", 120),
       driverPin: sanitizeString(driverPinRaw || "", 20)
     };
+  }
+
+  function normalizeCompanyCode(value) {
+    return String(value || "")
+      .trim()
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, "");
+  }
+
+  function buildCompanyCodeCandidates(data, pairing) {
+    const vehicleOrgId = pairing?.vehicleId ? resolveOrgIdForVehicle(data, pairing.vehicleId, "") : "";
+    const orgId = sanitizeString(pairing?.orgId || vehicleOrgId || "", 80);
+    const orgs = Array.isArray(data.orgs) ? data.orgs : [];
+    const org = orgs.find((entry) => {
+      const entryId = sanitizeString(entry?.orgId || entry?.id || "", 80);
+      return Boolean(entryId) && entryId === orgId;
+    }) || null;
+    const candidates = [
+      orgId,
+      org?.orgId,
+      org?.id,
+      org?.name,
+      org?.companyCode,
+      org?.company_code,
+      org?.tenantId,
+      org?.tenant_id
+    ];
+    return Array.from(new Set(candidates.map(normalizeCompanyCode).filter(Boolean)));
+  }
+
+  function createDriverAuthToken() {
+    return `drv_${crypto.randomBytes(24).toString("hex")}`;
   }
 
   function createPairingRecord({ vehicleId, driverId, orgId, vehicleName, driverName }) {
@@ -420,20 +454,35 @@ function registerLegacyPairingRoutes(app, deps) {
 
   app.post("/auth/driverLogin", async (req, res, next) => {
     const { companyCode, driverPin } = req.body || {};
-    if (!companyCode || !driverPin) {
+    const normalizedCompanyCode = normalizeCompanyCode(companyCode);
+    const normalizedDriverPin = sanitizeString(driverPin || "", 20);
+    if (!normalizedCompanyCode || !normalizedDriverPin) {
       return res.status(400).json({ error: "companyCode and driverPin required" });
     }
     try {
       const data = await readData();
-      const pairing = (data.pairings || []).find((p) => p.driverPin === driverPin);
-      if (!pairing) return res.status(401).json({ error: "Invalid PIN" });
+      const pairing = (data.pairings || []).find((p) => p.driverPin === normalizedDriverPin);
+      if (!pairing) return res.status(401).json({ error: "Invalid credentials" });
       if (isExpired(pairing.driverPinExpiresAt) || isExpired(pairing.expiresAt)) {
         pairing.status = "expired";
         await writeData(data);
         return res.status(410).json({ error: "PIN expired" });
       }
-      const driver = data.drivers.find((d) => d.driverId === pairing.driverId);
-      res.json({ tenantId: companyCode, driverId: driver ? driver.driverId : pairing.driverId, vehicleId: pairing.vehicleId, pairingCode: pairing.pairingCode, token: `token_${pairing.driverId}`, driverName: driver ? `${driver.firstName} ${driver.lastName}` : pairing.driverId });
+      const allowedCompanyCodes = buildCompanyCodeCandidates(data, pairing);
+      if (!allowedCompanyCodes.length || !allowedCompanyCodes.includes(normalizedCompanyCode)) {
+        return res.status(401).json({ error: "Invalid credentials" });
+      }
+      const drivers = Array.isArray(data.drivers) ? data.drivers : [];
+      const driver = drivers.find((d) => d.driverId === pairing.driverId);
+      const resolvedTenantId = allowedCompanyCodes[0] || normalizedCompanyCode;
+      res.json({
+        tenantId: resolvedTenantId,
+        driverId: driver ? driver.driverId : pairing.driverId,
+        vehicleId: pairing.vehicleId,
+        pairingCode: pairing.pairingCode,
+        token: createDriverAuthToken(),
+        driverName: driver ? `${driver.firstName} ${driver.lastName}`.trim() : pairing.driverId
+      });
     } catch (err) {
       next(err);
     }
