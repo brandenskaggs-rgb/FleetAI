@@ -1,0 +1,9 @@
+tunnel: YOUR_TUNNEL_ID
+credentials-file: /etc/cloudflared/YOUR_TUNNEL_ID.json
+
+ingress:
+  - hostname: fleet.example.com
+    service: http://127.0.0.1:3000
+    originRequest:
+      httpHostHeader: fleet.example.com
+  - service: http_status:404

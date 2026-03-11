@@ -40,6 +40,14 @@ Open the UI (served by backend):
 start http://127.0.0.1:8000/
 ```
 
+## Production deployment target
+
+Fleet AI is being hardened for a Debian deployment behind Cloudflare Tunnel.
+For production app config and deployment notes, see:
+- `.env.example`
+- `docs/DEPLOY_HARDENING.md`
+- `deploy/README.md`
+
 ## Run Node static server + Admin setup
 
 Env:

@@ -58,6 +58,7 @@ if (backendEnvExists) {
 }
 
 const app = express();
+app.disable("x-powered-by");
 function normalizeHost(value) {
   const raw = String(value || "").trim();
   if (!raw) return "0.0.0.0";
@@ -111,9 +112,11 @@ const AUTH_DEMO_WHITELIST = (process.env.AUTH_DEMO_WHITELIST || "")
 const SESSION_COOKIE = "fleetai_session";
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
 const CUSTOMER_SESSION_COOKIE = "fleetai_customer_session";
-const COOKIE_SAMESITE = (process.env.COOKIE_SAMESITE || (IS_PROD ? "None" : "Lax")).trim();
+const COOKIE_SAMESITE = (process.env.COOKIE_SAMESITE || (IS_PROD ? "Lax" : "Lax")).trim();
 const COOKIE_SECURE = process.env.COOKIE_SECURE === "true"
-  || (IS_PROD && COOKIE_SAMESITE.toLowerCase() === "none");
+  || IS_PROD;
+const CORS_ALLOWED_ORIGINS = parseOriginList(process.env.CORS_ALLOWED_ORIGINS || "");
+const TRUST_PROXY = resolveTrustProxySetting(process.env.TRUST_PROXY, IS_PROD);
 const BOOTSTRAP_CUSTOMER_EMAIL = (process.env.FLEETAI_BOOTSTRAP_CUSTOMER_EMAIL || "brandenskaggs01@gmail.com").toLowerCase().trim();
 const BOOTSTRAP_CUSTOMER_ENABLED = !IS_PROD && (process.env.FLEETAI_BOOTSTRAP_CUSTOMER || "true").toLowerCase() !== "false";
 const customerSessionStore = new Map();
@@ -129,6 +132,80 @@ const DEBUG_AUTH = (process.env.DEBUG_AUTH || "").toLowerCase() === "true";
 function authLog(...args) {
   if (!DEBUG_AUTH) return;
   console.log(...args);
+}
+
+function parseOriginList(value) {
+  return String(value || "")
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+}
+
+function resolveTrustProxySetting(value, isProd) {
+  const raw = String(value || "").trim();
+  if (!raw) {
+    return isProd ? "loopback, linklocal, uniquelocal" : false;
+  }
+  if (["true", "false"].includes(raw.toLowerCase())) {
+    return raw.toLowerCase() === "true";
+  }
+  if (/^\d+$/.test(raw)) {
+    return Number(raw);
+  }
+  return raw;
+}
+
+function isOriginAllowed(origin) {
+  if (!origin) return true;
+  if (!IS_PROD) return true;
+  if (!CORS_ALLOWED_ORIGINS.length) return false;
+  return CORS_ALLOWED_ORIGINS.includes(origin);
+}
+
+function applySecurityHeaders(req, res, next) {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()" );
+  res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
+  if (IS_PROD) {
+    res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+  }
+  next();
+}
+
+function validateRuntimeConfig() {
+  const errors = [];
+  const warnings = [];
+  const insecureDevPasswords = [
+    process.env.ADMIN_PASSWORD,
+    process.env.EMPLOYEE_PASSWORD,
+    process.env.CUSTOMER_PASSWORD,
+    process.env.DEV_SETUP_PASSWORD
+  ].filter(Boolean);
+
+  if (IS_PROD) {
+    if (!process.env.FLEETAI_SESSION_SECRET || String(process.env.FLEETAI_SESSION_SECRET).trim().length < 32) {
+      errors.push("FLEETAI_SESSION_SECRET must be set to a strong value (32+ chars) in production.");
+    }
+    if (DEV_SETUP || DEV_SETUP_MODE || DEV_SETUP_RESET_PASSWORDS) {
+      errors.push("DEV_SETUP, DEV_SETUP_MODE, and DEV_SETUP_RESET_PASSWORDS must all be false in production.");
+    }
+    if (SETUP_ALLOWED) {
+      warnings.push("FLEETAI_ALLOW_SETUP is enabled in production. Disable it after initial bootstrap.");
+    }
+    if (!CORS_ALLOWED_ORIGINS.length) {
+      warnings.push("CORS_ALLOWED_ORIGINS is empty in production; cross-origin browser access will be denied until explicitly configured.");
+    }
+    if (COOKIE_SAMESITE.toLowerCase() === "none" && !COOKIE_SECURE) {
+      errors.push("COOKIE_SECURE must be true when COOKIE_SAMESITE=None.");
+    }
+    if (insecureDevPasswords.length) {
+      warnings.push("Development/bootstrap password environment variables are present. Remove them from production after provisioning.");
+    }
+  }
+
+  return { errors, warnings };
 }
 
 function generateDevPassword() {
@@ -355,14 +432,21 @@ function logTelemetryHeartbeat(status, ageMs, source, metrics) {
   });
 }
 
-app.set("trust proxy", true);
-app.use(cors({
-  origin: true,
+app.set("trust proxy", TRUST_PROXY);
+app.use(applySecurityHeaders);
+const corsOptions = {
+  origin(origin, callback) {
+    if (isOriginAllowed(origin)) {
+      return callback(null, true);
+    }
+    return callback(new Error("CORS origin denied"));
+  },
   credentials: true,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization", "X-FleetAI-Token"]
-}));
-app.options(/.*/, cors());
+};
+app.use(cors(corsOptions));
+app.options(/.*/, cors(corsOptions));
 // Disable caching for API/active/telemetry so status never lies
 app.set("etag", false);
 app.use((req, res, next) => {
@@ -3129,7 +3213,7 @@ app.get("/api/setup/status", (req, res) => {
 });
 
 async function handleCreateSuperAdmin(req, res, next) {
-  const ipKey = req.headers["x-forwarded-for"] || req.socket.remoteAddress || "local";
+  const ipKey = req.ip || req.socket.remoteAddress || "local";
   const rate = getRateState(ipKey);
   if (!rate.allowed) {
     return res.status(429).json({ error: "Too many attempts. Try again later." });
@@ -3704,7 +3788,7 @@ app.get("/api/leads/public-status", (req, res) => {
 });
 
 async function handleCreateLead(req, res, next, leadTypeOverride, sourceOverride) {
-  const ipKey = req.headers["x-forwarded-for"] || req.socket.remoteAddress || "local";
+  const ipKey = req.ip || req.socket.remoteAddress || "local";
   const rate = getRateState(`lead:${ipKey}`);
   if (!rate.allowed) {
     return res.status(429).json({ error: "Too many requests. Try again later." });
@@ -4710,6 +4794,12 @@ validateJsonFile();
 startTelemetryScheduler();
 
 async function startServer() {
+  const runtimeConfig = validateRuntimeConfig();
+  runtimeConfig.warnings.forEach((warning) => console.warn(`[config] ${warning}`));
+  if (runtimeConfig.errors.length) {
+    runtimeConfig.errors.forEach((error) => console.error(`[config] ${error}`));
+    throw new Error("Refusing to start with unsafe production configuration.");
+  }
   await seedDevAuthStoreIfNeeded();
   verifyAuthStoreOrExit();
   app.listen(PORT, HOST, () => {
@@ -4724,6 +4814,10 @@ async function startServer() {
   console.log(`[env] Node=${process.version}`);
   console.log(`[env] HOST=${HOST}`);
   console.log(`[env] PORT=${PORT}`);
+  console.log(`[env] TRUST_PROXY=${JSON.stringify(TRUST_PROXY)}`);
+  console.log(`[env] CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS.length ? CORS_ALLOWED_ORIGINS.join(",") : "<same-origin-only>"}`);
+  console.log(`[env] COOKIE_SAMESITE=${COOKIE_SAMESITE}`);
+  console.log(`[env] COOKIE_SECURE=${COOKIE_SECURE}`);
   console.log(`[env] server root=${SITE_ROOT}`);
   console.log(`[env] root .env path=${rootEnvPath} exists=${rootEnvExists}`);
   console.log(`[env] backend .env path=${backendEnvPath} exists=${backendEnvExists}`);

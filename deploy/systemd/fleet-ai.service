@@ -1,0 +1,24 @@
+[Unit]
+Description=Fleet AI application server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=fleetai
+Group=fleetai
+WorkingDirectory=/opt/fleet-ai
+EnvironmentFile=/opt/fleet-ai/.env
+ExecStart=/usr/bin/node /opt/fleet-ai/server.js
+Restart=always
+RestartSec=5
+# Keep the app private behind Cloudflare Tunnel / local proxy.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/opt/fleet-ai/server /opt/fleet-ai/db
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target

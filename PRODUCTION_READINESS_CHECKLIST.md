@@ -1,10 +1,22 @@
 # Production Readiness Checklist
 
+0) Production config sanity
+- Root `.env` is based on `.env.example`
+- `NODE_ENV=production`
+- `HOST=127.0.0.1`
+- `FLEETAI_SESSION_SECRET` is set to a long random secret
+- `DEV_SETUP=false`
+- `DEV_SETUP_MODE=false`
+- `DEV_SETUP_RESET_PASSWORDS=false`
+- `CORS_ALLOWED_ORIGINS` is set to the real public Fleet AI hostname
+- Cloudflare Tunnel points to `http://127.0.0.1:3000`
+- Port 3000 is **not** exposed publicly
+
 1) Start server
 - `npm start`
 
 2) Health + diagnostics
-- Visit `http://localhost:3000/api/health`
+- Visit `http://localhost:3000/health`
 - Visit `http://localhost:3000/api/diagnostics`
 
 3) Website lead intake
