@@ -30,7 +30,12 @@ async function loginCustomer() {
     if (!res.ok || data.ok === false) {
       const code = data.code || data.error;
       if (res.status === 409 && code === "PASSWORD_SETUP_REQUIRED" && data.setupToken) {
-        window.location.href = `/set-password.html?token=${encodeURIComponent(data.setupToken)}&email=${encodeURIComponent(email)}&type=customer`;
+        try {
+          sessionStorage.setItem("fleetai_first_login_token", data.setupToken);
+          sessionStorage.setItem("fleetai_first_login_email", email);
+          sessionStorage.setItem("fleetai_first_login_role", "customer");
+        } catch (e) {}
+        window.location.href = "/set-password.html";
         return;
       }
       if (code === "USER_NOT_FOUND") {

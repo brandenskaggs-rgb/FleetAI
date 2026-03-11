@@ -105,8 +105,12 @@
       }
 
       if (res.status === 409 && data && data.code === "PASSWORD_SETUP_REQUIRED" && data.setupToken) {
-        const token = data.setupToken;
-        window.location.href = `/set-password.html?token=${encodeURIComponent(token)}&email=${encodeURIComponent(payload.email)}&type=employee`;
+        try {
+          sessionStorage.setItem("fleetai_first_login_token", data.setupToken);
+          sessionStorage.setItem("fleetai_first_login_email", payload.email);
+          sessionStorage.setItem("fleetai_first_login_role", "employee");
+        } catch (err) {}
+        window.location.href = "/set-password.html";
         return;
       }
       if (!res.ok || (data && data.ok === false)) {

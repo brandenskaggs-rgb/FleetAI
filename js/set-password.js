@@ -61,8 +61,16 @@ function getQueryParam(name) {
   }
 }
 
+function getStoredFirstLoginToken() {
+  try {
+    return sessionStorage.getItem("fleetai_first_login_token") || document.getElementById("setPasswordToken")?.value || "";
+  } catch (e) {
+    return document.getElementById("setPasswordToken")?.value || "";
+  }
+}
+
 function validateSetPasswordForm() {
-  const token = getQueryParam("token") || sessionStorage.getItem("fleetai_first_login_token") || document.getElementById("setPasswordToken")?.value || "";
+  const token = getStoredFirstLoginToken();
   const next = document.getElementById("setPasswordNew")?.value || "";
   const confirm = document.getElementById("setPasswordConfirm")?.value || "";
   const btn = document.getElementById("setPasswordBtn");
@@ -72,7 +80,7 @@ function validateSetPasswordForm() {
 }
 
 async function submitSetPassword() {
-  const token = getQueryParam("token") || sessionStorage.getItem("fleetai_first_login_token") || document.getElementById("setPasswordToken")?.value || "";
+  const token = getStoredFirstLoginToken();
   const next = document.getElementById("setPasswordNew")?.value || "";
   const confirm = document.getElementById("setPasswordConfirm")?.value || "";
   const btn = document.getElementById("setPasswordBtn");
@@ -122,8 +130,12 @@ async function submitSetPassword() {
       updateDebug({ error: msg });
       return;
     }
-    try { sessionStorage.removeItem("fleetai_first_login_token"); } catch (e) {}
-    const role = getQueryParam("type") || sessionStorage.getItem("fleetai_first_login_role") || "customer";
+    const role = sessionStorage.getItem("fleetai_first_login_role") || "customer";
+    try {
+      sessionStorage.removeItem("fleetai_first_login_token");
+      sessionStorage.removeItem("fleetai_first_login_email");
+      sessionStorage.removeItem("fleetai_first_login_role");
+    } catch (e) {}
     showSetPasswordMessage("Password updated. Redirecting to login...", true);
     setTimeout(() => {
       window.location.href = role === "employee" ? "/employee-login.html" : "/customer-login.html";
@@ -148,10 +160,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const btn = document.getElementById("setPasswordBtn");
   if (btn) btn.addEventListener("click", submitSetPassword);
   // Prefill email/token if stored
-  const email = getQueryParam("email") || sessionStorage.getItem("fleetai_first_login_email") || "";
+  const email = sessionStorage.getItem("fleetai_first_login_email") || "";
   const emailEl = document.getElementById("setPasswordEmail");
   if (emailEl && !emailEl.value) emailEl.value = email;
-  const token = getQueryParam("token") || sessionStorage.getItem("fleetai_first_login_token") || "";
+  const token = getStoredFirstLoginToken();
   const tokenEl = document.getElementById("setPasswordToken");
   if (tokenEl && !tokenEl.value) tokenEl.value = token;
   validateSetPasswordForm();

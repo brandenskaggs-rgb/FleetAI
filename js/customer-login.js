@@ -71,9 +71,12 @@ async function submitCustomerLogin() {
     if (!res.ok || data.ok === false) {
       const code = data.code || data.error;
       if (res.status === 409 && code === "PASSWORD_SETUP_REQUIRED" && data.setupToken) {
-        const token = data.setupToken;
-        const type = "customer";
-        window.location.href = `/set-password.html?token=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}&type=${type}`;
+        try {
+          sessionStorage.setItem("fleetai_first_login_token", data.setupToken);
+          sessionStorage.setItem("fleetai_first_login_email", email);
+          sessionStorage.setItem("fleetai_first_login_role", "customer");
+        } catch (e) {}
+        window.location.href = "/set-password.html";
         return;
       }
       if (code === "USER_NOT_FOUND") {
