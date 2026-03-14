@@ -171,7 +171,7 @@ private fun ConnectionBanner(
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text("Live Telemetry", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
             Text("Status: $status", style = MaterialTheme.typography.bodyMedium)
-            Text("Saved dongle: ${savedDevice.ifBlank { \"--\" }}", style = MaterialTheme.typography.bodySmall)
+            Text("Saved dongle: ${savedDevice.ifBlank { "--" }}", style = MaterialTheme.typography.bodySmall)
             // TODO: Add trip summary and last pairing metadata once backend exposes it.
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
                 StatusPill(label = "Bluetooth", good = status.contains("Connected", true))
@@ -196,7 +196,7 @@ private fun ConnectionBanner(
             }
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
                 FleetButton(
-                    text = "Units: ${if (unitPrefs.tempF) \"F / mph\" else \"C / kph\"}",
+                    text = "Units: ${if (unitPrefs.tempF) "F / mph" else "C / kph"}",
                     onClick = onToggleUnits,
                     modifier = Modifier.weight(1f)
                 )
@@ -293,7 +293,7 @@ private fun RawDebugPanel(readings: List<SensorReading>, debug: com.fleetai.driv
         }
         if (expanded) {
             readings.forEach {
-                Text("${it.pid}: raw=${it.raw ?: \"--\"} smoothed=${it.smoothed ?: \"--\"} @ ${it.lastUpdated.toTime()}", style = MaterialTheme.typography.bodySmall)
+                Text("${it.pid}: raw=${it.raw ?: "--"} smoothed=${it.smoothed ?: "--"} @ ${it.lastUpdated.toTime()}", style = MaterialTheme.typography.bodySmall)
             }
             Text("Last OBD read: ${debug.lastObdReadAt.toTime()} | Last send: ${debug.lastSendAt.toTime()}", style = MaterialTheme.typography.bodySmall)
             if (debug.lastError.isNotBlank()) {

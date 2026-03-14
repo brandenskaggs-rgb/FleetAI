@@ -163,6 +163,7 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
             while (isActive) {
                 if (!obd.isConnected()) {
                     _status.value = "Not connected"
+                    sender.updateSnapshot(emptyMap(), obdConnected = false)
                     delay(1000)
                     continue
                 }
@@ -210,6 +211,25 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
                 }
                 lastReadError = loopError
                 val boost = deriveBoost(mapValue, baroValue)
+                sender.updateSnapshot(
+                    metrics = mapOf(
+                        "rpm" to rpmValue,
+                        "speedKph" to speedValue,
+                        "coolantTempC" to coolantValue,
+                        "intakeAirTempC" to intakeValue,
+                        "batteryVoltageV" to voltageValue,
+                        "engineLoadPct" to loadValue,
+                        "throttlePosPct" to throttleValue,
+                        "mapKpa" to mapValue,
+                        "baroKpa" to baroValue,
+                        "mafGramsPerSec" to mafValue,
+                        "fuelLevelPct" to fuelLevelValue,
+                        "oilTempC" to oilTempValue,
+                        "boostPsi" to boost
+                    ),
+                    obdConnected = true,
+                    packetAt = now
+                )
 
                 val unit = _unitPrefs.value
                 val coreReadings = listOfNotNull(
@@ -261,6 +281,7 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
     private fun stopPolling() {
         pollJob?.cancel()
         pollJob = null
+        sender.updateSnapshot(emptyMap(), obdConnected = false)
     }
 
     private fun demoValue(min: Double, max: Double): String {

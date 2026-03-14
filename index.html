@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
 <head>
   <link rel="stylesheet" href="/css/theme.css" />
@@ -21,6 +21,8 @@
         <a href="/pricing.html">Pricing</a>
         <a href="/pilot.html">Pilot Program</a>
         <a href="/security.html">Security</a>
+        <a href="/ui/fleetai-dashboard.html">Operator Dashboard</a>
+        <a href="/employee-portal.html">Employee Portal</a>
         <a href="/about.html">About Us</a>
       </nav>
       <div class="siteActions">
@@ -44,78 +46,106 @@
   </div>
 
   <section class="hero hero--spicy">
-    <div class="container heroGrid">
+    <div class="container heroGrid heroGrid--command">
       <div>
-        <span class="eyebrow">Fleet intelligence platform</span>
-        <h1>Fleet AI is more than a dashboard - it is an intelligence layer for fleet operations.</h1>
-        <p>Predictive maintenance, compliance readiness, and operational efficiency in one platform. Fleet AI learns how vehicles and drivers operate and surfaces early warnings with recommended inspection windows.</p>
+        <span class="badge">Built to strengthen American industry</span>
+        <h1>Reliability that keeps the world moving, powered by intelligence.</h1>
+        <p>Fleet AI learns every vehicle, driver, and route, then surfaces the earliest credible warning before uptime slips. It is the intelligence layer on top of your fleet, not just a polished dashboard.</p>
         <div class="heroActions">
           <a class="btn primary" href="/request-demo.html">Request a Demo</a>
           <a class="btn secondary" href="/pricing.html#plans">View Pricing</a>
+          <a class="btn ghost" href="/product.html#intelligence-layer">See Architecture</a>
         </div>
-        <div class="heroQuickLinks">
-          <a href="/product.html#intelligence-layer">See Core Features</a>
-          <span class="dotSep">&middot;</span>
-          <a href="/pricing.html#addons">View Add-ons</a>
-          <span class="dotSep">&middot;</span>
-          <a href="/pilot.html">Apply for Pilot</a>
+        <div class="heroMetrics">
+          <div class="metric">
+            <span class="metric__value">99.4%</span>
+            <span class="metric__label">Predicted uptime</span>
+          </div>
+          <div class="metric">
+            <span class="metric__value">48 hrs</span>
+            <span class="metric__label">Average lead time</span>
+          </div>
+          <div class="metric">
+            <span class="metric__value">0</span>
+            <span class="metric__label">Cross-org data leaks</span>
+          </div>
         </div>
         <div class="heroProof">
-          <span class="pill">Predictive maintenance</span>
-          <span class="pill">Fleet-specific learning</span>
-          <span class="pill">Compliance intelligence</span>
-          <span class="pill">Executive-ready insights</span>
+          <span class="pill">Predictive maintenance intelligence</span>
+          <span class="pill">Ops-ready compliance insights</span>
+          <span class="pill">Driver + machine telemetry</span>
+          <span class="pill">Executive-grade reporting</span>
         </div>
       </div>
-      <div class="heroMock">
-        <!-- TODO: Replace skeleton preview with /assets/screens/hero-dashboard.png -->
-        <div class="mockScreen">
-          <div class="mockHeader">
-            <div class="mockPill"></div>
-            <div class="mockPill" style="width:60px"></div>
-          </div>
-          <div class="mockCard">
-            <div class="mockLine long"></div>
-            <div class="mockLine mid"></div>
-            <div class="mockLine short"></div>
-          </div>
-          <div class="mockRows" style="margin-top:12px;">
-            <div class="mockCard">
-              <div class="mockLine mid"></div>
-              <div class="mockLine long"></div>
+      <div class="opsPanel">
+        <div class="opsHeader">
+          <span>Operations Command</span>
+          <span>Live feed</span>
+        </div>
+        <div class="opsQueue">
+          <div class="opsEvent">
+            <div class="opsEvent__title">Torque trend anomaly — Truck 214</div>
+            <div class="opsEvent__meta">
+              <span>Inspection window: 36 hrs</span>
+              <span class="pill">High Risk</span>
             </div>
-            <div class="mockCard">
-              <div class="mockLine short"></div>
-              <div class="mockLine long"></div>
+          </div>
+          <div class="opsEvent">
+            <div class="opsEvent__title">Cooling variance — Tractor 9-PIN</div>
+            <div class="opsEvent__meta">
+              <span>Next check: upcoming layover</span>
+              <span>Origin: J1939 stream</span>
             </div>
           </div>
         </div>
-        <div class="card card--soft">
-          <div class="card__title">Operational preview</div>
-          <p class="card__meta">Executive-ready summaries surface once vehicles stream real data.</p>
+        <div class="opsSensors">
+          <div class="opsSensors__row">
+            <span>RPM</span>
+            <span class="opsSensors__value">1,245</span>
+          </div>
+          <div class="opsSensors__row">
+            <span>Coolant temp</span>
+            <span class="opsSensors__value">196°F</span>
+          </div>
+          <div class="opsSensors__row">
+            <span>MAP</span>
+            <span class="opsSensors__value">27 psi</span>
+          </div>
+          <div class="opsSensors__row">
+            <span>Voltage</span>
+            <span class="opsSensors__value">13.8v</span>
+          </div>
+        </div>
+        <div class="opsMeta">
+          <span>OBD-II / J1939</span>
+          <span>Session integrity locked</span>
         </div>
       </div>
     </div>
   </section>
 
   <section class="section section--tight">
-    <div class="container">
-      <div class="sectionHeader">
-        <h2>Built for real fleet operations</h2>
-        <p>Fleet AI is an AI-powered fleet intelligence platform designed to reduce downtime, predict failures, improve compliance, and optimize operational efficiency across vehicle fleets.</p>
+    <div class="container reliabilityStrip">
+      <div class="sectionHeader" style="margin-bottom:24px;">
+        <h2>Setting the global standard for intelligent reliability</h2>
+        <p>Everything ties back to three disciplines: keep equipment available, keep compliance tight, and keep leadership aligned to the same source of truth.</p>
       </div>
-      <div class="grid-3">
-        <div class="card">
-          <div class="card__title">Predictive maintenance</div>
-          <p class="card__meta">Risk-based guidance that goes beyond reactive alerts.</p>
+      <div class="reliabilityGrid">
+        <div class="reliabilityCard">
+          <h3>Predictive maintenance</h3>
+          <p>Pattern detection across RPM, MAP, coolant, voltage, and vibration streams produces inspection windows, not vague alerts.</p>
         </div>
-        <div class="card">
-          <div class="card__title">Fleet-specific intelligence</div>
-          <p class="card__meta">Learning models adapt to vehicles, drivers, and usage patterns.</p>
+        <div class="reliabilityCard">
+          <h3>Operational uptime</h3>
+          <p>Driver devices, cellular health, and sensor fidelity are monitored so every route leaves with live telemetry—buffered offline when coverage drops.</p>
         </div>
-        <div class="card">
-          <div class="card__title">Executive-ready insights</div>
-          <p class="card__meta">Actionable summaries, not raw telemetry dumps.</p>
+        <div class="reliabilityCard">
+          <h3>Compliance intelligence</h3>
+          <p>Hours-of-service, inspections, and audit prep run through the same command layer so exposure is caught before regulators do.</p>
+        </div>
+        <div class="reliabilityCard">
+          <h3>Executive reporting</h3>
+          <p>Insights roll up into disciplined briefs for owners and board members, aligning operations with capital decisions.</p>
         </div>
       </div>
     </div>
@@ -124,8 +154,34 @@
   <section class="section">
     <div class="container">
       <div class="sectionHeader">
-        <h2>Built to support decisions, not overwhelm operators.</h2>
-        <p>Fleet AI prioritizes clarity, focus, and action. Dashboards exist to surface what matters without flooding teams with noise.</p>
+        <h2>Deployment blueprint</h2>
+        <p>Fleet AI drops into existing fleets with zero rip-and-replace. OBD-II for light duty, 9-pin / J1939 for heavy duty, all secured behind Cloudflare Tunnel.</p>
+      </div>
+      <div class="buildGrid">
+        <div class="buildCard">
+          <h3>Vehicle interfaces</h3>
+          <ul>
+            <li>OBD-II + CAN for pickups, vans, and service trucks.</li>
+            <li>9-pin / J1939 harness support for tractors and heavy equipment.</li>
+            <li>Automatic sensor reconciliation so RPM never flickers between sources.</li>
+          </ul>
+        </div>
+        <div class="buildCard">
+          <h3>Driver + operator devices</h3>
+          <ul>
+            <li>Android tablets today, hardened Windows + iOS next.</li>
+            <li>Offline buffers push data once coverage returns.</li>
+            <li>Operator dashboard + employee portal always link back to the landing page.</li>
+          </ul>
+        </div>
+        <div class="buildCard">
+          <h3>Security + trust</h3>
+          <ul>
+            <li>Sessions locked to the org, no cross-tenant tokens.</li>
+            <li>Cloudflare Tunnel + Debian deployment baseline.</li>
+            <li>Trusted origins only — prevents stray browser requests.</li>
+          </ul>
+        </div>
       </div>
     </div>
   </section>
@@ -133,21 +189,21 @@
   <section class="section section--tint">
     <div class="container">
       <div class="sectionHeader">
-        <h2>Designed for fast, low-friction deployment.</h2>
-        <p>Fleet AI installs without disrupting daily operations. No complex hardware installs or downtime required.</p>
+        <h2>The operations spine</h2>
+        <p>Driver tablets, vehicle sensors, and the operator dashboard all synchronize through one command layer so nothing drifts out of spec.</p>
       </div>
       <div class="grid-3">
         <div class="card">
-          <div class="card__title">Step 1 - Plug and Pair</div>
-          <p class="card__meta">Plug in a standard vehicle interface (OBD/J1939 compatible) and pair with an Android tablet or existing driver device.</p>
+          <div class="card__title">Observability plane</div>
+          <p class="card__meta">Driver devices monitor connectivity + power state; Fleet AI buffers and replays automatically so RPM/MAP never flicker to N/A.</p>
         </div>
         <div class="card">
-          <div class="card__title">Step 2 - Go Live</div>
-          <p class="card__meta">Vehicles begin streaming data automatically. No manual configuration required for drivers.</p>
+          <div class="card__title">Diagnostics plane</div>
+          <p class="card__meta">OBD-II + J1939 feeds run side-by-side with reconcilers, handing off clean data to the intelligence layer and catching sensor drift.</p>
         </div>
         <div class="card">
-          <div class="card__title">Step 3 - Intelligence Improves Over Time</div>
-          <p class="card__meta">Fleet AI begins learning normal behavior. Early warnings and recommendations appear as data is collected.</p>
+          <div class="card__title">Command plane</div>
+          <p class="card__meta">Operator dashboard, employee portal, and API hooks share identical context so ops, engineering, and leadership see the same truth.</p>
         </div>
       </div>
     </div>
@@ -156,20 +212,19 @@
   <section class="section">
     <div class="container grid-2">
       <div class="card">
-        <div class="card__title">No rip-and-replace. No forced hardware.</div>
+        <div class="card__title">Offline-first by design</div>
         <ul class="featureList">
-          <li><span class="dot"></span>Runs on existing Android tablets and driver devices</li>
-          <li><span class="dot"></span>Supports standard vehicle interfaces</li>
-          <li><span class="dot"></span>Fleets can bring their own hardware</li>
-          <li><span class="dot"></span>Optional Fleet AI hardware is a future capability (coming soon)</li>
+          <li><span class="dot"></span>Telemetry buffers locally whenever tunnels or LTE sag.</li>
+          <li><span class="dot"></span>Replays are sequenced server-side to avoid double-writes.</li>
+          <li><span class="dot"></span>Ops is alerted if a device falls out of compliance.</li>
         </ul>
       </div>
       <div class="card">
-        <div class="card__title">Value starts early - intelligence improves over time.</div>
+        <div class="card__title">Operator tools stay close</div>
         <ul class="featureList">
-          <li><span class="dot"></span>Basic visibility and health indicators appear early</li>
-          <li><span class="dot"></span>Predictive models improve as Fleet AI learns your fleet's patterns</li>
-          <li><span class="dot"></span>Insights compound with real-world usage</li>
+          <li><span class="dot"></span>Dashboard highlights live sensor values and reliability queue.</li>
+          <li><span class="dot"></span>Employee portal links straight back to the landing surface.</li>
+          <li><span class="dot"></span>Every surface reinforces the same brand + copy.</li>
         </ul>
       </div>
     </div>
@@ -178,21 +233,21 @@
   <section class="section section--tint">
     <div class="container">
       <div class="sectionHeader">
-        <h2>Pilot first. Commit when ready.</h2>
-        <p>Month-to-month pilot pricing designed to validate real-world performance before long-term commitments.</p>
+        <h2>Pilot on real metal before you scale</h2>
+        <p>We stand up a live tunnel, connect actual vehicles, and let you measure reliability before talking long-term contracts.</p>
       </div>
       <div class="grid-3">
         <div class="card">
-          <div class="card__title">Low-risk entry</div>
-          <p class="card__meta">Month-to-month pilot pricing with no long-term contracts required upfront.</p>
+          <div class="card__title">Pilot covenant</div>
+          <p class="card__meta">Month-to-month, $59/vehicle/mo, zero surprise fees. Kill switch stays with you.</p>
         </div>
         <div class="card">
-          <div class="card__title">Operational validation</div>
-          <p class="card__meta">Designed to prove performance in real fleet conditions.</p>
+          <div class="card__title">Operational verification</div>
+          <p class="card__meta">We publish a reliability brief covering uptime, anomalies caught, and ops tooling fit.</p>
         </div>
         <div class="card">
-          <div class="card__title">Direct feedback loop</div>
-          <p class="card__meta">Pilot partners work closely with the Fleet AI team.</p>
+          <div class="card__title">Leadership alignment</div>
+          <p class="card__meta">Executive-ready summaries make it easy to brief owners, boards, or command staff.</p>
         </div>
       </div>
     </div>
@@ -201,25 +256,29 @@
   <section class="section section--tint">
     <div class="container">
       <div class="sectionHeader">
-        <h2>How it works</h2>
-        <p>Clear, operational flow that fits daily fleet workflows.</p>
+        <h2>How Fleet AI runs your predictive spine</h2>
+        <p>Each loop is engineered for industrial fleets: OBD-II for light duty, 6/9-pin J1939 for heavy duty, Cloudflare Tunnel for ingress, and intelligence that publishes executive-ready directives.</p>
       </div>
-      <div class="grid-4">
+      <div class="grid-4 processGrid">
         <div class="card">
-          <div class="card__title">Vehicles generate data during normal operation</div>
-          <p class="card__meta">Fleet AI collects data without disrupting daily workflows.</p>
+          <div class="processStep">01</div>
+          <div class="card__title">Instrument every asset</div>
+          <p class="card__meta">Certified OBD-II and 9-pin J1939 harnesses stream RPM, torque, voltage, fuel trim, and aftertreatment vitals. Device health is authenticated per vehicle so ghost units never enter the feed.</p>
         </div>
         <div class="card">
-          <div class="card__title">Patterns are analyzed across vehicles and drivers</div>
-          <p class="card__meta">The system begins learning what normal looks like for your fleet.</p>
+          <div class="processStep">02</div>
+          <div class="card__title">Secure ingress + tunneling</div>
+          <p class="card__meta">Cloudflare Tunnel and mutual TLS move payloads into Fleet AI without exposing roadside hardware. Every packet is time-signed, buffered offline, and replayed once the tunnel is back online.</p>
         </div>
         <div class="card">
-          <div class="card__title">Risk, cost exposure, and compliance issues are flagged</div>
-          <p class="card__meta">Issues are prioritized with operational context.</p>
+          <div class="processStep">03</div>
+          <div class="card__title">Intelligence &amp; reconciliation</div>
+          <p class="card__meta">Signal cleaners reconcile dual-source sensors, merge OBD-II + J1939 frames, and feed the reliability brain. Models cross-check the whole fleet to spot anomalies before they become downtime.</p>
         </div>
         <div class="card">
-          <div class="card__title">Operators receive clear recommendations</div>
-          <p class="card__meta">Actionable, prioritized steps for maintenance and compliance.</p>
+          <div class="processStep">04</div>
+          <div class="card__title">Directed actions + accountability</div>
+          <p class="card__meta">Operators receive inspection windows, cost exposure, and compliance notes. Leadership receives the same verdict packaged for board decks, so decisions align from the shop floor to the capital stack.</p>
         </div>
       </div>
     </div>
@@ -228,24 +287,26 @@
   <section class="section">
     <div class="container">
       <div class="sectionHeader">
-        <h2>What Fleet AI is and is not</h2>
-        <p>Clear expectations help fleets adopt the platform with confidence.</p>
+        <h2>Command scope and non-negotiables</h2>
+        <p>Fleet AI behaves like serious infrastructure—tight remit, no mystery automation, documented boundaries.</p>
       </div>
-      <div class="grid-2">
+      <div class="grid-2 scopeGrid">
         <div class="card">
-          <div class="card__title">Fleet AI is</div>
+          <div class="card__title">Fleet AI owns</div>
           <ul class="featureList">
-            <li><span class="dot"></span>A decision-support platform</li>
-            <li><span class="dot"></span>A learning system that progressively adapts to your fleet</li>
-            <li><span class="dot"></span>Designed to reduce surprises and improve planning</li>
+            <li><span class="dot"></span>Predictive maintenance intelligence tied to RPM/MAP/torque reality.</li>
+            <li><span class="dot"></span>Multi-protocol ingestion (OBD-II, CAN, J1939) with sensor arbitration.</li>
+            <li><span class="dot"></span>Secure session management through Cloudflare Tunnel + org-scoped tokens.</li>
+            <li><span class="dot"></span>Executive-ready reporting that mirrors the operator console.</li>
           </ul>
         </div>
         <div class="card">
-          <div class="card__title">Fleet AI is not</div>
+          <div class="card__title">Fleet AI will not do</div>
           <ul class="featureList">
-            <li><span class="dot"></span>A replacement for mechanics</li>
-            <li><span class="dot"></span>A fully autonomous controller</li>
-            <li><span class="dot"></span>A magic prediction engine</li>
+            <li><span class="dot"></span>Autonomous control overrides or remote actuation.</li>
+            <li><span class="dot"></span>Cross-tenant data blending or selling telemetry to third parties.</li>
+            <li><span class="dot"></span>Shadow AI explanations—every alert cites the data that triggered it.</li>
+            <li><span class="dot"></span>Unreviewed updates; all changes are versioned and logged.</li>
           </ul>
         </div>
       </div>
@@ -256,23 +317,23 @@
     <div class="container grid-2">
       <div>
         <div class="sectionHeader">
-          <h2>Progressive intelligence over time</h2>
-          <p>Fleet AI improves with real-world usage and fleet-specific learning.</p>
+          <h2>Reliability maturity timeline</h2>
+          <p>The platform compounds in value as it learns the specific mechanical behavior of your fleet.</p>
         </div>
         <div class="timeline">
-          <div class="timelineItem"><strong>Day 1</strong><span>Visibility and baseline data appear.</span></div>
-          <div class="timelineItem"><strong>Early usage</strong><span>Pattern recognition begins and coverage expands.</span></div>
-          <div class="timelineItem"><strong>Continued use</strong><span>Risk scoring improves and recommendations become more precise.</span></div>
-          <div class="timelineItem"><strong>Ongoing</strong><span>Fleet-specific learning adapts to operations.</span></div>
+          <div class="timelineItem"><strong>Week 1 — Baseline + handshake</strong><span>Deploy hardware, lock Cloudflare Tunnel, verify OBD-II and J1939 feeds per VIN.</span></div>
+          <div class="timelineItem"><strong>Days 10-30 — Signal fidelity</strong><span>Sensor drift and driver device uptime become visible; anomalies include operating context.</span></div>
+          <div class="timelineItem"><strong>Day 45+ — Predictive reliability</strong><span>Inspection windows, cost exposure, and compliance pulls are prioritized by risk.</span></div>
+          <div class="timelineItem"><strong>Quarterly — Executive brief</strong><span>Board-ready summaries connect uptime, spend, and capital planning.</span></div>
         </div>
       </div>
       <div class="card">
-        <div class="card__title">Operator-first AI principles</div>
+        <div class="card__title">Operator guardrails</div>
         <ul class="featureList">
-          <li><span class="dot"></span>AI advises, humans decide</li>
-          <li><span class="dot"></span>Explanations included in recommendations</li>
-          <li><span class="dot"></span>No black-box actions</li>
-          <li><span class="dot"></span>Oversight always remains with operators</li>
+          <li><span class="dot"></span>AI recommends; operators authorize.</li>
+          <li><span class="dot"></span>Every recommendation includes the originating sensors + timeframe.</li>
+          <li><span class="dot"></span>Command surfaces share a single data model, preventing conflicting versions of the truth.</li>
+          <li><span class="dot"></span>Audit trail exports plug into compliance and insurer reviews.</li>
         </ul>
       </div>
     </div>
@@ -281,19 +342,21 @@
   <section class="section">
     <div class="container grid-2">
       <div class="card">
-        <div class="card__title">Who Fleet AI is for</div>
+        <div class="card__title">Deployment readiness checklist</div>
         <ul class="featureList">
-          <li><span class="dot"></span>Fleets seeking predictability and fewer surprises</li>
-          <li><span class="dot"></span>Operators open to piloting and iteration</li>
-          <li><span class="dot"></span>Teams focused on uptime and compliance readiness</li>
+          <li><span class="dot"></span>Fleet has mixed light/heavy duty assets that need one predictive system.</li>
+          <li><span class="dot"></span>Ops can dedicate at least one lead tech or reliability manager.</li>
+          <li><span class="dot"></span>Leadership wants telemetry they can take straight into investor decks.</li>
+          <li><span class="dot"></span>Security expects Cloudflare Tunnel, MFA, and auditable access.</li>
         </ul>
       </div>
       <div class="card">
-        <div class="card__title">Who it is not ideal for</div>
+        <div class="card__title">Not a fit if</div>
         <ul class="featureList">
-          <li><span class="dot"></span>Fleets expecting instant automation</li>
-          <li><span class="dot"></span>Teams unwilling to test or iterate</li>
-          <li><span class="dot"></span>Organizations looking for hands-off control</li>
+          <li><span class="dot"></span>You expect a black-box autopilot or push-button fixes.</li>
+          <li><span class="dot"></span>Vehicles cannot expose OBD-II, CAN, or J1939 data.</li>
+          <li><span class="dot"></span>Leadership is unwilling to pilot on real metal before scale.</li>
+          <li><span class="dot"></span>Security requires data residency outside the United States.</li>
         </ul>
       </div>
     </div>
@@ -302,21 +365,21 @@
   <section class="section section--tint">
     <div class="container grid-2">
       <div class="card">
-        <div class="card__title">What happens when something goes wrong?</div>
+        <div class="card__title">Failure protocol</div>
         <ul class="featureList">
-          <li><span class="dot"></span>AI does not take autonomous action</li>
-          <li><span class="dot"></span>Operators remain in control of decisions</li>
-          <li><span class="dot"></span>Alerts escalate, not override</li>
-          <li><span class="dot"></span>Human review is always possible</li>
+          <li><span class="dot"></span>Device health monitoring escalates if a tablet, dongle, or harness falls offline.</li>
+          <li><span class="dot"></span>Alerts include next-best data sources and how long buffers can hold.</li>
+          <li><span class="dot"></span>Ops receives runbooks for roadside swaps and post-incident analysis.</li>
+          <li><span class="dot"></span>No recommendation is issued without sensor integrity confidence.</li>
         </ul>
       </div>
       <div class="card">
-        <div class="card__title">Data and trust</div>
+        <div class="card__title">Data stewardship</div>
         <ul class="featureList">
-          <li><span class="dot"></span>Fleet data is isolated per customer</li>
-          <li><span class="dot"></span>No cross-fleet data sharing</li>
-          <li><span class="dot"></span>Data is not sold</li>
-          <li><span class="dot"></span>Intelligence remains fleet-specific</li>
+          <li><span class="dot"></span>Org-scoped encryption keys, no shared databases, no shadow analytics.</li>
+          <li><span class="dot"></span>Tunnel-only ingress prevents direct exposure of operator dashboards.</li>
+          <li><span class="dot"></span>Access logs are exportable for SOC 2 / ISO 27001 evidence.</li>
+          <li><span class="dot"></span>Telemetry is deleted on contract termination per SLA.</li>
         </ul>
       </div>
     </div>
@@ -325,27 +388,26 @@
   <section class="section">
     <div class="container">
       <div class="sectionHeader">
-        <h2>Predictive timeline highlights</h2>
-        <p>Risk-based guidance, not guaranteed predictions.</p>
+        <h2>Predictive reliability commitments</h2>
+        <p>We are explicit about what the platform delivers so operations and leadership know exactly what to expect.</p>
       </div>
       <div class="grid-3">
         <div class="card">
-          <div class="card__title">Early warning</div>
-          <p class="card__meta">Flags rising risk based on live operating patterns.</p>
+          <div class="card__title">Early risk dossiers</div>
+          <p class="card__meta">Torque, coolant, voltage, and vibration anomalies bundled with vehicle history and driver context—no guesswork required.</p>
         </div>
         <div class="card">
-          <div class="card__title">Inspection window</div>
-          <p class="card__meta">Recommends a timeframe to check a system before failure.</p>
+          <div class="card__title">Inspection windows</div>
+          <p class="card__meta">Recommended service windows include the cost of inaction, estimated downtime, and the data that triggered the alert.</p>
         </div>
         <div class="card">
           <div class="card__title">Action center</div>
-          <p class="card__meta">Aligns the recommendation with maintenance workflows.</p>
+          <p class="card__meta">Ops, maintenance, and leadership see the same queue so work orders, parts pulls, and budgets stay in sync.</p>
         </div>
       </div>
       <div class="card" style="margin-top:16px;">
-        <div class="card__title">Example (not a guarantee)</div>
-        <p class="card__meta">If operating patterns indicate rising fuel-system risk, Fleet AI may recommend inspection within the next 72 hours or before the next route cycle.</p>
-        <p class="card__meta">Disclaimer: risk-based recommendations depend on data availability, vehicle configuration, and operating conditions.</p>
+        <div class="card__title">Reality check</div>
+        <p class="card__meta">Recommendations depend on signal fidelity, driver compliance, and environmental conditions. Fleet AI publishes confidence and assumptions on every call so you know when to trust, challenge, or escalate.</p>
       </div>
     </div>
   </section>
@@ -354,37 +416,37 @@
     <div class="container">
       <div class="sectionHeader">
         <h2>Modules</h2>
-        <p>Core modules plus expansion paths for safety, compliance, and reporting.</p>
+        <p>Everything rolls up into one reliability spine, but modules let you phase adoption without diluting standards.</p>
       </div>
       <div class="grid-3">
         <div class="card moduleCard">
-          <div class="card__title">Predictive Maintenance</div>
-          <p class="card__meta">Risk indicators and service planning workflows.</p>
+          <div class="card__title">Reliability Intelligence Core</div>
+          <p class="card__meta">Predictive models, anomaly detection, and inspection windows grounded in OBD-II/J1939 reality.</p>
           <a href="/product.html#predictive">Learn more</a>
         </div>
         <div class="card moduleCard">
-          <div class="card__title">Alerts</div>
-          <p class="card__meta">Actionable alerts with recommended next steps.</p>
-          <a href="/product.html#alerts">Learn more</a>
+          <div class="card__title">Maintenance Orchestration</div>
+          <p class="card__meta">Integrates with shop systems, tracks work orders, and ties actions back to risk avoided.</p>
+          <a href="/product.html#maintenance">Learn more</a>
         </div>
         <div class="card moduleCard">
-          <div class="card__title">Compliance</div>
-          <p class="card__meta">Readiness signals and regulatory awareness.</p>
+          <div class="card__title">Compliance &amp; Audit</div>
+          <p class="card__meta">DOT, OSHA, and insurer evidence compiled automatically from the same telemetry feed.</p>
           <a href="/product.html#compliance">Learn more</a>
         </div>
         <div class="card moduleCard">
-          <div class="card__title">Safety</div>
-          <p class="card__meta">Driver behavior analysis and scoring.</p>
+          <div class="card__title">Driver Safety Signal</div>
+          <p class="card__meta">Driver scoring blends behavior, fatigue signals, and equipment stress to reduce exposure.</p>
           <a href="/product.html#safety">Learn more</a>
         </div>
         <div class="card moduleCard">
-          <div class="card__title">Tracking</div>
-          <p class="card__meta">GPS vehicle tracking and asset visibility.</p>
+          <div class="card__title">Asset Tracking</div>
+          <p class="card__meta">High-fidelity GPS with tunnel-protected telemetry to keep every route and asset accounted for.</p>
           <a href="/product.html#telemetry">Learn more</a>
         </div>
         <div class="card moduleCard">
-          <div class="card__title">Reports</div>
-          <p class="card__meta">Executive-ready AI summaries.</p>
+          <div class="card__title">Executive Reporting</div>
+          <p class="card__meta">Board-grade digests connect uptime, spend, and capital planning so leadership can move.</p>
           <a href="/product.html#reports">Learn more</a>
         </div>
       </div>
@@ -395,12 +457,12 @@
     <div class="container ctaBand">
       <div class="ctaInner">
         <div>
-          <h3>Ready to stand up a pilot?</h3>
-          <p>Get a guided walkthrough and a deployment plan tailored to your fleet.</p>
+          <h3>Stand up a tunnel-protected pilot</h3>
+          <p>Connect real vehicles, prove the reliability lift, and walk leadership through the reporting stack.</p>
         </div>
         <div class="heroActions">
           <a class="btn primary" href="/request-demo.html">Request a Demo</a>
-          <a class="btn secondary" href="/pricing.html#plans">View Pricing</a>
+          <a class="btn secondary" href="/pricing.html#plans">See Pilot Terms</a>
         </div>
       </div>
     </div>
@@ -410,29 +472,27 @@
     <div class="container">
       <div class="sectionHeader">
         <h2>FAQ preview</h2>
-        <p>Get answers from the full pricing FAQ.</p>
+        <p>Answers we give every serious fleet before we sign a pilot.</p>
       </div>
       <div class="grid-3">
         <div class="card">
-          <div class="card__title">Do you support pilots?</div>
-          <p class="card__meta">Yes. Pilots are the standard entry point before expansion.</p>
+          <div class="card__title">How do you handle security reviews?</div>
+          <p class="card__meta">We provide architecture diagrams, Cloudflare Tunnel config, SOC controls in progress, and run joint pen tests as needed.</p>
         </div>
         <div class="card">
-          <div class="card__title">Is pricing per vehicle?</div>
-          <p class="card__meta">Pilot pricing is per vehicle. Standard core is contact sales.</p>
+          <div class="card__title">What hardware is required?</div>
+          <p class="card__meta">OBD-II dongles or 6/9-pin J1939 harnesses plus an operator tablet. We ship kitted units or integrate with approved vendors.</p>
         </div>
         <div class="card">
-          <div class="card__title">Can I add modules later?</div>
-          <p class="card__meta">Add-ons can be activated as your program grows.</p>
+          <div class="card__title">Can we export our data?</div>
+          <p class="card__meta">Yes. APIs and scheduled exports keep your data warehouse in sync without loosening isolation.</p>
         </div>
       </div>
       <div class="heroActions" style="margin-top:20px;">
         <a class="btn secondary" href="/pricing.html#faq">See full pricing FAQ</a>
       </div>
     </div>
-  </section>
-
-    <footer class="footer">
+  </section>\r\n    <footer class="footer">
     <div class="container footerGrid">
       <div class="footerCol footerBrand">
         <div class="wordmark"><span class="brandFleet">Fleet</span><span class="brandAI">AI</span></div>
@@ -443,13 +503,15 @@
         <a href="/product.html">Product</a>
         <a href="/pricing.html">Pricing</a>
         <a href="/pilot.html">Pilot Program</a>
+        <a href="/ui/fleetai-dashboard.html">Operator Dashboard</a>
       </div>
       <div class="footerCol">
         <h4>Company</h4>
         <a href="/security.html">Security</a>
         <a href="/about.html">About</a>
         <a href="/request-demo.html">Contact</a>
-        <a href="/employee-login.html" title="For Fleet AI staff only">Employee Portal</a>
+        <a href="/employee-portal.html">Employee Portal</a>
+        <a href="/employee-login.html" title="For Fleet AI staff only">Employee Login</a>
       </div>
       <div class="footerCol">
         <h4>Legal</h4>

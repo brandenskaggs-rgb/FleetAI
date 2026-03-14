@@ -47,7 +47,6 @@ class ObdConnectionManager {
         val uuid = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
         val btSocket = device.createRfcommSocketToServiceRecord(uuid)
         btSocket.connect()
-        btSocket.soTimeout = 1200
         socket = btSocket
         input = BufferedInputStream(btSocket.inputStream)
         output = BufferedOutputStream(btSocket.outputStream)
@@ -65,8 +64,7 @@ class ObdConnectionManager {
     }
 
     suspend fun readPid(command: String): String? = withContext(Dispatchers.IO) {
-        val response = sendCommand(command) ?: return@withContext null
-        parseObdResponse(response)
+        sendCommand(command)
     }
 
     suspend fun readDtcs(): List<String> = withContext(Dispatchers.IO) {

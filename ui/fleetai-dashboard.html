@@ -21,28 +21,29 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <link rel="stylesheet" href="/css/site-tokens.css" />
+  <link rel="stylesheet" href="/css/site-layout.css" />
   <title>Fleet AI - Operator Dashboard</title>
   <meta name="fleetai-build" content="<!-- BUILD_MARKER -->" />
 
   <style>
     @import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap");
     :root{
-      --bg:#F8FBFF;
-      --bg2:#FFFFFF;
-      --panel:#FFFFFF;
-      --panel2:#F2F6FF;
-      --border:rgba(30,64,175,.10);
-      --text:#0B1B2B;
-      --muted:#5C6F8A;
-      --primary:#2563EB;
-      --primary-600:#1D4ED8;
-      --primary-soft: rgba(37,99,235,0.12);
-      --shadow-sm: 0 4px 12px rgba(10,30,60,.08);
-      --shadow-md: 0 10px 24px rgba(10,30,60,.10);
-      --shadow-lg: 0 18px 40px rgba(10,30,60,.16);
+      --bg:#030912;
+      --bg2:#050d1c;
+      --panel:#0f1727;
+      --panel2:#121d31;
+      --border:rgba(99,118,163,.45);
+      --text:#F4F7FF;
+      --muted:#A4B1D4;
+      --primary:#F7B347;
+      --primary-600:#D68B1C;
+      --primary-soft: rgba(247,179,71,0.18);
+      --shadow-sm: 0 8px 24px rgba(0,0,0,.45);
+      --shadow-md: 0 18px 40px rgba(0,0,0,.45);
+      --shadow-lg: 0 28px 65px rgba(0,0,0,.55);
       --radius: 12px;
       --radius-lg: 16px;
-      --focus-ring: 0 0 0 3px rgba(37,99,235,0.18);
+      --focus-ring: 0 0 0 3px rgba(247,179,71,0.25);
       --primary2: var(--primary-600);
       --shadow: var(--shadow-md);
       --focus: var(--focus-ring);
@@ -58,7 +59,7 @@
 
       --ink: var(--text);
       --line: var(--border);
-      --bg-glow: rgba(60,140,255,.18);
+      --bg-glow: rgba(247,179,71,.12);
     }
 
     *{box-sizing:border-box}
@@ -73,17 +74,17 @@
     }
 
     :root[data-theme="light-blue"]{
-      --bg:#F8FBFF;
-      --bg2:#FFFFFF;
-      --panel:#FFFFFF;
-      --panel2:#F2F6FF;
-      --border:rgba(30,64,175,.10);
-      --text:#0B1B2B;
-      --muted:#5C6F8A;
-      --primary:#2563EB;
-      --primary-600:#1D4ED8;
-      --primary-soft: rgba(37,99,235,0.12);
-      --chip: rgba(37,99,235,.10);
+      --bg:#030912;
+      --bg2:#050d1c;
+      --panel:#0f1727;
+      --panel2:#121d31;
+      --border:rgba(99,118,163,.45);
+      --text:#F4F7FF;
+      --muted:#A4B1D4;
+      --primary:#F7B347;
+      --primary-600:#D68B1C;
+      --primary-soft: rgba(247,179,71,0.18);
+      --chip: rgba(247,179,71,.16);
       --shadow-sm: 0 4px 12px rgba(10,30,60,.08);
       --shadow-md: 0 10px 24px rgba(10,30,60,.10);
       --shadow-lg: 0 18px 40px rgba(10,30,60,.16);
@@ -92,7 +93,7 @@
       --focus-ring: 0 0 0 3px rgba(37,99,235,0.18);
       --ink: var(--text);
       --line: var(--border);
-      --bg-glow: rgba(60,140,255,.16);
+      --bg-glow: rgba(247,179,71,.18);
     }
 
     :root[data-theme="dark-blue"]{
@@ -1139,7 +1140,7 @@
   <link rel="stylesheet" href="/css/app.css" />
 </head>
 
-<body>
+<body class="consoleSurface">
   <script>
     // Ensure overlays start non-blocking
     document.addEventListener("DOMContentLoaded", () => {
@@ -6922,6 +6923,7 @@
   <script defer src="/ui/js/pairing.js"></script>
 </body>
 </html>
+
 
 
 
