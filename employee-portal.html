@@ -158,12 +158,7 @@
       setText("consoleDbgError", "--");
       setText("consoleDbgAuthType", "detecting");
       setText("consoleDbgWhoami", "--");
-      let token = "";
-      try { token = localStorage.getItem("fleetai.employeeToken") || ""; } catch (e) {}
-      if (!token) {
-        try { token = localStorage.getItem("fleetai_employee_token") || ""; } catch (e) {}
-      }
-      setText("consoleDbgToken", token ? "present" : "missing");
+      setText("consoleDbgToken", "cleared");
       setText("consoleDbgCookie", document.cookie ? "present" : "missing");
       window.__EMP_PORTAL_BOOT = false;
       window.__EMP_PORTAL_ERROR = "";

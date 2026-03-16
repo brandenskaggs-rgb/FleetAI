@@ -17,6 +17,7 @@
   const passwordInput = document.getElementById("employeePassword");
   const twofaInput = document.getElementById("employee2fa");
   const errorEl = document.getElementById("loginError");
+  const debugPanel = document.getElementById("employeeDebugPanel");
   const dbgEndpoint = document.getElementById("dbgEndpoint");
   const dbgStatus = document.getElementById("dbgStatus");
   const dbgError = document.getElementById("dbgError");
@@ -33,6 +34,11 @@
   }
 
   function setDebug(endpoint, status, error) {
+    if (debugPanel) {
+      debugPanel.hidden = !LOGIN_DEBUG;
+      debugPanel.setAttribute("aria-hidden", LOGIN_DEBUG ? "false" : "true");
+    }
+    if (!LOGIN_DEBUG) return;
     if (dbgEndpoint) dbgEndpoint.textContent = endpoint || "--";
     if (dbgStatus) dbgStatus.textContent = status || "--";
     if (dbgError) dbgError.textContent = error || "--";
@@ -82,7 +88,6 @@
 
     try {
       const url = window.resolveApiUrl ? window.resolveApiUrl(EMPLOYEE_LOGIN_ENDPOINT) : EMPLOYEE_LOGIN_ENDPOINT;
-      console.log(url)
       const res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -120,12 +125,7 @@
         return;
       }
 
-      if (data && data.token) {
-        try {
-          localStorage.setItem("fleetai_employee_token", data.token);
-          localStorage.setItem("fleetai.employeeToken", data.token);
-        } catch (err) {}
-      }
+      // Browser auth is cookie-first for web flows. Do not persist session tokens in storage.
 
       const resolvedRole = data && data.user && data.user.role ? data.user.role : "unknown";
       const redirectTo = resolveRedirect(data.redirect, resolvedRole);

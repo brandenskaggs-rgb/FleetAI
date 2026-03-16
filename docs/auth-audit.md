@@ -32,12 +32,19 @@ Employee/customer login behavior depends on:
 
 That makes auth issues harder to diagnose quickly.
 
-### 4. Preflight contract checker is brittle
+### 4. Browser web auth had stale bearer-token fallback paths
+The browser login and console/dashboard flows were still persisting session tokens in `localStorage` and, for employee/customer web pages, reusing them as `Authorization: Bearer ...` headers even though the server already issues auth cookies.
+
+That created avoidable session persistence and auth-path drift in the browser.
+
+### 5. Preflight contract checker is brittle
 The current preflight check looks for route strings inside `server.js`, which creates false positives after route modularization.
 
 ## Recommended next steps
 
-1. Add a dedicated auth smoke test that verifies:
+1. Keep browser auth cookie-first for web flows and remove remaining token-shaped response dependencies from browser clients.
+
+2. Add a dedicated auth smoke test that verifies:
    - employee login success
    - customer login success
    - invalid credentials
@@ -47,6 +54,6 @@ The current preflight check looks for route strings inside `server.js`, which cr
    - customer session endpoint
    - logout
 
-2. Refactor the preflight route check so it validates runtime registration or a route manifest instead of scanning raw strings in `server.js`.
+3. Refactor the preflight route check so it validates runtime registration or a route manifest instead of scanning raw strings in `server.js`.
 
-3. Eventually separate auth/session helpers from `server.js` into a dedicated auth/session module.
+4. Eventually separate auth/session helpers from `server.js` into a dedicated auth/session module.

@@ -106,20 +106,17 @@ function setLoading(isLoading, reason) {
   console.log("EMP_PORTAL: overlay hidden");
 }
 
-function getAuthToken() {
+function clearLegacyEmployeeTokens() {
   try {
-    return (
-      localStorage.getItem("fleetai_employee_token") ||
-      localStorage.getItem("fleetai.employeeToken") ||
-      localStorage.getItem("employeeToken") ||
-      localStorage.getItem("authToken") ||
-      sessionStorage.getItem("fleetai_employee_token") ||
-      sessionStorage.getItem("fleetai.employeeToken") ||
-      ""
-    );
-  } catch (e) {
-    return "";
-  }
+    localStorage.removeItem("fleetai_employee_token");
+    localStorage.removeItem("fleetai.employeeToken");
+    localStorage.removeItem("employeeToken");
+    localStorage.removeItem("authToken");
+  } catch (e) {}
+  try {
+    sessionStorage.removeItem("fleetai_employee_token");
+    sessionStorage.removeItem("fleetai.employeeToken");
+  } catch (e) {}
 }
 
 async function apiJson(path, opts) {
@@ -127,9 +124,7 @@ async function apiJson(path, opts) {
   const url = resolveApiUrl(path);
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 3500);
-  const token = getAuthToken();
   const requestHeaders = Object.assign({ "Content-Type": "application/json" }, opts?.headers || {});
-  if (token) requestHeaders.Authorization = `Bearer ${token}`;
   diagLog("request headers", path, requestHeaders);
   updateConsoleDebug({
     endpoint: url,
@@ -998,11 +993,11 @@ async function loadMe() {
     adminState.role = session.employee?.role || session.user?.role || session.role || "";
     const roleEl = $("portalRole");
     if (roleEl) roleEl.textContent = `Role: ${adminState.role || "--"}`;
-    updateConsoleDebug({ whoami: "ok", authType: getAuthToken() ? "token" : "cookie" });
+    updateConsoleDebug({ whoami: "ok", authType: document.cookie ? "cookie" : "none" });
   } catch (err) {
     const message = err && err.message ? err.message : "Unable to load session.";
     setPortalError(message);
-    updateConsoleDebug({ whoami: "failed", authType: getAuthToken() ? "token" : "none" });
+    updateConsoleDebug({ whoami: "failed", authType: document.cookie ? "cookie" : "none" });
     const roleEl = $("portalRole");
     if (roleEl) roleEl.textContent = "Role: --";
   }
@@ -2075,11 +2070,11 @@ document.addEventListener("DOMContentLoaded", () => {
   if (modalBackdrop) {
     modalBackdrop.style.pointerEvents = "none";
   }
-  const token = getAuthToken();
+  clearLegacyEmployeeTokens();
   updateConsoleDebug({
-    token: token ? "present" : "missing",
+    token: "cleared",
     cookie: document.cookie ? "present" : "missing",
-    authType: token ? "bearer" : (document.cookie ? "cookie" : "none")
+    authType: document.cookie ? "cookie" : "none"
   });
   setLoading(true, "Initializing console…");
   bindNav();
@@ -2089,25 +2084,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
   $("adminRefresh")?.addEventListener("click", () => renderView(adminState.currentRoute));
   $("resetAuthBtn")?.addEventListener("click", () => {
-    try {
-      localStorage.removeItem("fleetai_employee_token");
-      localStorage.removeItem("fleetai.employeeToken");
-      localStorage.removeItem("employeeToken");
-      localStorage.removeItem("authToken");
-    } catch (e) {}
-    try {
-      sessionStorage.removeItem("fleetai_employee_token");
-      sessionStorage.removeItem("fleetai.employeeToken");
-    } catch (e) {}
+    clearLegacyEmployeeTokens();
     window.location.href = "/employee-login.html";
   });
   $("employeeSignOut")?.addEventListener("click", async () => {
     try {
-      await fetch(resolveApiUrl("/api/employee/logout"), { method: "POST" });
+      await fetch(resolveApiUrl("/api/employee/logout"), { method: "POST", credentials: "include" });
     } catch (e) {}
-    try {
-      localStorage.removeItem("fleetai.employeeToken");
-    } catch (e) {}
+    clearLegacyEmployeeTokens();
     window.location.href = "/employee-login.html";
   });
 });

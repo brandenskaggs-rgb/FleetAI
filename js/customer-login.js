@@ -22,7 +22,23 @@ function resolveCustomerApiUrl(path) {
   return path.startsWith("/") ? `${base}${path}` : `${base}/${path}`;
 }
 
+const CUSTOMER_LOGIN_DEBUG = (() => {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("diag") === "1") return true;
+    return localStorage.getItem("fleetai.debug") === "true";
+  } catch (e) {
+    return false;
+  }
+})();
+
 function setCustomerDebug({ endpoint, status, error }) {
+  const panelEl = document.getElementById("customerDebugPanel");
+  if (panelEl) {
+    panelEl.hidden = !CUSTOMER_LOGIN_DEBUG;
+    panelEl.setAttribute("aria-hidden", CUSTOMER_LOGIN_DEBUG ? "false" : "true");
+  }
+  if (!CUSTOMER_LOGIN_DEBUG) return;
   const endpointEl = document.getElementById("customerDbgEndpoint");
   const statusEl = document.getElementById("customerDbgStatus");
   const errorEl = document.getElementById("customerDbgError");
@@ -93,9 +109,7 @@ async function submitCustomerLogin() {
       showCustomerLoginMessage("Login failed. Try again.", false);
       return;
     }
-    if (data.session?.token) {
-      try { localStorage.setItem("fleetai_customer_token", data.session.token); } catch (e) {}
-    }
+    // Browser auth is cookie-first for web flows. Do not persist session tokens in storage.
     if (data.next && data.next.action === "SET_PASSWORD" && data.next.token) {
       try {
         sessionStorage.setItem("fleetai_first_login_token", data.next.token);

@@ -49,9 +49,7 @@ async function loginCustomer() {
       showLoginMessage(data.message || "Login failed.");
       return;
     }
-    if (data.session?.token) {
-      try { localStorage.setItem("fleetai_customer_token", data.session.token); } catch (e) {}
-    }
+    // Browser auth is cookie-first for web flows. Do not persist session tokens in storage.
     setUser({ email, orgName, role: data.user?.role || "CUSTOMER" });
     window.location.href = data.redirectTo || "/ui/fleetai-dashboard.html";
   } catch (err) {
