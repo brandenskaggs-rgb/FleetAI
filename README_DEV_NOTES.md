@@ -19,7 +19,25 @@
 - /signup.html (invite acceptance)
 - /legal/privacy.html
 - /legal/terms.html
-- /login.html (redirects to /customer-login.html)
+- /login.html (legacy customer alias; keep only as compatibility page/redirect, do not build new auth logic here)
+
+## Auth / Server Quarantine Markers
+
+Canonical paths to actively use:
+- Server entrypoint: `/server.js`
+- Customer login page: `/customer-login.html`
+- Employee login page: `/employee-login.html`
+- Customer auth routes: `/api/auth/org/login` and `/api/auth/customer/login`
+- Employee auth route: `/api/auth/employee/login`
+- First-login password setup: `/api/auth/set-password` with `/ui/settings/set-password.html`
+
+Quarantine / legacy paths that should not become sources of truth again:
+- `/server/server.js` — deprecated hard-stop file from the old split server path
+- `/login.html` + `/js/auth.js` — legacy generic login flow; treat as compatibility-only, not the canonical customer auth UI
+- localStorage bearer-token patterns in frontend code (`fleetai_customer_token`, `fleetai_employee_token`) — legacy compatibility artifacts; browser auth should converge on same-origin cookie sessions
+
+Rule of thumb:
+- If auth behavior is being changed, start in `/server.js`, `server/routes/authRoutes.js`, `server/auth/authService.js`, and the dedicated login pages/scripts — not in deprecated aliases or token-era compatibility code.
 
 ## API Endpoints (Primary)
 Auth
