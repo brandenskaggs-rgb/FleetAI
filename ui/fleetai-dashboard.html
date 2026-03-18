@@ -6453,62 +6453,33 @@
     function showLoginOverlay(show, opts={}){
       const el = $('loginOverlay');
       if(!el) return;
-      el.classList.toggle('hide', !show);
-      el.style.pointerEvents = show ? 'auto' : 'none';
-      document.body.classList.toggle('modal-open', !!show);
-      const createBtn = $('btnCreateAdmin');
-      if(createBtn){
-        createBtn.hidden = !AUTH_DEBUG_MODE;
-        createBtn.setAttribute('aria-hidden', AUTH_DEBUG_MODE ? 'false' : 'true');
-      }
-      if(show){
-        $('loginEmail').focus();
-        $('loginTitle').textContent = opts.createMode && AUTH_DEBUG_MODE ? 'Create Admin Account' : 'Sign in to Fleet AI';
-      }
+      // Customer auth is server-session based. Keep legacy overlay non-blocking.
+      el.classList.add('hide');
+      el.style.pointerEvents = 'none';
+      document.body.classList.remove('modal-open');
     }
 
     function doLogin(){
-      const em = $('loginEmail').value.trim();
-      const pw = $('loginPass').value;
-      const u = findUser(em,pw);
-      if(u){
-        state.user = { email: u.email, role: u.role };
-        try{ localStorage.setItem('fleetai.sessionEmail', u.email); }catch(e){}
-        $('btnAddUser').style.display = (u.role==='admin')? 'inline-block':'none';
-        $('btnLogout').style.display = 'inline-block';
-        showLoginOverlay(false);
-        toast('Signed in', `Welcome back, ${u.email}`);
-        return;
-      }
-      // wrong credentials
-      const m = $('loginMsg'); m.style.display='block'; m.textContent = 'Invalid credentials.';
+      window.location.href = '/customer-login.html';
     }
 
     function doCreateAdmin(){
-      if(!AUTH_DEBUG_MODE){
-        const m = $('loginMsg');
-        if(m){
-          m.style.display='block';
-          m.textContent='Account setup is managed by Fleet AI support.';
-        }
-        return;
+      const m = $('loginMsg');
+      if(m){
+        m.style.display='block';
+        m.textContent='Account setup is managed by Fleet AI support.';
       }
-      const em = $('loginEmail').value.trim();
-      const pw = $('loginPass').value;
-      if(!em || !pw){ const m=$('loginMsg'); m.style.display='block'; m.textContent='Email + password required.'; return; }
-      const ok = addUser(em,pw,'admin');
-      if(!ok){ const m=$('loginMsg'); m.style.display='block'; m.textContent='User already exists.'; return; }
-      $('loginMsg').style.display='block'; $('loginMsg').textContent='Admin created - you can now log in.';
-      setTimeout(()=>{ $('loginMsg').style.display='none'; $('loginPass').value=''; }, 1400);
     }
 
-    function doLogout(){
+    async function doLogout(){
       state.user = null;
       try{ localStorage.removeItem('fleetai.sessionEmail'); }catch(e){}
       $('btnAddUser').style.display='none';
       $('btnLogout').style.display='none';
-      showLoginOverlay(true);
-      toast('Signed out','You have been signed out.');
+      try{
+        await fetch(`${API_BASE_URL}/api/auth/customer/logout`, { method:'POST', credentials:'include' });
+      }catch(e){}
+      window.location.href = '/customer-login.html';
     }
 
     document.addEventListener("DOMContentLoaded", ()=>{
@@ -6943,20 +6914,12 @@
     setInterval(pingServer, 8000);
     setInterval(loadFleetManagement, 6000);
 
-    // session / users: restore session if present
+    // legacy localStorage auth removed; dashboard now trusts server-session auth only
     (function initAuth(){
-      try{
-        const sess = localStorage.getItem('fleetai.sessionEmail');
-        if(sess){
-          const u = getUserByEmail(sess);
-          if(u){
-            state.user = {email:u.email, role:u.role};
-            $('btnAddUser').style.display = (u.role==='admin')? 'inline-block':'none';
-            $('btnLogout').style.display='inline-block';
-          }
-        }
-      }catch(e){}
-      if(REQUIRE_LOGIN && !state.user) showLoginOverlay(true);
+      state.user = null;
+      $('btnAddUser').style.display='none';
+      $('btnLogout').style.display='none';
+      showLoginOverlay(false);
     })();
 
     });
