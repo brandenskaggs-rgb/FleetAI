@@ -136,9 +136,13 @@ async function submitSetPassword() {
       sessionStorage.removeItem("fleetai_first_login_email");
       sessionStorage.removeItem("fleetai_first_login_role");
     } catch (e) {}
-    showSetPasswordMessage("Password updated. Redirecting to login...", true);
+    const returnTo = getQueryParam("returnTo");
+    const target = role === "employee"
+      ? "/employee-console.html"
+      : (returnTo || "/ui/fleetai-dashboard.html");
+    showSetPasswordMessage("Password updated. Redirecting...", true);
     setTimeout(() => {
-      window.location.href = role === "employee" ? "/employee-login.html" : "/customer-login.html";
+      window.location.href = target;
     }, 800);
   } catch (err) {
     const msg = err && err.message ? err.message : "Update failed. Try again.";

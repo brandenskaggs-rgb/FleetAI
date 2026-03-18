@@ -2831,14 +2831,43 @@
      * HELPERS
      ***********************/
     const $ = (id)=>document.getElementById(id);
+    function normalizeApiBase(value){
+      return String(value || "").trim().replace(/\/$/, "");
+    }
+
     function resolveApiBase(){
+      const currentOrigin = (window.location && window.location.origin && !window.location.origin.startsWith("file"))
+        ? window.location.origin
+        : "";
+      const currentHost = (window.location && window.location.hostname)
+        ? String(window.location.hostname).toLowerCase()
+        : "";
       try{
-        const stored = localStorage.getItem("fleetai.serverBase");
-        if(stored) return String(stored).replace(/\/$/, "");
+        const stored = localStorage.getItem("fleetai.serverBase") || localStorage.getItem("fleetai.apiBase");
+        if(stored){
+          const normalized = normalizeApiBase(stored);
+          try{
+            const parsed = new URL(normalized, currentOrigin || undefined);
+            if(!currentHost || parsed.hostname.toLowerCase() === currentHost){
+              return normalizeApiBase(parsed.origin);
+            }
+          }catch(_){
+            if(!normalized.startsWith("http://") && !normalized.startsWith("https://")){
+              return normalizeApiBase(normalized);
+            }
+          }
+          if(currentOrigin){
+            try{
+              localStorage.setItem("fleetai.serverBase", currentOrigin);
+              localStorage.setItem("fleetai.apiBase", currentOrigin);
+            }catch(_){ }
+            return currentOrigin;
+          }
+        }
       }catch(e){}
       const injected = window.__FLEETAI_API_BASE_URL__ || window.FLEETAI_API_BASE_URL || window.API_BASE_URL;
-      if(injected) return String(injected).replace(/\/$/, "");
-      if(window.location && window.location.origin && !window.location.origin.startsWith("file")) return window.location.origin;
+      if(injected) return normalizeApiBase(injected);
+      if(currentOrigin) return currentOrigin;
       return "";
     }
     const API_BASE_URL = resolveApiBase();
