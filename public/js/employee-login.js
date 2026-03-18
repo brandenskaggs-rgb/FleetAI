@@ -115,7 +115,8 @@
           sessionStorage.setItem("fleetai_first_login_email", payload.email);
           sessionStorage.setItem("fleetai_first_login_role", "employee");
         } catch (err) {}
-        window.location.href = "/set-password.html";
+        const hash = `#token=${encodeURIComponent(data.setupToken)}&email=${encodeURIComponent(payload.email)}&role=employee`;
+        window.location.href = `/set-password.html${hash}`;
         return;
       }
       if (!res.ok || (data && data.ok === false)) {

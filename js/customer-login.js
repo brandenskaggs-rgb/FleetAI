@@ -92,7 +92,8 @@ async function submitCustomerLogin() {
           sessionStorage.setItem("fleetai_first_login_email", email);
           sessionStorage.setItem("fleetai_first_login_role", "customer");
         } catch (e) {}
-        window.location.href = "/set-password.html";
+        const hash = `#token=${encodeURIComponent(data.setupToken)}&email=${encodeURIComponent(email)}&role=customer`;
+        window.location.href = `/set-password.html${hash}`;
         return;
       }
       if (code === "USER_NOT_FOUND") {

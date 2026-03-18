@@ -61,7 +61,19 @@ function getQueryParam(name) {
   }
 }
 
+function getHashParam(name) {
+  try {
+    const raw = String(window.location.hash || "").replace(/^#/, "");
+    const params = new URLSearchParams(raw);
+    return params.get(name) || "";
+  } catch (e) {
+    return "";
+  }
+}
+
 function getStoredFirstLoginToken() {
+  const hashToken = getHashParam("token");
+  if (hashToken) return hashToken;
   try {
     return sessionStorage.getItem("fleetai_first_login_token") || document.getElementById("setPasswordToken")?.value || "";
   } catch (e) {
@@ -164,10 +176,17 @@ document.addEventListener("DOMContentLoaded", () => {
   const btn = document.getElementById("setPasswordBtn");
   if (btn) btn.addEventListener("click", submitSetPassword);
   // Prefill email/token if stored
-  const email = sessionStorage.getItem("fleetai_first_login_email") || "";
+  const email = getHashParam("email") || sessionStorage.getItem("fleetai_first_login_email") || "";
+  const roleFromHash = getHashParam("role");
+  if (roleFromHash) {
+    try { sessionStorage.setItem("fleetai_first_login_role", roleFromHash); } catch (e) {}
+  }
   const emailEl = document.getElementById("setPasswordEmail");
   if (emailEl && !emailEl.value) emailEl.value = email;
   const token = getStoredFirstLoginToken();
+  if (token) {
+    try { sessionStorage.setItem("fleetai_first_login_token", token); } catch (e) {}
+  }
   const tokenEl = document.getElementById("setPasswordToken");
   if (tokenEl && !tokenEl.value) tokenEl.value = token;
   validateSetPasswordForm();
