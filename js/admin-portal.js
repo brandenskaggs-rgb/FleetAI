@@ -988,16 +988,16 @@ function setActiveRoute(route) {
 
 async function loadMe() {
   try {
-    const session = await apiJson("/api/employee/whoami");
+    const session = await apiJson("/api/employee/session");
     if (!session) return;
-    adminState.role = session.employee?.role || session.user?.role || session.role || "";
+    adminState.role = session.employee?.role || "";
     const roleEl = $("portalRole");
     if (roleEl) roleEl.textContent = `Role: ${adminState.role || "--"}`;
-    updateConsoleDebug({ whoami: "ok", authType: document.cookie ? "cookie" : "none" });
+    updateConsoleDebug({ whoami: "ok", authType: "cookie" });
   } catch (err) {
     const message = err && err.message ? err.message : "Unable to load session.";
     setPortalError(message);
-    updateConsoleDebug({ whoami: "failed", authType: document.cookie ? "cookie" : "none" });
+    updateConsoleDebug({ whoami: "failed", authType: "cookie" });
     const roleEl = $("portalRole");
     if (roleEl) roleEl.textContent = "Role: --";
   }

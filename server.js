@@ -1440,18 +1440,8 @@ function getSession(req) {
 
 function getSessionFromRequest(req) {
   const cookieSession = getSession(req);
-  if (cookieSession) return { session: cookieSession, source: "cookie" };
-  let token = "";
-  const auth = req.headers.authorization || "";
-  if (auth.startsWith("Bearer ")) token = auth.slice(7).trim();
-  if (!token) return null;
-  const session = sessionStore.get(token);
-  if (!session) return null;
-  if (session.expiresAt <= Date.now()) {
-    sessionStore.delete(token);
-    return null;
-  }
-  return { session, source: "token", token };
+  if (!cookieSession) return null;
+  return { session: cookieSession, source: "cookie" };
 }
 
 function issueSession(scope, user) {

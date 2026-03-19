@@ -128,7 +128,9 @@ function registerAuthRoutes(app, deps) {
             return sendEmployeeLoginResponse(res, 200, {
               ok: true,
               success: true,
-              token: devSession.id,
+              session: {
+                expiresAt: devSession.expiresAt
+              },
               user: {
                 id: devLookup.user.id || null,
                 email: devLookup.user.email,
@@ -161,7 +163,9 @@ function registerAuthRoutes(app, deps) {
       return sendEmployeeLoginResponse(res, 200, {
         ok: true,
         success: true,
-        token: session.id,
+        session: {
+          expiresAt: session.expiresAt
+        },
         user: {
           id: result.user.id || null,
           email: result.user.email,
@@ -199,10 +203,9 @@ function registerAuthRoutes(app, deps) {
   });
 
   app.get("/api/auth/whoami", (req, res) => {
-    const employee = getSessionFromRequest(req);
-    if (employee && employee.session) {
-      const session = employee.session;
-      return res.json({ ok: true, type: "employee", source: employee.source, user: { id: session.userId || null, email: session.email, role: session.role, orgId: session.orgId || null } });
+    const employee = getSession(req);
+    if (employee) {
+      return res.json({ ok: true, type: "employee", source: "cookie", user: { id: employee.userId || null, email: employee.email, role: employee.role, orgId: employee.orgId || null } });
     }
     const customer = getCustomerSession(req);
     if (customer) {
@@ -344,17 +347,17 @@ function registerAuthRoutes(app, deps) {
   });
 
   app.get("/api/employee/session", (req, res) => {
-    const result = getSessionFromRequest(req);
-    if (!result) {
+    const session = getSession(req);
+    if (!session) {
       return res.status(401).json({ ok: false, error: "Not authenticated." });
     }
     return res.json({
       ok: true,
       employee: {
-        id: result.session.userId || null,
-        email: result.session.email,
-        role: result.session.role,
-        loginRole: result.session.loginRole || "employee"
+        id: session.userId || null,
+        email: session.email,
+        role: session.role,
+        loginRole: session.loginRole || "employee"
       }
     });
   });
@@ -365,19 +368,8 @@ function registerAuthRoutes(app, deps) {
   });
 
   app.get("/api/employee/whoami", (req, res) => {
-    const result = getSessionFromRequest(req);
-    if (!result) {
-      return res.status(401).json({ ok: false, error: "Not authenticated." });
-    }
-    return res.json({
-      ok: true,
-      employee: {
-        id: result.session.userId || null,
-        email: result.session.email,
-        role: result.session.role,
-        loginRole: result.session.loginRole || "employee"
-      }
-    });
+    req.url = "/api/employee/session";
+    app.handle(req, res);
   });
 
   app.get("/api/auth/session", (req, res) => {

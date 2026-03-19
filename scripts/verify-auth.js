@@ -106,7 +106,7 @@ async function run() {
     });
     assert(employeeLogin.res.ok, "Employee login HTTP failure", employeeLogin.data);
     assert(employeeLogin.data.ok !== false, "Employee login app failure", employeeLogin.data);
-    assert(employeeLogin.data.token, "Employee login missing token", employeeLogin.data);
+    assert(!("token" in employeeLogin.data), "Employee login should not return browser token", employeeLogin.data);
     const employeeCookie = extractCookieJar(employeeLogin.setCookies);
     assert(employeeCookie, "Employee login missing auth cookie", employeeLogin.setCookies);
 
@@ -151,15 +151,13 @@ async function run() {
     assert(customerMe.data.user?.email === CUSTOMER_EMAIL, "Customer /api/me returned wrong user", customerMe.data);
 
     const employeeSession = await requestJson(`${BASE_URL}/api/employee/session`, {
-      cookie: employeeCookie,
-      headers: { Authorization: `Bearer ${employeeLogin.data.token}` }
+      cookie: employeeCookie
     });
     assert(employeeSession.res.ok, "Employee session endpoint failed", employeeSession.data);
     assert(employeeSession.data.employee?.email === EMPLOYEE_EMAIL, "Employee session returned wrong user", employeeSession.data);
 
     const whoamiEmployee = await requestJson(`${BASE_URL}/api/auth/whoami`, {
-      cookie: employeeCookie,
-      headers: { Authorization: `Bearer ${employeeLogin.data.token}` }
+      cookie: employeeCookie
     });
     assert(whoamiEmployee.res.ok, "Employee whoami failed", whoamiEmployee.data);
     assert(whoamiEmployee.data.type === "employee", "Employee whoami wrong type", whoamiEmployee.data);
@@ -186,14 +184,12 @@ async function run() {
 
     const employeeLogout = await requestJson(`${BASE_URL}/api/employee/logout`, {
       method: "POST",
-      cookie: employeeCookie,
-      headers: { Authorization: `Bearer ${employeeLogin.data.token}` }
+      cookie: employeeCookie
     });
     assert(employeeLogout.res.ok, "Employee logout failed", employeeLogout.data);
 
     const employeeSessionAfterLogout = await requestJson(`${BASE_URL}/api/employee/session`, {
-      cookie: employeeCookie,
-      headers: { Authorization: `Bearer ${employeeLogin.data.token}` }
+      cookie: employeeCookie
     });
     assert(employeeSessionAfterLogout.res.status === 401, "Employee session should fail after logout", employeeSessionAfterLogout.data);
 
