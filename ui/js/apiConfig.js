@@ -20,18 +20,20 @@
       }
     } catch (e) {}
     const currentOrigin = window.location.origin;
-    const currentHost = window.location.hostname.toLowerCase();
     try {
       const stored = localStorage.getItem("fleetai.apiBase");
       if (stored) {
         const normalized = normalizeBase(stored);
         try {
           const storedUrl = new URL(normalized);
-          if (storedUrl.hostname.toLowerCase() !== currentHost) {
+          if (storedUrl.origin !== currentOrigin) {
             localStorage.setItem("fleetai.apiBase", currentOrigin);
             return currentOrigin;
           }
-        } catch (e) {}
+        } catch (e) {
+          localStorage.setItem("fleetai.apiBase", currentOrigin);
+          return currentOrigin;
+        }
         return normalized;
       }
     } catch (e) {}

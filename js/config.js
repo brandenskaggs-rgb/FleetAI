@@ -22,11 +22,15 @@
   if (!injected && stored) {
     try {
       const storedUrl = new URL(base);
-      if (storedUrl.hostname.toLowerCase() !== window.location.hostname.toLowerCase()) {
+      const storedOrigin = storedUrl.origin;
+      if (storedOrigin !== currentOrigin) {
         base = currentOrigin;
         try { localStorage.setItem("fleetai.apiBase", base); } catch (e) {}
       }
-    } catch (e) {}
+    } catch (e) {
+      base = currentOrigin;
+      try { localStorage.setItem("fleetai.apiBase", base); } catch (err) {}
+    }
   }
   if (!base) base = currentOrigin;
   window.API_BASE_URL = base;
