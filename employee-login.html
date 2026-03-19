@@ -37,6 +37,10 @@
         <p class="card__meta">This portal is for Fleet AI employees and authorized support personnel only. Customer accounts do not apply here.</p>
       </div>
       <form class="formCard" id="employeeLoginForm" style="max-width:520px; position:relative; z-index:2;">
+        <div id="cookiePrompt" class="card" style="display:none; margin-bottom:12px; border:1px solid var(--warn, #d97706); background:rgba(217,119,6,0.08);">
+          <strong>Cookies required for employee sign-in.</strong>
+          <div class="card__meta" style="margin-top:6px;">Fleet AI uses a secure session cookie for employee access. If your browser blocks cookies for this site, login will succeed and then immediately kick you back out. Please allow cookies for this site and try again.</div>
+        </div>
         <div id="loginError" class="formError" style="display:none;"></div>
         <label>
           Email
@@ -54,14 +58,13 @@
           <button class="btn primary" id="employeeSignIn" type="submit">Sign In</button>
           <a class="btn secondary" href="/index.html">Back to Fleet AI Home</a>
         </div>
-        <details id="employeeDebugPanel" style="margin-top:12px;">
-          <summary style="cursor:pointer;">Auth Debug</summary>
+        <div class="authDebugPanel" id="employeeDebugPanel" hidden aria-hidden="true" style="margin-top:12px;">
           <div class="muted" style="margin-top:8px;">
             <div>Endpoint: <span id="dbgEndpoint">--</span></div>
             <div>Last status: <span id="dbgStatus">--</span></div>
             <div>Last error: <span id="dbgError">--</span></div>
           </div>
-        </details>
+        </div>
       </form>
     </div>
   </section>

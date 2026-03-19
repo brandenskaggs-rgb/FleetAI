@@ -17,6 +17,7 @@
   const passwordInput = document.getElementById("employeePassword");
   const twofaInput = document.getElementById("employee2fa");
   const errorEl = document.getElementById("loginError");
+  const cookiePromptEl = document.getElementById("cookiePrompt");
   const debugPanel = document.getElementById("employeeDebugPanel");
   const dbgEndpoint = document.getElementById("dbgEndpoint");
   const dbgStatus = document.getElementById("dbgStatus");
@@ -31,6 +32,11 @@
     }
     errorEl.style.display = "block";
     errorEl.textContent = message;
+  }
+
+  function setCookiePrompt(visible) {
+    if (!cookiePromptEl) return;
+    cookiePromptEl.style.display = visible ? "block" : "none";
   }
 
   function setDebug(endpoint, status, error) {
@@ -63,6 +69,23 @@
     return data && data.message ? data.message : "Login failed.";
   }
 
+  async function verifyEmployeeSessionCookie() {
+    const endpoint = "/api/employee/session";
+    const url = window.resolveApiUrl ? window.resolveApiUrl(endpoint) : endpoint;
+    const res = await fetch(url, {
+      method: "GET",
+      credentials: "include",
+      headers: { "Accept": "application/json" }
+    });
+    if (!res.ok) return false;
+    try {
+      const data = await res.json();
+      return Boolean(data && data.ok && data.employee && data.employee.email);
+    } catch (err) {
+      return false;
+    }
+  }
+
   async function handleSubmit(e) {
     if (e) {
       e.preventDefault();
@@ -78,6 +101,7 @@
 
     logDebug("payload keys", Object.keys(payload).filter((k) => k !== "password"));
     setError("");
+    setCookiePrompt(false);
     setDebug(EMPLOYEE_LOGIN_ENDPOINT, "sending", "");
 
     if (!payload.email || !payload.password) {
@@ -127,6 +151,14 @@
       }
 
       // Browser auth is cookie-first for web flows. Do not persist session tokens in storage.
+      const sessionOk = await verifyEmployeeSessionCookie();
+      if (!sessionOk) {
+        const cookieMessage = "Login succeeded, but your browser did not keep the Fleet AI session cookie. Please allow cookies for this site and try again.";
+        setCookiePrompt(true);
+        setError(cookieMessage);
+        setDebug(EMPLOYEE_LOGIN_ENDPOINT, String(res.status), "cookie not retained");
+        return;
+      }
 
       const resolvedRole = data && data.user && data.user.role ? data.user.role : "unknown";
       const redirectTo = resolveRedirect(data.redirect, resolvedRole);
