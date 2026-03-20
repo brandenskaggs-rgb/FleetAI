@@ -25,9 +25,16 @@ function isExternal(link) {
   return /^https?:\/\//i.test(link) || /^mailto:/i.test(link) || /^tel:/i.test(link) || link.startsWith("#");
 }
 
+function stripQueryAndHash(href) {
+  // Strip query string and hash fragment before resolving to filesystem path
+  return href.split("?")[0].split("#")[0];
+}
+
 function resolvePath(fromFile, href) {
-  if (href.startsWith("/")) return path.join(ROOT, href.replace(/^\//, ""));
-  return path.resolve(path.dirname(fromFile), href);
+  const clean = stripQueryAndHash(href);
+  if (!clean) return null;
+  if (clean.startsWith("/")) return path.join(ROOT, clean.replace(/^\//, ""));
+  return path.resolve(path.dirname(fromFile), clean);
 }
 
 function collectJsSources() {
@@ -79,6 +86,7 @@ function main() {
       if (!link || isExternal(link)) return;
       if (link.startsWith("javascript:")) return;
       const target = resolvePath(file, link);
+      if (!target) return;
       if (!fs.existsSync(target)) {
         errors.push(`Missing link target: ${link} (from ${path.relative(ROOT, file)})`);
       }
