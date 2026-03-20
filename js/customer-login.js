@@ -70,6 +70,36 @@ function setCustomerDebug({ endpoint, status, error }) {
   if (endpointEl && endpoint !== undefined) endpointEl.textContent = endpoint || "--";
   if (statusEl && status !== undefined) statusEl.textContent = status || "--";
   if (errorEl && error !== undefined) errorEl.textContent = error || "--";
+  try {
+    const previous = JSON.parse(sessionStorage.getItem("fleetai_customer_debug") || "{}");
+    const next = {
+      endpoint: endpoint !== undefined ? endpoint : (previous.endpoint || "--"),
+      status: status !== undefined ? status : (previous.status || "--"),
+      error: error !== undefined ? error : (previous.error || "--"),
+      ts: Date.now()
+    };
+    sessionStorage.setItem("fleetai_customer_debug", JSON.stringify(next));
+  } catch (e) {}
+}
+
+function restoreCustomerDebug() {
+  if (!CUSTOMER_LOGIN_DEBUG) return;
+  try {
+    const raw = sessionStorage.getItem("fleetai_customer_debug");
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    const endpointEl = document.getElementById("customerDbgEndpoint");
+    const statusEl = document.getElementById("customerDbgStatus");
+    const errorEl = document.getElementById("customerDbgError");
+    const panelEl = document.getElementById("customerDebugPanel");
+    if (panelEl) {
+      panelEl.hidden = false;
+      panelEl.setAttribute("aria-hidden", "false");
+    }
+    if (endpointEl) endpointEl.textContent = data.endpoint || "--";
+    if (statusEl) statusEl.textContent = data.status || "--";
+    if (errorEl) errorEl.textContent = data.error || "--";
+  } catch (e) {}
 }
 
 async function safeJson(res) {
@@ -165,6 +195,7 @@ async function submitCustomerLogin() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
+  restoreCustomerDebug();
   setCustomerDebug({ endpoint: "/api/auth/customer/login", status: "--", error: "--" });
   const btn = document.getElementById("customerLoginBtn");
   if (btn) btn.addEventListener("click", submitCustomerLogin);
