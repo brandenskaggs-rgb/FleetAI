@@ -13,6 +13,31 @@ function clearCustomerLoginMessage() {
   el.textContent = "";
 }
 
+async function verifyCustomerSession() {
+  const sessionEndpoint = "/api/auth/customer/session";
+  const meEndpoint = "/api/me";
+  const sessionRes = await fetch(resolveCustomerApiUrl(sessionEndpoint), {
+    method: "GET",
+    credentials: "include",
+    cache: "no-store",
+    headers: { "Accept": "application/json" }
+  });
+  if (!sessionRes.ok) return { ok: false, reason: `session ${sessionRes.status}` };
+  const sessionData = await safeJson(sessionRes);
+  if (!sessionData.okParse || !sessionData.data?.user?.email) return { ok: false, reason: "session shape" };
+
+  const meRes = await fetch(resolveCustomerApiUrl(meEndpoint), {
+    method: "GET",
+    credentials: "include",
+    cache: "no-store",
+    headers: { "Accept": "application/json" }
+  });
+  if (!meRes.ok) return { ok: false, reason: `me ${meRes.status}` };
+  const meData = await safeJson(meRes);
+  if (!meData.okParse || !meData.data?.user?.email) return { ok: false, reason: "me shape" };
+  return { ok: true, session: sessionData.data, me: meData.data };
+}
+
 function resolveCustomerApiUrl(path) {
   if (typeof window.resolveApiUrl === "function") return window.resolveApiUrl(path);
   if (typeof window.apiUrl === "function") return window.apiUrl(path);
@@ -111,6 +136,12 @@ async function submitCustomerLogin() {
       return;
     }
     // Browser auth is cookie-first for web flows. Do not persist session tokens in storage.
+    const verified = await verifyCustomerSession();
+    if (!verified.ok) {
+      setCustomerDebug({ error: `session verify failed: ${verified.reason}` });
+      showCustomerLoginMessage("Login succeeded, but Fleet AI could not verify the customer session after sign-in. Hard refresh once and try again.", false);
+      return;
+    }
     if (data.next && data.next.action === "SET_PASSWORD" && data.next.token) {
       try {
         sessionStorage.setItem("fleetai_first_login_token", data.next.token);
@@ -120,7 +151,11 @@ async function submitCustomerLogin() {
       window.location.href = "/ui/settings/set-password.html";
       return;
     }
-    window.location.href = data.redirectTo || "/ui/fleetai-dashboard.html";
+    const target = data.redirectTo || "/ui/fleetai-dashboard.html";
+    const safeTarget = target.startsWith("http://") || target.startsWith("https://")
+      ? target
+      : `${window.location.origin}${target.startsWith("/") ? target : `/${target}`}`;
+    window.location.href = safeTarget;
   } catch (err) {
     setCustomerDebug({ status: "ERR", error: err?.message || "request failed" });
     showCustomerLoginMessage("Login failed. Try again.", false);

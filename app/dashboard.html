@@ -1119,8 +1119,9 @@
         <button class="topTab" data-route="cameras">Cameras</button>
         <button class="topTab" data-route="reports">Reports</button>
         <button class="topTab" data-route="maintenance-logs">Maintenance Logs</button>
+        <button class="topTab" data-route="advisor">AI Advisor</button>
         <button class="topTab" data-route="vehicles">Vehicles</button>
-        <button class="topTab" data-route="drivers">Drivers</button>
+        <button class="topTab" data-route="drivers">People</button>
         <button class="topTab" data-route="pairing">Device Pairing</button>
         <button class="topTab" data-route="settings">Settings</button>
       </div>
@@ -1933,7 +1934,7 @@
           </div>
           <div class="bd">
             <div class="note">
-              <b>User access:</b> Admin login + user management is handled in the sign-in modal for this environment.
+              <b>User access:</b> Access is managed by your Fleet AI administrator. Contact your account owner for provisioning or role updates.
             </div>
           </div>
         </div>
@@ -2042,10 +2043,10 @@
         <input id="loginEmail" type="email" placeholder="Email address" />
         <input id="loginPass" type="password" placeholder="Password" />
         <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:6px;">
-          <button class="btn" id="btnLogin">Login</button>
-          <button class="btn ghost" id="btnCreateAdmin">Create Admin</button>
+          <button class="btn" id="btnLogin">Sign In</button>
+          <button class="btn ghost" id="btnCreateAdmin" hidden aria-hidden="true">Create Admin</button>
         </div>
-        <div class="small">If no users exist, press <b>Create Admin</b> to initialize an admin account.</div>
+        <div class="small">Use the credentials issued by your Fleet AI administrator. If access has not been provisioned yet, contact support.</div>
         <div class="small" id="loginMsg" style="display:none;color:#FFD0D0;margin-top:8px"></div>
       </div>
     </div>
@@ -3925,15 +3926,29 @@
     }
     function getUserByEmail(email){ const users = loadUsers(); return users.find(u=>u.email===email) || null; }
 
+    const AUTH_DEBUG_MODE = (()=>{
+      try{
+        const params = new URLSearchParams(window.location.search);
+        if(params.get('diag') === '1') return true;
+        return localStorage.getItem('fleetai.debug') === 'true';
+      }catch(e){
+        return false;
+      }
+    })();
+
     function showLoginOverlay(show, opts={}){
       const el = $('loginOverlay');
       if(!el) return;
       el.classList.toggle('hide', !show);
       document.body.classList.toggle('modal-open', !!show);
+      const createBtn = $('btnCreateAdmin');
+      if(createBtn){
+        createBtn.hidden = !AUTH_DEBUG_MODE;
+        createBtn.setAttribute('aria-hidden', AUTH_DEBUG_MODE ? 'false' : 'true');
+      }
       if(show){
         $('loginEmail').focus();
-        if(opts.createMode) $('loginTitle').textContent = 'Create Admin Account';
-        else $('loginTitle').textContent = 'Sign in to Fleet AI';
+        $('loginTitle').textContent = opts.createMode && AUTH_DEBUG_MODE ? 'Create Admin Account' : 'Sign in to Fleet AI';
       }
     }
 
@@ -3955,6 +3970,14 @@
     }
 
     function doCreateAdmin(){
+      if(!AUTH_DEBUG_MODE){
+        const m = $('loginMsg');
+        if(m){
+          m.style.display='block';
+          m.textContent='Account setup is managed by Fleet AI support.';
+        }
+        return;
+      }
       const em = $('loginEmail').value.trim();
       const pw = $('loginPass').value;
       if(!em || !pw){ const m=$('loginMsg'); m.style.display='block'; m.textContent='Email + password required.'; return; }

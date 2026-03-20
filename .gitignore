@@ -2,7 +2,9 @@ server/data.json.bak-*
 server/data.json.bad-*
 server/data.json.corrupt-*
 server/data.json.empty.bak*
+server/data.json.backup-*
 server/logs/
+/tmp/fleetai_test_cookie.txt
 
 # Python artifacts and local model binaries
 **/__pycache__/

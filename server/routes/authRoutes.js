@@ -14,6 +14,7 @@ function registerAuthRoutes(app, deps) {
     setSessionCookie,
     sendEmployeeLoginResponse,
     formatAuthError,
+    setNoStore,
     requireCustomerApi,
     getCustomerSession,
     clearCustomerSessionCookie,
@@ -56,9 +57,7 @@ function registerAuthRoutes(app, deps) {
               ok: true,
               code: "OK",
               message: "Authenticated",
-              token: devSession.id,
               session: {
-                token: devSession.id,
                 expiresAt: devSession.expiresAt,
                 user: {
                   id: devLookup.user.id,
@@ -90,14 +89,23 @@ function registerAuthRoutes(app, deps) {
         return res.status(result.error.status).json({ ok: false, code: result.error.code, message: result.error.message });
       }
       const session = result.session;
+      console.log("[CUST-LOGIN] success", {
+        email: result.user.email,
+        userId: result.user.id || null,
+        role: result.user.role,
+        orgId: result.user.orgId || null,
+        sessionId: session.id,
+        cookieName: "fleetai_customer_session",
+        ua: req.headers["user-agent"] || "",
+        origin: req.headers.origin || "",
+        referer: req.headers.referer || ""
+      });
       setCustomerSessionCookie(res, session.id);
       return res.status(200).json({
         ok: true,
         code: "OK",
         message: "Authenticated",
-        token: session.id,
         session: {
-          token: session.id,
           expiresAt: session.expiresAt,
           user: { id: result.user.id, email: result.user.email, role: result.user.role, orgId: result.user.orgId || null, displayName: result.user.displayName || "" }
         },
@@ -188,14 +196,22 @@ function registerAuthRoutes(app, deps) {
     return handleEmployeeLogin(req, res);
   }
 
-  app.post("/api/auth/org/login", handleCustomerLogin);
-  app.post("/api/auth/customer/login", handleCustomerLogin);
-  app.post("/api/auth/login", handleCustomerLogin);
-  app.post("/api/auth/login-customer", handleCustomerLogin);
-  app.post("/api/customer/login", handleCustomerLogin);
+  app.post("/api/auth/org/login", (req, res, next) => { setNoStore(res); return handleCustomerLogin(req, res, next); });
+  app.post("/api/auth/customer/login", (req, res, next) => { setNoStore(res); return handleCustomerLogin(req, res, next); });
+  app.post("/api/auth/login", (req, res, next) => { setNoStore(res); return handleCustomerLogin(req, res, next); });
+  app.post("/api/auth/login-customer", (req, res, next) => { setNoStore(res); return handleCustomerLogin(req, res, next); });
+  app.post("/api/customer/login", (req, res, next) => { setNoStore(res); return handleCustomerLogin(req, res, next); });
 
   app.get("/api/auth/customer/session", (req, res) => {
     const session = getCustomerSession(req);
+    console.log("[CUST-SESSION] check", {
+      hasCookieHeader: Boolean(req.headers.cookie),
+      sessionFound: Boolean(session),
+      sessionUserId: session?.userId || null,
+      sessionEmail: session?.email || null,
+      ua: req.headers["user-agent"] || "",
+      referer: req.headers.referer || ""
+    });
     if (!session) {
       return res.status(401).json({ error: "Not authenticated." });
     }

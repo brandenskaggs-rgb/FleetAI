@@ -48,6 +48,11 @@ img{max-width:100%;display:block}
   color:#ffffff;
   border-color:var(--header-ghost-border);
 }
+.siteHeader .themeSelect:hover,
+.siteHeader .themeSelect:focus{
+  background:rgba(255,255,255,0.18);
+  border-color:rgba(255,255,255,0.34);
+}
 .announceBar .btn.ghost{
   color:#e6f0ff;
   border-color:rgba(255,255,255,0.2);

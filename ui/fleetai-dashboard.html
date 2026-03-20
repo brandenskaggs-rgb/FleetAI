@@ -2839,16 +2839,13 @@
       const currentOrigin = (window.location && window.location.origin && !window.location.origin.startsWith("file"))
         ? window.location.origin
         : "";
-      const currentHost = (window.location && window.location.hostname)
-        ? String(window.location.hostname).toLowerCase()
-        : "";
       try{
         const stored = localStorage.getItem("fleetai.serverBase") || localStorage.getItem("fleetai.apiBase");
         if(stored){
           const normalized = normalizeApiBase(stored);
           try{
             const parsed = new URL(normalized, currentOrigin || undefined);
-            if(!currentHost || parsed.hostname.toLowerCase() === currentHost){
+            if(currentOrigin && parsed.origin === currentOrigin){
               return normalizeApiBase(parsed.origin);
             }
           }catch(_){
@@ -2866,7 +2863,17 @@
         }
       }catch(e){}
       const injected = window.__FLEETAI_API_BASE_URL__ || window.FLEETAI_API_BASE_URL || window.API_BASE_URL;
-      if(injected) return normalizeApiBase(injected);
+      if(injected){
+        try{
+          const parsed = new URL(normalizeApiBase(injected), currentOrigin || undefined);
+          if(currentOrigin && parsed.origin !== currentOrigin){
+            return currentOrigin;
+          }
+          return normalizeApiBase(parsed.origin || injected);
+        }catch(_){
+          return currentOrigin || normalizeApiBase(injected);
+        }
+      }
       if(currentOrigin) return currentOrigin;
       return "";
     }
@@ -3851,9 +3858,12 @@
     }
 
     function redirectToCustomerLogin(){
-      const current = `${window.location.pathname || ""}${window.location.search || ""}${window.location.hash || ""}`;
-      const returnTo = encodeURIComponent(current || "/ui/fleetai-dashboard.html");
-      window.location.href = `/customer-login.html?returnTo=${returnTo}`;
+      setHeaderUserLabel("Session check failed");
+      try{
+        if(typeof showBanner === "function"){
+          showBanner("Session check failed. Please refresh once before signing in again.");
+        }
+      }catch(_){ }
     }
 
     function setOrgBranding(orgName){
@@ -3961,33 +3971,15 @@
 
     async function loadCustomerProfile(){
       try{
-        const profileUrls = [];
-        if(API_BASE_URL){
-          profileUrls.push(`${API_BASE_URL}/api/me`);
-        }
-        if(window.location && window.location.origin){
-          const sameOriginProfile = `${window.location.origin}/api/me`;
-          if(!profileUrls.includes(sameOriginProfile)){
-            profileUrls.push(sameOriginProfile);
-          }
-        }
-        let res = null;
-        for(const url of profileUrls){
-          try{
-            const attempt = await fetch(url, { credentials: "include", cache: "no-store" });
-            if(attempt.ok || attempt.status === 401){
-              res = attempt;
-              break;
-            }
-            if(!res) res = attempt;
-          }catch(_){}
-        }
-        if(!res){
-          setHeaderUserLabel("Preview Mode");
-          return;
-        }
+        const profileUrl = `${window.location.origin}/api/me`;
+        const res = await fetch(profileUrl, { credentials: "include", cache: "no-store" });
         if(res.status === 401){
-          redirectToCustomerLogin();
+          setHeaderUserLabel("Session unavailable");
+          try{
+            if(typeof showBanner === "function"){
+              showBanner("Dashboard boot could not verify the session. Refresh once. If it still fails, sign in again.");
+            }
+          }catch(_){ }
           return;
         }
         if(!res.ok){

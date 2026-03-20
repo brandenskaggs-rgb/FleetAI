@@ -615,7 +615,18 @@ app.get("/employee-console.html", requireEmployeeSession, (req, res) => {
 });
 
 app.get("/ui/fleetai-dashboard.html", (req, res) => {
+  setNoStore(res);
   const session = getCustomerSession(req);
+  console.log("[CUST-DASH] request", {
+    hasCookieHeader: Boolean(req.headers.cookie),
+    cookieNames: Object.keys(parseCookies(req.headers.cookie || "")),
+    hasCustomerCookie: Boolean(parseCookies(req.headers.cookie || "")[CUSTOMER_SESSION_COOKIE]),
+    sessionFound: Boolean(session),
+    sessionUserId: session?.userId || null,
+    sessionEmail: session?.email || null,
+    ua: req.headers["user-agent"] || "",
+    referer: req.headers.referer || ""
+  });
   if (!session) {
     return res.redirect("/customer-login.html");
   }
@@ -1470,6 +1481,13 @@ function setCustomerSessionCookie(res, sessionId) {
     "Set-Cookie",
     `${CUSTOMER_SESSION_COOKIE}=${encodeURIComponent(sessionId)}; ${buildCookieAttributes(Math.floor(SESSION_TTL_MS / 1000))}`
   );
+}
+
+function setNoStore(res) {
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Expires", "0");
+  res.setHeader("Surrogate-Control", "no-store");
 }
 
 function clearCustomerSessionCookie(res) {
@@ -4615,6 +4633,7 @@ registerAuthRoutes(app, {
   setSessionCookie,
   sendEmployeeLoginResponse,
   formatAuthError,
+  setNoStore,
   requireCustomerApi: (req, res, next) => requireCustomerApi(req, res, next),
   getCustomerSession,
   clearCustomerSessionCookie,
