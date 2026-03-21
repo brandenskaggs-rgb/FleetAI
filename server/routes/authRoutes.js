@@ -19,6 +19,7 @@ function registerAuthRoutes(app, deps) {
     getCustomerSession,
     clearCustomerSessionCookie,
     customerSessionStore,
+    persistSessionStoresSoon,
     getSessionFromRequest,
     getSession,
     clearSessionCookie,
@@ -278,10 +279,10 @@ function registerAuthRoutes(app, deps) {
       user.lastLoginAt = nowIso();
       await writeData(data);
       req.customer.resetRequired = false;
-      const session = customerSessionStore.get(req.customer.id);
-      if (session) {
-        session.resetRequired = false;
-        session.mustSetPassword = false;
+      req.customer.mustSetPassword = false;
+      customerSessionStore.set(req.customer.id, req.customer);
+      if (typeof persistSessionStoresSoon === "function") {
+        persistSessionStoresSoon();
       }
       res.json({ ok: true, redirectTo: "/ui/fleetai-dashboard.html" });
     } catch (err) {
@@ -319,10 +320,9 @@ function registerAuthRoutes(app, deps) {
       await writeData(data);
       req.customer.resetRequired = false;
       req.customer.mustSetPassword = false;
-      const session = customerSessionStore.get(req.customer.id);
-      if (session) {
-        session.resetRequired = false;
-        session.mustSetPassword = false;
+      customerSessionStore.set(req.customer.id, req.customer);
+      if (typeof persistSessionStoresSoon === "function") {
+        persistSessionStoresSoon();
       }
       res.json({ ok: true, redirectTo: "/ui/fleetai-dashboard.html" });
     } catch (err) {
@@ -334,6 +334,9 @@ function registerAuthRoutes(app, deps) {
     const session = getCustomerSession(req);
     if (session) {
       customerSessionStore.delete(session.id);
+      if (typeof persistSessionStoresSoon === "function") {
+        persistSessionStoresSoon();
+      }
     }
     clearCustomerSessionCookie(res);
     res.json({ ok: true });
@@ -348,6 +351,9 @@ function registerAuthRoutes(app, deps) {
     const session = getSession(req);
     if (session) {
       sessionStore.delete(session.id);
+      if (typeof persistSessionStoresSoon === "function") {
+        persistSessionStoresSoon();
+      }
     }
     clearSessionCookie(res);
     return res.json({ ok: true });
@@ -357,6 +363,9 @@ function registerAuthRoutes(app, deps) {
     const session = getSession(req);
     if (session) {
       sessionStore.delete(session.id);
+      if (typeof persistSessionStoresSoon === "function") {
+        persistSessionStoresSoon();
+      }
     }
     clearSessionCookie(res);
     return res.json({ ok: true });

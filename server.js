@@ -119,6 +119,7 @@ const CORS_ALLOWED_ORIGINS = parseOriginList(process.env.CORS_ALLOWED_ORIGINS ||
 const TRUST_PROXY = resolveTrustProxySetting(process.env.TRUST_PROXY, IS_PROD);
 const BOOTSTRAP_CUSTOMER_EMAIL = (process.env.FLEETAI_BOOTSTRAP_CUSTOMER_EMAIL || "brandenskaggs01@gmail.com").toLowerCase().trim();
 const BOOTSTRAP_CUSTOMER_ENABLED = !IS_PROD && (process.env.FLEETAI_BOOTSTRAP_CUSTOMER || "true").toLowerCase() !== "false";
+const SESSION_STORE_PATH = path.resolve(__dirname, "server", "sessions.json");
 const customerSessionStore = new Map();
 const firstLoginTokens = new Map(); // token -> { userId, orgId, role, expiresAt }
 let dataLoadStatus = "unknown";
@@ -420,6 +421,71 @@ const RATE_MAX = 5;
 const RATE_LOCK_MS = 15 * 60 * 1000;
 const rateState = new Map();
 const sessionStore = new Map();
+let sessionPersistChain = Promise.resolve();
+let sessionPersistScheduled = false;
+
+function serializeSessionMap(map) {
+  return Array.from(map.entries()).map(([id, session]) => [id, session]);
+}
+
+function pruneExpiredSessionMap(map) {
+  const now = Date.now();
+  let changed = false;
+  for (const [id, session] of map.entries()) {
+    if (!session || session.expiresAt <= now) {
+      map.delete(id);
+      changed = true;
+    }
+  }
+  return changed;
+}
+
+function loadSessionStores() {
+  try {
+    if (!fs.existsSync(SESSION_STORE_PATH)) return;
+    const raw = fs.readFileSync(SESSION_STORE_PATH, "utf8");
+    if (!raw.trim()) return;
+    const parsed = JSON.parse(raw);
+    for (const [id, session] of parsed.employeeSessions || []) {
+      if (session && session.expiresAt > Date.now()) sessionStore.set(id, session);
+    }
+    for (const [id, session] of parsed.customerSessions || []) {
+      if (session && session.expiresAt > Date.now()) customerSessionStore.set(id, session);
+    }
+    pruneExpiredSessionMap(sessionStore);
+    pruneExpiredSessionMap(customerSessionStore);
+    console.log(`[AUTH] loaded persisted sessions employee=${sessionStore.size} customer=${customerSessionStore.size}`);
+  } catch (err) {
+    console.warn(`[AUTH] failed to load persisted sessions: ${err.message}`);
+  }
+}
+
+function persistSessionStoresSoon() {
+  if (sessionPersistScheduled) return;
+  sessionPersistScheduled = true;
+  setTimeout(() => {
+    sessionPersistScheduled = false;
+    sessionPersistChain = sessionPersistChain
+      .then(async () => {
+        pruneExpiredSessionMap(sessionStore);
+        pruneExpiredSessionMap(customerSessionStore);
+        const payload = {
+          updatedAt: new Date().toISOString(),
+          employeeSessions: serializeSessionMap(sessionStore),
+          customerSessions: serializeSessionMap(customerSessionStore)
+        };
+        // sessions.json: write-to-temp then rename (no backup accumulation needed)
+        const tempPath = `${SESSION_STORE_PATH}.tmp`;
+        await fsp.writeFile(tempPath, `${JSON.stringify(payload, null, 2)}\n`, "utf-8");
+        await fsp.rename(tempPath, SESSION_STORE_PATH);
+      })
+      .catch((err) => {
+        console.warn(`[AUTH] failed to persist sessions: ${err.message}`);
+      });
+  }, 0);
+}
+
+loadSessionStores();
 // Telemetry streaming state
 const telemetryLatest = new Map(); // vehicleId -> snapshot
 const telemetrySubscribers = new Set();
@@ -1444,6 +1510,7 @@ function getSession(req) {
   if (!session) return null;
   if (session.expiresAt <= Date.now()) {
     sessionStore.delete(sessionId);
+    persistSessionStoresSoon();
     return null;
   }
   return session;
@@ -1473,6 +1540,7 @@ function issueSession(scope, user) {
   } else {
     sessionStore.set(sessionId, session);
   }
+  persistSessionStoresSoon();
   return session;
 }
 
@@ -1502,6 +1570,7 @@ function getCustomerSession(req) {
   if (!session) return null;
   if (session.expiresAt <= Date.now()) {
     customerSessionStore.delete(sessionId);
+    persistSessionStoresSoon();
     return null;
   }
   return session;
@@ -4638,6 +4707,7 @@ registerAuthRoutes(app, {
   getCustomerSession,
   clearCustomerSessionCookie,
   customerSessionStore,
+  persistSessionStoresSoon,
   getSessionFromRequest,
   getSession,
   clearSessionCookie,

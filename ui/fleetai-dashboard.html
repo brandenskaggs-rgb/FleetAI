@@ -239,17 +239,14 @@
       z-index:11;
     }
     .nav button .navItem{
-      display:flex; align-items:center; gap:10px;
+      display:flex; align-items:center; gap:0;
       min-width:0;
     }
     .nav button .navIcon{
-      width:20px; height:20px;
-      display:grid; place-items:center;
-      font-size:14px;
-      color:var(--primary2);
+      display:none;
     }
     .nav button.active .navIcon{
-      color:var(--primary);
+      display:none;
     }
     .nav button:hover{
       border-color: color-mix(in srgb, var(--primary) 20%, var(--border));
@@ -289,24 +286,8 @@
       border-radius:999px;
     }
 
-    /* Collapsible sidebar: compact / expanded states */
-    .app.collapsed{ grid-template-columns: 72px 1fr; transition: grid-template-columns .22s ease; }
-    .app .sidebar{ transition: width .22s ease, padding .18s ease, background .18s ease; }
-    .app .sidebar .brand h1,
-    .app .sidebar .brand small,
-    .app .nav button .tag,
-    .app .sidebar .note{ transition: opacity .18s ease, visibility .18s ease; }
-
-    .app.collapsed .sidebar{ padding:14px 8px; }
-    .app.collapsed .sidebar .brand h1,
-    .app.collapsed .sidebar .brand small,
-    .app.collapsed .nav button .tag,
-    .app.collapsed .sidebar .note{
-      opacity:0; visibility:hidden; pointer-events:none; height:0; margin:0; padding:0;
-    }
-    .app.collapsed .nav button{ justify-content:center; padding:10px; }
-    .app.collapsed .nav button .navLabel,
-    .app.collapsed .nav button .tag{ display:none; }
+    /* Sidebar stays fixed on the left; no collapsed nav mode */
+    .app .sidebar{ transition: background .18s ease; }
 
     /* Main */
     .main{
@@ -1308,7 +1289,6 @@
           </div>
         </div>
         <div class="subHeader__filters">
-          <button id="btnToggleSidebar" class="btn ghost" aria-pressed="false" aria-label="Toggle sidebar">&#9776;</button>
           <div class="pill">
             <label for="fleet">Fleet</label>
             <select id="fleet">
@@ -6514,29 +6494,10 @@
       if(activePollTimer) clearInterval(activePollTimer);
       activePollTimer = setInterval(pollActiveStatus, 8000);
 
-    // Sidebar toggle + persistence
+    // Sidebar stays pinned on the left for the customer dashboard.
     const __root = document.querySelector('.app');
-    const __sidebarKey = 'fleetai.sidebarCollapsed';
-    function applySidebarState(collapsed){
-      __root.classList.toggle('collapsed', !!collapsed);
-      const t = $('btnToggleSidebar');
-      if(t) t.setAttribute('aria-pressed', collapsed? 'true':'false');
-      const sub = $('viewSub');
-      if(sub) sub.style.display = (collapsed? 'none':'');
-    }
-    // init from localStorage
-    try{
-      const saved = localStorage.getItem(__sidebarKey) === 'true';
-      applySidebarState(saved);
-    }catch(e){ /* ignore */ }
-
-    const btnToggle = $('btnToggleSidebar');
-    if(btnToggle){
-      btnToggle.addEventListener('click', ()=>{
-        const next = !__root.classList.contains('collapsed');
-        applySidebarState(next);
-        try{ localStorage.setItem(__sidebarKey, next? 'true':'false'); }catch(e){}
-      });
+    if(__root){
+      __root.classList.remove('collapsed');
     }
 
     // Login events
@@ -6587,15 +6548,6 @@
     });
 
 
-    // Ctrl+B / Meta+B to toggle sidebar
-    document.addEventListener('keydown', (e)=>{
-      if((e.ctrlKey || e.metaKey) && (e.key === 'b' || e.key === 'B')){
-        e.preventDefault();
-        const next = !__root.classList.contains('collapsed');
-        applySidebarState(next);
-        try{ localStorage.setItem(__sidebarKey, next? 'true':'false'); }catch(e){}
-      }
-    });
 
     $("btnRefresh").addEventListener("click", ()=>{
       if(priorityQueue.length > 1){

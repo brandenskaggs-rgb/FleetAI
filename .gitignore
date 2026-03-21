@@ -3,6 +3,8 @@ server/data.json.bad-*
 server/data.json.corrupt-*
 server/data.json.empty.bak*
 server/data.json.backup-*
+server/sessions.json
+server/sessions.json.tmp
 server/logs/
 /tmp/fleetai_test_cookie.txt
 
