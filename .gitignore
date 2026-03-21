@@ -26,4 +26,4 @@ fleet_ai/models/*.joblib
 !.env.example
 !**/.env.example
 
-*.hprof
+*.hprof.openclaw/

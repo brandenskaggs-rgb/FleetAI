@@ -1,4 +1,0 @@
-com.fleetai.driver.test.app-androidTest-0 C:\Dev\Fleet AI\Fleet AI\driver_app\app\build\generated\res\resValues\androidTest\debug
-com.fleetai.driver.test.app-mergeDebugAndroidTestResources-1 C:\Dev\Fleet AI\Fleet AI\driver_app\app\build\intermediates\incremental\debugAndroidTest\mergeDebugAndroidTestResources\merged.dir
-com.fleetai.driver.test.app-mergeDebugAndroidTestResources-2 C:\Dev\Fleet AI\Fleet AI\driver_app\app\build\intermediates\incremental\debugAndroidTest\mergeDebugAndroidTestResources\stripped.dir
-com.fleetai.driver.test.app-debugAndroidTest-3 C:\Dev\Fleet AI\Fleet AI\driver_app\app\build\intermediates\merged_res\debugAndroidTest\mergeDebugAndroidTestResources
