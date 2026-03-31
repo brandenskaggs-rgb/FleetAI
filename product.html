@@ -2,10 +2,10 @@
 <html lang="en">
 <head>
   <link rel="stylesheet" href="/css/theme.css" />
-
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Fleet AI - Product</title>
+  <meta name="description" content="See how Fleet AI turns fleet telemetry into earlier maintenance visibility, tighter operator workflows, and clearer operational decision-making." />
   <link rel="stylesheet" href="/css/site-tokens.css" />
   <link rel="stylesheet" href="/css/site-theme.css" />
   <link rel="stylesheet" href="/css/site-components.css" />
@@ -13,23 +13,6 @@
   <link rel="stylesheet" href="/css/design-system.css" />
 </head>
 <body>
-  <!--
-  <div id="debugBanner" style="position:fixed;bottom:12px;right:12px;z-index:9999;background:#111827;color:#f9fafb;padding:10px 12px;border-radius:8px;font-size:12px;box-shadow:0 8px 20px rgba(0,0,0,0.25)">
-    <div><b>Debug</b></div>
-    <div id="debugUrl"></div>
-    <div id="debugCss"></div>
-  </div>
-  <script>
-    (function(){
-      var url = window.location.href;
-      var sheets = Array.prototype.slice.call(document.styleSheets).map(function(s){return s.href || 'inline';});
-      var elUrl = document.getElementById('debugUrl');
-      var elCss = document.getElementById('debugCss');
-      if(elUrl){ elUrl.textContent = 'URL: ' + url; }
-      if(elCss){ elCss.textContent = 'CSS: ' + sheets.join(', '); }
-    })();
-  </script>
-  -->
   <header class="siteHeader">
     <div class="container siteHeader__row">
       <a class="wordmark" href="/index.html"><span class="brandFleet">Fleet</span><span class="brandAI">AI</span></a>
@@ -55,92 +38,136 @@
 
   <div class="announceBar">
     <div class="container">
-      <div class="announcePill"><a href="/pricing.html#plans">Pilot Program Active - $59/vehicle/mo (limited partners)</a></div>
-      <a class="btn ghost" href="/pilot.html">Apply for Pilot</a>
+      <div class="announcePill"><a href="/pilot.html">Pilot program open for early fleet partners</a></div>
+      <a class="btn ghost" href="/pricing.html#plans">View Pilot Pricing</a>
     </div>
   </div>
 
-  <section class="hero section--tight">
-    <div class="container heroGrid">
+  <section class="hero hero--spicy">
+    <div class="container heroGrid heroGrid--command">
       <div>
-        <span class="eyebrow">Fleet AI platform</span>
-        <h1>Fleet AI is more than a dashboard - it is an intelligence layer for fleet operations.</h1>
-        <p>Fleet AI is an AI-powered fleet intelligence platform designed to reduce downtime, predict failures, improve compliance, and optimize operational efficiency across vehicle fleets.</p>
-        <div class="anchorTabs">
-          <a href="#intelligence-layer">Intelligence layer</a>
-          <a href="#predictive">Predictive</a>
-          <a href="#alerts">Alerts</a>
-          <a href="#vehicles">Vehicles</a>
-          <a href="#drivers">Drivers</a>
-          <a href="#compliance">Compliance</a>
-          <a href="#safety">Safety</a>
-          <a href="#telemetry">Telemetry</a>
-          <a href="#reports">Reports</a>
-          <a href="#deployment">Deployment</a>
-          <a href="#roadmap">Roadmap</a>
+        <span class="badge">Product overview</span>
+        <h1>One operating layer for reliability, maintenance visibility, and fleet decision support.</h1>
+        <p>Fleet AI is designed to help operators see developing mechanical risk earlier, organize work around what matters most, and give leadership a cleaner picture of uptime pressure across the fleet.</p>
+        <div class="heroActions">
+          <a class="btn primary" href="/request-demo.html">Request Demo</a>
+          <a class="btn secondary" href="/pilot.html">Start with a Pilot</a>
         </div>
-        <div class="heroActions" style="margin-top:20px;">
-          <a class="btn primary" href="/request-demo.html">Request a Demo</a>
-          <a class="btn secondary" href="/pricing.html#plans">View Pricing</a>
+        <div class="heroProof">
+          <span class="pill">Telemetry-aware</span>
+          <span class="pill">Operator-ready</span>
+          <span class="pill">Maintenance-focused</span>
+          <span class="pill">Leadership-visible</span>
         </div>
       </div>
-      <div class="card">
-        <div class="card__title">Pilot-ready intelligence</div>
-        <p class="card__meta">Risk-based guidance, not guaranteed predictions.</p>
-        <ul class="featureList">
-          <li><span class="dot"></span>Early warning signals</li>
-          <li><span class="dot"></span>Recommended inspection windows</li>
-          <li><span class="dot"></span>Executive-ready reports</li>
-        </ul>
+      <div class="commandShell">
+        <div class="commandShell__top"><span>Product view</span><span>Operating loop</span></div>
+        <div class="commandShell__card commandShell__card--alert">
+          <div class="shellLabel">System purpose</div>
+          <h3>Move fleets from reactive surprises to earlier, more controlled action.</h3>
+          <p>The product is built to reduce guesswork between vehicle telemetry, maintenance decisions, and operator response.</p>
+        </div>
+        <div class="commandShell__grid">
+          <div class="commandShell__card">
+            <div class="shellLabel">Input</div>
+            <div class="miniStat"><strong>Vehicle + device</strong><span>operational signals</span></div>
+          </div>
+          <div class="commandShell__card">
+            <div class="shellLabel">Output</div>
+            <div class="miniStat"><strong>Prioritized action</strong><span>for operators and leadership</span></div>
+          </div>
+        </div>
+        <div class="commandShell__footer"><span>Light-duty and heavy-duty paths</span><span>No black-box autopilot claims</span></div>
       </div>
     </div>
   </section>
 
-  <section id="intelligence-layer" class="section section--tint">
-    <div id="core"></div>
-    <div class="container grid-2">
+  <section class="section">
+    <div class="container">
+      <div class="sectionHeader sectionHeader--centered">
+        <h2>What the product actually does</h2>
+        <p>The job is not to impress people with dashboards. The job is to help a fleet act earlier and with more confidence.</p>
+      </div>
+      <div class="valueGrid">
+        <div class="valueCard">
+          <div class="valueCard__number">01</div>
+          <h3>Detect reliability risk earlier</h3>
+          <p>Surface developing anomalies before they become obvious failures, missed routes, or emergency calls.</p>
+        </div>
+        <div class="valueCard">
+          <div class="valueCard__number">02</div>
+          <h3>Give operators a cleaner queue</h3>
+          <p>Translate telemetry into what needs inspection, what can be monitored, and what is safe to ignore for now.</p>
+        </div>
+        <div class="valueCard">
+          <div class="valueCard__number">03</div>
+          <h3>Keep leadership aligned</h3>
+          <p>Summaries and reporting roll up from the same operational truth rather than disconnected spreadsheets and opinions.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section section--tint">
+    <div class="container twoColumnStory">
       <div>
         <div class="sectionHeader">
-          <h2>Intelligence layer</h2>
-          <p>Fleet AI learns operational baselines and produces a prioritized inspection window. It is not just GPS or fault codes.</p>
+          <h2>Core product pillars</h2>
+          <p>The platform is organized around a few things that matter in the real world: signal quality, maintenance timing, operator action, and visibility up the chain.</p>
         </div>
-        <ul class="featureList">
-          <li><span class="dot"></span>Fleet-wide learning across vehicles and drivers</li>
-          <li><span class="dot"></span>Risk-based inspection windows</li>
-          <li><span class="dot"></span>AI Advisor and executive summaries</li>
+        <ul class="featureList featureList--strong">
+          <li><span class="dot"></span>Telemetry collection across supported vehicle and device paths</li>
+          <li><span class="dot"></span>Signal cleanup and reconciliation to reduce noisy interpretation</li>
+          <li><span class="dot"></span>Maintenance-oriented prioritization instead of raw alert spam</li>
+          <li><span class="dot"></span>Operator dashboards and leadership summaries tied to the same data model</li>
         </ul>
       </div>
-      <div class="mockScreen">
-        <!-- TODO: Replace with provided image asset later -->
-        <div class="mockHeader">
-          <div class="mockPill"></div>
-          <div class="mockPill" style="width:70px"></div>
+      <div class="stackCards">
+        <div class="stackCard">
+          <div class="stackCard__eyebrow">Reliability</div>
+          <h3>Inspection windows instead of panic</h3>
+          <p>The goal is earlier intervention where possible, not vague hindsight after a breakdown.</p>
         </div>
-        <div class="mockLine long"></div>
-        <div class="mockLine mid"></div>
-        <div class="mockLine short"></div>
+        <div class="stackCard">
+          <div class="stackCard__eyebrow">Operations</div>
+          <h3>Actionable operator workflow</h3>
+          <p>Give the operations side a clear queue with context, priority, and recommended next moves.</p>
+        </div>
+        <div class="stackCard">
+          <div class="stackCard__eyebrow">Reporting</div>
+          <h3>Leadership gets signal, not dashboard noise</h3>
+          <p>Summaries should support decisions about uptime, maintenance cadence, and exposure.</p>
+        </div>
       </div>
     </div>
   </section>
 
-  <section id="deployment" class="section">
+  <section class="section">
     <div class="container">
-      <div class="sectionHeader">
-        <h2>Designed for fast, low-friction deployment.</h2>
-        <p>Fleet AI installs without disrupting daily operations. No complex hardware installs or downtime required.</p>
+      <div class="sectionHeader sectionHeader--centered">
+        <h2>How Fleet AI flows through the operation</h2>
+        <p>Simple loop. Real vehicles, real telemetry, real decisions.</p>
       </div>
-      <div class="grid-3">
-        <div class="card">
-          <div class="card__title">Step 1 - Plug and Pair</div>
-          <p class="card__meta">Plug in a standard vehicle interface (OBD/J1939 compatible) and pair with an Android tablet or existing driver device.</p>
+      <div class="operatingLoop">
+        <div class="loopStep">
+          <div class="loopStep__index">1</div>
+          <h3>Collect</h3>
+          <p>Bring in data from supported vehicle interfaces and connected devices.</p>
         </div>
-        <div class="card">
-          <div class="card__title">Step 2 - Go Live</div>
-          <p class="card__meta">Vehicles begin streaming data automatically. No manual configuration required for drivers.</p>
+        <div class="loopStep">
+          <div class="loopStep__index">2</div>
+          <h3>Clean</h3>
+          <p>Reduce noise and reconcile signals so the system isn’t reacting to junk.</p>
         </div>
-        <div class="card">
-          <div class="card__title">Step 3 - Intelligence Improves Over Time</div>
-          <p class="card__meta">Fleet AI begins learning normal behavior. Early warnings and recommendations appear as data is collected.</p>
+        <div class="loopStep">
+          <div class="loopStep__index">3</div>
+          <h3>Prioritize</h3>
+          <p>Highlight the vehicles and issues most likely to create operational pain if ignored.</p>
+        </div>
+        <div class="loopStep">
+          <div class="loopStep__index">4</div>
+          <h3>Act</h3>
+          <p>Feed operators and leadership the same truth in forms each can actually use.</p>
         </div>
       </div>
     </div>
@@ -148,267 +175,41 @@
 
   <section class="section section--tint">
     <div class="container grid-2">
-      <div class="card">
-        <div class="card__title">No rip-and-replace. No forced hardware.</div>
+      <div class="card card--dark">
+        <div class="card__title">Strong fit</div>
         <ul class="featureList">
-          <li><span class="dot"></span>Runs on existing Android tablets and driver devices</li>
-          <li><span class="dot"></span>Supports standard vehicle interfaces</li>
-          <li><span class="dot"></span>Fleets can bring their own hardware</li>
-          <li><span class="dot"></span>Optional Fleet AI hardware is a future capability (coming soon)</li>
+          <li><span class="dot"></span>Fleets with uptime pressure and recurring maintenance surprises</li>
+          <li><span class="dot"></span>Operators who want earlier warning and cleaner prioritization</li>
+          <li><span class="dot"></span>Teams that want to validate on live vehicles before rollout</li>
         </ul>
       </div>
-      <div class="card">
-        <div class="card__title">Value starts early - intelligence improves over time.</div>
+      <div class="card card--soft">
+        <div class="card__title">What it is not</div>
         <ul class="featureList">
-          <li><span class="dot"></span>Basic visibility and health indicators appear early</li>
-          <li><span class="dot"></span>Predictive models improve as Fleet AI learns your fleet's patterns</li>
-          <li><span class="dot"></span>Insights compound with real-world usage</li>
+          <li><span class="dot"></span>Not autonomous vehicle control</li>
+          <li><span class="dot"></span>Not a generic dashboard with AI copy pasted on top</li>
+          <li><span class="dot"></span>Not a replacement for operator judgment or shop discipline</li>
         </ul>
       </div>
     </div>
   </section>
 
   <section class="section">
-    <div class="container">
-      <div class="sectionHeader">
-        <h2>Pilot first. Commit when ready.</h2>
-        <p>Month-to-month pilot pricing designed to validate real-world performance before long-term commitments.</p>
-      </div>
-      <div class="grid-3">
-        <div class="card">
-          <div class="card__title">Low-risk entry</div>
-          <p class="card__meta">Month-to-month pilot pricing with no long-term contracts required upfront.</p>
-        </div>
-        <div class="card">
-          <div class="card__title">Operational validation</div>
-          <p class="card__meta">Designed to prove performance in real fleet conditions.</p>
-        </div>
-        <div class="card">
-          <div class="card__title">Direct feedback loop</div>
-          <p class="card__meta">Pilot partners work closely with the Fleet AI team.</p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <section id="predictive" class="section">
-    <div class="container grid-2">
-      <div>
-        <div class="sectionHeader">
-          <h2>Predictive Maintenance</h2>
-          <p>Identify emerging issues and plan service windows with confidence, without overpromising exact failure timing.</p>
-        </div>
-        <ul class="featureList">
-          <li><span class="dot"></span>Failure probability and early warning indicators</li>
-          <li><span class="dot"></span>Parts failure probability scoring</li>
-          <li><span class="dot"></span>Maintenance optimization and cost forecasting</li>
-        </ul>
-      </div>
-      <div class="mockScreen">
-        <!-- TODO: Replace with provided image asset later -->
-        <div class="mockHeader">
-          <div class="mockPill"></div>
-          <div class="mockPill" style="width:70px"></div>
-        </div>
-        <div class="mockLine long"></div>
-        <div class="mockLine mid"></div>
-        <div class="mockLine short"></div>
-      </div>
-    </div>
-  </section>
-
-  <section id="alerts" class="section section--tint">
-    <div class="container grid-2">
-      <div class="card">
-        <div class="card__title">Alerts and Insights</div>
-        <p class="card__meta">Operational teams get actionable alerts, not raw noise.</p>
-        <ul class="featureList">
-          <li><span class="dot"></span>Prioritized alert feed</li>
-          <li><span class="dot"></span>Recommended actions</li>
-          <li><span class="dot"></span>Executive summary output</li>
-        </ul>
-      </div>
-      <div class="card card--soft">
-        <div class="card__title">Action center</div>
-        <p class="card__meta">Tie alerts to maintenance workflows and ownership.</p>
-      </div>
-    </div>
-  </section>
-
-  <section id="vehicles" class="section">
-    <div class="container grid-2">
-      <div>
-        <div class="sectionHeader">
-          <h2>Vehicles</h2>
-          <p>Organize fleet context so every alert and insight is tied to a real unit.</p>
-        </div>
-        <ul class="featureList">
-          <li><span class="dot"></span>Vehicle health monitoring</li>
-          <li><span class="dot"></span>Asset visibility via GPS/tablets</li>
-          <li><span class="dot"></span>Basic diagnostics (fault codes)</li>
-        </ul>
-      </div>
-      <div class="card card--soft">
-        <div class="card__title">Fleet context</div>
-        <p class="card__meta">Pairing status, telemetry readiness, and risk indicators.</p>
-      </div>
-    </div>
-  </section>
-
-  <section id="drivers" class="section section--tint">
-    <div class="container grid-2">
-      <div class="card">
-        <div class="card__title">Drivers</div>
-        <p class="card__meta">Driver behavior analysis and safety scoring.</p>
-        <ul class="featureList">
-          <li><span class="dot"></span>Driver logs for hours and breaks</li>
-          <li><span class="dot"></span>Safety scoring and behavior insights</li>
-          <li><span class="dot"></span>Coaching readiness workflows</li>
-        </ul>
-      </div>
-      <div class="card">
-        <div class="card__title">Driver tablet app</div>
-        <p class="card__meta">Operational workflows aligned with driver experience.</p>
-      </div>
-    </div>
-  </section>
-
-  <section id="compliance" class="section">
-    <div class="container grid-2">
-      <div>
-        <div class="sectionHeader">
-          <h2>Compliance Intelligence</h2>
-          <p>Hours-of-service, violations, and regulatory awareness surfaced with context.</p>
-        </div>
-        <ul class="featureList">
-          <li><span class="dot"></span>HOS compliance indicators</li>
-          <li><span class="dot"></span>Violation readiness signals</li>
-          <li><span class="dot"></span>Audit-friendly reporting</li>
-        </ul>
-      </div>
-      <div class="card card--soft">
-        <div class="card__title">Regulatory awareness</div>
-        <p class="card__meta">Compliance insights tied to operational context.</p>
-      </div>
-    </div>
-  </section>
-
-  <section id="safety" class="section section--tint">
-    <div class="container grid-2">
-      <div class="card">
-        <div class="card__title">Safety Overview</div>
-        <p class="card__meta">Camera integrations are a planned module (coming soon).</p>
-        <ul class="featureList">
-          <li><span class="dot"></span>Camera integrations (coming soon)</li>
-          <li><span class="dot"></span>Safety scoring and coaching</li>
-          <li><span class="dot"></span>Incident readiness workflow</li>
-        </ul>
-      </div>
-      <div class="card">
-        <div class="card__title">Risk-based guidance</div>
-        <p class="card__meta">Recommendations depend on data and operating conditions.</p>
-      </div>
-    </div>
-  </section>
-
-  <section id="telemetry" class="section">
-    <div class="container grid-2">
-      <div>
-        <div class="sectionHeader">
-          <h2>Telemetry and tracking</h2>
-          <p>Live sensor data when available, GPS tracking, and asset visibility.</p>
-        </div>
-        <ul class="featureList">
-          <li><span class="dot"></span>Real-time GPS tracking</li>
-          <li><span class="dot"></span>Vehicle health monitoring</li>
-          <li><span class="dot"></span>Fleet-wide learning</li>
-        </ul>
-      </div>
-      <div class="mockScreen">
-        <!-- TODO: Replace with provided image asset later -->
-        <div class="mockHeader">
-          <div class="mockPill"></div>
-          <div class="mockPill" style="width:70px"></div>
-        </div>
-        <div class="mockLine long"></div>
-        <div class="mockLine mid"></div>
-        <div class="mockLine short"></div>
-      </div>
-    </div>
-  </section>
-
-  <section id="reports" class="section section--tint">
-    <div class="container grid-2">
-      <div class="card">
-        <div class="card__title">Executive-ready AI reports</div>
-        <p class="card__meta">Auto-generated summaries for leaders and stakeholders.</p>
-        <ul class="featureList">
-          <li><span class="dot"></span>AI Advisor insights</li>
-          <li><span class="dot"></span>Fleet-wide summaries</li>
-          <li><span class="dot"></span>Risk-based recommendations</li>
-        </ul>
-      </div>
-      <div class="card">
-        <div class="card__title">Reporting cadence</div>
-        <p class="card__meta">Daily and weekly summaries aligned to operations.</p>
-      </div>
-    </div>
-  </section>
-
-  <section id="roadmap" class="section">
-    <div class="container">
-      <div class="sectionHeader">
-        <h2>Roadmap modules</h2>
-        <p>Additional modules built to extend context once pilots are underway.</p>
-      </div>
-      <div class="grid-3">
-        <div class="card">
-          <div class="card__title">GPS and Routing</div>
-          <p class="card__meta">Location context to connect incidents to service decisions.</p>
-        </div>
-        <div class="card">
-          <div class="card__title">Camera Integrations (Coming Soon)</div>
-          <p class="card__meta">Visual context for safety and incident review. Coming soon.</p>
-        </div>
-        <div class="card">
-          <div class="card__title">Dispatch Coordination</div>
-          <p class="card__meta">Planned workflows for dispatch and maintenance coordination.</p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <section class="section section--tint">
-    <div class="container">
-      <div class="sectionHeader">
-        <h2>What Fleet AI is not</h2>
-        <p>Honest positioning to align expectations.</p>
-      </div>
-      <div class="grid-4">
-        <div class="card"><div class="card__title">Not only GPS</div><p class="card__meta">Tracking is core, but intelligence goes beyond location.</p></div>
-        <div class="card"><div class="card__title">Not only fault codes</div><p class="card__meta">Diagnostics are basic; guidance is risk-based.</p></div>
-        <div class="card"><div class="card__title">Not guaranteed predictions</div><p class="card__meta">Recommendations depend on data and conditions.</p></div>
-        <div class="card"><div class="card__title">Not paywalling core AI</div><p class="card__meta">Core intelligence is included for all customers.</p></div>
-      </div>
-    </div>
-  </section>
-
-  <section class="section">
-    <div class="container ctaBand">
+    <div class="container ctaBand ctaBand--executive">
       <div class="ctaInner">
         <div>
-          <h3>Want a guided walkthrough?</h3>
-          <p>See the Fleet AI dashboard and workflows tailored to your fleet.</p>
+          <h3>Want to see the product in a real operating context?</h3>
+          <p>The cleanest way is still a structured pilot with actual vehicles and a real workflow review.</p>
         </div>
         <div class="heroActions">
-          <a class="btn primary" href="/request-demo.html">Request a Demo</a>
-          <a class="btn secondary" href="/pricing.html#plans">View Pricing</a>
+          <a class="btn primary" href="/request-demo.html">Request Demo</a>
+          <a class="btn secondary" href="/pilot.html">Pilot Program</a>
         </div>
       </div>
     </div>
   </section>
 
-    <footer class="footer">
+  <footer class="footer">
     <div class="container footerGrid">
       <div class="footerCol footerBrand">
         <div class="wordmark"><span class="brandFleet">Fleet</span><span class="brandAI">AI</span></div>
@@ -435,17 +236,7 @@
     </div>
   </footer>
 
-  <script src="/js/config.js"></script>
   <script src="/js/site.js"></script>
   <script src="/js/scroll-reveal.js"></script>
 </body>
 </html>
-
-
-
-
-
-
-
-
-
