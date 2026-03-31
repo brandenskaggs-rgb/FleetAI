@@ -2,10 +2,10 @@
 <html lang="en">
 <head>
   <link rel="stylesheet" href="/css/theme.css" />
-
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Fleet AI - Request Demo</title>
+  <meta name="description" content="Request a Fleet AI demo to review your fleet use case, evaluate product fit, and frame a realistic pilot path." />
   <link rel="stylesheet" href="/css/site-tokens.css" />
   <link rel="stylesheet" href="/css/site-theme.css" />
   <link rel="stylesheet" href="/css/site-components.css" />
@@ -13,23 +13,6 @@
   <link rel="stylesheet" href="/css/design-system.css" />
 </head>
 <body>
-  <!--
-  <div id="debugBanner" style="position:fixed;bottom:12px;right:12px;z-index:9999;background:#111827;color:#f9fafb;padding:10px 12px;border-radius:8px;font-size:12px;box-shadow:0 8px 20px rgba(0,0,0,0.25)">
-    <div><b>Debug</b></div>
-    <div id="debugUrl"></div>
-    <div id="debugCss"></div>
-  </div>
-  <script>
-    (function(){
-      var url = window.location.href;
-      var sheets = Array.prototype.slice.call(document.styleSheets).map(function(s){return s.href || 'inline';});
-      var elUrl = document.getElementById('debugUrl');
-      var elCss = document.getElementById('debugCss');
-      if(elUrl){ elUrl.textContent = 'URL: ' + url; }
-      if(elCss){ elCss.textContent = 'CSS: ' + sheets.join(', '); }
-    })();
-  </script>
-  -->
   <header class="siteHeader">
     <div class="container siteHeader__row">
       <a class="wordmark" href="/index.html"><span class="brandFleet">Fleet</span><span class="brandAI">AI</span></a>
@@ -55,58 +38,80 @@
 
   <div class="announceBar">
     <div class="container">
-      <div class="announcePill"><a href="/pricing.html#plans">Pilot Program Active - $59/vehicle/mo (limited partners)</a></div>
-      <a class="btn ghost" href="/pilot.html">Apply for Pilot</a>
+      <div class="announcePill"><a href="/pilot.html">Want to move faster? Start with the pilot conversation.</a></div>
+      <a class="btn ghost" href="/pilot.html">Pilot Program</a>
     </div>
   </div>
 
+  <section class="hero hero--spicy">
+    <div class="container heroGrid heroGrid--command">
+      <div>
+        <span class="badge">Request demo</span>
+        <h1>Let’s look at your fleet, your operational pain, and whether Fleet AI is actually a fit.</h1>
+        <p>A good demo should not be generic. Tell us about your fleet and we’ll frame the walkthrough around the real maintenance, uptime, and workflow questions you care about.</p>
+        <div class="heroProof">
+          <span class="pill">Use-case driven</span>
+          <span class="pill">Pilot-aware</span>
+          <span class="pill">No canned theatre</span>
+        </div>
+      </div>
+      <div class="commandShell">
+        <div class="commandShell__top"><span>Demo goal</span><span>Fit discovery</span></div>
+        <div class="commandShell__card commandShell__card--alert">
+          <div class="shellLabel">What we want to answer</div>
+          <h3>Is this useful for your actual operation, or just interesting in theory?</h3>
+          <p>The demo is where we pressure-test fit, not where we hide behind polished screens and vague promises.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <section class="section">
-    <div class="container grid-2">
+    <div class="container formShell">
       <div>
         <div class="sectionHeader">
           <h2>Request a Fleet AI demo</h2>
-          <p>Tell us about your fleet and operational goals. We will tailor the walkthrough and pilot plan.</p>
+          <p>Share enough context for us to make the conversation worth your time.</p>
         </div>
-        <form id="demoForm" class="card formGrid">
-          <input id="demoCompany" type="text" placeholder="Company name" required />
-          <input id="demoName" type="text" placeholder="Contact name" required />
-          <input id="demoEmail" type="email" placeholder="Work email" required />
-          <input id="demoPhone" type="tel" placeholder="Phone (optional)" />
-          <input id="demoFleetSize" type="text" placeholder="Fleet size (approx.)" />
-          <textarea id="demoMessage" placeholder="Message (optional)"></textarea>
+        <form id="demoForm" class="formCard formCard--executive">
+          <div class="formGrid formGrid--two">
+            <input id="demoCompany" type="text" placeholder="Company name" required />
+            <input id="demoName" type="text" placeholder="Contact name" required />
+            <input id="demoEmail" type="email" placeholder="Work email" required />
+            <input id="demoPhone" type="tel" placeholder="Phone (optional)" />
+            <input id="demoFleetSize" type="text" placeholder="Fleet size (approx.)" />
+            <input id="demoRegion" type="text" placeholder="Region / operating area" />
+          </div>
+          <textarea id="demoMessage" placeholder="What are you trying to solve or validate?"></textarea>
           <button class="btn primary" type="submit">Request Demo</button>
-          <div class="formNote">We will respond within one business day.</div>
-          <div id="demoSuccess" class="formSuccess">Thanks. Your request has been received. We will reach out with next steps.</div>
+          <div class="formNote">We’ll follow up with next steps and shape the walkthrough around your use case.</div>
+          <div id="demoSuccess" class="formSuccess">Thanks. Your request has been received. We’ll reach out with next steps.</div>
           <div id="demoError" class="formNote" style="display:none; color:#b91c1c;"></div>
-          <div class="formNote">If you prefer email, use <a href="mailto:demo@fleetai.com">demo@fleetai.com</a>.</div>
+          <div class="formNote">If email is easier, contact <a href="mailto:demo@fleetai.com">demo@fleetai.com</a>.</div>
         </form>
       </div>
       <aside class="sideInfo">
-        <div class="card">
+        <div class="card card--soft">
           <h3>What to expect</h3>
-          <p>A guided walkthrough of Fleet AI for your fleet type, plus a pilot plan with onboarding steps.</p>
+          <p>A focused walkthrough of product fit, deployment reality, and whether a pilot makes sense.</p>
         </div>
         <div class="card">
-          <h3>Pilot pricing</h3>
-          <p>Pilot Program: $59 per vehicle per month (limited partners).</p>
+          <h3>Current pilot offer</h3>
+          <p>$59 per vehicle / month for early pilot partners.</p>
         </div>
         <div class="card">
-          <h3>Pilot timeline</h3>
-          <p>Discovery → Setup → Pilot → Review.</p>
-        </div>
-        <div class="card">
-          <h3>Planning resources</h3>
-          <p>Review pricing and module options to align with your pilot scope.</p>
+          <h3>Want to move faster?</h3>
+          <p>If you already know you want live validation, the pilot page is the straightest path.</p>
           <div class="heroActions" style="margin-top:12px;">
-            <a class="btn secondary" href="/pricing.html#plans">View Pricing</a>
-            <a class="btn ghost" href="/product.html">Explore Product</a>
+            <a class="btn secondary" href="/pilot.html">Pilot Program</a>
+            <a class="btn ghost" href="/pricing.html">View Pricing</a>
           </div>
         </div>
       </aside>
     </div>
   </section>
 
-    <footer class="footer">
+  <footer class="footer">
     <div class="container footerGrid">
       <div class="footerCol footerBrand">
         <div class="wordmark"><span class="brandFleet">Fleet</span><span class="brandAI">AI</span></div>
@@ -138,12 +143,3 @@
   <script src="/js/scroll-reveal.js"></script>
 </body>
 </html>
-
-
-
-
-
-
-
-
-

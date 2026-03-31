@@ -2,10 +2,10 @@
 <html lang="en">
 <head>
   <link rel="stylesheet" href="/css/theme.css" />
-
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Fleet AI - Security</title>
+  <meta name="description" content="Fleet AI approaches security as part of operational credibility: tighter access, cleaner deployment posture, and more trustworthy fleet software." />
   <link rel="stylesheet" href="/css/site-tokens.css" />
   <link rel="stylesheet" href="/css/site-theme.css" />
   <link rel="stylesheet" href="/css/site-components.css" />
@@ -13,23 +13,6 @@
   <link rel="stylesheet" href="/css/design-system.css" />
 </head>
 <body>
-  <!--
-  <div id="debugBanner" style="position:fixed;bottom:12px;right:12px;z-index:9999;background:#111827;color:#f9fafb;padding:10px 12px;border-radius:8px;font-size:12px;box-shadow:0 8px 20px rgba(0,0,0,0.25)">
-    <div><b>Debug</b></div>
-    <div id="debugUrl"></div>
-    <div id="debugCss"></div>
-  </div>
-  <script>
-    (function(){
-      var url = window.location.href;
-      var sheets = Array.prototype.slice.call(document.styleSheets).map(function(s){return s.href || 'inline';});
-      var elUrl = document.getElementById('debugUrl');
-      var elCss = document.getElementById('debugCss');
-      if(elUrl){ elUrl.textContent = 'URL: ' + url; }
-      if(elCss){ elCss.textContent = 'CSS: ' + sheets.join(', '); }
-    })();
-  </script>
-  -->
   <header class="siteHeader">
     <div class="container siteHeader__row">
       <a class="wordmark" href="/index.html"><span class="brandFleet">Fleet</span><span class="brandAI">AI</span></a>
@@ -55,109 +38,113 @@
 
   <div class="announceBar">
     <div class="container">
-      <div class="announcePill"><a href="/pricing.html#plans">Pilot Program Active - $59/vehicle/mo (limited partners)</a></div>
-      <a class="btn ghost" href="/pilot.html">Apply for Pilot</a>
+      <div class="announcePill"><a href="/pilot.html">Pilot program open for early fleet partners</a></div>
+      <a class="btn ghost" href="/request-demo.html">Request Security Review</a>
     </div>
   </div>
 
-  <section class="hero section--tight">
-    <div class="container heroGrid">
+  <section class="hero hero--spicy">
+    <div class="container heroGrid heroGrid--command">
       <div>
-        <span class="eyebrow">Security posture</span>
-        <h1>Enterprise-minded security for fleet operations.</h1>
-        <p>Fleet AI is built for pilots that scale into enterprise programs, with a focus on access control, data handling, and operational reliability.</p>
+        <span class="badge">Security posture</span>
+        <h1>Security is part of whether fleet software deserves to be trusted at all.</h1>
+        <p>Fleet AI treats security as part of operational credibility. That means access control, tenant separation, deployment discipline, and reducing unnecessary exposure instead of treating security like a procurement PDF stapled on later.</p>
+        <div class="heroActions">
+          <a class="btn primary" href="/request-demo.html">Request Demo</a>
+          <a class="btn secondary" href="/pilot.html">Pilot Program</a>
+        </div>
       </div>
-      <div class="card">
-        <div class="card__title">Security overview</div>
-        <p class="card__meta">Request documentation and architecture reviews as part of your evaluation process.</p>
-        <ul class="featureList">
-          <li><span class="dot"></span>Secure pairing and device identity</li>
-          <li><span class="dot"></span>Company-level data separation</li>
-          <li><span class="dot"></span>Audit-friendly operational logs</li>
-        </ul>
+      <div class="commandShell">
+        <div class="commandShell__top"><span>Security stance</span><span>Operational, not decorative</span></div>
+        <div class="commandShell__card commandShell__card--alert">
+          <div class="shellLabel">Security priority</div>
+          <h3>Reduce exposure, preserve operator control, and keep tenant boundaries clean.</h3>
+          <p>The aim is not just “passing security review.” The aim is software that behaves like serious infrastructure should.</p>
+        </div>
+        <div class="commandShell__grid">
+          <div class="commandShell__card"><div class="shellLabel">Access</div><div class="miniStat"><strong>Scoped</strong><span>role-appropriate control surfaces</span></div></div>
+          <div class="commandShell__card"><div class="shellLabel">Data</div><div class="miniStat"><strong>Separated</strong><span>no cross-org blending</span></div></div>
+        </div>
       </div>
     </div>
   </section>
 
   <section class="section">
     <div class="container">
-      <div class="sectionHeader">
+      <div class="sectionHeader sectionHeader--centered">
         <h2>Security principles</h2>
-        <p>We prioritize operational trust, secure access, and data visibility for fleet leadership.</p>
+        <p>These are the basics required for credible fleet operations software.</p>
       </div>
-      <div class="securityGrid">
-        <div class="card">
-          <div class="card__title">Access controls</div>
-          <p class="card__meta">Structured access by role, with administrative oversight for pilots and enterprise teams.</p>
+      <div class="valueGrid">
+        <div class="valueCard">
+          <div class="valueCard__number">01</div>
+          <h3>Controlled access</h3>
+          <p>People should only have the level of access needed for their role and responsibility.</p>
         </div>
-        <div class="card">
-          <div class="card__title">Data separation</div>
-          <p class="card__meta">Secure company-level separation with no cross-fleet data bleeding.</p>
+        <div class="valueCard">
+          <div class="valueCard__number">02</div>
+          <h3>Tenant separation</h3>
+          <p>Fleet data boundaries need to stay clean. Cross-org leakage is not a cosmetic defect.</p>
         </div>
-        <div class="card">
-          <div class="card__title">Data handling</div>
-          <p class="card__meta">Telemetry data follows enterprise expectations for confidentiality and availability.</p>
-        </div>
-        <div class="card">
-          <div class="card__title">Operational transparency</div>
-          <p class="card__meta">Maintain clear audit trails for alerts, actions, and system events.</p>
+        <div class="valueCard">
+          <div class="valueCard__number">03</div>
+          <h3>Deployment discipline</h3>
+          <p>Security posture includes how the system is exposed, routed, authenticated, and operated in the real world.</p>
         </div>
       </div>
     </div>
   </section>
 
   <section class="section section--tint">
-    <div class="container grid-2">
-      <div class="card">
-        <div class="card__title">Pilot readiness</div>
-        <p class="card__meta">We support security reviews early in the pilot cycle to reduce enterprise friction.</p>
-      </div>
-      <div class="card">
-        <div class="card__title">Procurement support</div>
-        <p class="card__meta">Security documentation and onboarding steps are shared during demo engagement.</p>
-      </div>
-    </div>
-  </section>
-
-  <section class="section section--tight">
-    <div class="container">
-      <div class="sectionHeader">
-        <h2>Security FAQ</h2>
-        <p>Common questions from IT, compliance, and procurement teams.</p>
-      </div>
-      <div class="accordion">
-        <div class="accordion__item">
-          <button class="accordion__trigger" aria-expanded="false">How is access controlled?<span>+</span></button>
-          <div class="accordion__content">Access is planned around roles with administrative oversight for pilot and enterprise teams.</div>
+    <div class="container twoColumnStory">
+      <div>
+        <div class="sectionHeader">
+          <h2>What security means here</h2>
+          <p>Fleet AI is not pretending to be finished enterprise software before it has earned that status. But the direction is clear: serious access controls, cleaner deployment posture, and auditable operational behavior.</p>
         </div>
-        <div class="accordion__item">
-          <button class="accordion__trigger" aria-expanded="false">Is data encrypted?<span>+</span></button>
-          <div class="accordion__content">Fleet AI follows enterprise security expectations and data handling practices.</div>
+        <ul class="featureList featureList--strong">
+          <li><span class="dot"></span>Role-aware access and administrative oversight</li>
+          <li><span class="dot"></span>Company-level data separation</li>
+          <li><span class="dot"></span>Operational logging and traceability</li>
+          <li><span class="dot"></span>Security review support during pilot and procurement conversations</li>
+        </ul>
+      </div>
+      <div class="stackCards">
+        <div class="stackCard">
+          <div class="stackCard__eyebrow">For IT</div>
+          <h3>Understand the access model</h3>
+          <p>Know who can do what, and where the control boundaries actually are.</p>
         </div>
-        <div class="accordion__item">
-          <button class="accordion__trigger" aria-expanded="false">Do you provide documentation?<span>+</span></button>
-          <div class="accordion__content">Yes. Security documentation is available during pilot and procurement evaluation.</div>
+        <div class="stackCard">
+          <div class="stackCard__eyebrow">For procurement</div>
+          <h3>Review the posture early</h3>
+          <p>It is better to handle security scrutiny during the pilot cycle than after a commercial decision is already emotionally made.</p>
+        </div>
+        <div class="stackCard">
+          <div class="stackCard__eyebrow">For operators</div>
+          <h3>Security should not sabotage usability</h3>
+          <p>The product still has to work in the field without creating new operational fragility.</p>
         </div>
       </div>
     </div>
   </section>
 
   <section class="section">
-    <div class="container ctaBand">
+    <div class="container ctaBand ctaBand--executive">
       <div class="ctaInner">
         <div>
-          <h3>Need security details?</h3>
-          <p>We can provide security documentation and answer procurement questions during your demo.</p>
+          <h3>If your team needs a security conversation early, that’s the right instinct.</h3>
+          <p>We’d rather have the serious review than hide behind vague “enterprise-ready” language.</p>
         </div>
         <div class="heroActions">
-          <a class="btn primary" href="/request-demo.html">Request a Demo</a>
-          <a class="btn secondary" href="/pricing.html#plans">View Pricing</a>
+          <a class="btn primary" href="/request-demo.html">Request Demo</a>
+          <a class="btn secondary" href="/pilot.html">Pilot Program</a>
         </div>
       </div>
     </div>
   </section>
 
-    <footer class="footer">
+  <footer class="footer">
     <div class="container footerGrid">
       <div class="footerCol footerBrand">
         <div class="wordmark"><span class="brandFleet">Fleet</span><span class="brandAI">AI</span></div>
@@ -184,17 +171,7 @@
     </div>
   </footer>
 
-  <script src="/js/config.js"></script>
   <script src="/js/site.js"></script>
   <script src="/js/scroll-reveal.js"></script>
 </body>
 </html>
-
-
-
-
-
-
-
-
-
