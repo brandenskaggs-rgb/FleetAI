@@ -22,14 +22,18 @@ class NotificationsViewModel(
 
     fun refresh() {
         viewModelScope.launch {
-            _items.value = repository.getNotifications()
+            runCatching {
+                _items.value = repository.getNotifications()
+            }
         }
     }
 
     fun markRead(notificationId: String) {
         viewModelScope.launch {
-            repository.markNotificationRead(notificationId)
-            _items.value = repository.getNotifications()
+            runCatching {
+                repository.markNotificationRead(notificationId)
+                _items.value = repository.getNotifications()
+            }
         }
     }
 }

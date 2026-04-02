@@ -26,8 +26,12 @@ class StatusViewModel(
 
     fun notifyFleet(reason: String) {
         viewModelScope.launch {
-            repository.notifyFleet(reason)
-            _message.value = "Fleet manager notified."
+            try {
+                repository.notifyFleet(reason)
+                _message.value = "Fleet manager notified."
+            } catch (_: Exception) {
+                _message.value = "Unable to notify fleet right now. The update was not confirmed."
+            }
         }
     }
 

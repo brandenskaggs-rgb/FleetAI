@@ -11,16 +11,18 @@ import java.net.SocketTimeoutException
 import java.nio.charset.Charset
 import java.util.UUID
 
-class ObdConnectionManager {
+class ClassicBluetoothObdTransport : ObdTransport {
+    override val name: String = "Classic Bluetooth"
+
     private val adapter: BluetoothAdapter? = BluetoothAdapter.getDefaultAdapter()
     @Volatile private var socket: BluetoothSocket? = null
     @Volatile private var input: BufferedInputStream? = null
     @Volatile private var output: BufferedOutputStream? = null
     private val ioLock = Any()
 
-    fun hasBluetooth(): Boolean = adapter != null
+    override fun hasBluetooth(): Boolean = adapter != null
 
-    fun pairedDevices(): Set<BluetoothDevice> {
+    override fun pairedDevices(): Set<BluetoothDevice> {
         return try {
             adapter?.bondedDevices ?: emptySet()
         } catch (_: SecurityException) {
@@ -30,27 +32,9 @@ class ObdConnectionManager {
         }
     }
 
-    fun isConnected(): Boolean = socket?.isConnected == true && input != null && output != null
+    override fun isConnected(): Boolean = socket?.isConnected == true && input != null && output != null
 
-    suspend fun discoverSupportedPids(): Set<String> {
-        val supported = mutableSetOf<String>()
-        val groups = listOf("0100", "0120", "0140", "0160", "0180")
-        groups.forEachIndexed { idx, cmd ->
-            try {
-                val resp = sendCommand(cmd) ?: return@forEachIndexed
-                val bits = ObdParser.parseSupportedPids(resp)
-                bits.forEach { pidHex ->
-                    // pidHex already includes mode 01 prefix
-                    supported.add(pidHex)
-                }
-            } catch (_: Exception) {
-                // ignore
-            }
-        }
-        return supported
-    }
-
-    suspend fun connect(device: BluetoothDevice): Boolean = withContext(Dispatchers.IO) {
+    override suspend fun connect(device: BluetoothDevice): Boolean = withContext(Dispatchers.IO) {
         disconnect()
         val uuid = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
         val btSocket = device.createRfcommSocketToServiceRecord(uuid)
@@ -62,7 +46,6 @@ class ObdConnectionManager {
             socket = btSocket
             input = nextInput
             output = nextOutput
-            initializeElm()
             true
         } catch (err: Exception) {
             runCatching { btSocket.close() }
@@ -73,46 +56,21 @@ class ObdConnectionManager {
         }
     }
 
-    suspend fun disconnect() = withContext(Dispatchers.IO) {
-        val currentInput = input
-        val currentOutput = output
-        val currentSocket = socket
-        input = null
-        output = null
-        socket = null
-        runCatching { currentInput?.close() }
-        runCatching { currentOutput?.close() }
-        runCatching { currentSocket?.close() }
+    override suspend fun disconnect() {
+        withContext(Dispatchers.IO) {
+            val currentInput = input
+            val currentOutput = output
+            val currentSocket = socket
+            input = null
+            output = null
+            socket = null
+            runCatching { currentInput?.close() }
+            runCatching { currentOutput?.close() }
+            runCatching { currentSocket?.close() }
+        }
     }
 
-    suspend fun readPid(command: String): String? = withContext(Dispatchers.IO) {
-        sendCommand(command)
-    }
-
-    suspend fun readDtcs(): List<String> = withContext(Dispatchers.IO) {
-        val response = sendCommand("03") ?: return@withContext emptyList()
-        ObdParser.parseDtcs(response)
-    }
-
-    suspend fun readVin(): String? = withContext(Dispatchers.IO) {
-        val resp = sendCommand("0902") ?: return@withContext null
-        ObdParser.parseVin(resp)
-    }
-
-    suspend fun clearDtcs(): Boolean = withContext(Dispatchers.IO) {
-        sendCommand("04") != null
-    }
-
-    private suspend fun initializeElm() {
-        sendCommand("ATZ")
-        sendCommand("ATE0")
-        sendCommand("ATL0")
-        sendCommand("ATS0")
-        sendCommand("ATH0")
-        sendCommand("ATSP0")
-    }
-
-    private suspend fun sendCommand(command: String): String? = withContext(Dispatchers.IO) {
+    override suspend fun sendCommand(command: String): String? = withContext(Dispatchers.IO) {
         val out = output ?: return@withContext null
         val inputStream = input ?: return@withContext null
         synchronized(ioLock) {
@@ -142,7 +100,7 @@ class ObdConnectionManager {
 
             val raw = response.toString()
             if (raw.isBlank()) return@withContext null
-            return@withContext parseObdResponse(raw, command)
+            return@withContext raw
         }
     }
 
@@ -151,21 +109,5 @@ class ObdConnectionManager {
             val skipped = inputStream.skip(inputStream.available().toLong())
             if (skipped <= 0) break
         }
-    }
-
-    private fun parseObdResponse(raw: String, command: String): String? {
-        val cleaned = raw
-            .replace(">", " ")
-            .replace("\r", "\n")
-            .lines()
-            .map { it.trim() }
-            .filter { line ->
-                line.isNotBlank() &&
-                    !line.equals(command, ignoreCase = true) &&
-                    !line.startsWith("SEARCHING", ignoreCase = true)
-            }
-            .joinToString(" ")
-            .trim()
-        return cleaned.ifBlank { null }
     }
 }

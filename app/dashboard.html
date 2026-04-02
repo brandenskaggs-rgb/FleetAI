@@ -398,6 +398,11 @@
       margin-bottom:14px;
       flex-wrap:wrap;
     }
+    .topTabs,
+    .tabBar,
+    .topTab{
+      display:none !important;
+    }
     .topTabs{
       display:flex;
       flex-wrap:wrap;
@@ -828,18 +833,7 @@
     }
 
     .toast{
-      display:none;
-      position: fixed;
-      right: 18px;
-      bottom: 18px;
-      max-width: 460px;
-      border:1px solid var(--border);
-      border-radius:16px;
-      box-shadow: var(--shadow-sm);
-      background: var(--panel);
-      padding:12px 14px;
-      z-index: 999;
-      backdrop-filter: blur(10px);
+      display:none !important;
     }
     /* Login / user modal overlay */
     .overlay{
@@ -2993,11 +2987,9 @@
     function round(x, n=1){ const p=Math.pow(10,n); return Math.round(x*p)/p; }
 
     function toast(title, desc){
-      $("toastT").textContent = title;
-      $("toastD").textContent = desc;
-      $("toast").style.display = "block";
-      clearTimeout(window.__toastTimer);
-      window.__toastTimer = setTimeout(()=> $("toast").style.display="none", 5200);
+      const toastEl = $("toast");
+      if(toastEl) toastEl.style.display = "none";
+      return;
     }
 
     function renderRoute(route){

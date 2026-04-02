@@ -88,12 +88,15 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
             preferences.setDemoMode(enabled)
             _demoMode.value = enabled
             if (enabled) {
-                _status.value = "Demo mode"
+                stopPolling(resetReadings = true)
+                runCatching { obd.disconnect() }
                 sender.stop()
+                _status.value = "Demo mode"
                 startDemo()
             } else {
+                stopPolling(resetReadings = true)
+                sender.stop()
                 _status.value = "Not connected"
-                stopPolling()
             }
         }
     }
@@ -101,14 +104,24 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
     fun connect(device: BluetoothDevice) {
         viewModelScope.launch {
             try {
+                stopPolling(resetReadings = true)
+                sender.stop()
                 _status.value = "Connecting..."
-                obd.connect(device)
+                val connected = obd.connect(device)
+                if (!connected || !obd.isConnected()) {
+                    _status.value = "Connection failed"
+                    return@launch
+                }
                 _status.value = "Connected"
                 preferences.saveObdDeviceAddress(device.address)
                 _savedDevice.value = device.address
                 startPolling()
                 sender.start()
+            } catch (_: SecurityException) {
+                _status.value = "Bluetooth permission required"
             } catch (_: Exception) {
+                sender.stop()
+                stopPolling(resetReadings = true)
                 _status.value = "Connection failed"
             }
         }
@@ -116,12 +129,12 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
 
     fun disconnect() {
         viewModelScope.launch {
-            obd.disconnect()
+            sender.stop()
+            runCatching { obd.disconnect() }
             _status.value = "Not connected"
             preferences.clearObdDeviceAddress()
             _savedDevice.value = ""
-            stopPolling()
-            sender.stop()
+            stopPolling(resetReadings = true)
         }
     }
 
@@ -143,14 +156,22 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
                 return@launch
             }
             try {
+                stopPolling(resetReadings = true)
+                sender.stop()
                 _status.value = "Reconnecting..."
-                obd.connect(device)
+                val connected = obd.connect(device)
+                if (!connected || !obd.isConnected()) {
+                    _status.value = "Reconnect failed"
+                    return@launch
+                }
                 _status.value = "Connected"
                 startPolling()
                 sender.start()
             } catch (_: SecurityException) {
                 _status.value = "Bluetooth permission required"
             } catch (_: Exception) {
+                sender.stop()
+                stopPolling(resetReadings = true)
                 _status.value = "Reconnect failed"
             }
         }
@@ -278,10 +299,17 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
         }
     }
 
-    private fun stopPolling() {
+    private fun stopPolling(resetReadings: Boolean = false) {
         pollJob?.cancel()
         pollJob = null
+        lastReadError = null
         sender.updateSnapshot(emptyMap(), obdConnected = false)
+        if (resetReadings) {
+            _readings.value = emptyList()
+            ema.clear()
+            history.clear()
+            lastGood.clear()
+        }
     }
 
     private fun demoValue(min: Double, max: Double): String {
@@ -299,7 +327,7 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
     }
 
     override fun onCleared() {
-        stopPolling()
+        stopPolling(resetReadings = true)
         sender.stop()
         debugJob?.cancel()
         debugJob = null

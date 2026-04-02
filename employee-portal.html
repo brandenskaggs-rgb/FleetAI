@@ -31,8 +31,9 @@
   <main class="employeeShell">
     <aside class="employeeSidebar">
       <div class="sidebarBrand">
-        <div class="brandTitle">Employee Console</div>
-        <div class="brandMeta">Internal access</div>
+        <div class="shellLabel">fleet-ai / operations-console</div>
+        <div class="brandTitle">Operations Console</div>
+        <div class="brandMeta">Internal operations · controlled access</div>
       </div>
       <nav class="sidebarNav" id="employeeNav">
         <button type="button" data-route="overview" class="is-active">Overview</button>
@@ -45,30 +46,31 @@
         <button type="button" data-route="audit-log">Audit Log</button>
         <button type="button" data-route="users">Users &amp; Roles</button>
         <button type="button" data-route="settings">Settings</button>
-        <a class="sidebarLink" href="/ui/fleetai-dashboard.html">Dashboard Preview</a>
+        <a class="sidebarLink" href="/ui/fleetai-dashboard.html">Customer Dashboard</a>
       </nav>
       <div class="sidebarNote">
-        <div class="noteTitle">Fleet AI Admin</div>
-        <div class="noteMeta">Actions are limited by role.</div>
+        <div class="noteTitle">Operator note</div>
+        <div class="noteMeta">Use this console for internal administration only. Customer-facing work should stay in the customer surfaces.</div>
       </div>
     </aside>
 
     <section class="employeeMain">
       <div class="mainHeader">
         <div>
+          <div class="shellLabel">operations view</div>
           <h1 id="viewTitle">Overview</h1>
-          <p id="viewSubtitle">Operational metrics and recent activity.</p>
+          <p id="viewSubtitle">Operational metrics, recent activity, and internal control surfaces.</p>
           <div class="roleMeta" id="portalRole">Role: --</div>
         </div>
         <div class="headerActions">
-          <input type="search" id="adminSearch" placeholder="Search orgs or users" />
+          <input type="search" id="adminSearch" placeholder="Search orgs, users, or leads" />
           <button class="btn ghost" id="adminRefresh" type="button">Refresh</button>
-          <button class="btn secondary" id="resetAuthBtn" type="button">Reset Auth</button>
+          <button class="btn secondary" id="resetAuthBtn" type="button">Reset Session</button>
         </div>
       </div>
 
-      <details class="consoleDebug" id="consoleDebugPanel">
-        <summary>Console Debug</summary>
+      <details class="consoleDebug" id="consoleDebugPanel" hidden aria-hidden="true">
+        <summary>Console Diagnostics</summary>
         <div class="consoleDebugGrid">
           <div>Last endpoint: <span id="consoleDbgEndpoint">--</span></div>
           <div>Last status: <span id="consoleDbgStatus">--</span></div>
@@ -107,7 +109,7 @@
     <div class="container footerGrid">
       <div class="footerCol footerBrand">
         <div class="wordmark"><span class="brandFleet">Fleet</span><span class="brandAI">AI</span></div>
-        <div class="footerMeta">Ac 2026 Fleet AI</div>
+        <div class="footerMeta">© 2026 Fleet AI · Sentinel X Inc.</div>
       </div>
       <div class="footerCol">
         <h4>Product</h4>
@@ -138,6 +140,14 @@
   <script src="/js/site.js"></script>
   <script>
     (() => {
+      const diagEnabled = (() => {
+        try {
+          const params = new URLSearchParams(window.location.search);
+          return params.get("diag") === "1" || localStorage.getItem("fleetai.diagnostics") === "true";
+        } catch (e) {
+          return false;
+        }
+      })();
       const setText = (id, value) => {
         const el = document.getElementById(id);
         if (el) el.textContent = value;
@@ -160,6 +170,11 @@
       setText("consoleDbgWhoami", "--");
       setText("consoleDbgToken", "cleared");
       setText("consoleDbgCookie", document.cookie ? "present" : "missing");
+      const debugPanel = document.getElementById("consoleDebugPanel");
+      if (debugPanel && diagEnabled) {
+        debugPanel.hidden = false;
+        debugPanel.setAttribute("aria-hidden", "false");
+      }
       window.__EMP_PORTAL_BOOT = false;
       window.__EMP_PORTAL_ERROR = "";
       window.addEventListener("error", (e) => {

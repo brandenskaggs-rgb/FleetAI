@@ -66,7 +66,17 @@ class DiagnosticsViewModel(
     fun clear() {
         viewModelScope.launch {
             if (obd.isConnected()) {
-                obd.clearDtcs()
+                val cleared = obd.clearDtcs()
+                if (!cleared) {
+                    _message.value = "Unable to clear codes. Check adapter connection and try again."
+                    return@launch
+                }
+            } else {
+                val cleared = repository.clearDiagnosticCodes()
+                if (!cleared) {
+                    _message.value = "Unable to clear codes right now."
+                    return@launch
+                }
             }
             _dtcs.value = emptyList()
             _message.value = "Codes cleared."

@@ -18,6 +18,7 @@ class TelemetryUploader(
 ) {
     private val scope = CoroutineScope(Dispatchers.IO)
     private var job: Job? = null
+    private val maxBufferedSamples = 1200
 
     fun start(
         deviceId: String,
@@ -32,9 +33,16 @@ class TelemetryUploader(
             val sampleDelay = (samplingRateSeconds.coerceAtLeast(1) * 1000L)
             val uploadDelay = (uploadIntervalSeconds.coerceAtLeast(2) * 1000L)
             var lastUpload = System.currentTimeMillis()
+            var retryBackoffMs = uploadDelay
 
             while (isActive) {
                 buffer.add(TelemetrySimulator.generateSample())
+                if (buffer.size > maxBufferedSamples) {
+                    val overflow = buffer.size - maxBufferedSamples
+                    repeat(overflow) {
+                        if (buffer.isNotEmpty()) buffer.removeAt(0)
+                    }
+                }
                 delay(sampleDelay)
 
                 val now = System.currentTimeMillis()
@@ -52,10 +60,12 @@ class TelemetryUploader(
                         onUpload(buffer.size, stamp)
                         buffer.clear()
                         lastUpload = now
+                        retryBackoffMs = uploadDelay
                     } catch (ex: Exception) {
                         onError(ex)
-                        buffer.clear()
-                        lastUpload = now
+                        delay(retryBackoffMs)
+                        retryBackoffMs = (retryBackoffMs * 2).coerceAtMost(60_000L)
+                        lastUpload = System.currentTimeMillis()
                     }
                 }
             }

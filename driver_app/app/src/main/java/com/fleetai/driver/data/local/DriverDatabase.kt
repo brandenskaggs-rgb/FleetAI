@@ -21,7 +21,7 @@ abstract class DriverDatabase : RoomDatabase() {
                 context,
                 DriverDatabase::class.java,
                 "fleet_driver.db"
-            ).fallbackToDestructiveMigration().build()
+            ).build()
         }
     }
 }

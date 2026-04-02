@@ -46,6 +46,13 @@ android {
     composeOptions {
         kotlinCompilerExtensionVersion '1.5.8'
     }
+
+    packaging {
+        jniLibs {
+            useLegacyPackaging true
+            keepDebugSymbols += ['**/libdatastore_shared_counter.so']
+        }
+    }
 }
 
 kotlin {

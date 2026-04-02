@@ -33,8 +33,12 @@ class VehicleViewModel(
 
     fun selectVehicle(vehicleId: String, onSelected: () -> Unit) {
         viewModelScope.launch {
-            repository.bindVehicle(vehicleId)
-            onSelected()
+            if (repository.bindVehicle(vehicleId)) {
+                _message.value = ""
+                onSelected()
+            } else {
+                _message.value = "Unable to bind vehicle. Check server connection and try again."
+            }
         }
     }
 }

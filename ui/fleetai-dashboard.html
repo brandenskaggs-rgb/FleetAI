@@ -22,7 +22,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <link rel="stylesheet" href="/css/site-tokens.css" />
   <link rel="stylesheet" href="/css/site-layout.css" />
-  <title>Fleet AI - Operator Dashboard</title>
+  <title>Fleet AI - Customer Workspace</title>
   <meta name="fleetai-build" content="<!-- BUILD_MARKER -->" />
 
   <style>
@@ -388,6 +388,11 @@
       display:flex; gap:12px; align-items:center; justify-content:space-between;
       margin-bottom:14px;
       flex-wrap:wrap;
+    }
+    .topTabs,
+    .tabBar,
+    .topTab{
+      display:none !important;
     }
     .topTabs{
       display:flex;
@@ -849,18 +854,7 @@
     }
 
     .toast{
-      display:none;
-      position: fixed;
-      right: 18px;
-      bottom: 18px;
-      max-width: 460px;
-      border:1px solid var(--border);
-      border-radius:16px;
-      box-shadow: var(--shadow-sm);
-      background: var(--panel);
-      padding:12px 14px;
-      z-index: 999;
-      backdrop-filter: blur(10px);
+      display:none !important;
     }
     /* Login / user modal overlay */
     .overlay{
@@ -1142,7 +1136,7 @@
         <div class="logo" aria-hidden="false">FA</div>
         <div>
           <h1 id="companyName">Fleet AI</h1>
-          <small>Fleet AI - Operator Dashboard</small>
+          <small>Fleet AI - Customer Workspace</small>
         </div>
       </div>
 
@@ -1223,12 +1217,12 @@
         <div class="divider"></div>
 
         <button data-view="vehicles" data-route="vehicles">
-          <span class="navItem"><span class="navIcon" aria-hidden="true">&#x1F69A;</span><span class="navLabel">Fleet</span></span>
-          <span class="tag">Vehicles</span>
+          <span class="navItem"><span class="navIcon" aria-hidden="true">&#x1F69A;</span><span class="navLabel">Vehicles</span></span>
+          <span class="tag">Fleet</span>
         </button>
         <button data-view="drivers" data-route="drivers">
-          <span class="navItem"><span class="navIcon" aria-hidden="true">&#x1F465;</span><span class="navLabel">People</span></span>
-          <span class="tag">Drivers</span>
+          <span class="navItem"><span class="navIcon" aria-hidden="true">&#x1F465;</span><span class="navLabel">Drivers</span></span>
+          <span class="tag">Team</span>
         </button>
         <button data-view="pairing" data-route="pairing">
           <span class="navItem"><span class="navIcon" aria-hidden="true">&#x1F4F1;</span><span class="navLabel">Device Pairing</span></span>
@@ -1240,18 +1234,18 @@
         </button>
         <button data-view="settings" data-route="settings">
           <span class="navItem"><span class="navIcon" aria-hidden="true">&#9881;</span><span class="navLabel">Settings</span></span>
-          <span class="tag">Admin</span>
+          <span class="tag">Workspace</span>
         </button>
       </div>
 
       <div class="note">
-        <b>Focus:</b> Fleet AI prioritizes uptime and service planning.
-        GPS + Cameras provide context for faster resolution and safety workflows.
+        <b>Workspace focus:</b> Fleet AI prioritizes uptime, maintenance visibility, and service planning.
+        GPS and camera surfaces add operational context when they are enabled.
       </div>
 
       <div class="note">
-        <b>Signal status:</b> Live data appears only when a device is paired and streaming.
-        Use pairing to activate telemetry and alerts.
+        <b>Signal status:</b> Live data appears only when a paired device is connected and actively streaming.
+        Use device pairing to bring telemetry and alerts online.
       </div>
     </aside>
 
@@ -1262,9 +1256,9 @@
           <div class="brandBlock">
             <div class="brandTitle">
               <span id="headerCompanyName">Fleet AI</span>
-              <span id="headerCompanySuffix"> - Operator Dashboard</span>
+              <span id="headerCompanySuffix"> - Customer Workspace</span>
             </div>
-            <div class="brandMeta">Enterprise Fleet Intelligence</div>
+            <div class="brandMeta">Customer fleet workspace</div>
           </div>
           <div class="headerActions">
             <select id="headerThemeSelect" class="headerTheme">
@@ -1272,10 +1266,10 @@
               <option value="dark-blue">Dark Blue</option>
               <option value="dark-gray">Dark Gray</option>
             </select>
-            <div class="headerUser" id="headerUserName">Preview Mode</div>
+            <div class="headerUser" id="headerUserName">Workspace View</div>
             <button class="btn primary" id="btnRefresh">Refresh</button>
             <button class="btn" id="btnExport">Export Report</button>
-            <button class="btn" id="btnAddUser" style="display:none">Add User</button>
+            <button class="btn" id="btnAddUser" style="display:none">Add Team Member</button>
             <button class="btn ghost" id="btnLogout" style="display:none">Logout</button>
           </div>
         </div>
@@ -1285,7 +1279,7 @@
         <div class="subHeader__left">
           <div class="crumb">
             <div class="viewTitle" id="viewTitle">Overview</div>
-            <div class="sub" id="viewSub">Instant value: uptime, risk, and prioritized actions</div>
+            <div class="sub" id="viewSub">Uptime, risk, live signals, and prioritized actions in one workspace</div>
           </div>
         </div>
         <div class="subHeader__filters">
@@ -1323,7 +1317,7 @@
         <button class="topTab" data-route="maintenance-logs">Maintenance Logs</button>
         <button class="topTab" data-route="advisor">AI Advisor</button>
         <button class="topTab" data-route="vehicles">Vehicles</button>
-        <button class="topTab" data-route="drivers">People</button>
+        <button class="topTab" data-route="drivers">Drivers</button>
         <button class="topTab" data-route="pairing">Device Pairing</button>
         <button class="topTab" data-route="addons">Add-Ons</button>
         <button class="topTab" data-route="settings">Settings</button>
@@ -2047,11 +2041,11 @@
         <div class="card">
           <div class="hd">
             <h2>AI Advisor</h2>
-            <div class="meta">Coming soon for Tier 2 pilot fleets</div>
+            <div class="meta">Available for supported Fleet AI workspaces</div>
           </div>
           <div class="bd">
             <div class="note">
-              <b>AI Advisor coming soon</b> - will support logging and insights once sufficient telemetry history is available.
+              <b>AI Advisor</b> will support logging and insight workflows as workspace telemetry history matures.
             </div>
           </div>
         </div>
@@ -3815,7 +3809,7 @@
       if(header) header.textContent = safe;
       const suffix = $("headerCompanySuffix");
       if(suffix){
-        suffix.textContent = safe === "Fleet AI" ? " - Operator Dashboard" : " - Fleet AI";
+        suffix.textContent = safe === "Fleet AI" ? " - Customer Workspace" : " - Fleet AI";
       }
       try{ localStorage.setItem(COMPANY_STORAGE_KEY, safe); }catch(e){}
     }
@@ -3834,7 +3828,7 @@
     function setHeaderUserLabel(label){
       const el = $("headerUserName");
       if(!el) return;
-      el.textContent = label || "Preview Mode";
+      el.textContent = label || "Workspace View";
     }
 
     function redirectToCustomerLogin(){
@@ -3963,7 +3957,7 @@
           return;
         }
         if(!res.ok){
-          setHeaderUserLabel("Preview Mode");
+          setHeaderUserLabel("Workspace View");
           return;
         }
         const data = await res.json();
@@ -3991,7 +3985,7 @@
           }
         }
       }catch(e){
-        setHeaderUserLabel("Preview Mode");
+        setHeaderUserLabel("Workspace View");
       }
     }
 
@@ -4389,11 +4383,9 @@
     function round(x, n=1){ const p=Math.pow(10,n); return Math.round(x*p)/p; }
 
     function toast(title, desc){
-      $("toastT").textContent = title;
-      $("toastD").textContent = desc;
-      $("toast").style.display = "block";
-      clearTimeout(window.__toastTimer);
-      window.__toastTimer = setTimeout(()=> $("toast").style.display="none", 5200);
+      const toastEl = $("toast");
+      if(toastEl) toastEl.style.display = "none";
+      return;
     }
 
     function routeFromHash(){
@@ -5208,26 +5200,26 @@
         console.log("[nav] route =", route);
       }
       const titles = {
-        dashboard:["Overview","Uptime, risk, and prioritized actions"],
-        telemetry:["Live Telemetry","Live OBD/telematics feed when paired"],
-        "telemetry-history":["Telemetry History","Normalized vehicle metrics over time"],
-        "fuel-events":["Fuel & Costs","Detected refuels when the vehicle is stationary"],
-        "health-risk":["Health & Risk","Baseline learning, anomaly scoring, and risk outlook"],
-        "dtc-history":["DTC History","Stored diagnostic trouble codes from recent snapshots"],
-        alerts:["Alerts","Fleet alert history filtered by vehicle selection"],
-        safety:["Safety","Driver events, safety score, and coaching actions"],
-        compliance:["Compliance","HOS and inspection compliance overview"],
-        gps:["GPS / Tracking","Live unit locations for service and incident context"],
-        cameras:["Cameras","Road and driver feeds when available"],
-        advisor:["AI Advisor","Coming soon for Tier 2 pilot fleets"],
-        reports:["Reports","Operational reporting and summaries"],
-        maintenance:["Maintenance","Service history and work orders"],
-        "maintenance-logs":["Maintenance Logs","Vehicle service history and logbook"],
-        vehicles:["Fleet","Fleet inventory with assigned driver and device"],
-        drivers:["People","Driver roster and pairing PINs"],
-        pairing:["Device Pairing","Generate pairing codes and view claim status"],
-        addons:["Add-Ons","Expansion modules with fleet-level pricing"],
-        settings:["Settings","Admin controls and access"]
+        dashboard:["Overview","Uptime, risk, live signals, and prioritized actions"],
+        telemetry:["Live Telemetry","Live vehicle telemetry when a paired device is actively streaming"],
+        "telemetry-history":["Telemetry History","Normalized vehicle metrics and historical signal trends"],
+        "fuel-events":["Fuel & Costs","Fuel activity, spend context, and refuel event visibility"],
+        "health-risk":["Health & Risk","Vehicle health signals, anomaly scoring, and risk outlook"],
+        "dtc-history":["DTC History","Stored diagnostic trouble codes from recent vehicle snapshots"],
+        alerts:["Alerts","Alert history and fleet issues filtered by current selection"],
+        safety:["Safety","Driver events, safety scoring, and coaching visibility"],
+        compliance:["Compliance","Hours-of-service and inspection compliance overview"],
+        gps:["GPS / Tracking","Live unit locations for operational and incident context"],
+        cameras:["Cameras","Road-facing and driver-facing feeds when available"],
+        advisor:["AI Advisor","Reliability guidance and fleet insight for supported workspaces"],
+        reports:["Reports","Operational summaries, exports, and reporting views"],
+        maintenance:["Maintenance","Service planning, work orders, and maintenance visibility"],
+        "maintenance-logs":["Maintenance Logs","Vehicle service history and maintenance logbook"],
+        vehicles:["Vehicles","Fleet inventory with assigned drivers and paired devices"],
+        drivers:["Drivers","Driver roster, assignments, and pairing access"],
+        pairing:["Device Pairing","Generate pairing codes and review device claim status"],
+        addons:["Add-Ons","Expansion modules and optional workspace capabilities"],
+        settings:["Settings","Workspace controls, access, and local preferences"]
       };
       if(titles[route]){
         $("viewTitle").textContent = titles[route][0];

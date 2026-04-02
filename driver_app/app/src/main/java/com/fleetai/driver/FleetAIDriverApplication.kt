@@ -2,6 +2,8 @@ package com.fleetai.driver
 
 import android.app.Application
 import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.ExistingWorkPolicy
+import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.fleetai.driver.data.sync.SyncWorker
@@ -15,12 +17,22 @@ class FleetAIDriverApplication : Application() {
     }
 
     private fun scheduleSync() {
-        val workRequest = PeriodicWorkRequestBuilder<SyncWorker>(15, TimeUnit.MINUTES)
+        val workManager = WorkManager.getInstance(this)
+
+        val startupSync = OneTimeWorkRequestBuilder<SyncWorker>()
             .build()
-        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+        workManager.enqueueUniqueWork(
+            "fleet_sync_startup",
+            ExistingWorkPolicy.REPLACE,
+            startupSync
+        )
+
+        val periodicSync = PeriodicWorkRequestBuilder<SyncWorker>(15, TimeUnit.MINUTES)
+            .build()
+        workManager.enqueueUniquePeriodicWork(
             "fleet_sync",
             ExistingPeriodicWorkPolicy.KEEP,
-            workRequest
+            periodicSync
         )
     }
 }

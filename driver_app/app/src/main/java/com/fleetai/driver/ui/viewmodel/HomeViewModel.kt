@@ -26,6 +26,7 @@ class HomeViewModel(
             needsAcknowledgement = false
         )
     )
+    private var lastConfirmedStatus: DutyStatus = DutyStatus.OFF
     val uiState: StateFlow<HomeUiState> = _uiState
 
     private var config: ComplianceConfig = ComplianceConfig(660, 840, 30, 480)
@@ -85,6 +86,7 @@ class HomeViewModel(
             complianceBlocked = shiftOver,
             needsAcknowledgement = shiftOver && !acknowledged
         )
+        lastConfirmedStatus = _uiState.value.dutyStatus
     }
 
     fun acknowledgeCompliance() {
@@ -103,18 +105,12 @@ class HomeViewModel(
 
     fun takeBreak() {
         minutesSinceBreak = 0
-        updateStatus(DutyStatus.OFF, "Break")
-        viewModelScope.launch {
-            repository.notifyFleet("Break started")
-        }
+        updateStatus(DutyStatus.OFF, "Break", notifyMessage = "Break started")
     }
 
     fun takeLunch() {
         minutesSinceBreak = 0
-        updateStatus(DutyStatus.OFF, "Lunch")
-        viewModelScope.launch {
-            repository.notifyFleet("Lunch started")
-        }
+        updateStatus(DutyStatus.OFF, "Lunch", notifyMessage = "Lunch started")
     }
 
     fun endShift() {
@@ -130,10 +126,20 @@ class HomeViewModel(
         updateStatus(status, "Status update")
     }
 
-    private fun updateStatus(status: DutyStatus, notes: String) {
+    private fun updateStatus(status: DutyStatus, notes: String, notifyMessage: String? = null) {
+        val previousStatus = _uiState.value.dutyStatus
         _uiState.value = _uiState.value.copy(dutyStatus = status)
         viewModelScope.launch {
-            repository.updateDutyStatus(status, notes)
+            try {
+                repository.updateDutyStatus(status, notes)
+                lastConfirmedStatus = status
+                if (!notifyMessage.isNullOrBlank()) {
+                    repository.notifyFleet(notifyMessage)
+                }
+            } catch (_: Exception) {
+                _uiState.value = _uiState.value.copy(dutyStatus = previousStatus)
+                refreshState()
+            }
         }
     }
 }

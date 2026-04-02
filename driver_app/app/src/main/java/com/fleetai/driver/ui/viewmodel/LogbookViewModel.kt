@@ -62,8 +62,13 @@ class LogbookViewModel(
                 endTime = endTime.ifBlank { LocalDateTime.now().toString() },
                 eventDate = LocalDate.now().toString()
             )
-            repository.addHosEvent(event)
-            _events.value = repository.getHosEvents(event.eventDate)
+            try {
+                repository.addHosEvent(event)
+                _events.value = repository.getHosEvents(event.eventDate)
+                _message.value = ""
+            } catch (_: Exception) {
+                _message.value = "Unable to save log entry right now."
+            }
         }
     }
 }

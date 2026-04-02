@@ -35,31 +35,49 @@
     </div>
   </header>
 
-  <section class="section">
-    <div class="container loginSplit">
-      <div class="loginPanel">
-        <span class="eyebrow">Customer access</span>
-        <h2>Sign in to your Fleet AI workspace</h2>
-        <p>Use the temporary password issued by your Fleet AI contact. First login requires a password reset.</p>
-        <div class="card" style="margin-top:16px;">
-          <div class="card__title">Need access?</div>
-          <p class="card__meta">Request a demo or apply for the pilot program to get started.</p>
+  <section class="hero hero--spicy employeeHero">
+    <div class="container heroGrid heroGrid--command employeeLoginGrid">
+      <div>
+        <span class="badge">Secure fleet access</span>
+        <h1>Sign in to your Fleet AI operations workspace.</h1>
+        <p>Access your fleet dashboard, vehicle health visibility, and account tools using the credentials issued by Fleet AI. First-time sign-in may require a password reset.</p>
+        <div class="heroMetrics employeeHeroMetrics">
+          <div class="metric">
+            <span class="metric__value">Cookie</span>
+            <span class="metric__label">secure web session</span>
+          </div>
+          <div class="metric">
+            <span class="metric__value">Org-scoped</span>
+            <span class="metric__label">workspace access</span>
+          </div>
+          <div class="metric">
+            <span class="metric__value">Live</span>
+            <span class="metric__label">fleet visibility</span>
+          </div>
+        </div>
+        <div class="card" style="margin-top:20px; background:rgba(255,255,255,0.06); border-color:rgba(255,255,255,0.12);">
+          <div class="card__title" style="color:#fff;">Need customer access?</div>
+          <p class="card__meta" style="color:rgba(255,255,255,0.72);">Request customer access or apply for the pilot program to start evaluating Fleet AI with your operation.</p>
           <div class="heroActions" style="margin-top:12px;">
             <a class="btn secondary" href="/request-demo.html">Request Demo</a>
             <a class="btn ghost" href="/pilot.html">Apply for Pilot</a>
           </div>
         </div>
       </div>
-      <div class="card" style="padding:28px;">
-        <div class="sectionHeader" style="margin-bottom:16px;">
-          <h2>Customer sign in</h2>
-          <p>Enter the credentials provided by Fleet AI.</p>
+      <div class="formCard employeeLoginCard" style="padding:28px;">
+        <div class="employeeLoginCard__top">
+          <div>
+            <div class="shellLabel">fleet-ai / customer-access</div>
+            <h2>Customer sign in</h2>
+            <p>Enter the credentials provided by Fleet AI.</p>
+          </div>
+          <span class="monoTag">customer</span>
         </div>
         <div class="formGrid">
           <input id="customerEmail" type="email" placeholder="Work email" />
           <input id="customerPassword" type="password" placeholder="Temporary password" />
-          <button class="btn primary" id="customerLoginBtn">Sign In</button>
-          <div class="formNote">First login requires setting a new password.</div>
+          <button class="btn primary" id="customerLoginBtn">Access Workspace</button>
+          <div class="formNote">First login may require setting a new password.</div>
           <div class="formSuccess" id="customerLoginMessage" style="display:none;"></div>
           <div class="authDebugPanel" id="customerDebugPanel" hidden aria-hidden="true" style="margin-top:12px;">
             <div class="muted" style="margin-top:8px;">
@@ -77,7 +95,7 @@
     <div class="container footerGrid">
       <div class="footerCol footerBrand">
         <div class="wordmark"><span class="brandFleet">Fleet</span><span class="brandAI">AI</span></div>
-        <div class="footerMeta">Ac 2026 Fleet AI</div>
+        <div class="footerMeta">© 2026 Fleet AI · Sentinel X Inc.</div>
       </div>
       <div class="footerCol">
         <h4>Product</h4>

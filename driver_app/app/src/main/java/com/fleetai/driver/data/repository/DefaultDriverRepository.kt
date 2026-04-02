@@ -93,10 +93,11 @@ class DefaultDriverRepository(
     }
 
     override suspend fun getVehicles(tenantId: String): List<Vehicle> {
-        val vehicles = try {
-            api.getVehicles(tenantId).vehicles
-        } catch (_: Exception) {
+        val useMock = preferences.demoMode.first()
+        val vehicles = if (useMock) {
             mockApi.getVehicles(tenantId).vehicles
+        } else {
+            api.getVehicles(tenantId).vehicles
         }
         val entities = vehicles.map {
             VehicleEntity(
@@ -114,13 +115,15 @@ class DefaultDriverRepository(
     }
 
     override suspend fun bindVehicle(vehicleId: String): Boolean {
+        val useMock = preferences.demoMode.first()
         return try {
-            api.selectVehicle(SelectVehicleRequest(vehicleId))
+            if (!useMock) {
+                api.selectVehicle(SelectVehicleRequest(vehicleId))
+            }
             preferences.saveVehicle(vehicleId)
             true
         } catch (_: Exception) {
-            preferences.saveVehicle(vehicleId)
-            true
+            false
         }
     }
 
@@ -228,7 +231,7 @@ class DefaultDriverRepository(
         val tenantId = preferences.tenantId.first()
         val vehicleId = preferences.vehicleId.first()
         if (tenantId.isBlank() || vehicleId.isBlank()) {
-            return
+            throw IllegalStateException("session_or_vehicle_missing")
         }
         val timestamp = Instant.now().toString()
         addHosEvent(
@@ -246,31 +249,37 @@ class DefaultDriverRepository(
     }
 
     override suspend fun notifyFleet(message: String) {
+        val tenantId = preferences.tenantId.first()
         val vehicleId = preferences.vehicleId.first()
-        try {
-            api.postAlert(
-                AlertRequest(
-                    type = "driver",
-                    severity = "info",
-                    message = message,
-                    vehicleId = vehicleId
-                )
-            )
-        } catch (_: Exception) {
+        if (tenantId.isBlank()) {
+            throw IllegalStateException("login_required")
         }
+        addNotification(
+            NotificationItem(
+                id = UUID.randomUUID().toString(),
+                tenantId = tenantId,
+                vehicleId = vehicleId,
+                title = "Driver Update",
+                message = message,
+                severity = "info",
+                timestamp = Instant.now().toString(),
+                read = false
+            )
+        )
     }
 
     override suspend fun getDiagnosticCodes(): List<DtcCode> {
-        val response = try  {
-            api.getDiagnosticCodes().dtcs
-        } catch (_: Exception) {
+        val useMock = preferences.demoMode.first()
+        val response = if (useMock) {
             mockApi.getDiagnosticCodes().dtcs
+        } else {
+            api.getDiagnosticCodes().dtcs
         }
         return response.map { DtcCode(it.code.toString(), it.description, it.severity) }
     }
 
     override suspend fun clearDiagnosticCodes(): Boolean {
-        return true
+        return false
     }
 
     override suspend fun setThemeMode(mode: ThemeMode) {
@@ -282,6 +291,8 @@ class DefaultDriverRepository(
     }
 
     override suspend fun syncPending() {
+        var hadFailure = false
+
         val pendingEvents = hosDao.getPendingEvents()
         for (event in pendingEvents) {
             try {
@@ -296,6 +307,7 @@ class DefaultDriverRepository(
                 )
                 hosDao.markSynced(event.id)
             } catch (_: Exception) {
+                hadFailure = true
             }
         }
 
@@ -312,7 +324,12 @@ class DefaultDriverRepository(
                 )
                 notificationDao.markSynced(notification.id)
             } catch (_: Exception) {
+                hadFailure = true
             }
+        }
+
+        if (hadFailure) {
+            throw IllegalStateException("sync_pending_failed")
         }
     }
 }

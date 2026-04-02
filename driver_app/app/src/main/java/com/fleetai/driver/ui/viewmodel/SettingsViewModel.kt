@@ -45,6 +45,10 @@ class SettingsViewModel(
 
     fun setDemoMode(enabled: Boolean) {
         viewModelScope.launch {
+            if (enabled) {
+                preferences.clearSession()
+                preferences.clearPairing()
+            }
             repository.setDemoMode(enabled)
         }
     }

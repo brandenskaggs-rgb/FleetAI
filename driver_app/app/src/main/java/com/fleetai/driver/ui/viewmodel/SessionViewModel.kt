@@ -64,6 +64,7 @@ class SessionViewModel(
         viewModelScope.launch {
             try {
                 Log.d("FleetAI", "[PAIR] login attempt")
+                preferences.clearPairing()
                 repository.login(companyCode, driverPin)
                 Log.d("FleetAI", "[PAIR] login success")
                 onResult(true, "")
@@ -133,13 +134,13 @@ class SessionViewModel(
 
     fun setThemeMode(mode: ThemeMode) {
         viewModelScope.launch {
-            repository.setThemeMode(mode)
+            runCatching { repository.setThemeMode(mode) }
         }
     }
 
     fun setDemoMode(enabled: Boolean) {
         viewModelScope.launch {
-            repository.setDemoMode(enabled)
+            runCatching { repository.setDemoMode(enabled) }
         }
     }
 }

@@ -8,6 +8,9 @@ import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -27,6 +30,7 @@ class TelemetrySender(
         val errors: Int = 0
     )
 
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     @Volatile private var job: Job? = null
     @Volatile var debug = DebugState()
         private set
@@ -42,7 +46,8 @@ class TelemetrySender(
         latestMetrics.clear()
         latestObdConnected = obd.isConnected()
         latestObdPacketAt = 0L
-        job = CoroutineScope(Dispatchers.IO).launch {
+        debug = debug.copy(lastError = "")
+        job = scope.launch {
             val api = ApiClient.api
             try {
                 val supported = obd.discoverSupportedPids()
@@ -62,7 +67,7 @@ class TelemetrySender(
                 metrics[heartbeatKey] = System.currentTimeMillis()
                 val vehicleId = resolveVehicleId()
                 val deviceId = resolveDeviceId()
-                if (!vehicleId.isNullOrBlank()) {
+                if (!vehicleId.isNullOrBlank() && (metrics.isNotEmpty() || obdConnected)) {
                     try {
                         val now = Instant.now().toString()
                         val lastPacketAt = if (latestObdPacketAt > 0L) {
@@ -108,7 +113,11 @@ class TelemetrySender(
     }
 
     fun stop() {
-        job?.cancel()
+        val current = job ?: return
         job = null
+        current.cancel()
+        scope.launch {
+            runCatching { current.cancelAndJoin() }
+        }
     }
 }
