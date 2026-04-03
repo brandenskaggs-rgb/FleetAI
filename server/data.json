@@ -10,7 +10,7 @@
       "isActive": true,
       "active": true,
       "createdAt": "2026-03-11T00:33:55.051Z",
-      "passwordHash": "$2a$12$uMCxL/BZDGFCNh3wSulBQ.x7dOP3HD6VYRjJURlHXbK/cSlRrMPLq",
+      "passwordHash": "$2a$12$SlqordBAJcOHDPwUyNpmjea57O1nnEL/87hhYWpEl8uwJJV/4AnLu",
       "passwordAlgo": "bcrypt",
       "firstLoginRequired": false,
       "firstLogin": false,
@@ -20,8 +20,8 @@
       "isTemporaryPassword": false,
       "setupTokenHash": "",
       "setupTokenExpiresAt": null,
-      "passwordLastSetAt": "2026-03-13T22:00:57.845Z",
-      "lastPasswordChangeAt": "2026-03-13T22:00:57.845Z"
+      "passwordLastSetAt": "2026-04-03T00:34:51.318Z",
+      "lastPasswordChangeAt": "2026-04-03T00:34:51.318Z"
     },
     {
       "id": "USR_1773189235309_4328",
@@ -32,7 +32,7 @@
       "isActive": true,
       "active": true,
       "createdAt": "2026-03-11T00:33:55.051Z",
-      "passwordHash": "$2a$12$jKDFUldvM.1DZkKH0vlEYut0N7uL3dCASnFhx47FSUacbLXlagIty",
+      "passwordHash": "$2a$12$SlqordBAJcOHDPwUyNpmjea57O1nnEL/87hhYWpEl8uwJJV/4AnLu",
       "passwordAlgo": "bcrypt",
       "firstLoginRequired": false,
       "firstLogin": false,
@@ -42,9 +42,9 @@
       "isTemporaryPassword": false,
       "setupTokenHash": "",
       "setupTokenExpiresAt": null,
-      "passwordLastSetAt": "2026-03-13T22:00:57.845Z",
-      "lastPasswordChangeAt": "2026-03-13T22:00:57.845Z",
-      "lastLoginAt": "2026-03-12T21:02:15.132Z"
+      "passwordLastSetAt": "2026-04-03T00:34:51.318Z",
+      "lastPasswordChangeAt": "2026-04-03T00:34:51.318Z",
+      "lastLoginAt": "2026-04-02T15:43:06.469Z"
     },
     {
       "id": "USR_1773189235565_6127",
@@ -55,7 +55,7 @@
       "isActive": true,
       "active": true,
       "createdAt": "2026-03-11T00:33:55.051Z",
-      "passwordHash": "$2a$12$PdaL0PIHumR/BL4t8L5KRONc138PzLGtMLNiUXrKhWuN1jT9QNSdO",
+      "passwordHash": "$2a$12$SlqordBAJcOHDPwUyNpmjea57O1nnEL/87hhYWpEl8uwJJV/4AnLu",
       "passwordAlgo": "bcrypt",
       "firstLoginRequired": false,
       "firstLogin": false,
@@ -65,9 +65,35 @@
       "isTemporaryPassword": false,
       "setupTokenHash": "",
       "setupTokenExpiresAt": null,
-      "passwordLastSetAt": "2026-03-13T22:00:57.845Z",
-      "lastPasswordChangeAt": "2026-03-13T22:00:57.845Z",
+      "passwordLastSetAt": "2026-04-03T00:34:51.318Z",
+      "lastPasswordChangeAt": "2026-04-03T00:34:51.318Z",
       "lastLoginAt": "2026-03-13T02:52:40.999Z"
+    },
+    {
+      "id": "USR_1775144627493_1374",
+      "email": "skaggsllc25@gmail.com",
+      "role": "ORG_ADMIN",
+      "orgId": "ORG_1775144608659_6670",
+      "displayName": "Branden Skaggs",
+      "status": "ACTIVE",
+      "isActive": true,
+      "isTemporaryPassword": false,
+      "mustSetPassword": false,
+      "requirePasswordReset": false,
+      "mustResetPassword": false,
+      "tempPasswordIssuedAt": "2026-04-02T15:43:47.493Z",
+      "passwordLastSetAt": "2026-04-03T00:34:51.318Z",
+      "lastPasswordChangeAt": "2026-04-03T00:34:51.318Z",
+      "createdAt": "2026-04-02T15:43:47.493Z",
+      "lastLoginAt": null,
+      "passwordHash": "$2a$12$SlqordBAJcOHDPwUyNpmjea57O1nnEL/87hhYWpEl8uwJJV/4AnLu",
+      "active": true,
+      "kind": "customer",
+      "setupTokenHash": "",
+      "setupTokenExpiresAt": null,
+      "passwordAlgo": "bcrypt",
+      "firstLogin": false,
+      "firstLoginRequired": false
     }
   ],
   "orgs": [
@@ -77,11 +103,82 @@
       "status": "active",
       "createdAt": "2026-03-11T00:33:55.051Z",
       "updatedAt": "2026-03-11T00:33:55.051Z"
+    },
+    {
+      "id": "ORG_1775144608659_6670",
+      "orgId": "ORG_1775144608659_6670",
+      "name": "DEMOLLC",
+      "status": "PILOT",
+      "primaryContactName": "Branden Skaggs",
+      "primaryContactEmail": "skaggsllc25@gmail.com",
+      "phone": "5737120015",
+      "fleetSizeEstimate": 12,
+      "activeVehicles": 0,
+      "billingPlan": "PILOT_CORE",
+      "notes": "Demo",
+      "createdAt": "2026-04-02T15:43:28.659Z",
+      "updatedAt": "2026-04-02T15:43:40.376Z"
     }
   ],
-  "leads": [],
+  "leads": [
+    {
+      "id": "LEAD_1775144558400_511",
+      "leadId": "LEAD_1775144558400_511",
+      "companyName": "DEMOLLC",
+      "contactName": "Branden Skaggs",
+      "contactEmail": "skaggsllc25@gmail.com",
+      "contactPhone": "5737120015",
+      "fleetSize": "12",
+      "message": "Demo",
+      "leadType": "DEMO",
+      "sourcePage": "request-demo",
+      "status": "CONVERTED",
+      "orgId": "ORG_1775144608659_6670",
+      "internalNotes": "demo",
+      "createdAt": "2026-04-02T15:42:38.400Z",
+      "updatedAt": "2026-04-02T15:43:28.659Z",
+      "stage": "CONVERTED"
+    }
+  ],
   "invites": [],
-  "audit": [],
+  "audit": [
+    {
+      "id": "AUD_1775144627493",
+      "event": "CUSTOMER_LOGIN_CREATED",
+      "detail": "USR_1775144627493_1374:skaggsllc25@gmail.com",
+      "createdAt": "2026-04-02T15:43:47.493Z"
+    },
+    {
+      "id": "AUD_1775144620376",
+      "event": "ORG_UPDATED",
+      "detail": "ORG_1775144608659_6670",
+      "createdAt": "2026-04-02T15:43:40.376Z"
+    },
+    {
+      "id": "AUD_1775144608659",
+      "event": "LEAD_CONVERTED_TO_ORG",
+      "detail": "LEAD_1775144558400_511:ORG_1775144608659_6670",
+      "createdAt": "2026-04-02T15:43:28.659Z"
+    },
+    {
+      "id": "AUD_1775144608659",
+      "event": "ORG_CREATED",
+      "detail": "ORG_1775144608659_6670:DEMOLLC",
+      "createdAt": "2026-04-02T15:43:28.659Z"
+    },
+    {
+      "id": "AUD_1775144607123",
+      "event": "LEAD_UPDATED",
+      "detail": "LEAD_1775144558400_511",
+      "createdAt": "2026-04-02T15:43:27.123Z"
+    },
+    {
+      "id": "AUD_1775144558400",
+      "event": "LEAD_CREATED",
+      "detail": "LEAD_1775144558400_511",
+      "createdAt": "2026-04-02T15:42:38.400Z"
+    }
+  ],
   "featureFlags": {},
   "billing": {},
   "tenantSettings": {
