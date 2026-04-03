@@ -3989,18 +3989,33 @@
       }
     }
 
+    function normalizeCollectionPayload(data){
+      if(Array.isArray(data)) return data;
+      if(data && Array.isArray(data.data)) return data.data;
+      if(data && Array.isArray(data.items)) return data.items;
+      return [];
+    }
+
     async function getVehicles(){
       if(MOCK_MODE){
         return loadMock(MOCK_KEYS.vehicles, []);
       }
-      return fetchJson(vehiclesEndpoint);
+      const orgId = localStorage.getItem("fleetai.orgId") || "";
+      const data = orgId
+        ? await fetchJson(`${API_BASE_URL}/api/orgs/${encodeURIComponent(orgId)}/vehicles`)
+        : await fetchJson(vehiclesEndpoint);
+      return normalizeCollectionPayload(data);
     }
 
     async function getDrivers(){
       if(MOCK_MODE){
         return loadMock(MOCK_KEYS.drivers, []);
       }
-      return fetchJson(driversEndpoint);
+      const orgId = localStorage.getItem("fleetai.orgId") || "";
+      const data = orgId
+        ? await fetchJson(`${API_BASE_URL}/api/orgs/${encodeURIComponent(orgId)}/drivers`)
+        : await fetchJson(driversEndpoint);
+      return normalizeCollectionPayload(data);
     }
 
     async function getPairings(){
@@ -4057,19 +4072,24 @@
       const unitName = $("addVehicleName").value.trim();
       const vin = $("addVehicleVin").value.trim();
       const type = $("addVehicleType").value.trim();
+      const orgId = localStorage.getItem("fleetai.orgId") || "";
       if(!vehicleId || !unitName || !vin || !type){
         toast("Missing fields", "Fill in vehicle ID, unit name, VIN, and type.");
+        return;
+      }
+      if(!MOCK_MODE && !orgId){
+        toast("Workspace missing org", "Refresh once and sign in again so Fleet AI can resolve your workspace.");
         return;
       }
       try{
         if(MOCK_MODE){
           const vehicles = loadMock(MOCK_KEYS.vehicles, []);
-          vehicles.push({ vehicleId, unitName, vin, type, createdAt: nowTime() });
+          vehicles.push({ vehicleId, unitName, vin, type, orgId, createdAt: nowTime() });
           saveMock(MOCK_KEYS.vehicles, vehicles);
         } else {
-          await fetchJson(`${vehiclesEndpoint}/create`, {
+          await fetchJson(`${API_BASE_URL}/api/orgs/${encodeURIComponent(orgId)}/vehicles`, {
             method: "POST",
-            body: JSON.stringify({ vehicleId, unitName, vin, type })
+            body: JSON.stringify({ vehicleId, unitName, vin, type, orgId })
           });
         }
         $("addVehicleId").value = "";
@@ -4088,20 +4108,25 @@
       const firstName = $("addDriverFirst").value.trim();
       const lastName = $("addDriverLast").value.trim();
       const phone = $("addDriverPhone").value.trim();
+      const orgId = localStorage.getItem("fleetai.orgId") || "";
       if(!firstName || !lastName || !phone){
         toast("Missing fields", "Fill in first name, last name, and phone.");
+        return;
+      }
+      if(!MOCK_MODE && !orgId){
+        toast("Workspace missing org", "Refresh once and sign in again so Fleet AI can resolve your workspace.");
         return;
       }
       try{
         if(MOCK_MODE){
           const drivers = loadMock(MOCK_KEYS.drivers, []);
           const driverId = `DRIVER_${generateDigits(5)}`;
-          drivers.push({ driverId, firstName, lastName, phone, createdAt: nowTime() });
+          drivers.push({ driverId, firstName, lastName, phone, orgId, createdAt: nowTime() });
           saveMock(MOCK_KEYS.drivers, drivers);
         } else {
-          await fetchJson(`${driversEndpoint}/create`, {
+          await fetchJson(`${API_BASE_URL}/api/orgs/${encodeURIComponent(orgId)}/drivers`, {
             method: "POST",
-            body: JSON.stringify({ firstName, lastName, phone })
+            body: JSON.stringify({ firstName, lastName, phone, orgId })
           });
         }
         $("addDriverFirst").value = "";
