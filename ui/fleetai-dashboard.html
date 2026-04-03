@@ -4074,17 +4074,34 @@
       }
     }
 
+    async function fleetOpsProbe(action, stage, extra = {}){
+      try{
+        const params = new URLSearchParams({ action, stage });
+        Object.entries(extra || {}).forEach(([key, value])=>{
+          if(value === undefined || value === null) return;
+          params.set(key, String(value));
+        });
+        await fetch(`${API_BASE_URL}/api/pairing/health?${params.toString()}`, {
+          credentials: "include",
+          cache: "no-store"
+        });
+      }catch(_){ }
+    }
+
     async function addVehicle(){
       const vehicleId = $("addVehicleId").value.trim();
       const unitName = $("addVehicleName").value.trim();
       const vin = $("addVehicleVin").value.trim();
       const type = $("addVehicleType").value.trim();
       const orgId = localStorage.getItem("fleetai.orgId") || "";
+      await fleetOpsProbe("vehicle", "clicked", { vehicleId, unitName, vinLen: vin.length, type, orgId, mock: MOCK_MODE });
       if(!vehicleId || !unitName || !vin || !type){
+        await fleetOpsProbe("vehicle", "missing-fields", { vehicleId, unitName, vinLen: vin.length, type, orgId });
         toast("Missing fields", "Fill in vehicle ID, unit name, VIN, and type.");
         return;
       }
       if(!MOCK_MODE && !orgId){
+        await fleetOpsProbe("vehicle", "missing-org", { vehicleId, unitName, vinLen: vin.length, type });
         toast("Workspace missing org", "Refresh once and sign in again so Fleet AI can resolve your workspace.");
         return;
       }
@@ -4094,10 +4111,12 @@
           vehicles.push({ vehicleId, unitName, vin, type, orgId, createdAt: nowTime() });
           saveMock(MOCK_KEYS.vehicles, vehicles);
         } else {
+          await fleetOpsProbe("vehicle", "before-fetch", { vehicleId, orgId });
           await fetchJson(`${API_BASE_URL}/api/orgs/${encodeURIComponent(orgId)}/vehicles`, {
             method: "POST",
             body: JSON.stringify({ vehicleId, unitName, vin, type, orgId })
           });
+          await fleetOpsProbe("vehicle", "after-fetch", { vehicleId, orgId });
         }
         $("addVehicleId").value = "";
         $("addVehicleName").value = "";
@@ -4106,6 +4125,7 @@
         toast("Vehicle added", `${vehicleId} created.`);
         loadFleetManagement();
       } catch(err){
+        await fleetOpsProbe("vehicle", "error", { message: err && err.message ? err.message : String(err) });
         logError("Add vehicle failed", err);
         toast("Vehicle add failed", "Check console for details.");
       }
@@ -4116,11 +4136,14 @@
       const lastName = $("addDriverLast").value.trim();
       const phone = $("addDriverPhone").value.trim();
       const orgId = localStorage.getItem("fleetai.orgId") || "";
+      await fleetOpsProbe("driver", "clicked", { firstName, lastName, phoneLen: phone.length, orgId, mock: MOCK_MODE });
       if(!firstName || !lastName || !phone){
+        await fleetOpsProbe("driver", "missing-fields", { firstName, lastName, phoneLen: phone.length, orgId });
         toast("Missing fields", "Fill in first name, last name, and phone.");
         return;
       }
       if(!MOCK_MODE && !orgId){
+        await fleetOpsProbe("driver", "missing-org", { firstName, lastName, phoneLen: phone.length });
         toast("Workspace missing org", "Refresh once and sign in again so Fleet AI can resolve your workspace.");
         return;
       }
@@ -4131,10 +4154,12 @@
           drivers.push({ driverId, firstName, lastName, phone, orgId, createdAt: nowTime() });
           saveMock(MOCK_KEYS.drivers, drivers);
         } else {
+          await fleetOpsProbe("driver", "before-fetch", { firstName, lastName, orgId });
           await fetchJson(`${API_BASE_URL}/api/orgs/${encodeURIComponent(orgId)}/drivers`, {
             method: "POST",
             body: JSON.stringify({ firstName, lastName, phone, orgId })
           });
+          await fleetOpsProbe("driver", "after-fetch", { firstName, lastName, orgId });
         }
         $("addDriverFirst").value = "";
         $("addDriverLast").value = "";
@@ -4143,6 +4168,7 @@
         toast("Driver created", `${firstName} ${lastName} added.`);
         loadFleetManagement();
       } catch(err){
+        await fleetOpsProbe("driver", "error", { message: err && err.message ? err.message : String(err) });
         logError("Add driver failed", err);
         toast("Driver add failed", "Check console for details.");
       }
