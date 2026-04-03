@@ -19,10 +19,24 @@ function registerFleetOpsRoutes(app, deps) {
     normalizeMetrics
   } = deps;
 
+  function resolveRequestOrgId(req) {
+    const customerOrgId = sanitizeString(req.customer?.orgId || "", 80);
+    const routeOrgId = sanitizeString(req.params?.orgId || "", 80);
+    const bodyOrgId = sanitizeString(req.body?.orgId || req.query?.orgId || "", 80);
+    return customerOrgId || routeOrgId || bodyOrgId;
+  }
+
+  function ensureFleetCollections(data) {
+    data.vehicles = Array.isArray(data.vehicles) ? data.vehicles : [];
+    data.drivers = Array.isArray(data.drivers) ? data.drivers : [];
+    data.pairings = Array.isArray(data.pairings) ? data.pairings : [];
+    return data;
+  }
+
   async function handleListVehicles(req, res, next) {
     try {
-      const data = await readData();
-      const orgId = sanitizeString(req.query.orgId || req.params.orgId || "", 80);
+      const data = ensureFleetCollections(await readData());
+      const orgId = resolveRequestOrgId(req);
       const vehicles = orgId
         ? (data.vehicles || []).filter((v) => (v.orgId || "") === orgId)
         : (data.vehicles || []);
@@ -41,8 +55,11 @@ function registerFleetOpsRoutes(app, deps) {
       return res.status(400).json({ error: "vehicleId, unitName, vin, type required" });
     }
     try {
-      const data = await readData();
-      const normalizedOrgId = sanitizeString(req.body?.orgId || req.params.orgId || "", 80);
+      const data = ensureFleetCollections(await readData());
+      const normalizedOrgId = resolveRequestOrgId(req);
+      if (!normalizedOrgId) {
+        return res.status(400).json({ error: "orgId required" });
+      }
       const exists = (data.vehicles || []).some((v) => v.vehicleId === vehicleId);
       if (exists) {
         return res.status(409).json({ error: "Vehicle already exists" });
@@ -89,8 +106,8 @@ function registerFleetOpsRoutes(app, deps) {
 
   async function handleListDrivers(req, res, next) {
     try {
-      const data = await readData();
-      const orgId = sanitizeString(req.query.orgId || req.params.orgId || "", 80);
+      const data = ensureFleetCollections(await readData());
+      const orgId = resolveRequestOrgId(req);
       const drivers = orgId
         ? (data.drivers || []).filter((d) => (d.orgId || "") === orgId)
         : (data.drivers || []);
@@ -109,7 +126,11 @@ function registerFleetOpsRoutes(app, deps) {
       return res.status(400).json({ error: "firstName, lastName, phone required" });
     }
     try {
-      const data = await readData();
+      const data = ensureFleetCollections(await readData());
+      const normalizedOrgId = resolveRequestOrgId(req);
+      if (!normalizedOrgId) {
+        return res.status(400).json({ error: "orgId required" });
+      }
       const id = sanitizeString(req.body?.driverId || "", 80) || `DRIVER_${generateDigits(5)}`;
       if ((data.drivers || []).some((d) => d.driverId === id)) {
         return res.status(409).json({ error: "Driver already exists" });
@@ -117,7 +138,7 @@ function registerFleetOpsRoutes(app, deps) {
       const driver = {
         id: makeId("DRV"),
         driverId: id,
-        orgId: sanitizeString(req.body?.orgId || req.params.orgId || "", 80),
+        orgId: normalizedOrgId,
         firstName,
         lastName,
         phone,
@@ -151,23 +172,23 @@ function registerFleetOpsRoutes(app, deps) {
     }
   }
 
-  app.get("/vehicles", handleListVehicles);
-  app.get("/api/vehicles", handleListVehicles);
-  app.post("/vehicles/create", handleCreateVehicle);
-  app.post("/api/vehicles/create", handleCreateVehicle);
-  app.post("/api/vehicles", handleCreateVehicle);
-  app.get("/api/orgs/:orgId/vehicles", handleListVehicles);
-  app.post("/api/orgs/:orgId/vehicles", handleCreateVehicle);
-  app.delete("/api/orgs/:orgId/vehicles/:vehicleId", handleDeleteVehicle);
+  app.get("/vehicles", requireEmployeeOrCustomerApi, handleListVehicles);
+  app.get("/api/vehicles", requireEmployeeOrCustomerApi, handleListVehicles);
+  app.post("/vehicles/create", requireEmployeeOrCustomerApi, handleCreateVehicle);
+  app.post("/api/vehicles/create", requireEmployeeOrCustomerApi, handleCreateVehicle);
+  app.post("/api/vehicles", requireEmployeeOrCustomerApi, handleCreateVehicle);
+  app.get("/api/orgs/:orgId/vehicles", requireEmployeeOrCustomerApi, handleListVehicles);
+  app.post("/api/orgs/:orgId/vehicles", requireEmployeeOrCustomerApi, handleCreateVehicle);
+  app.delete("/api/orgs/:orgId/vehicles/:vehicleId", requireEmployeeOrCustomerApi, handleDeleteVehicle);
 
-  app.get("/drivers", handleListDrivers);
-  app.get("/api/drivers", handleListDrivers);
-  app.post("/drivers/create", handleCreateDriver);
-  app.post("/api/drivers/create", handleCreateDriver);
-  app.post("/api/drivers", handleCreateDriver);
-  app.get("/api/orgs/:orgId/drivers", handleListDrivers);
-  app.post("/api/orgs/:orgId/drivers", handleCreateDriver);
-  app.delete("/api/orgs/:orgId/drivers/:driverId", handleDeleteDriver);
+  app.get("/drivers", requireEmployeeOrCustomerApi, handleListDrivers);
+  app.get("/api/drivers", requireEmployeeOrCustomerApi, handleListDrivers);
+  app.post("/drivers/create", requireEmployeeOrCustomerApi, handleCreateDriver);
+  app.post("/api/drivers/create", requireEmployeeOrCustomerApi, handleCreateDriver);
+  app.post("/api/drivers", requireEmployeeOrCustomerApi, handleCreateDriver);
+  app.get("/api/orgs/:orgId/drivers", requireEmployeeOrCustomerApi, handleListDrivers);
+  app.post("/api/orgs/:orgId/drivers", requireEmployeeOrCustomerApi, handleCreateDriver);
+  app.delete("/api/orgs/:orgId/drivers/:driverId", requireEmployeeOrCustomerApi, handleDeleteDriver);
 
   app.get("/api/orgs/:orgId/public-profile", async (req, res, next) => {
     try {
