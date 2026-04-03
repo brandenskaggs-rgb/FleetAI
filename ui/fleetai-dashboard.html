@@ -4040,7 +4040,11 @@
         }
         return pairings;
       }
-      return fetchJson(pairingActiveEndpoint);
+      const data = await fetchJson(pairingActiveEndpoint);
+      if(Array.isArray(data)) return data;
+      if(data && Array.isArray(data.pairings)) return data.pairings;
+      if(data && Array.isArray(data.data)) return data.data;
+      return [];
     }
 
     async function loadFleetManagement(){
