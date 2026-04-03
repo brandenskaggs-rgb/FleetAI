@@ -3717,9 +3717,12 @@
     async function fetchJson(url, options){
       const opts = options || {};
       const headers = Object.assign({"Content-Type":"application/json"}, opts.headers || {});
+      const body = opts.body === undefined
+        ? undefined
+        : (typeof opts.body === "string" ? opts.body : JSON.stringify(opts.body));
       try{
         diagLog("request", opts.method || "GET", url);
-        const res = await fetch(url, Object.assign({}, opts, { headers, credentials:"include" }));
+        const res = await fetch(url, Object.assign({}, opts, { headers, credentials:"include", body }));
         const parsed = await safeJsonResponse(res);
         if(!parsed.parsed){
           throw new Error("Non-JSON response");
