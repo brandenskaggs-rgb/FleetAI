@@ -24,6 +24,7 @@
   <link rel="stylesheet" href="/css/site-layout.css" />
   <title>Fleet AI - Customer Workspace</title>
   <meta name="fleetai-build" content="<!-- BUILD_MARKER -->" />
+  <meta name="fleetai-build-display" content="BUILD: <!-- BUILD_MARKER -->" />
 
   <style>
     @import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap");
@@ -1269,6 +1270,7 @@
             <div class="headerUser" id="headerUserName">Workspace View</div>
             <button class="btn primary" id="btnRefresh">Refresh</button>
             <button class="btn" id="btnExport">Export Report</button>
+            <div class="mini" id="buildStamp" style="opacity:.8; font-family:var(--mono); align-self:center;">build: pending</div>
             <button class="btn" id="btnAddUser" style="display:none">Add Team Member</button>
             <button class="btn ghost" id="btnLogout" style="display:none">Logout</button>
           </div>
@@ -6522,6 +6524,11 @@
         }catch(_){}
       };
       checkConfigStatus();
+      const buildStampEl = $("buildStamp");
+      if(buildStampEl){
+        const buildMeta = document.querySelector('meta[name="fleetai-build-display"]');
+        buildStampEl.textContent = buildMeta?.content || "build: unknown";
+      }
       document.querySelectorAll(".nav button").forEach(btn=>{
         const labelEl = btn.querySelector(".navLabel");
         const label = labelEl ? labelEl.textContent.trim() : btn.textContent.trim();
@@ -6538,6 +6545,14 @@
         const route = btn.getAttribute("data-route") || "";
         const label = btn.getAttribute("data-label") || btn.textContent.trim();
         diagLog("UI ACTION", `${btn.tagName}${id}`, route, label);
+        if(btn.id === "btnAddVehicle" || btn.id === "btnAddDriver"){
+          fleetOpsProbe(btn.id === "btnAddVehicle" ? "vehicle" : "driver", "delegated-click", {
+            route: window.location.hash || "",
+            title: document.title || "",
+            view: document.querySelector('.section:not(.hide)')?.id || "",
+            build: document.querySelector('meta[name="fleetai-build"]')?.content || ""
+          });
+        }
       });
       // Start telemetry stream
       telemetryStreamConnect();
