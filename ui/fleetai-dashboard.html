@@ -2303,7 +2303,7 @@
                 <button class="btn primary" id="btnAddVehicle" onclick="window.__inlineCreateVehicle && window.__inlineCreateVehicle()">Create Vehicle</button>
               </div>
               <div class="mini" id="vehicleCreateStatus" style="margin-top:8px;">Ready.</div>
-              <div class="mini" style="margin-top:6px;color:var(--warn);font-family:var(--mono);">DEBUG BUILD eda2529 / vehicle-create-v11</div>
+              <div class="mini" style="margin-top:6px;color:var(--warn);font-family:var(--mono);">DEBUG BUILD 761eaa3 / vehicle-create-v12</div>
             </div>
           </div>
         </div>
@@ -2349,7 +2349,7 @@
                 <button class="btn primary" id="btnAddDriver" onclick="window.__inlineCreateDriver && window.__inlineCreateDriver()">Create Driver</button>
               </div>
               <div class="mini" id="driverCreateStatus" style="margin-top:8px;">Ready.</div>
-              <div class="mini" style="margin-top:6px;color:var(--warn);font-family:var(--mono);">DEBUG BUILD eda2529 / driver-create-v11</div>
+              <div class="mini" style="margin-top:6px;color:var(--warn);font-family:var(--mono);">DEBUG BUILD 761eaa3 / driver-create-v12</div>
               <div class="mini" id="driverPinOutput" style="margin-top:8px;">PIN issued during pairing.</div>
             </div>
           </div>
@@ -5616,13 +5616,26 @@
       });
     }
 
+    function setBootDebug(msg, tone){
+      const el = $("fleetLoaderDebug");
+      if(!el) return;
+      el.textContent = msg;
+      el.style.color = tone === "error" ? "var(--bad)" : (tone === "success" ? "var(--good)" : "var(--warn)");
+    }
+
     function initUI(){
+      setBootDebug("BOOT: initUI start", "pending");
       loadTheme();
       loadCompanyName();
+      setBootDebug("BOOT: before loadCustomerProfile", "pending");
       loadCustomerProfile();
+      setBootDebug("BOOT: before initPasswordSettings", "pending");
       initPasswordSettings();
+      setBootDebug("BOOT: before pingServer", "pending");
       pingServer();
+      setBootDebug("BOOT: before loadFleetManagement", "pending");
       loadFleetManagement();
+      setBootDebug("BOOT: after loadFleetManagement call", "pending");
       loadAddonsState();
       loadPriorityActions();
       renderTable();
@@ -5647,6 +5660,7 @@
           logBtn.addEventListener("click", logMaintenanceFromAdvisor);
         }
       }
+      setBootDebug("BOOT: initUI complete", "success");
     }
 
     function renderQueue(){
