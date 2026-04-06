@@ -19,11 +19,20 @@ function registerFleetOpsRoutes(app, deps) {
     normalizeMetrics
   } = deps;
 
-  function resolveRequestOrgId(req) {
+  function resolveRequestOrgId(req, data) {
     const customerOrgId = sanitizeString(req.customer?.orgId || "", 80);
     const routeOrgId = sanitizeString(req.params?.orgId || "", 80);
     const bodyOrgId = sanitizeString(req.body?.orgId || req.query?.orgId || "", 80);
-    return customerOrgId || routeOrgId || bodyOrgId;
+    if (customerOrgId || routeOrgId || bodyOrgId) {
+      return customerOrgId || routeOrgId || bodyOrgId;
+    }
+    const customerUserId = sanitizeString(req.customer?.userId || "", 80);
+    if (customerUserId && data && Array.isArray(data.users)) {
+      const user = data.users.find((u) => sanitizeString(u?.id || "", 80) === customerUserId);
+      const userOrgId = sanitizeString(user?.orgId || "", 80);
+      if (userOrgId) return userOrgId;
+    }
+    return "";
   }
 
   function ensureFleetCollections(data) {
@@ -36,7 +45,7 @@ function registerFleetOpsRoutes(app, deps) {
   async function handleListVehicles(req, res, next) {
     try {
       const data = ensureFleetCollections(await readData());
-      const orgId = resolveRequestOrgId(req);
+      const orgId = resolveRequestOrgId(req, data);
       const vehicles = orgId
         ? (data.vehicles || []).filter((v) => (v.orgId || "") === orgId)
         : (data.vehicles || []);
@@ -56,7 +65,7 @@ function registerFleetOpsRoutes(app, deps) {
     }
     try {
       const data = ensureFleetCollections(await readData());
-      const normalizedOrgId = resolveRequestOrgId(req);
+      const normalizedOrgId = resolveRequestOrgId(req, data);
       if (!normalizedOrgId) {
         return res.status(400).json({ error: "orgId required" });
       }
@@ -107,7 +116,7 @@ function registerFleetOpsRoutes(app, deps) {
   async function handleListDrivers(req, res, next) {
     try {
       const data = ensureFleetCollections(await readData());
-      const orgId = resolveRequestOrgId(req);
+      const orgId = resolveRequestOrgId(req, data);
       const drivers = orgId
         ? (data.drivers || []).filter((d) => (d.orgId || "") === orgId)
         : (data.drivers || []);
@@ -127,7 +136,7 @@ function registerFleetOpsRoutes(app, deps) {
     }
     try {
       const data = ensureFleetCollections(await readData());
-      const normalizedOrgId = resolveRequestOrgId(req);
+      const normalizedOrgId = resolveRequestOrgId(req, data);
       if (!normalizedOrgId) {
         return res.status(400).json({ error: "orgId required" });
       }

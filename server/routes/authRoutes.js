@@ -216,7 +216,13 @@ function registerAuthRoutes(app, deps) {
     if (!session) {
       return res.status(401).json({ error: "Not authenticated." });
     }
-    res.json({ ok: true, user: { id: session.userId, email: session.email, role: session.role, orgId: session.orgId } });
+    readData().then((data) => {
+      const user = (data.users || []).find((u) => u.id === session.userId);
+      const resolvedOrgId = session.orgId || user?.orgId || null;
+      res.json({ ok: true, user: { id: session.userId, email: session.email, role: session.role, orgId: resolvedOrgId } });
+    }).catch(() => {
+      res.json({ ok: true, user: { id: session.userId, email: session.email, role: session.role, orgId: session.orgId || null } });
+    });
   });
 
   app.get("/api/auth/whoami", (req, res) => {
@@ -225,31 +231,38 @@ function registerAuthRoutes(app, deps) {
       return res.json({ ok: true, type: "employee", source: "cookie", user: { id: employee.userId || null, email: employee.email, role: employee.role, orgId: employee.orgId || null } });
     }
     const customer = getCustomerSession(req);
-    if (customer) {
-      return res.json({ ok: true, type: "customer", source: "cookie", user: { id: customer.userId, email: customer.email, role: customer.role, orgId: customer.orgId || null } });
+    if (!customer) {
+      return res.status(401).json({ ok: false, error: "Not authenticated" });
     }
-    return res.status(401).json({ ok: false, error: "Not authenticated" });
+    readData().then((data) => {
+      const user = (data.users || []).find((u) => u.id === customer.userId);
+      const resolvedOrgId = customer.orgId || user?.orgId || null;
+      return res.json({ ok: true, type: "customer", source: "cookie", user: { id: customer.userId, email: customer.email, role: customer.role, orgId: resolvedOrgId } });
+    }).catch(() => {
+      return res.json({ ok: true, type: "customer", source: "cookie", user: { id: customer.userId, email: customer.email, role: customer.role, orgId: customer.orgId || null } });
+    });
   });
 
   app.get("/api/me", requireCustomerApi, (req, res) => {
     const session = req.customer;
     readData().then((data) => {
       const user = (data.users || []).find((u) => u.id === session.userId);
+      const resolvedOrgId = session.orgId || user?.orgId || null;
       res.json({
         ok: true,
         user: {
           id: session.userId,
           email: session.email,
           role: session.role,
-          orgId: session.orgId,
-          displayName: session.displayName || "",
+          orgId: resolvedOrgId,
+          displayName: session.displayName || user?.displayName || "",
           passwordLastSetAt: user?.passwordLastSetAt || user?.lastPasswordChangeAt || null,
           mustSetPassword: Boolean(user?.mustSetPassword || user?.isTemporaryPassword)
         },
         resetRequired: Boolean(session.resetRequired),
         requirePasswordReset: Boolean(session.resetRequired),
         mustResetPassword: Boolean(session.resetRequired),
-        mustSetPassword: Boolean(session.mustSetPassword)
+        mustSetPassword: Boolean(session.mustSetPassword || user?.mustSetPassword || user?.isTemporaryPassword)
       });
     }).catch(() => {
       res.status(500).json({ error: "Failed to load profile." });
