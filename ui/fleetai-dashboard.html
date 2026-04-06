@@ -2303,7 +2303,7 @@
                 <button class="btn primary" id="btnAddVehicle" onclick="window.__inlineCreateVehicle && window.__inlineCreateVehicle()">Create Vehicle</button>
               </div>
               <div class="mini" id="vehicleCreateStatus" style="margin-top:8px;">Ready.</div>
-              <div class="mini" style="margin-top:6px;color:var(--warn);font-family:var(--mono);">DEBUG BUILD 761eaa3 / vehicle-create-v12</div>
+              <div class="mini" style="margin-top:6px;color:var(--warn);font-family:var(--mono);">DEBUG BUILD 8148c92 / vehicle-create-v13</div>
             </div>
           </div>
         </div>
@@ -2349,7 +2349,7 @@
                 <button class="btn primary" id="btnAddDriver" onclick="window.__inlineCreateDriver && window.__inlineCreateDriver()">Create Driver</button>
               </div>
               <div class="mini" id="driverCreateStatus" style="margin-top:8px;">Ready.</div>
-              <div class="mini" style="margin-top:6px;color:var(--warn);font-family:var(--mono);">DEBUG BUILD 761eaa3 / driver-create-v12</div>
+              <div class="mini" style="margin-top:6px;color:var(--warn);font-family:var(--mono);">DEBUG BUILD 8148c92 / driver-create-v13</div>
               <div class="mini" id="driverPinOutput" style="margin-top:8px;">PIN issued during pairing.</div>
             </div>
           </div>
@@ -6792,6 +6792,7 @@
           }
         }catch(_){}
       };
+      try{ initUI(); }catch(err){ if(typeof showBanner === 'function'){ showBanner(`Early initUI failed: ${err && err.message ? err.message : String(err)}`); } }
       checkConfigStatus();
       const buildStampEl = $("buildStamp");
       if(buildStampEl){
@@ -7172,7 +7173,7 @@
     /***********************
      * INITIAL RENDER
      ***********************/
-    initUI();
+    // initUI() now runs at the start of DOMContentLoaded so boot-critical state survives later bind failures.
 
     // AI Advisor init
     (function initAdvisor(){
