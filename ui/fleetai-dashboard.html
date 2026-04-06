@@ -2303,7 +2303,7 @@
                 <button class="btn primary" id="btnAddVehicle" onclick="window.__inlineCreateVehicle && window.__inlineCreateVehicle()">Create Vehicle</button>
               </div>
               <div class="mini" id="vehicleCreateStatus" style="margin-top:8px;">Ready.</div>
-              <div class="mini" style="margin-top:6px;color:var(--warn);font-family:var(--mono);">DEBUG BUILD 8148c92 / vehicle-create-v13</div>
+              <div class="mini" style="margin-top:6px;color:var(--warn);font-family:var(--mono);">DEBUG BUILD 2d5c334 / vehicle-create-v15</div>
             </div>
           </div>
         </div>
@@ -2349,7 +2349,7 @@
                 <button class="btn primary" id="btnAddDriver" onclick="window.__inlineCreateDriver && window.__inlineCreateDriver()">Create Driver</button>
               </div>
               <div class="mini" id="driverCreateStatus" style="margin-top:8px;">Ready.</div>
-              <div class="mini" style="margin-top:6px;color:var(--warn);font-family:var(--mono);">DEBUG BUILD 8148c92 / driver-create-v13</div>
+              <div class="mini" style="margin-top:6px;color:var(--warn);font-family:var(--mono);">DEBUG BUILD 2d5c334 / driver-create-v15</div>
               <div class="mini" id="driverPinOutput" style="margin-top:8px;">PIN issued during pairing.</div>
             </div>
           </div>
@@ -3175,7 +3175,8 @@
         updateTelemetryStatus();
       } catch(err){
         logError("Telemetry fetch failed", err);
-      updateTelemetryStatus();
+        updateTelemetryStatus();
+      }
     }
 
     function formatMetricValueForHistory(metricKey, value){
@@ -7200,6 +7201,8 @@
       $('btnLogout').style.display='none';
       showLoginOverlay(false);
     })();
+
+    });
 
     // ambient starfield removed - using static blue background
 
