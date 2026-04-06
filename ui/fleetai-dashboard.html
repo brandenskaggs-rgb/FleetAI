@@ -2952,17 +2952,23 @@
     async function ensureActiveOrgId(){
       const existing = getActiveOrgId();
       if(existing) return existing;
-      try{
-        const res = await fetch(`${window.location.origin}/api/me`, { credentials: "include", cache: "no-store" });
-        if(res.ok){
+      const profileUrls = [
+        `${window.location.origin}/api/me`,
+        `${window.location.origin}/api/auth/whoami`
+      ];
+      for(const url of profileUrls){
+        try{
+          const res = await fetch(url, { credentials: "include", cache: "no-store" });
+          if(!res.ok) continue;
           const data = await res.json();
           const userOrgId = data?.user?.orgId ? String(data.user.orgId).trim() : "";
           if(userOrgId){
+            currentUserProfile = Object.assign({}, currentUserProfile || {}, data.user || {}, { orgId: userOrgId });
             rememberActiveOrgId(userOrgId);
             return userOrgId;
           }
-        }
-      }catch(_){ }
+        }catch(_){ }
+      }
       return "";
     }
 
@@ -4011,22 +4017,37 @@
 
     async function loadCustomerProfile(){
       try{
-        const profileUrl = `${window.location.origin}/api/me`;
-        const res = await fetch(profileUrl, { credentials: "include", cache: "no-store" });
-        if(res.status === 401){
-          setHeaderUserLabel("Session unavailable");
-          try{
-            if(typeof showBanner === "function"){
-              showBanner("Dashboard boot could not verify the session. Refresh once. If it still fails, sign in again.");
-            }
-          }catch(_){ }
+        const profileUrls = [
+          `${window.location.origin}/api/me`,
+          `${window.location.origin}/api/auth/whoami`
+        ];
+        let data = null;
+        let sawUnauthorized = false;
+        for(const profileUrl of profileUrls){
+          const res = await fetch(profileUrl, { credentials: "include", cache: "no-store" });
+          if(res.status === 401){
+            sawUnauthorized = true;
+            continue;
+          }
+          if(!res.ok){
+            continue;
+          }
+          data = await res.json();
+          break;
+        }
+        if(!data){
+          if(sawUnauthorized){
+            setHeaderUserLabel("Session unavailable");
+            try{
+              if(typeof showBanner === "function"){
+                showBanner("Dashboard boot could not verify the session. Refresh once. If it still fails, sign in again.");
+              }
+            }catch(_){ }
+          } else {
+            setHeaderUserLabel("Workspace View");
+          }
           return;
         }
-        if(!res.ok){
-          setHeaderUserLabel("Workspace View");
-          return;
-        }
-        const data = await res.json();
         if(data.mustSetPassword || data.resetRequired || data.requirePasswordReset){
           window.location.href = "/ui/settings/set-password.html";
           return;
