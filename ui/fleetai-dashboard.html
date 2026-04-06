@@ -2299,7 +2299,7 @@
                 <input id="addVehicleType" type="text" placeholder="Type (Truck, Van, etc.)" />
               </div>
               <div class="rightStack" style="margin-top:12px;">
-                <button class="btn primary" id="btnAddVehicle">Create Vehicle</button>
+                <button class="btn primary" id="btnAddVehicle" onclick="window.__fleetCreateVehicle && window.__fleetCreateVehicle()">Create Vehicle</button>
               </div>
               <div class="mini" id="vehicleCreateStatus" style="margin-top:8px;">Ready.</div>
             </div>
@@ -2344,7 +2344,7 @@
                 <input id="addDriverPhone" type="text" placeholder="Phone" />
               </div>
               <div class="rightStack" style="margin-top:12px;">
-                <button class="btn primary" id="btnAddDriver">Create Driver</button>
+                <button class="btn primary" id="btnAddDriver" onclick="window.__fleetCreateDriver && window.__fleetCreateDriver()">Create Driver</button>
               </div>
               <div class="mini" id="driverCreateStatus" style="margin-top:8px;">Ready.</div>
               <div class="mini" id="driverPinOutput" style="margin-top:8px;">PIN issued during pairing.</div>
@@ -4275,6 +4275,9 @@
       }
     }
 
+    window.__fleetCreateVehicle = addVehicle;
+    window.__fleetCreateDriver = addDriver;
+
     let pairCountdownTimer = null;
     function startPairCountdown(expiresAt){
       const output = $("pairExpiresValue");
@@ -4543,8 +4546,8 @@
 
     function toast(title, desc){
       const toastEl = $("toast");
-      const titleEl = $("toastTitle");
-      const msgEl = $("toastMsg");
+      const titleEl = $("toastTitle") || $("toastT");
+      const msgEl = $("toastMsg") || $("toastD");
       if(titleEl) titleEl.textContent = title || "Notice";
       if(msgEl) msgEl.textContent = desc || "";
       if(toastEl) {
