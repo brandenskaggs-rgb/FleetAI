@@ -2299,10 +2299,10 @@
                 <input id="addVehicleType" type="text" placeholder="Type (Truck, Van, etc.)" />
               </div>
               <div class="rightStack" style="margin-top:12px;">
-                <button class="btn primary" id="btnAddVehicle" onclick="document.getElementById('vehicleCreateStatus').textContent='CLICKED'; document.getElementById('vehicleCreateStatus').style.color='var(--warn)'; window.__fleetCreateVehicle && window.__fleetCreateVehicle()">Create Vehicle</button>
+                <button class="btn primary" id="btnAddVehicle" onclick="(function(){var s=document.getElementById('vehicleCreateStatus'); if(s){s.textContent='CLICKED'; s.style.color='var(--warn)';} try { if(!window.__fleetCreateVehicle){ if(s){s.textContent='HANDLER_MISSING'; s.style.color='var(--bad)';} return; } if(s){s.textContent='HANDLER_FOUND';} var r=window.__fleetCreateVehicle(); if(s){s.textContent='HANDLER_RUNNING';} if(r && typeof r.catch==='function'){ r.catch(function(err){ if(s){s.textContent='ERROR: ' + ((err && err.message) ? err.message : String(err)); s.style.color='var(--bad)';} }); } } catch (err) { if(s){s.textContent='THREW: ' + ((err && err.message) ? err.message : String(err)); s.style.color='var(--bad)';} } })()">Create Vehicle</button>
               </div>
               <div class="mini" id="vehicleCreateStatus" style="margin-top:8px;">Ready.</div>
-              <div class="mini" style="margin-top:6px;color:var(--warn);font-family:var(--mono);">DEBUG BUILD 7e41e62 / vehicle-create-v5</div>
+              <div class="mini" style="margin-top:6px;color:var(--warn);font-family:var(--mono);">DEBUG BUILD 783f6c7 / vehicle-create-v6</div>
             </div>
           </div>
         </div>
@@ -2345,10 +2345,10 @@
                 <input id="addDriverPhone" type="text" placeholder="Phone" />
               </div>
               <div class="rightStack" style="margin-top:12px;">
-                <button class="btn primary" id="btnAddDriver" onclick="document.getElementById('driverCreateStatus').textContent='CLICKED'; document.getElementById('driverCreateStatus').style.color='var(--warn)'; window.__fleetCreateDriver && window.__fleetCreateDriver()">Create Driver</button>
+                <button class="btn primary" id="btnAddDriver" onclick="(function(){var s=document.getElementById('driverCreateStatus'); if(s){s.textContent='CLICKED'; s.style.color='var(--warn)';} try { if(!window.__fleetCreateDriver){ if(s){s.textContent='HANDLER_MISSING'; s.style.color='var(--bad)';} return; } if(s){s.textContent='HANDLER_FOUND';} var r=window.__fleetCreateDriver(); if(s){s.textContent='HANDLER_RUNNING';} if(r && typeof r.catch==='function'){ r.catch(function(err){ if(s){s.textContent='ERROR: ' + ((err && err.message) ? err.message : String(err)); s.style.color='var(--bad)';} }); } } catch (err) { if(s){s.textContent='THREW: ' + ((err && err.message) ? err.message : String(err)); s.style.color='var(--bad)';} } })()">Create Driver</button>
               </div>
               <div class="mini" id="driverCreateStatus" style="margin-top:8px;">Ready.</div>
-              <div class="mini" style="margin-top:6px;color:var(--warn);font-family:var(--mono);">DEBUG BUILD 7e41e62 / driver-create-v5</div>
+              <div class="mini" style="margin-top:6px;color:var(--warn);font-family:var(--mono);">DEBUG BUILD 783f6c7 / driver-create-v6</div>
               <div class="mini" id="driverPinOutput" style="margin-top:8px;">PIN issued during pairing.</div>
             </div>
           </div>
