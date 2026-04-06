@@ -2283,6 +2283,7 @@
                 <tbody id="vehiclesTable"></tbody>
               </table>
               <div id="vehiclesEmpty" class="note" style="margin-top:10px; display:none;"><b>No vehicles yet.</b> Create a vehicle to start pairing.</div>
+              <div id="fleetLoaderDebug" class="mini" style="margin-top:10px;color:var(--warn);font-family:var(--mono);">Loader debug pending…</div>
             </div>
           </div>
 
@@ -2302,7 +2303,7 @@
                 <button class="btn primary" id="btnAddVehicle" onclick="window.__inlineCreateVehicle && window.__inlineCreateVehicle()">Create Vehicle</button>
               </div>
               <div class="mini" id="vehicleCreateStatus" style="margin-top:8px;">Ready.</div>
-              <div class="mini" style="margin-top:6px;color:var(--warn);font-family:var(--mono);">DEBUG BUILD b1c6942 / vehicle-create-v10</div>
+              <div class="mini" style="margin-top:6px;color:var(--warn);font-family:var(--mono);">DEBUG BUILD eda2529 / vehicle-create-v11</div>
             </div>
           </div>
         </div>
@@ -2348,7 +2349,7 @@
                 <button class="btn primary" id="btnAddDriver" onclick="window.__inlineCreateDriver && window.__inlineCreateDriver()">Create Driver</button>
               </div>
               <div class="mini" id="driverCreateStatus" style="margin-top:8px;">Ready.</div>
-              <div class="mini" style="margin-top:6px;color:var(--warn);font-family:var(--mono);">DEBUG BUILD b1c6942 / driver-create-v10</div>
+              <div class="mini" style="margin-top:6px;color:var(--warn);font-family:var(--mono);">DEBUG BUILD eda2529 / driver-create-v11</div>
               <div class="mini" id="driverPinOutput" style="margin-top:8px;">PIN issued during pairing.</div>
             </div>
           </div>
@@ -4136,6 +4137,12 @@
     }
 
     async function loadFleetManagement(){
+      const debugEl = $("fleetLoaderDebug");
+      const activeOrgId = getActiveOrgId() || "NONE";
+      if(debugEl){
+        debugEl.textContent = `Loading fleet data for org=${activeOrgId} …`;
+        debugEl.style.color = "var(--warn)";
+      }
       try{
         const [vehicles, drivers, pairings] = await Promise.all([
           getVehicles(),
@@ -4154,11 +4161,24 @@
         initGPS();
         renderGPSFeed();
         updateTelemetryStatus();
+        if(debugEl){
+          debugEl.textContent = `Fleet load ok org=${activeOrgId} vehicles=${state.vehicles.length} drivers=${state.drivers.length} pairings=${state.pairings.length}`;
+          debugEl.style.color = "var(--muted)";
+        }
         if(state.addons.loaded){
           renderAddons();
         }
       } catch(err){
         logError("Fleet management fetch failed", err);
+        if(debugEl){
+          const msg = err && err.message ? err.message : String(err);
+          debugEl.textContent = `Fleet load failed org=${activeOrgId} error=${msg}`;
+          debugEl.style.color = "var(--bad)";
+        }
+        if(typeof showBanner === 'function'){
+          const msg = err && err.message ? err.message : String(err);
+          showBanner(`Fleet load failed for org ${activeOrgId}: ${msg}`);
+        }
       }
     }
 
