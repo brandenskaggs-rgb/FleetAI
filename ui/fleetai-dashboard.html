@@ -2299,10 +2299,10 @@
                 <input id="addVehicleType" type="text" placeholder="Type (Truck, Van, etc.)" />
               </div>
               <div class="rightStack" style="margin-top:12px;">
-                <button class="btn primary" id="btnAddVehicle" onclick="window.__fleetCreateVehicle && window.__fleetCreateVehicle()">Create Vehicle</button>
+                <button class="btn primary" id="btnAddVehicle" onclick="document.getElementById('vehicleCreateStatus').textContent='CLICKED'; document.getElementById('vehicleCreateStatus').style.color='var(--warn)'; window.__fleetCreateVehicle && window.__fleetCreateVehicle()">Create Vehicle</button>
               </div>
               <div class="mini" id="vehicleCreateStatus" style="margin-top:8px;">Ready.</div>
-              <div class="mini" style="margin-top:6px;color:var(--warn);font-family:var(--mono);">DEBUG BUILD de1aa96 / vehicle-create-v4</div>
+              <div class="mini" style="margin-top:6px;color:var(--warn);font-family:var(--mono);">DEBUG BUILD 7e41e62 / vehicle-create-v5</div>
             </div>
           </div>
         </div>
@@ -2345,10 +2345,10 @@
                 <input id="addDriverPhone" type="text" placeholder="Phone" />
               </div>
               <div class="rightStack" style="margin-top:12px;">
-                <button class="btn primary" id="btnAddDriver" onclick="window.__fleetCreateDriver && window.__fleetCreateDriver()">Create Driver</button>
+                <button class="btn primary" id="btnAddDriver" onclick="document.getElementById('driverCreateStatus').textContent='CLICKED'; document.getElementById('driverCreateStatus').style.color='var(--warn)'; window.__fleetCreateDriver && window.__fleetCreateDriver()">Create Driver</button>
               </div>
               <div class="mini" id="driverCreateStatus" style="margin-top:8px;">Ready.</div>
-              <div class="mini" style="margin-top:6px;color:var(--warn);font-family:var(--mono);">DEBUG BUILD de1aa96 / driver-create-v4</div>
+              <div class="mini" style="margin-top:6px;color:var(--warn);font-family:var(--mono);">DEBUG BUILD 7e41e62 / driver-create-v5</div>
               <div class="mini" id="driverPinOutput" style="margin-top:8px;">PIN issued during pairing.</div>
             </div>
           </div>
