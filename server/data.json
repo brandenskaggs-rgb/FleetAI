@@ -45,7 +45,7 @@
       "setupTokenExpiresAt": null,
       "passwordLastSetAt": "2026-04-03T00:34:51.318Z",
       "lastPasswordChangeAt": "2026-04-03T00:34:51.318Z",
-      "lastLoginAt": "2026-04-03T00:38:34.518Z"
+      "lastLoginAt": "2026-04-15T22:09:13.601Z"
     },
     {
       "id": "USR_1773189235565_6127",
@@ -86,7 +86,7 @@
       "passwordLastSetAt": "2026-04-06T18:22:54.059Z",
       "lastPasswordChangeAt": "2026-04-06T18:22:54.059Z",
       "createdAt": "2026-04-02T15:43:47.493Z",
-      "lastLoginAt": "2026-04-06T18:34:00.338Z",
+      "lastLoginAt": "2026-04-08T21:56:19.770Z",
       "passwordHash": "$2a$12$29fNlPW9tfcv9hrB8RL3leidw.v2o/g.UerQw3yUgpXZAeox4Rx5e",
       "active": true,
       "kind": "customer",
@@ -103,7 +103,8 @@
       "name": "Default Org",
       "status": "active",
       "createdAt": "2026-03-11T00:33:55.051Z",
-      "updatedAt": "2026-03-11T00:33:55.051Z"
+      "updatedAt": "2026-03-11T00:33:55.051Z",
+      "companyCode": "FLEETAI"
     },
     {
       "id": "ORG_1775144608659_6670",
@@ -118,7 +119,8 @@
       "billingPlan": "PILOT_CORE",
       "notes": "Demo",
       "createdAt": "2026-04-02T15:43:28.659Z",
-      "updatedAt": "2026-04-02T15:43:40.376Z"
+      "updatedAt": "2026-04-02T15:43:40.376Z",
+      "companyCode": "DEMOLLC"
     }
   ],
   "leads": [
@@ -143,6 +145,18 @@
   ],
   "invites": [],
   "audit": [
+    {
+      "id": "AUD_1775504516364",
+      "event": "DRIVER_CREATED",
+      "detail": "DRIVER_95184",
+      "createdAt": "2026-04-06T19:41:56.364Z"
+    },
+    {
+      "id": "AUD_1775503274404",
+      "event": "VEHICLE_CREATED",
+      "detail": "2010 Chevy Camaro",
+      "createdAt": "2026-04-06T19:21:14.404Z"
+    },
     {
       "id": "AUD_1775225653855",
       "event": "DRIVER_CREATED",
@@ -272,7 +286,7 @@
   "notifications": [],
   "baselines": [
     {
-      "id": "BASE_1775460985698_2434",
+      "id": "BASE_1776287167160_5806",
       "orgId": "ORG_DEFAULT",
       "vehicleId": "TESTV123",
       "metricKey": "coolantTemp",
@@ -285,10 +299,10 @@
       "p50": null,
       "p90": null,
       "sampleCount": 0,
-      "lastComputedAt": "2026-04-06T07:36:25.698Z"
+      "lastComputedAt": "2026-04-15T21:06:07.160Z"
     },
     {
-      "id": "BASE_1775460985698_1380",
+      "id": "BASE_1776287167160_1704",
       "orgId": "ORG_DEFAULT",
       "vehicleId": "TESTV123",
       "metricKey": "coolantTemp",
@@ -301,10 +315,10 @@
       "p50": null,
       "p90": null,
       "sampleCount": 0,
-      "lastComputedAt": "2026-04-06T07:36:25.698Z"
+      "lastComputedAt": "2026-04-15T21:06:07.160Z"
     },
     {
-      "id": "BASE_1775460985698_773",
+      "id": "BASE_1776287167160_3131",
       "orgId": "ORG_DEFAULT",
       "vehicleId": "TESTV123",
       "metricKey": "coolantTemp",
@@ -317,10 +331,10 @@
       "p50": null,
       "p90": null,
       "sampleCount": 0,
-      "lastComputedAt": "2026-04-06T07:36:25.698Z"
+      "lastComputedAt": "2026-04-15T21:06:07.160Z"
     },
     {
-      "id": "BASE_1775460985698_4994",
+      "id": "BASE_1776287167161_2907",
       "orgId": "ORG_DEFAULT",
       "vehicleId": "TESTV123",
       "metricKey": "batteryVoltage",
@@ -333,10 +347,10 @@
       "p50": null,
       "p90": null,
       "sampleCount": 0,
-      "lastComputedAt": "2026-04-06T07:36:25.698Z"
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
     },
     {
-      "id": "BASE_1775460985698_5784",
+      "id": "BASE_1776287167161_421",
       "orgId": "ORG_DEFAULT",
       "vehicleId": "TESTV123",
       "metricKey": "batteryVoltage",
@@ -349,10 +363,10 @@
       "p50": null,
       "p90": null,
       "sampleCount": 0,
-      "lastComputedAt": "2026-04-06T07:36:25.698Z"
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
     },
     {
-      "id": "BASE_1775460985698_3427",
+      "id": "BASE_1776287167161_5571",
       "orgId": "ORG_DEFAULT",
       "vehicleId": "TESTV123",
       "metricKey": "batteryVoltage",
@@ -365,10 +379,10 @@
       "p50": null,
       "p90": null,
       "sampleCount": 0,
-      "lastComputedAt": "2026-04-06T07:36:25.698Z"
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
     },
     {
-      "id": "BASE_1775460985698_9305",
+      "id": "BASE_1776287167161_8238",
       "orgId": "ORG_DEFAULT",
       "vehicleId": "TESTV123",
       "metricKey": "engineLoad",
@@ -381,10 +395,10 @@
       "p50": null,
       "p90": null,
       "sampleCount": 0,
-      "lastComputedAt": "2026-04-06T07:36:25.698Z"
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
     },
     {
-      "id": "BASE_1775460985698_7327",
+      "id": "BASE_1776287167161_2774",
       "orgId": "ORG_DEFAULT",
       "vehicleId": "TESTV123",
       "metricKey": "engineLoad",
@@ -397,10 +411,10 @@
       "p50": null,
       "p90": null,
       "sampleCount": 0,
-      "lastComputedAt": "2026-04-06T07:36:25.698Z"
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
     },
     {
-      "id": "BASE_1775460985698_819",
+      "id": "BASE_1776287167161_7983",
       "orgId": "ORG_DEFAULT",
       "vehicleId": "TESTV123",
       "metricKey": "engineLoad",
@@ -413,10 +427,10 @@
       "p50": null,
       "p90": null,
       "sampleCount": 0,
-      "lastComputedAt": "2026-04-06T07:36:25.698Z"
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
     },
     {
-      "id": "BASE_1775460985698_6480",
+      "id": "BASE_1776287167161_8470",
       "orgId": "ORG_DEFAULT",
       "vehicleId": "TESTV123",
       "metricKey": "maf",
@@ -429,10 +443,10 @@
       "p50": null,
       "p90": null,
       "sampleCount": 0,
-      "lastComputedAt": "2026-04-06T07:36:25.698Z"
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
     },
     {
-      "id": "BASE_1775460985698_4887",
+      "id": "BASE_1776287167161_5437",
       "orgId": "ORG_DEFAULT",
       "vehicleId": "TESTV123",
       "metricKey": "maf",
@@ -445,10 +459,10 @@
       "p50": null,
       "p90": null,
       "sampleCount": 0,
-      "lastComputedAt": "2026-04-06T07:36:25.698Z"
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
     },
     {
-      "id": "BASE_1775460985698_5795",
+      "id": "BASE_1776287167161_6623",
       "orgId": "ORG_DEFAULT",
       "vehicleId": "TESTV123",
       "metricKey": "maf",
@@ -461,10 +475,10 @@
       "p50": null,
       "p90": null,
       "sampleCount": 0,
-      "lastComputedAt": "2026-04-06T07:36:25.698Z"
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
     },
     {
-      "id": "BASE_1775460985698_5123",
+      "id": "BASE_1776287167161_3729",
       "orgId": "ORG_DEFAULT",
       "vehicleId": "TESTV123",
       "metricKey": "rpm",
@@ -477,10 +491,10 @@
       "p50": null,
       "p90": null,
       "sampleCount": 0,
-      "lastComputedAt": "2026-04-06T07:36:25.698Z"
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
     },
     {
-      "id": "BASE_1775460985698_5756",
+      "id": "BASE_1776287167161_6058",
       "orgId": "ORG_DEFAULT",
       "vehicleId": "TESTV123",
       "metricKey": "rpm",
@@ -493,10 +507,10 @@
       "p50": null,
       "p90": null,
       "sampleCount": 0,
-      "lastComputedAt": "2026-04-06T07:36:25.698Z"
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
     },
     {
-      "id": "BASE_1775460985698_2013",
+      "id": "BASE_1776287167161_9820",
       "orgId": "ORG_DEFAULT",
       "vehicleId": "TESTV123",
       "metricKey": "rpm",
@@ -509,10 +523,10 @@
       "p50": null,
       "p90": null,
       "sampleCount": 0,
-      "lastComputedAt": "2026-04-06T07:36:25.698Z"
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
     },
     {
-      "id": "BASE_1775460985698_7088",
+      "id": "BASE_1776287167161_2963",
       "orgId": "ORG_DEFAULT",
       "vehicleId": "TESTV123",
       "metricKey": "stft1",
@@ -525,10 +539,10 @@
       "p50": null,
       "p90": null,
       "sampleCount": 0,
-      "lastComputedAt": "2026-04-06T07:36:25.698Z"
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
     },
     {
-      "id": "BASE_1775460985698_5818",
+      "id": "BASE_1776287167161_7039",
       "orgId": "ORG_DEFAULT",
       "vehicleId": "TESTV123",
       "metricKey": "stft1",
@@ -541,10 +555,10 @@
       "p50": null,
       "p90": null,
       "sampleCount": 0,
-      "lastComputedAt": "2026-04-06T07:36:25.698Z"
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
     },
     {
-      "id": "BASE_1775460985698_8103",
+      "id": "BASE_1776287167161_4426",
       "orgId": "ORG_DEFAULT",
       "vehicleId": "TESTV123",
       "metricKey": "stft1",
@@ -557,10 +571,10 @@
       "p50": null,
       "p90": null,
       "sampleCount": 0,
-      "lastComputedAt": "2026-04-06T07:36:25.698Z"
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
     },
     {
-      "id": "BASE_1775460985698_6452",
+      "id": "BASE_1776287167161_6070",
       "orgId": "ORG_DEFAULT",
       "vehicleId": "TESTV123",
       "metricKey": "ltft1",
@@ -573,10 +587,10 @@
       "p50": null,
       "p90": null,
       "sampleCount": 0,
-      "lastComputedAt": "2026-04-06T07:36:25.698Z"
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
     },
     {
-      "id": "BASE_1775460985698_3472",
+      "id": "BASE_1776287167161_5981",
       "orgId": "ORG_DEFAULT",
       "vehicleId": "TESTV123",
       "metricKey": "ltft1",
@@ -589,10 +603,10 @@
       "p50": null,
       "p90": null,
       "sampleCount": 0,
-      "lastComputedAt": "2026-04-06T07:36:25.698Z"
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
     },
     {
-      "id": "BASE_1775460985698_7821",
+      "id": "BASE_1776287167161_1063",
       "orgId": "ORG_DEFAULT",
       "vehicleId": "TESTV123",
       "metricKey": "ltft1",
@@ -605,10 +619,10 @@
       "p50": null,
       "p90": null,
       "sampleCount": 0,
-      "lastComputedAt": "2026-04-06T07:36:25.698Z"
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
     },
     {
-      "id": "BASE_1775460985698_4987",
+      "id": "BASE_1776287167161_3088",
       "orgId": "ORG_DEFAULT",
       "vehicleId": "TESTV123",
       "metricKey": "intakeAirTemp",
@@ -621,10 +635,10 @@
       "p50": null,
       "p90": null,
       "sampleCount": 0,
-      "lastComputedAt": "2026-04-06T07:36:25.698Z"
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
     },
     {
-      "id": "BASE_1775460985698_5149",
+      "id": "BASE_1776287167161_8396",
       "orgId": "ORG_DEFAULT",
       "vehicleId": "TESTV123",
       "metricKey": "intakeAirTemp",
@@ -637,10 +651,10 @@
       "p50": null,
       "p90": null,
       "sampleCount": 0,
-      "lastComputedAt": "2026-04-06T07:36:25.698Z"
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
     },
     {
-      "id": "BASE_1775460985698_5594",
+      "id": "BASE_1776287167161_953",
       "orgId": "ORG_DEFAULT",
       "vehicleId": "TESTV123",
       "metricKey": "intakeAirTemp",
@@ -653,10 +667,10 @@
       "p50": null,
       "p90": null,
       "sampleCount": 0,
-      "lastComputedAt": "2026-04-06T07:36:25.698Z"
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
     },
     {
-      "id": "BASE_1775460985698_5971",
+      "id": "BASE_1776287167161_7274",
       "orgId": "ORG_DEFAULT",
       "vehicleId": "CUST78750",
       "metricKey": "coolantTemp",
@@ -669,10 +683,10 @@
       "p50": null,
       "p90": null,
       "sampleCount": 0,
-      "lastComputedAt": "2026-04-06T07:36:25.698Z"
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
     },
     {
-      "id": "BASE_1775460985698_6323",
+      "id": "BASE_1776287167161_1439",
       "orgId": "ORG_DEFAULT",
       "vehicleId": "CUST78750",
       "metricKey": "coolantTemp",
@@ -685,10 +699,10 @@
       "p50": null,
       "p90": null,
       "sampleCount": 0,
-      "lastComputedAt": "2026-04-06T07:36:25.698Z"
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
     },
     {
-      "id": "BASE_1775460985698_3389",
+      "id": "BASE_1776287167161_8186",
       "orgId": "ORG_DEFAULT",
       "vehicleId": "CUST78750",
       "metricKey": "coolantTemp",
@@ -701,10 +715,10 @@
       "p50": null,
       "p90": null,
       "sampleCount": 0,
-      "lastComputedAt": "2026-04-06T07:36:25.698Z"
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
     },
     {
-      "id": "BASE_1775460985698_8479",
+      "id": "BASE_1776287167161_6631",
       "orgId": "ORG_DEFAULT",
       "vehicleId": "CUST78750",
       "metricKey": "batteryVoltage",
@@ -717,10 +731,10 @@
       "p50": null,
       "p90": null,
       "sampleCount": 0,
-      "lastComputedAt": "2026-04-06T07:36:25.698Z"
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
     },
     {
-      "id": "BASE_1775460985698_2745",
+      "id": "BASE_1776287167161_1036",
       "orgId": "ORG_DEFAULT",
       "vehicleId": "CUST78750",
       "metricKey": "batteryVoltage",
@@ -733,10 +747,10 @@
       "p50": null,
       "p90": null,
       "sampleCount": 0,
-      "lastComputedAt": "2026-04-06T07:36:25.698Z"
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
     },
     {
-      "id": "BASE_1775460985698_9643",
+      "id": "BASE_1776287167161_7896",
       "orgId": "ORG_DEFAULT",
       "vehicleId": "CUST78750",
       "metricKey": "batteryVoltage",
@@ -749,10 +763,10 @@
       "p50": null,
       "p90": null,
       "sampleCount": 0,
-      "lastComputedAt": "2026-04-06T07:36:25.698Z"
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
     },
     {
-      "id": "BASE_1775460985698_80",
+      "id": "BASE_1776287167161_6321",
       "orgId": "ORG_DEFAULT",
       "vehicleId": "CUST78750",
       "metricKey": "engineLoad",
@@ -765,10 +779,10 @@
       "p50": null,
       "p90": null,
       "sampleCount": 0,
-      "lastComputedAt": "2026-04-06T07:36:25.698Z"
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
     },
     {
-      "id": "BASE_1775460985698_4284",
+      "id": "BASE_1776287167161_8112",
       "orgId": "ORG_DEFAULT",
       "vehicleId": "CUST78750",
       "metricKey": "engineLoad",
@@ -781,10 +795,10 @@
       "p50": null,
       "p90": null,
       "sampleCount": 0,
-      "lastComputedAt": "2026-04-06T07:36:25.698Z"
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
     },
     {
-      "id": "BASE_1775460985698_2670",
+      "id": "BASE_1776287167161_8245",
       "orgId": "ORG_DEFAULT",
       "vehicleId": "CUST78750",
       "metricKey": "engineLoad",
@@ -797,10 +811,10 @@
       "p50": null,
       "p90": null,
       "sampleCount": 0,
-      "lastComputedAt": "2026-04-06T07:36:25.698Z"
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
     },
     {
-      "id": "BASE_1775460985698_8526",
+      "id": "BASE_1776287167161_401",
       "orgId": "ORG_DEFAULT",
       "vehicleId": "CUST78750",
       "metricKey": "maf",
@@ -813,10 +827,10 @@
       "p50": null,
       "p90": null,
       "sampleCount": 0,
-      "lastComputedAt": "2026-04-06T07:36:25.698Z"
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
     },
     {
-      "id": "BASE_1775460985698_5643",
+      "id": "BASE_1776287167161_1152",
       "orgId": "ORG_DEFAULT",
       "vehicleId": "CUST78750",
       "metricKey": "maf",
@@ -829,10 +843,10 @@
       "p50": null,
       "p90": null,
       "sampleCount": 0,
-      "lastComputedAt": "2026-04-06T07:36:25.698Z"
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
     },
     {
-      "id": "BASE_1775460985698_9652",
+      "id": "BASE_1776287167161_723",
       "orgId": "ORG_DEFAULT",
       "vehicleId": "CUST78750",
       "metricKey": "maf",
@@ -845,10 +859,10 @@
       "p50": null,
       "p90": null,
       "sampleCount": 0,
-      "lastComputedAt": "2026-04-06T07:36:25.698Z"
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
     },
     {
-      "id": "BASE_1775460985698_5817",
+      "id": "BASE_1776287167161_8282",
       "orgId": "ORG_DEFAULT",
       "vehicleId": "CUST78750",
       "metricKey": "rpm",
@@ -861,10 +875,10 @@
       "p50": null,
       "p90": null,
       "sampleCount": 0,
-      "lastComputedAt": "2026-04-06T07:36:25.698Z"
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
     },
     {
-      "id": "BASE_1775460985698_6718",
+      "id": "BASE_1776287167161_2686",
       "orgId": "ORG_DEFAULT",
       "vehicleId": "CUST78750",
       "metricKey": "rpm",
@@ -877,10 +891,10 @@
       "p50": null,
       "p90": null,
       "sampleCount": 0,
-      "lastComputedAt": "2026-04-06T07:36:25.698Z"
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
     },
     {
-      "id": "BASE_1775460985698_8013",
+      "id": "BASE_1776287167161_2734",
       "orgId": "ORG_DEFAULT",
       "vehicleId": "CUST78750",
       "metricKey": "rpm",
@@ -893,10 +907,10 @@
       "p50": null,
       "p90": null,
       "sampleCount": 0,
-      "lastComputedAt": "2026-04-06T07:36:25.698Z"
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
     },
     {
-      "id": "BASE_1775460985698_5208",
+      "id": "BASE_1776287167161_4706",
       "orgId": "ORG_DEFAULT",
       "vehicleId": "CUST78750",
       "metricKey": "stft1",
@@ -909,10 +923,10 @@
       "p50": null,
       "p90": null,
       "sampleCount": 0,
-      "lastComputedAt": "2026-04-06T07:36:25.698Z"
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
     },
     {
-      "id": "BASE_1775460985698_6504",
+      "id": "BASE_1776287167161_3649",
       "orgId": "ORG_DEFAULT",
       "vehicleId": "CUST78750",
       "metricKey": "stft1",
@@ -925,10 +939,10 @@
       "p50": null,
       "p90": null,
       "sampleCount": 0,
-      "lastComputedAt": "2026-04-06T07:36:25.698Z"
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
     },
     {
-      "id": "BASE_1775460985698_1986",
+      "id": "BASE_1776287167161_6299",
       "orgId": "ORG_DEFAULT",
       "vehicleId": "CUST78750",
       "metricKey": "stft1",
@@ -941,10 +955,10 @@
       "p50": null,
       "p90": null,
       "sampleCount": 0,
-      "lastComputedAt": "2026-04-06T07:36:25.698Z"
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
     },
     {
-      "id": "BASE_1775460985698_8833",
+      "id": "BASE_1776287167161_446",
       "orgId": "ORG_DEFAULT",
       "vehicleId": "CUST78750",
       "metricKey": "ltft1",
@@ -957,10 +971,10 @@
       "p50": null,
       "p90": null,
       "sampleCount": 0,
-      "lastComputedAt": "2026-04-06T07:36:25.698Z"
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
     },
     {
-      "id": "BASE_1775460985698_8491",
+      "id": "BASE_1776287167161_4013",
       "orgId": "ORG_DEFAULT",
       "vehicleId": "CUST78750",
       "metricKey": "ltft1",
@@ -973,10 +987,10 @@
       "p50": null,
       "p90": null,
       "sampleCount": 0,
-      "lastComputedAt": "2026-04-06T07:36:25.698Z"
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
     },
     {
-      "id": "BASE_1775460985698_6191",
+      "id": "BASE_1776287167161_4774",
       "orgId": "ORG_DEFAULT",
       "vehicleId": "CUST78750",
       "metricKey": "ltft1",
@@ -989,10 +1003,10 @@
       "p50": null,
       "p90": null,
       "sampleCount": 0,
-      "lastComputedAt": "2026-04-06T07:36:25.698Z"
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
     },
     {
-      "id": "BASE_1775460985698_2036",
+      "id": "BASE_1776287167161_4452",
       "orgId": "ORG_DEFAULT",
       "vehicleId": "CUST78750",
       "metricKey": "intakeAirTemp",
@@ -1005,10 +1019,10 @@
       "p50": null,
       "p90": null,
       "sampleCount": 0,
-      "lastComputedAt": "2026-04-06T07:36:25.698Z"
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
     },
     {
-      "id": "BASE_1775460985698_3254",
+      "id": "BASE_1776287167161_4041",
       "orgId": "ORG_DEFAULT",
       "vehicleId": "CUST78750",
       "metricKey": "intakeAirTemp",
@@ -1021,10 +1035,10 @@
       "p50": null,
       "p90": null,
       "sampleCount": 0,
-      "lastComputedAt": "2026-04-06T07:36:25.698Z"
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
     },
     {
-      "id": "BASE_1775460985698_9900",
+      "id": "BASE_1776287167161_2610",
       "orgId": "ORG_DEFAULT",
       "vehicleId": "CUST78750",
       "metricKey": "intakeAirTemp",
@@ -1037,10 +1051,10 @@
       "p50": null,
       "p90": null,
       "sampleCount": 0,
-      "lastComputedAt": "2026-04-06T07:36:25.698Z"
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
     },
     {
-      "id": "BASE_1775460985698_4597",
+      "id": "BASE_1776287167161_9734",
       "orgId": "ORG_DEFAULT",
       "vehicleId": "CUST19902",
       "metricKey": "coolantTemp",
@@ -1053,10 +1067,10 @@
       "p50": null,
       "p90": null,
       "sampleCount": 0,
-      "lastComputedAt": "2026-04-06T07:36:25.698Z"
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
     },
     {
-      "id": "BASE_1775460985698_1227",
+      "id": "BASE_1776287167161_5241",
       "orgId": "ORG_DEFAULT",
       "vehicleId": "CUST19902",
       "metricKey": "coolantTemp",
@@ -1069,10 +1083,10 @@
       "p50": null,
       "p90": null,
       "sampleCount": 0,
-      "lastComputedAt": "2026-04-06T07:36:25.698Z"
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
     },
     {
-      "id": "BASE_1775460985698_3300",
+      "id": "BASE_1776287167161_4295",
       "orgId": "ORG_DEFAULT",
       "vehicleId": "CUST19902",
       "metricKey": "coolantTemp",
@@ -1085,10 +1099,10 @@
       "p50": null,
       "p90": null,
       "sampleCount": 0,
-      "lastComputedAt": "2026-04-06T07:36:25.698Z"
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
     },
     {
-      "id": "BASE_1775460985698_688",
+      "id": "BASE_1776287167161_8873",
       "orgId": "ORG_DEFAULT",
       "vehicleId": "CUST19902",
       "metricKey": "batteryVoltage",
@@ -1101,10 +1115,10 @@
       "p50": null,
       "p90": null,
       "sampleCount": 0,
-      "lastComputedAt": "2026-04-06T07:36:25.698Z"
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
     },
     {
-      "id": "BASE_1775460985698_8414",
+      "id": "BASE_1776287167161_3587",
       "orgId": "ORG_DEFAULT",
       "vehicleId": "CUST19902",
       "metricKey": "batteryVoltage",
@@ -1117,10 +1131,10 @@
       "p50": null,
       "p90": null,
       "sampleCount": 0,
-      "lastComputedAt": "2026-04-06T07:36:25.698Z"
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
     },
     {
-      "id": "BASE_1775460985698_4265",
+      "id": "BASE_1776287167161_8599",
       "orgId": "ORG_DEFAULT",
       "vehicleId": "CUST19902",
       "metricKey": "batteryVoltage",
@@ -1133,10 +1147,10 @@
       "p50": null,
       "p90": null,
       "sampleCount": 0,
-      "lastComputedAt": "2026-04-06T07:36:25.698Z"
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
     },
     {
-      "id": "BASE_1775460985698_4528",
+      "id": "BASE_1776287167161_263",
       "orgId": "ORG_DEFAULT",
       "vehicleId": "CUST19902",
       "metricKey": "engineLoad",
@@ -1149,10 +1163,10 @@
       "p50": null,
       "p90": null,
       "sampleCount": 0,
-      "lastComputedAt": "2026-04-06T07:36:25.698Z"
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
     },
     {
-      "id": "BASE_1775460985698_7704",
+      "id": "BASE_1776287167161_5154",
       "orgId": "ORG_DEFAULT",
       "vehicleId": "CUST19902",
       "metricKey": "engineLoad",
@@ -1165,10 +1179,10 @@
       "p50": null,
       "p90": null,
       "sampleCount": 0,
-      "lastComputedAt": "2026-04-06T07:36:25.698Z"
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
     },
     {
-      "id": "BASE_1775460985698_2630",
+      "id": "BASE_1776287167161_4588",
       "orgId": "ORG_DEFAULT",
       "vehicleId": "CUST19902",
       "metricKey": "engineLoad",
@@ -1181,10 +1195,10 @@
       "p50": null,
       "p90": null,
       "sampleCount": 0,
-      "lastComputedAt": "2026-04-06T07:36:25.698Z"
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
     },
     {
-      "id": "BASE_1775460985698_7742",
+      "id": "BASE_1776287167161_7677",
       "orgId": "ORG_DEFAULT",
       "vehicleId": "CUST19902",
       "metricKey": "maf",
@@ -1197,10 +1211,10 @@
       "p50": null,
       "p90": null,
       "sampleCount": 0,
-      "lastComputedAt": "2026-04-06T07:36:25.698Z"
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
     },
     {
-      "id": "BASE_1775460985698_4209",
+      "id": "BASE_1776287167161_727",
       "orgId": "ORG_DEFAULT",
       "vehicleId": "CUST19902",
       "metricKey": "maf",
@@ -1213,10 +1227,10 @@
       "p50": null,
       "p90": null,
       "sampleCount": 0,
-      "lastComputedAt": "2026-04-06T07:36:25.698Z"
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
     },
     {
-      "id": "BASE_1775460985698_6884",
+      "id": "BASE_1776287167161_2381",
       "orgId": "ORG_DEFAULT",
       "vehicleId": "CUST19902",
       "metricKey": "maf",
@@ -1229,10 +1243,10 @@
       "p50": null,
       "p90": null,
       "sampleCount": 0,
-      "lastComputedAt": "2026-04-06T07:36:25.698Z"
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
     },
     {
-      "id": "BASE_1775460985698_3893",
+      "id": "BASE_1776287167161_4318",
       "orgId": "ORG_DEFAULT",
       "vehicleId": "CUST19902",
       "metricKey": "rpm",
@@ -1245,10 +1259,10 @@
       "p50": null,
       "p90": null,
       "sampleCount": 0,
-      "lastComputedAt": "2026-04-06T07:36:25.698Z"
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
     },
     {
-      "id": "BASE_1775460985698_98",
+      "id": "BASE_1776287167161_2337",
       "orgId": "ORG_DEFAULT",
       "vehicleId": "CUST19902",
       "metricKey": "rpm",
@@ -1261,10 +1275,10 @@
       "p50": null,
       "p90": null,
       "sampleCount": 0,
-      "lastComputedAt": "2026-04-06T07:36:25.698Z"
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
     },
     {
-      "id": "BASE_1775460985698_7601",
+      "id": "BASE_1776287167161_6280",
       "orgId": "ORG_DEFAULT",
       "vehicleId": "CUST19902",
       "metricKey": "rpm",
@@ -1277,10 +1291,10 @@
       "p50": null,
       "p90": null,
       "sampleCount": 0,
-      "lastComputedAt": "2026-04-06T07:36:25.698Z"
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
     },
     {
-      "id": "BASE_1775460985698_65",
+      "id": "BASE_1776287167161_4237",
       "orgId": "ORG_DEFAULT",
       "vehicleId": "CUST19902",
       "metricKey": "stft1",
@@ -1293,10 +1307,10 @@
       "p50": null,
       "p90": null,
       "sampleCount": 0,
-      "lastComputedAt": "2026-04-06T07:36:25.698Z"
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
     },
     {
-      "id": "BASE_1775460985698_7786",
+      "id": "BASE_1776287167161_6795",
       "orgId": "ORG_DEFAULT",
       "vehicleId": "CUST19902",
       "metricKey": "stft1",
@@ -1309,10 +1323,10 @@
       "p50": null,
       "p90": null,
       "sampleCount": 0,
-      "lastComputedAt": "2026-04-06T07:36:25.698Z"
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
     },
     {
-      "id": "BASE_1775460985698_6494",
+      "id": "BASE_1776287167161_8219",
       "orgId": "ORG_DEFAULT",
       "vehicleId": "CUST19902",
       "metricKey": "stft1",
@@ -1325,10 +1339,10 @@
       "p50": null,
       "p90": null,
       "sampleCount": 0,
-      "lastComputedAt": "2026-04-06T07:36:25.698Z"
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
     },
     {
-      "id": "BASE_1775460985698_293",
+      "id": "BASE_1776287167161_6486",
       "orgId": "ORG_DEFAULT",
       "vehicleId": "CUST19902",
       "metricKey": "ltft1",
@@ -1341,10 +1355,10 @@
       "p50": null,
       "p90": null,
       "sampleCount": 0,
-      "lastComputedAt": "2026-04-06T07:36:25.698Z"
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
     },
     {
-      "id": "BASE_1775460985698_2934",
+      "id": "BASE_1776287167161_1826",
       "orgId": "ORG_DEFAULT",
       "vehicleId": "CUST19902",
       "metricKey": "ltft1",
@@ -1357,10 +1371,10 @@
       "p50": null,
       "p90": null,
       "sampleCount": 0,
-      "lastComputedAt": "2026-04-06T07:36:25.698Z"
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
     },
     {
-      "id": "BASE_1775460985698_5259",
+      "id": "BASE_1776287167161_2206",
       "orgId": "ORG_DEFAULT",
       "vehicleId": "CUST19902",
       "metricKey": "ltft1",
@@ -1373,10 +1387,10 @@
       "p50": null,
       "p90": null,
       "sampleCount": 0,
-      "lastComputedAt": "2026-04-06T07:36:25.698Z"
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
     },
     {
-      "id": "BASE_1775460985698_1811",
+      "id": "BASE_1776287167161_2005",
       "orgId": "ORG_DEFAULT",
       "vehicleId": "CUST19902",
       "metricKey": "intakeAirTemp",
@@ -1389,10 +1403,10 @@
       "p50": null,
       "p90": null,
       "sampleCount": 0,
-      "lastComputedAt": "2026-04-06T07:36:25.698Z"
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
     },
     {
-      "id": "BASE_1775460985698_9289",
+      "id": "BASE_1776287167161_5237",
       "orgId": "ORG_DEFAULT",
       "vehicleId": "CUST19902",
       "metricKey": "intakeAirTemp",
@@ -1405,10 +1419,10 @@
       "p50": null,
       "p90": null,
       "sampleCount": 0,
-      "lastComputedAt": "2026-04-06T07:36:25.698Z"
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
     },
     {
-      "id": "BASE_1775460985698_6856",
+      "id": "BASE_1776287167161_9761",
       "orgId": "ORG_DEFAULT",
       "vehicleId": "CUST19902",
       "metricKey": "intakeAirTemp",
@@ -1421,7 +1435,391 @@
       "p50": null,
       "p90": null,
       "sampleCount": 0,
-      "lastComputedAt": "2026-04-06T07:36:25.698Z"
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
+    },
+    {
+      "id": "BASE_1776287167161_8707",
+      "orgId": "ORG_DEFAULT",
+      "vehicleId": "2010 Chevy Camaro",
+      "metricKey": "coolantTemp",
+      "windowDays": 7,
+      "mean": null,
+      "stdDev": null,
+      "min": null,
+      "max": null,
+      "p10": null,
+      "p50": null,
+      "p90": null,
+      "sampleCount": 0,
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
+    },
+    {
+      "id": "BASE_1776287167161_1333",
+      "orgId": "ORG_DEFAULT",
+      "vehicleId": "2010 Chevy Camaro",
+      "metricKey": "coolantTemp",
+      "windowDays": 14,
+      "mean": null,
+      "stdDev": null,
+      "min": null,
+      "max": null,
+      "p10": null,
+      "p50": null,
+      "p90": null,
+      "sampleCount": 0,
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
+    },
+    {
+      "id": "BASE_1776287167161_1336",
+      "orgId": "ORG_DEFAULT",
+      "vehicleId": "2010 Chevy Camaro",
+      "metricKey": "coolantTemp",
+      "windowDays": 30,
+      "mean": null,
+      "stdDev": null,
+      "min": null,
+      "max": null,
+      "p10": null,
+      "p50": null,
+      "p90": null,
+      "sampleCount": 0,
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
+    },
+    {
+      "id": "BASE_1776287167161_4030",
+      "orgId": "ORG_DEFAULT",
+      "vehicleId": "2010 Chevy Camaro",
+      "metricKey": "batteryVoltage",
+      "windowDays": 7,
+      "mean": null,
+      "stdDev": null,
+      "min": null,
+      "max": null,
+      "p10": null,
+      "p50": null,
+      "p90": null,
+      "sampleCount": 0,
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
+    },
+    {
+      "id": "BASE_1776287167161_9356",
+      "orgId": "ORG_DEFAULT",
+      "vehicleId": "2010 Chevy Camaro",
+      "metricKey": "batteryVoltage",
+      "windowDays": 14,
+      "mean": null,
+      "stdDev": null,
+      "min": null,
+      "max": null,
+      "p10": null,
+      "p50": null,
+      "p90": null,
+      "sampleCount": 0,
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
+    },
+    {
+      "id": "BASE_1776287167161_8919",
+      "orgId": "ORG_DEFAULT",
+      "vehicleId": "2010 Chevy Camaro",
+      "metricKey": "batteryVoltage",
+      "windowDays": 30,
+      "mean": null,
+      "stdDev": null,
+      "min": null,
+      "max": null,
+      "p10": null,
+      "p50": null,
+      "p90": null,
+      "sampleCount": 0,
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
+    },
+    {
+      "id": "BASE_1776287167161_5097",
+      "orgId": "ORG_DEFAULT",
+      "vehicleId": "2010 Chevy Camaro",
+      "metricKey": "engineLoad",
+      "windowDays": 7,
+      "mean": null,
+      "stdDev": null,
+      "min": null,
+      "max": null,
+      "p10": null,
+      "p50": null,
+      "p90": null,
+      "sampleCount": 0,
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
+    },
+    {
+      "id": "BASE_1776287167161_6471",
+      "orgId": "ORG_DEFAULT",
+      "vehicleId": "2010 Chevy Camaro",
+      "metricKey": "engineLoad",
+      "windowDays": 14,
+      "mean": null,
+      "stdDev": null,
+      "min": null,
+      "max": null,
+      "p10": null,
+      "p50": null,
+      "p90": null,
+      "sampleCount": 0,
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
+    },
+    {
+      "id": "BASE_1776287167161_5039",
+      "orgId": "ORG_DEFAULT",
+      "vehicleId": "2010 Chevy Camaro",
+      "metricKey": "engineLoad",
+      "windowDays": 30,
+      "mean": null,
+      "stdDev": null,
+      "min": null,
+      "max": null,
+      "p10": null,
+      "p50": null,
+      "p90": null,
+      "sampleCount": 0,
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
+    },
+    {
+      "id": "BASE_1776287167161_2743",
+      "orgId": "ORG_DEFAULT",
+      "vehicleId": "2010 Chevy Camaro",
+      "metricKey": "maf",
+      "windowDays": 7,
+      "mean": null,
+      "stdDev": null,
+      "min": null,
+      "max": null,
+      "p10": null,
+      "p50": null,
+      "p90": null,
+      "sampleCount": 0,
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
+    },
+    {
+      "id": "BASE_1776287167161_7164",
+      "orgId": "ORG_DEFAULT",
+      "vehicleId": "2010 Chevy Camaro",
+      "metricKey": "maf",
+      "windowDays": 14,
+      "mean": null,
+      "stdDev": null,
+      "min": null,
+      "max": null,
+      "p10": null,
+      "p50": null,
+      "p90": null,
+      "sampleCount": 0,
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
+    },
+    {
+      "id": "BASE_1776287167161_8676",
+      "orgId": "ORG_DEFAULT",
+      "vehicleId": "2010 Chevy Camaro",
+      "metricKey": "maf",
+      "windowDays": 30,
+      "mean": null,
+      "stdDev": null,
+      "min": null,
+      "max": null,
+      "p10": null,
+      "p50": null,
+      "p90": null,
+      "sampleCount": 0,
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
+    },
+    {
+      "id": "BASE_1776287167161_2629",
+      "orgId": "ORG_DEFAULT",
+      "vehicleId": "2010 Chevy Camaro",
+      "metricKey": "rpm",
+      "windowDays": 7,
+      "mean": null,
+      "stdDev": null,
+      "min": null,
+      "max": null,
+      "p10": null,
+      "p50": null,
+      "p90": null,
+      "sampleCount": 0,
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
+    },
+    {
+      "id": "BASE_1776287167161_8799",
+      "orgId": "ORG_DEFAULT",
+      "vehicleId": "2010 Chevy Camaro",
+      "metricKey": "rpm",
+      "windowDays": 14,
+      "mean": null,
+      "stdDev": null,
+      "min": null,
+      "max": null,
+      "p10": null,
+      "p50": null,
+      "p90": null,
+      "sampleCount": 0,
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
+    },
+    {
+      "id": "BASE_1776287167161_8499",
+      "orgId": "ORG_DEFAULT",
+      "vehicleId": "2010 Chevy Camaro",
+      "metricKey": "rpm",
+      "windowDays": 30,
+      "mean": null,
+      "stdDev": null,
+      "min": null,
+      "max": null,
+      "p10": null,
+      "p50": null,
+      "p90": null,
+      "sampleCount": 0,
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
+    },
+    {
+      "id": "BASE_1776287167161_2507",
+      "orgId": "ORG_DEFAULT",
+      "vehicleId": "2010 Chevy Camaro",
+      "metricKey": "stft1",
+      "windowDays": 7,
+      "mean": null,
+      "stdDev": null,
+      "min": null,
+      "max": null,
+      "p10": null,
+      "p50": null,
+      "p90": null,
+      "sampleCount": 0,
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
+    },
+    {
+      "id": "BASE_1776287167161_4421",
+      "orgId": "ORG_DEFAULT",
+      "vehicleId": "2010 Chevy Camaro",
+      "metricKey": "stft1",
+      "windowDays": 14,
+      "mean": null,
+      "stdDev": null,
+      "min": null,
+      "max": null,
+      "p10": null,
+      "p50": null,
+      "p90": null,
+      "sampleCount": 0,
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
+    },
+    {
+      "id": "BASE_1776287167161_6776",
+      "orgId": "ORG_DEFAULT",
+      "vehicleId": "2010 Chevy Camaro",
+      "metricKey": "stft1",
+      "windowDays": 30,
+      "mean": null,
+      "stdDev": null,
+      "min": null,
+      "max": null,
+      "p10": null,
+      "p50": null,
+      "p90": null,
+      "sampleCount": 0,
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
+    },
+    {
+      "id": "BASE_1776287167161_1223",
+      "orgId": "ORG_DEFAULT",
+      "vehicleId": "2010 Chevy Camaro",
+      "metricKey": "ltft1",
+      "windowDays": 7,
+      "mean": null,
+      "stdDev": null,
+      "min": null,
+      "max": null,
+      "p10": null,
+      "p50": null,
+      "p90": null,
+      "sampleCount": 0,
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
+    },
+    {
+      "id": "BASE_1776287167161_4305",
+      "orgId": "ORG_DEFAULT",
+      "vehicleId": "2010 Chevy Camaro",
+      "metricKey": "ltft1",
+      "windowDays": 14,
+      "mean": null,
+      "stdDev": null,
+      "min": null,
+      "max": null,
+      "p10": null,
+      "p50": null,
+      "p90": null,
+      "sampleCount": 0,
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
+    },
+    {
+      "id": "BASE_1776287167161_6158",
+      "orgId": "ORG_DEFAULT",
+      "vehicleId": "2010 Chevy Camaro",
+      "metricKey": "ltft1",
+      "windowDays": 30,
+      "mean": null,
+      "stdDev": null,
+      "min": null,
+      "max": null,
+      "p10": null,
+      "p50": null,
+      "p90": null,
+      "sampleCount": 0,
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
+    },
+    {
+      "id": "BASE_1776287167161_6177",
+      "orgId": "ORG_DEFAULT",
+      "vehicleId": "2010 Chevy Camaro",
+      "metricKey": "intakeAirTemp",
+      "windowDays": 7,
+      "mean": null,
+      "stdDev": null,
+      "min": null,
+      "max": null,
+      "p10": null,
+      "p50": null,
+      "p90": null,
+      "sampleCount": 0,
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
+    },
+    {
+      "id": "BASE_1776287167161_4556",
+      "orgId": "ORG_DEFAULT",
+      "vehicleId": "2010 Chevy Camaro",
+      "metricKey": "intakeAirTemp",
+      "windowDays": 14,
+      "mean": null,
+      "stdDev": null,
+      "min": null,
+      "max": null,
+      "p10": null,
+      "p50": null,
+      "p90": null,
+      "sampleCount": 0,
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
+    },
+    {
+      "id": "BASE_1776287167161_5489",
+      "orgId": "ORG_DEFAULT",
+      "vehicleId": "2010 Chevy Camaro",
+      "metricKey": "intakeAirTemp",
+      "windowDays": 30,
+      "mean": null,
+      "stdDev": null,
+      "min": null,
+      "max": null,
+      "p10": null,
+      "p50": null,
+      "p90": null,
+      "sampleCount": 0,
+      "lastComputedAt": "2026-04-15T21:06:07.161Z"
     }
   ],
   "modelState": [],
@@ -1469,6 +1867,18 @@
       "make": "",
       "model": "",
       "createdAt": "2026-04-03T14:14:13.814Z"
+    },
+    {
+      "id": "VEH_1775503274404_2790",
+      "vehicleId": "2010 Chevy Camaro",
+      "unitName": "unit1",
+      "vin": "2G1FC1EV7A9145015",
+      "type": "CAR",
+      "orgId": "ORG_1775144608659_6670",
+      "year": null,
+      "make": "",
+      "model": "",
+      "createdAt": "2026-04-06T19:21:14.404Z"
     }
   ],
   "drivers": [
@@ -1498,7 +1908,232 @@
       "lastName": "Driver",
       "phone": "5559876543",
       "createdAt": "2026-04-03T14:14:13.855Z"
+    },
+    {
+      "id": "DRV_1775504516364_5555",
+      "driverId": "DRIVER_95184",
+      "orgId": "ORG_1775144608659_6670",
+      "firstName": "Branden",
+      "lastName": "Skaggs",
+      "phone": "5737210015",
+      "createdAt": "2026-04-06T19:41:56.364Z"
     }
   ],
-  "pairings": []
+  "pairings": [
+    {
+      "id": "PAIR_1775585473603_5826",
+      "orgId": "ORG_DEFAULT",
+      "pairingCode": "807024",
+      "pairCode": "807024",
+      "driverPin": "599148",
+      "vehicleId": "CUST19902",
+      "driverId": "DRIVER_95184",
+      "vehicleName": "Cust Unit",
+      "driverName": "Branden Skaggs",
+      "status": "expired",
+      "expiresAt": "2026-04-07T18:18:07.201Z",
+      "driverPinExpiresAt": "2026-04-07T18:18:07.201Z",
+      "createdAt": "2026-04-07T18:11:13.603Z",
+      "replacedAt": "2026-04-07T18:18:07.201Z"
+    },
+    {
+      "id": "PAIR_1775585825242_3219",
+      "orgId": "",
+      "pairingCode": "902563",
+      "pairCode": "902563",
+      "driverPin": "262207",
+      "vehicleId": "CUST19902",
+      "driverId": "DRIVER_01754",
+      "vehicleName": "Cust Unit",
+      "driverName": "Cust Driver",
+      "status": "expired",
+      "expiresAt": "2026-04-07T18:18:50.365Z",
+      "driverPinExpiresAt": "2026-04-07T18:18:50.365Z",
+      "createdAt": "2026-04-07T18:17:05.242Z",
+      "replacedAt": "2026-04-07T18:18:50.365Z"
+    },
+    {
+      "id": "PAIR_1775585887202_8601",
+      "orgId": "",
+      "pairingCode": "445472",
+      "pairCode": "445472",
+      "driverPin": "426756",
+      "vehicleId": "CUST19902",
+      "driverId": "DRIVER_95184",
+      "vehicleName": "Cust Unit",
+      "driverName": "Branden Skaggs",
+      "status": "expired",
+      "expiresAt": "2026-04-07T18:28:07.202Z",
+      "driverPinExpiresAt": "2026-04-07T18:28:07.202Z",
+      "createdAt": "2026-04-07T18:18:07.202Z"
+    },
+    {
+      "id": "PAIR_1775585905734_3291",
+      "orgId": "",
+      "pairingCode": "908959",
+      "pairCode": "908959",
+      "driverPin": "241212",
+      "vehicleId": "2010 Chevy Camaro",
+      "driverId": "DRIVER_95184",
+      "vehicleName": "unit1",
+      "driverName": "Branden Skaggs",
+      "status": "expired",
+      "expiresAt": "2026-04-07T18:19:14.058Z",
+      "driverPinExpiresAt": "2026-04-07T18:19:14.058Z",
+      "createdAt": "2026-04-07T18:18:25.734Z",
+      "replacedAt": "2026-04-07T18:19:14.058Z"
+    },
+    {
+      "id": "PAIR_1775585930366_9770",
+      "orgId": "",
+      "pairingCode": "328155",
+      "pairCode": "328155",
+      "driverPin": "254536",
+      "vehicleId": "CUST19902",
+      "driverId": "DRIVER_01754",
+      "vehicleName": "Cust Unit",
+      "driverName": "Cust Driver",
+      "status": "expired",
+      "expiresAt": "2026-04-07T18:18:59.947Z",
+      "driverPinExpiresAt": "2026-04-07T18:18:59.947Z",
+      "createdAt": "2026-04-07T18:18:50.366Z",
+      "replacedAt": "2026-04-07T18:18:59.947Z"
+    },
+    {
+      "id": "PAIR_1775585939947_1403",
+      "orgId": "",
+      "pairingCode": "749207",
+      "pairCode": "749207",
+      "driverPin": "987893",
+      "vehicleId": "CUST19902",
+      "driverId": "DRIVER_01754",
+      "vehicleName": "Cust Unit",
+      "driverName": "Cust Driver",
+      "status": "expired",
+      "expiresAt": "2026-04-07T18:28:59.947Z",
+      "driverPinExpiresAt": "2026-04-07T18:28:59.947Z",
+      "createdAt": "2026-04-07T18:18:59.947Z"
+    },
+    {
+      "id": "PAIR_1775585954058_8481",
+      "orgId": "",
+      "pairingCode": "348708",
+      "pairCode": "348708",
+      "driverPin": "647007",
+      "vehicleId": "2010 Chevy Camaro",
+      "driverId": "DRIVER_95184",
+      "vehicleName": "unit1",
+      "driverName": "Branden Skaggs",
+      "status": "expired",
+      "expiresAt": "2026-04-07T18:22:51.240Z",
+      "driverPinExpiresAt": "2026-04-07T18:22:51.240Z",
+      "createdAt": "2026-04-07T18:19:14.058Z",
+      "replacedAt": "2026-04-07T18:22:51.240Z"
+    },
+    {
+      "id": "PAIR_1775586171240_8388",
+      "orgId": "",
+      "pairingCode": "797565",
+      "pairCode": "797565",
+      "driverPin": "893474",
+      "vehicleId": "2010 Chevy Camaro",
+      "driverId": "DRIVER_95184",
+      "vehicleName": "unit1",
+      "driverName": "Branden Skaggs",
+      "status": "expired",
+      "expiresAt": "2026-04-07T18:32:51.240Z",
+      "driverPinExpiresAt": "2026-04-07T18:32:51.240Z",
+      "createdAt": "2026-04-07T18:22:51.240Z"
+    },
+    {
+      "id": "PAIR_1775587382962_4328",
+      "orgId": "ORG_DEFAULT",
+      "pairingCode": "504511",
+      "pairCode": "504511",
+      "driverPin": "172770",
+      "vehicleId": "2010 Chevy Camaro",
+      "driverId": "DRIVER_95184",
+      "vehicleName": "unit1",
+      "driverName": "Branden Skaggs",
+      "status": "expired",
+      "expiresAt": "2026-04-07T18:53:02.962Z",
+      "driverPinExpiresAt": "2026-04-07T18:53:02.962Z",
+      "createdAt": "2026-04-07T18:43:02.962Z"
+    },
+    {
+      "id": "PAIR_1775590865832_5757",
+      "orgId": "ORG_DEFAULT",
+      "pairingCode": "688007",
+      "pairCode": "688007",
+      "driverPin": "544248",
+      "vehicleId": "CUST19902",
+      "driverId": "DRIVER_95184",
+      "vehicleName": "Cust Unit",
+      "driverName": "Branden Skaggs",
+      "status": "expired",
+      "expiresAt": "2026-04-07T19:51:05.831Z",
+      "driverPinExpiresAt": "2026-04-07T19:51:05.831Z",
+      "createdAt": "2026-04-07T19:41:05.832Z"
+    },
+    {
+      "id": "PAIR_1775659841787_6387",
+      "orgId": "ORG_DEFAULT",
+      "pairingCode": "022057",
+      "pairCode": "022057",
+      "driverPin": "667762",
+      "vehicleId": "CUST19902",
+      "driverId": "DRIVER_01754",
+      "vehicleName": "Cust Unit",
+      "driverName": "Cust Driver",
+      "status": "expired",
+      "expiresAt": "2026-04-08T15:00:41.787Z",
+      "driverPinExpiresAt": "2026-04-08T15:00:41.787Z",
+      "createdAt": "2026-04-08T14:50:41.787Z"
+    },
+    {
+      "id": "PAIR_1775685515307_8185",
+      "orgId": "ORG_DEFAULT",
+      "pairingCode": "968399",
+      "pairCode": "968399",
+      "driverPin": "153807",
+      "vehicleId": "CUST19902",
+      "driverId": "DRIVER_01754",
+      "vehicleName": "Cust Unit",
+      "driverName": "Cust Driver",
+      "status": "expired",
+      "expiresAt": "2026-04-08T22:08:35.307Z",
+      "driverPinExpiresAt": "2026-04-08T22:08:35.307Z",
+      "createdAt": "2026-04-08T21:58:35.307Z"
+    },
+    {
+      "id": "PAIR_1776290960959_2959",
+      "orgId": "ORG_1775144608659_6670",
+      "pairingCode": "570566",
+      "pairCode": "570566",
+      "driverPin": "051432",
+      "vehicleId": "CUST19902",
+      "driverId": "DRIVER_95184",
+      "vehicleName": "Cust Unit",
+      "driverName": "Branden Skaggs",
+      "status": "pending",
+      "expiresAt": "2026-04-16T22:09:37.000Z",
+      "driverPinExpiresAt": "2026-04-16T22:09:37.000Z",
+      "createdAt": "2026-04-15T22:09:20.959Z"
+    },
+    {
+      "id": "PAIR_1776290961041_2435",
+      "orgId": "ORG_1775144608659_6670",
+      "pairingCode": "454426",
+      "pairCode": "454426",
+      "driverPin": "576431",
+      "vehicleId": "2010 Chevy Camaro",
+      "driverId": "DRIVER_01754",
+      "vehicleName": "unit1",
+      "driverName": "Cust Driver",
+      "status": "pending",
+      "expiresAt": "2026-04-16T22:09:37.000Z",
+      "driverPinExpiresAt": "2026-04-16T22:09:37.000Z",
+      "createdAt": "2026-04-15T22:09:21.041Z"
+    }
+  ]
 }

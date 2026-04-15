@@ -4,7 +4,7 @@ const crypto = require("crypto");
 const CODE_CHARS = "0123456789";
 const CODE_LENGTH = 6;
 const PIN_LENGTH = 6;
-const EXPIRE_MINUTES = 10;
+const EXPIRE_MINUTES = 1440;
 
 function nowIso() {
   return new Date().toISOString();
