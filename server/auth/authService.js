@@ -1,27 +1,7 @@
 const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
 const { AUTH_ERRORS } = require("./authErrors");
-
-function normalizeEmail(email) {
-  return String(email || "").trim().toLowerCase();
-}
-
-function isCustomerRole(user) {
-  const role = String(user?.role || "").toUpperCase();
-  return role.startsWith("CUSTOMER") || role === "ORG_ADMIN";
-}
-
-function isEmployeeRole(user) {
-  if (!user) return false;
-  return !isCustomerRole(user);
-}
-
-function isActiveUser(user) {
-  if (!user) return false;
-  const status = String(user.status || "").toUpperCase();
-  if (status === "INACTIVE" || status === "DISABLED" || status === "LOCKED") return false;
-  return user.isActive !== false && user.active !== false;
-}
+const { normalizeEmail, isCustomerRole, isEmployeeRole, isActiveUser } = require("../authStore");
 
 function needsPasswordSetup(user) {
   if (!user) return false;

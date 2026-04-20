@@ -360,7 +360,7 @@ function registerAuthRoutes(app, deps) {
   app.all("/api/employee-login", handleEmployeeLoginRoute);
   app.all("/api/auth/employee/login", handleEmployeeLoginRoute);
 
-  app.post("/api/employee/logout", (req, res) => {
+  function handleEmployeeLogout(req, res) {
     const session = getSession(req);
     if (session) {
       sessionStore.delete(session.id);
@@ -370,19 +370,10 @@ function registerAuthRoutes(app, deps) {
     }
     clearSessionCookie(res);
     return res.json({ ok: true });
-  });
+  }
 
-  app.post("/api/auth/logout", (req, res) => {
-    const session = getSession(req);
-    if (session) {
-      sessionStore.delete(session.id);
-      if (typeof persistSessionStoresSoon === "function") {
-        persistSessionStoresSoon();
-      }
-    }
-    clearSessionCookie(res);
-    return res.json({ ok: true });
-  });
+  app.post("/api/employee/logout", handleEmployeeLogout);
+  app.post("/api/auth/logout", handleEmployeeLogout);
 
   app.get("/api/employee/session", (req, res) => {
     const session = getSession(req);

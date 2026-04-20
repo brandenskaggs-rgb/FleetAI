@@ -1,5 +1,5 @@
 const bcrypt = require("bcryptjs");
-const { normalizeAuthData, normalizeEmail } = require("../authStore");
+const { normalizeAuthData, normalizeEmail, hasPasswordHash } = require("../authStore");
 
 function ensureOrg(data, orgId, nowIso) {
   if (!orgId) return false;
@@ -14,10 +14,6 @@ function ensureOrg(data, orgId, nowIso) {
     updatedAt: nowIso
   });
   return true;
-}
-
-function hasPasswordHash(user) {
-  return typeof user?.passwordHash === "string" && user.passwordHash.trim() !== "";
 }
 
 function clearPasswordFlags(user) {

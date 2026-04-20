@@ -899,14 +899,6 @@ app.post("/api/admin/users", async (req, res) => {
   }
 });
 
-app.use("/", express.static(SITE_ROOT));
-app.use("/ui", express.static(UI_DIR));
-app.use("/admin", express.static(ADMIN_DIR));
-app.use("/driver_app", express.static(DRIVER_DIR));
-app.use("/css", express.static(CSS_DIR));
-app.use("/js", express.static(JS_DIR));
-app.use("/assets", express.static(ASSETS_DIR));
-
 app.get("/api/health", (req, res) => {
   req.url = "/health";
   app.handle(req, res);
@@ -4714,8 +4706,19 @@ registerAuthRoutes(app, {
   sessionStore,
   bcrypt,
   nowIso,
-  sanitizeString
+  sanitizeString,
+  writeData
 });
+
+// Static file serving — must come AFTER all API route registrations so API
+// paths can never be shadowed by a matching file on disk.
+app.use("/", express.static(SITE_ROOT));
+app.use("/ui", express.static(UI_DIR));
+app.use("/admin", express.static(ADMIN_DIR));
+app.use("/driver_app", express.static(DRIVER_DIR));
+app.use("/css", express.static(CSS_DIR));
+app.use("/js", express.static(JS_DIR));
+app.use("/assets", express.static(ASSETS_DIR));
 
 function collectRoutes() {
   const routes = [];

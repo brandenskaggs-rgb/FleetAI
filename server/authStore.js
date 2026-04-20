@@ -163,7 +163,7 @@ function findCustomerByEmail(data, email) {
 function isActiveUser(user) {
   if (!user) return false;
   const status = String(user.status || "").toUpperCase();
-  if (status === "INACTIVE" || status === "DISABLED") return false;
+  if (status === "INACTIVE" || status === "DISABLED" || status === "LOCKED") return false;
   return user.isActive !== false && user.active !== false;
 }
 
