@@ -6,6 +6,9 @@ const {
   J1939Reassembler
 } = require("../../../telemetry/standards/j1939/decoder");
 
+// PGN 65260 (0xFEEC) — Vehicle Identification (VIN), 17-byte ASCII
+const PGN_VIN = 65260;
+
 function toNumber(value) {
   const n = Number(value);
   return Number.isFinite(n) ? n : null;
@@ -35,7 +38,12 @@ function normalizeMetricName(name) {
     vehicle_distance: "odometerKm",
     ambient_temp: "ambientTempC",
     barometric_pressure: "baroKpa",
-    exhaust_temp: "egtC"
+    exhaust_temp: "egtC",
+    boost_pressure: "boostPressureKpa",
+    transmission_temp: "transmissionTempC",
+    oil_pressure: "engineOilPressureKpa",
+    fuel_delivery_pressure: "fuelDeliveryPressureKpa",
+    accelerator_pedal_position: "acceleratorPedalPosPct"
   };
   return map[name] || null;
 }
@@ -61,10 +69,23 @@ function normalizeFrameForDecode(frame) {
   return { id, pgn, source, data };
 }
 
+// Extract VIN from PGN 65260 data bytes (17-char ASCII, padded with 0xFF)
+function decodeVinFromBytes(bytes) {
+  if (!bytes || bytes.length < 17) return null;
+  let vin = "";
+  for (let i = 0; i < 17; i++) {
+    const b = bytes[i];
+    if (b == null || b === 0xff) break;
+    const c = String.fromCharCode(b);
+    if (/[A-HJ-NPR-Z0-9]/i.test(c)) vin += c.toUpperCase();
+  }
+  return vin.length === 17 ? vin : null;
+}
+
 function decodeJ1939Frames(frames) {
   const metrics = {};
   const dtc = { active: [], pending: [] };
-  const meta = { supportedSpns: [] };
+  const meta = { supportedSpns: [], vin: null };
   const reassembler = new J1939Reassembler();
 
   (frames || []).forEach((frame) => {
@@ -72,6 +93,13 @@ function decodeJ1939Frames(frames) {
     if (frame.supportedSpns && Array.isArray(frame.supportedSpns)) {
       meta.supportedSpns = frame.supportedSpns;
     }
+
+    // Path 0: VIN provided directly in frame object (from device firmware)
+    if (frame.vin && typeof frame.vin === "string" && frame.vin.length === 17) {
+      meta.vin = frame.vin.toUpperCase();
+      return;
+    }
+
     if (frame.dtcCodes && Array.isArray(frame.dtcCodes)) {
       dtc.active.push(...frame.dtcCodes);
       return;
@@ -80,6 +108,12 @@ function decodeJ1939Frames(frames) {
     // Path 1: already extracted SPN/value by upstream device.
     const spn = frame.spn || frame.spnId;
     if (spn != null) {
+      // SPN 237 = VIN character data (text, not numeric)
+      if (String(spn) === "237" && frame.vinString) {
+        const vin = String(frame.vinString).trim().toUpperCase();
+        if (vin.length === 17) meta.vin = vin;
+        return;
+      }
       const rawValue = frame.value != null ? Number(frame.value) : null;
       const decoded = decodeSpnValue(spn, rawValue);
       if (decoded) Object.assign(metrics, decoded);
@@ -91,6 +125,13 @@ function decodeJ1939Frames(frames) {
     if (!normalized) return;
     const resolved = decodeFrame(normalized, reassembler);
     if (!resolved || !resolved.pgn || !Array.isArray(resolved.data)) return;
+
+    // PGN 65260 — VIN (SPN 237)
+    if (resolved.pgn === PGN_VIN) {
+      const vin = decodeVinFromBytes(resolved.data);
+      if (vin) meta.vin = vin;
+      return;
+    }
 
     if (resolved.pgn === 65226 || resolved.pgn === 65227) {
       const dmCodes = decodeDmDtc(resolved.data).map((item) => `SPN${item.spn}-FMI${item.fmi}`);
@@ -110,5 +151,6 @@ function decodeJ1939Frames(frames) {
 }
 
 module.exports = {
-  decodeJ1939Frames
+  decodeJ1939Frames,
+  decodeVinFromBytes
 };

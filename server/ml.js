@@ -572,13 +572,172 @@ function generateAlertsFromState(state) {
   return alerts;
 }
 
+// ── SAE J1939 research-backed 3-tier sensor thresholds ────────────────────
+// Each entry: { unit, warnMin?, warnMax?, dangerMin?, dangerMax?, higherIsBad }
+const SENSOR_DANGER_THRESHOLDS = {
+  coolantTemp:          { unit: "°C",  warnMin: 90,  warnMax: 105, dangerMin: 105, higherIsBad: true },
+  oilTemp:              { unit: "°C",  warnMin: 110, warnMax: 125, dangerMin: 125, higherIsBad: true },
+  batteryVoltage:       { unit: "V",   warnMin: 12.0, warnMax: 12.4, dangerMax: 12.0, higherIsBad: false },
+  rpm:                  { unit: "rpm", warnMin: 2000, warnMax: 2800, dangerMin: 2800, higherIsBad: true },
+  engineLoad:           { unit: "%",   warnMin: 80,  warnMax: 95,  dangerMin: 95,  higherIsBad: true },
+  dpfSootLoad:          { unit: "%",   warnMin: 70,  warnMax: 85,  dangerMin: 85,  higherIsBad: true },
+  egtC:                 { unit: "°C",  warnMin: 600, warnMax: 750, dangerMin: 750, higherIsBad: true },
+  intakeManifoldPressure: { unit: "kPa", warnMin: 200, warnMax: 250, dangerMin: 250, higherIsBad: true },
+  transmissionTemp:     { unit: "°C",  warnMin: 90,  warnMax: 110, dangerMin: 110, higherIsBad: true },
+  fuelLevel:            { unit: "%",   warnMin: 10,  warnMax: 25,  dangerMax: 10,  higherIsBad: false },
+  vehicleSpeed:         { unit: "kph", warnMin: 115, warnMax: 130, dangerMin: 130, higherIsBad: true },
+  engineHours:          { unit: "h",   warnMin: 490, warnMax: 510, dangerMin: 510, higherIsBad: true },
+  tpmsPressurekPa:      { unit: "kPa", warnMin: 620, warnMax: 690, dangerMax: 620, higherIsBad: false },
+  vibrationG:           { unit: "g",   warnMin: 1.5, warnMax: 2.5, dangerMin: 2.5, higherIsBad: true }
+};
+
+// Returns "NORMAL" | "WARNING" | "DANGER"
+function classifySensorTier(metricKey, value) {
+  const t = SENSOR_DANGER_THRESHOLDS[metricKey];
+  if (!t || value == null) return "NORMAL";
+  if (t.higherIsBad) {
+    if (t.dangerMin != null && value >= t.dangerMin) return "DANGER";
+    if (t.warnMin  != null && value >= t.warnMin)  return "WARNING";
+  } else {
+    if (t.dangerMax != null && value <= t.dangerMax) return "DANGER";
+    if (t.warnMax   != null && value <= t.warnMax)  return "WARNING";
+  }
+  return "NORMAL";
+}
+
+// Returns 0-100 risk score for a single sensor based on 3-tier thresholds + z-score blend
+function computeSensorRiskScore(metricKey, value, baseline) {
+  const tier = classifySensorTier(metricKey, value);
+  let thresholdScore = 0;
+  if (tier === "WARNING") thresholdScore = 45;
+  if (tier === "DANGER")  thresholdScore = 80;
+
+  let zScore = 0;
+  if (baseline && baseline.mean != null && baseline.std) {
+    zScore = Math.abs((value - baseline.mean) / (baseline.std || 1));
+  }
+  const zContrib = clamp(zScore / 5, 0, 1) * 40;
+
+  return Math.round(clamp(Math.max(thresholdScore, zContrib + thresholdScore * 0.3), 0, 100));
+}
+
+// Projects weeks until a metric hits its danger threshold using linear regression slope.
+// samplesPerHour: how many telemetry samples arrive per hour (default: 12 = every 5 min)
+// Returns number of weeks or null if trajectory is safe / not enough info.
+function computeWeeksToFailure(values, metricKey, samplesPerHour = 12) {
+  if (!values || values.length < 10) return null;
+  const t = SENSOR_DANGER_THRESHOLDS[metricKey];
+  if (!t) return null;
+
+  const current = values[values.length - 1];
+  const slope = computeSlope(values); // units per sample index
+
+  const dangerThreshold = t.higherIsBad ? t.dangerMin : t.dangerMax;
+  if (dangerThreshold == null || slope === 0) return null;
+
+  const trending = t.higherIsBad ? slope > 0 : slope < 0;
+  if (!trending) return null;
+
+  const samplesNeeded = Math.abs((dangerThreshold - current) / slope);
+  const weeksNeeded = samplesNeeded / (samplesPerHour * 168);
+
+  if (weeksNeeded <= 0 || weeksNeeded > 52) return null;
+  return Math.round(weeksNeeded * 10) / 10;
+}
+
+// Master prediction function — ML engine computes everything, AI only narrates
+function computeFullPrediction(samples, vehicleId) {
+  if (!samples || !samples.length) {
+    return {
+      vehicleId,
+      sampleCount: 0,
+      insufficientData: true,
+      healthScore: null,
+      sensorRisks: {},
+      weeksToFailure: {},
+      anomaly: null,
+      risk: null,
+      climateContext: null,
+      topContributors: [],
+      updatedAt: new Date().toISOString()
+    };
+  }
+
+  const sorted = samples.slice().sort((a, b) => new Date(a.ts) - new Date(b.ts));
+  const latest = sorted[sorted.length - 1];
+  const baselines = computeBaselines(sorted);
+  const seasonalBaselines = computeSeasonalBaselines(sorted);
+  const seasonKey = latest ? getSeasonFromTimestamp(latest.ts) : "unknown";
+  const coverage = computeCoverage(baselines);
+  const climateContext = computeClimateContext(sorted, baselines, seasonalBaselines, seasonKey);
+
+  // Per-sensor risk scores (0-100) and weeks-to-failure projections
+  const sensorRisks = {};
+  const weeksToFailure = {};
+
+  METRIC_KEYS.forEach((key) => {
+    const current = toNumber(latest.metrics?.[key]);
+    if (current == null) return;
+    const baseline = baselines[key];
+    sensorRisks[key] = computeSensorRiskScore(key, current, baseline);
+
+    const values = sorted
+      .map((s) => toNumber(s.metrics?.[key]))
+      .filter((v) => v != null);
+    const wtf = computeWeeksToFailure(values, key);
+    if (wtf != null) weeksToFailure[key] = wtf;
+  });
+
+  // Overall health score: 100 minus the max weighted sensor risk
+  const riskValues = Object.values(sensorRisks);
+  const maxRisk = riskValues.length ? Math.max(...riskValues) : 0;
+  const avgRisk = riskValues.length
+    ? Math.round(riskValues.reduce((a, b) => a + b, 0) / riskValues.length)
+    : 0;
+  const healthScore = Math.max(0, Math.round(100 - maxRisk * 0.6 - avgRisk * 0.4));
+
+  // Anomaly score and system risks (existing logic)
+  const anomaly = samples.length >= MIN_SAMPLES
+    ? computeAnomaly(latest, baselines, seasonalBaselines, seasonKey)
+    : { score: null, contributors: [] };
+
+  const risk = samples.length >= MIN_SAMPLES
+    ? computeRisk(sorted, baselines, climateContext)
+    : null;
+
+  const confidence = confidenceFrom(samples.length, coverage);
+
+  return {
+    vehicleId,
+    orgId: latest.orgId || null,
+    sampleCount: samples.length,
+    insufficientData: samples.length < MIN_SAMPLES,
+    healthScore,
+    sensorRisks,
+    weeksToFailure,
+    anomalyScore: anomaly.score != null ? Math.round(anomaly.score * 100) : null,
+    topContributors: anomaly.contributors,
+    risk,
+    climateContext,
+    confidence,
+    coverage,
+    currentMetrics: latest.metrics,
+    updatedAt: new Date().toISOString()
+  };
+}
+
 module.exports = {
   MIN_SAMPLES,
   METRIC_KEYS,
+  SENSOR_DANGER_THRESHOLDS,
   buildTelemetrySample,
   appendTelemetrySample,
   computeModelState,
   upsertModelState,
+  computeFullPrediction,
+  computeWeeksToFailure,
+  computeSensorRiskScore,
+  classifySensorTier,
   generateMaintenanceLabels,
   markPreEventWindow,
   detectFuelEventsFromSamples,

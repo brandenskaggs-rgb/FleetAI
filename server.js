@@ -14,6 +14,9 @@ const { normalizeMetrics } = require("./server/telematics/normalize/normalizeMet
 const { appendFrames, appendSnapshot } = require("./server/telematics/storage/telemetryStore");
 const { cToF, kphToMph, kmToMiles, milesToKm } = require("./server/telematics/normalize/units");
 const ml = require("./server/ml");
+const sqliteDb = require("./server/db");
+const vinCapSvc = require("./server/services/vinCapabilityService");
+const aiReportSvc = require("./server/services/aiReportService");
 const { createDataStore } = require("./server/storage/dataStore");
 const { createPairingRouter } = require("./server/routes/pairing");
 const { registerSystemStatusRoutes } = require("./server/routes/systemStatus");
@@ -902,6 +905,88 @@ app.post("/api/admin/users", async (req, res) => {
 app.get("/api/health", (req, res) => {
   req.url = "/health";
   app.handle(req, res);
+});
+
+// ── ML Prediction + AI Report routes ──────────────────────────────────────
+
+app.get("/api/vehicles/:vehicleId/prediction", async (req, res) => {
+  try {
+    const { vehicleId } = req.params;
+    // Try cached model state first
+    const cached = sqliteDb.getModelState(vehicleId);
+    if (cached) return res.json({ ok: true, data: cached });
+    // Compute on demand from SQLite samples
+    const samples = sqliteDb.getSamplesForVehicle(vehicleId, { limit: 5000 });
+    const prediction = ml.computeFullPrediction(samples, vehicleId);
+    sqliteDb.upsertModelState(prediction);
+    return res.json({ ok: true, data: prediction });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+app.get("/api/vehicles/:vehicleId/report", async (req, res) => {
+  try {
+    const { vehicleId } = req.params;
+    const report = sqliteDb.getLatestAiReport(vehicleId);
+    if (!report) return res.status(404).json({ ok: false, error: "No report found" });
+    return res.json({ ok: true, data: report });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+app.post("/api/vehicles/:vehicleId/report/generate", async (req, res) => {
+  try {
+    const { vehicleId } = req.params;
+    const samples = sqliteDb.getSamplesForVehicle(vehicleId, { limit: 5000 });
+    const prediction = ml.computeFullPrediction(samples, vehicleId);
+    sqliteDb.upsertModelState(prediction);
+    const caps = sqliteDb.getVehicleCapabilities(vehicleId);
+    const report = await aiReportSvc.generateReport(prediction, caps || {});
+    return res.json({ ok: true, data: report });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+app.get("/api/vehicles/:vehicleId/capabilities", async (req, res) => {
+  try {
+    const { vehicleId } = req.params;
+    const caps = sqliteDb.getVehicleCapabilities(vehicleId);
+    return res.json({ ok: true, data: caps || null });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+app.get("/api/vehicles/:vehicleId/alerts", async (req, res) => {
+  try {
+    const { vehicleId } = req.params;
+    const unresolved = req.query.unresolved === "true";
+    const alerts = sqliteDb.getAlertsForVehicle(vehicleId, { limit: 50, unresolvedOnly: unresolved });
+    return res.json({ ok: true, data: alerts });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+app.post("/api/alerts/:alertId/ack", async (req, res) => {
+  try {
+    sqliteDb.ackAlert(req.params.alertId);
+    return res.json({ ok: true });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+app.post("/api/alerts/:alertId/resolve", async (req, res) => {
+  try {
+    sqliteDb.resolveAlert(req.params.alertId);
+    return res.json({ ok: true });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
 });
 const PAIRING_ROUTE_MANIFEST = [
   "/api/pairings/health",
@@ -2418,11 +2503,20 @@ function storeNormalizedSnapshot(data, normalized, extra) {
   try {
     const sample = ml.buildTelemetrySample(normalized, extra);
     if (sample.vehicleId) {
+      // Persist to SQLite (primary store for ML pipeline)
+      sqliteDb.insertTelemetrySample(sample);
+      // Also keep in-memory array for legacy pipeline compatibility
       ml.appendTelemetrySample(data, sample, TELEMETRY_RETENTION_LIMIT);
       ml.detectFuelEventsFromSamples(data, sample.vehicleId);
+      // Process VIN if present in decoded meta
+      const vin = extra?.vin || extra?.meta?.vin || normalized?.vin;
+      if (vin) {
+        vinCapSvc.processVin(sample.vehicleId, vin);
+      }
     }
   } catch (err) {
     // Best-effort; do not block telemetry ingest.
+    console.warn("[TEL] storeNormalizedSnapshot error:", err.message);
   }
   return snapshot;
 }
@@ -3071,6 +3165,32 @@ async function runTelemetryPipeline() {
             context: { vehicle: (data.vehicles || []).find((v) => v.vehicleId === vehicleId) }
           });
         }
+      }
+    }
+
+    // ML full-prediction pipeline — runs per-vehicle via SQLite samples
+    for (const vehicleId of vehicles) {
+      try {
+        const samples = sqliteDb.getSamplesForVehicle(vehicleId, { limit: 5000 });
+        if (!samples.length) continue;
+        const prediction = ml.computeFullPrediction(samples, vehicleId);
+        sqliteDb.upsertModelState(prediction);
+        // Generate threshold-based alerts and persist to SQLite
+        const oldState = {
+          vehicleId,
+          orgId: prediction.orgId || resolveOrgIdForVehicle(data, vehicleId),
+          anomalyScore: prediction.anomalyScore != null ? prediction.anomalyScore / 100 : null,
+          confidence: prediction.confidence,
+          risk: prediction.risk,
+          climateContext: prediction.climateContext,
+          insufficientHistory: prediction.insufficientData
+        };
+        const mlAlerts = ml.generateAlertsFromState(oldState);
+        mlAlerts.forEach((alert) => {
+          try { sqliteDb.insertAlert(alert); } catch (_) { /* dedup via INSERT OR IGNORE */ }
+        });
+      } catch (err) {
+        console.warn(`[ML-PIPELINE] vehicle ${vehicleId}:`, err.message);
       }
     }
 

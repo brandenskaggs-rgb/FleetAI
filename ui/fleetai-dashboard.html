@@ -2800,6 +2800,7 @@
       },
       healthRisk: {
         data: null,
+        capabilities: null,
         loading: false
       },
       fuelEvents: {
@@ -3307,23 +3308,60 @@
       const contributors = $("healthContributors");
       const riskPanel = $("healthRiskPanel");
       const data = state.healthRisk.data;
+      const caps = state.healthRisk.capabilities;
       if(!anomaly || !anomalyNote || !confidence || !confidenceNote || !contributors || !riskPanel) return;
-      if(!data || data.insufficientHistory){
+
+      // ── Addon-eligible callout ──────────────────────────────────────────
+      let addonCalloutEl = $("addonEligibleCallout");
+      if(!addonCalloutEl){
+        addonCalloutEl = document.createElement("div");
+        addonCalloutEl.id = "addonEligibleCallout";
+        riskPanel.parentNode.insertBefore(addonCalloutEl, riskPanel);
+      }
+      if(caps && caps.addonEligible && caps.addonSensors && caps.addonSensors.length){
+        const yr = caps.year || "Pre-2015";
+        const missing = caps.addonSensors.join(", ");
+        addonCalloutEl.innerHTML = `
+          <div style="background:var(--warn-bg,#2d2300);border:1px solid var(--warn-border,#f59e0b);border-radius:8px;padding:12px 16px;margin-bottom:12px;display:flex;gap:12px;align-items:flex-start;">
+            <span style="font-size:20px;line-height:1;">⚠️</span>
+            <div>
+              <strong style="color:var(--warn-text,#f59e0b);">Hardware Upgrade Available — ${yr} Vehicle</strong>
+              <p style="margin:4px 0 0;font-size:0.85rem;color:var(--text-muted,#aaa);">
+                This truck lacks native support for: <b>${missing}</b>.
+                Upgrade to the <b>Fleet AI Premium Hardware Module</b> to unlock TPMS monitoring,
+                vibration/accelerometer analysis, and dashcam integration.
+                <a href="#" onclick="showView('addons');return false;" style="color:var(--accent,#38bdf8);margin-left:6px;">View Add-ons →</a>
+              </p>
+            </div>
+          </div>`;
+      } else {
+        addonCalloutEl.innerHTML = "";
+      }
+
+      if(!data || data.insufficientData || data.insufficientHistory){
         anomaly.textContent = "--";
         anomalyNote.textContent = "Not enough history yet.";
         confidence.textContent = "--";
         confidenceNote.textContent = "Waiting for data coverage.";
-        contributors.innerHTML = `<div class="note">Not enough history yet.</div>`;
+        contributors.innerHTML = `<div class="note">Not enough history yet (${data?.sampleCount||0} / 200 samples).</div>`;
         riskPanel.innerHTML = `<div class="note">Not enough data yet to score subsystem risk.</div>`;
         return;
       }
-      const score = data.anomalyScore != null ? Math.round(data.anomalyScore * 100) : null;
+
+      // ── Health score (new) ─────────────────────────────────────────────
+      const healthScore = data.healthScore;
+      const healthColor = healthScore >= 80 ? "#22c55e" : healthScore >= 50 ? "#f59e0b" : "#ef4444";
+
+      // ── Anomaly score ──────────────────────────────────────────────────
+      const score = data.anomalyScore != null ? data.anomalyScore : null;
       anomaly.textContent = score != null ? `${score}` : "--";
       anomalyNote.textContent = data.topContributors?.length ? "Anomaly detected from recent samples." : "No anomaly detected.";
       const conf = data.confidence != null ? data.confidence : 0;
       const confLabel = conf >= 0.75 ? "High" : conf >= 0.45 ? "Medium" : "Low";
       confidence.textContent = confLabel;
-      confidenceNote.textContent = `Coverage ${(data.coverage * 100).toFixed(0)}% over ${data.sampleCount} samples.`;
+      confidenceNote.textContent = `Coverage ${((data.coverage||0) * 100).toFixed(0)}% over ${data.sampleCount} samples.`;
+
+      // ── Top contributors ───────────────────────────────────────────────
       if(data.topContributors && data.topContributors.length){
         contributors.innerHTML = data.topContributors.map(item=>`
           <div class="row" style="margin-top:8px;">
@@ -3332,18 +3370,45 @@
               <p>${item.reason}</p>
             </div>
             <div class="r">
-              <span class="pill2">${item.zScore.toFixed(2)} z</span>
+              <span class="pill2">${(item.zScore||0).toFixed(2)} z</span>
             </div>
           </div>
         `).join("");
       } else {
         contributors.innerHTML = `<div class="note">No deviations detected.</div>`;
       }
+
+      // ── Per-sensor risk scores + weeks-to-failure ─────────────────────
+      const sensorRisks = data.sensorRisks || {};
+      const weeksToFailure = data.weeksToFailure || {};
+      const tierColor = (s) => s >= 70 ? "#ef4444" : s >= 30 ? "#f59e0b" : "#22c55e";
+      const tierLabel = (s) => s >= 70 ? "DANGER" : s >= 30 ? "WARNING" : "NORMAL";
+      const sensorRows = Object.entries(sensorRisks)
+        .sort(([,a],[,b]) => b - a)
+        .map(([k, score]) => {
+          const wtf = weeksToFailure[k];
+          const wtfLabel = wtf != null ? `<span style="color:#f59e0b;font-size:0.8rem;">~${wtf}wk to danger</span>` : "";
+          return `
+            <div class="row" style="margin:4px 0;padding:6px 0;border-bottom:1px solid var(--border,#333);">
+              <div class="l" style="flex:1;">
+                <span style="font-size:0.85rem;font-weight:600;">${k}</span>
+                ${wtfLabel}
+              </div>
+              <div class="r" style="display:flex;align-items:center;gap:8px;">
+                <div style="width:80px;height:6px;background:var(--border,#333);border-radius:3px;overflow:hidden;">
+                  <div style="width:${score}%;height:100%;background:${tierColor(score)};border-radius:3px;"></div>
+                </div>
+                <span style="font-size:0.8rem;color:${tierColor(score)};min-width:50px;text-align:right;">${score}/100 <span style="font-size:0.7rem;">${tierLabel(score)}</span></span>
+              </div>
+            </div>`;
+        }).join("");
+
+      // ── System risk timeline ───────────────────────────────────────────
       const risk = data.risk || {};
       const renderRiskRow = (label, entry) => {
-        if(!entry){
-          return `<div class="row"><div class="l"><h3>${label}</h3><p>Not enough data yet.</p></div><div class="r"><span class="pill2">--</span></div></div>`;
-        }
+        if(!entry) return `<div class="row"><div class="l"><h3>${label}</h3><p>Not enough data yet.</p></div><div class="r"><span class="pill2">--</span></div></div>`;
+        const max = Math.max(entry.risk7, entry.risk14, entry.risk30);
+        const color = max >= 70 ? "#ef4444" : max >= 40 ? "#f59e0b" : "#22c55e";
         return `
           <div class="row">
             <div class="l">
@@ -3351,33 +3416,54 @@
               <p>${entry.reason || "Risk trend detected."}</p>
             </div>
             <div class="r" style="text-align:right;">
-              <div class="mini">7d: ${entry.risk7}</div>
-              <div class="mini">14d: ${entry.risk14}</div>
-              <div class="mini">30d: ${entry.risk30}</div>
+              <div class="mini" style="color:${color}">7d: ${entry.risk7}%</div>
+              <div class="mini">14d: ${entry.risk14}%</div>
+              <div class="mini">30d: ${entry.risk30}%</div>
             </div>
-          </div>
-        `;
+          </div>`;
       };
-      riskPanel.innerHTML = [
-        renderRiskRow("Cooling System", risk.cooling),
-        renderRiskRow("Charging System", risk.charging),
-        renderRiskRow("Fuel System", risk.fuel)
-      ].join("");
+
+      riskPanel.innerHTML = `
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+          <div style="text-align:center;">
+            <div style="font-size:2rem;font-weight:700;color:${healthColor};">${healthScore}</div>
+            <div style="font-size:0.75rem;color:var(--text-muted,#aaa);">Health Score</div>
+          </div>
+          <div style="flex:1;">
+            <div style="height:8px;background:var(--border,#333);border-radius:4px;overflow:hidden;">
+              <div style="width:${healthScore}%;height:100%;background:${healthColor};border-radius:4px;transition:width 0.4s;"></div>
+            </div>
+            <div style="font-size:0.75rem;color:var(--text-muted,#aaa);margin-top:4px;">${healthScore >= 80 ? "Good condition" : healthScore >= 50 ? "Monitor closely" : "Action required"}</div>
+          </div>
+        </div>
+        ${sensorRows ? `<div style="margin-bottom:16px;"><h4 style="margin:0 0 6px;font-size:0.8rem;text-transform:uppercase;color:var(--text-muted,#aaa);">Sensor Risk Scores</h4>${sensorRows}</div>` : ""}
+        <h4 style="margin:12px 0 6px;font-size:0.8rem;text-transform:uppercase;color:var(--text-muted,#aaa);">System Risk (7 / 14 / 30 day)</h4>
+        ${[renderRiskRow("Cooling System", risk.cooling), renderRiskRow("Charging System", risk.charging), renderRiskRow("Fuel System", risk.fuel)].join("")}
+      `;
     }
 
     async function loadHealthRisk(){
       if(!state.selectedVehicleId){
         state.healthRisk.data = null;
+        state.healthRisk.capabilities = null;
         renderHealthRisk();
         return;
       }
       state.healthRisk.loading = true;
       try{
-        const data = await fetchJson(`${API_BASE_URL}/api/ml/state?vehicleId=${encodeURIComponent(state.selectedVehicleId)}`);
-        state.healthRisk.data = data.data || null;
+        // Fetch full prediction (new ML endpoint) + vehicle capabilities in parallel
+        const [predResp, capsResp] = await Promise.allSettled([
+          fetchJson(`${API_BASE_URL}/api/vehicles/${encodeURIComponent(state.selectedVehicleId)}/prediction`),
+          fetchJson(`${API_BASE_URL}/api/vehicles/${encodeURIComponent(state.selectedVehicleId)}/capabilities`)
+        ]);
+        // Support both old /api/ml/state format and new /prediction format
+        const predData = predResp.status === "fulfilled" ? (predResp.value?.data || null) : null;
+        state.healthRisk.data = predData;
+        state.healthRisk.capabilities = capsResp.status === "fulfilled" ? (capsResp.value?.data || null) : null;
         renderHealthRisk();
       }catch(err){
         state.healthRisk.data = null;
+        state.healthRisk.capabilities = null;
         renderHealthRisk();
       }finally{
         state.healthRisk.loading = false;
