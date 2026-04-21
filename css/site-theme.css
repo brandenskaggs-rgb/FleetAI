@@ -1,0 +1,113 @@
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{
+  font-family:var(--font-body);
+  color:var(--text);
+  background:
+    radial-gradient(900px 520px at 12% -12%, var(--haze-1) 0%, rgba(37,99,235,0) 60%),
+    radial-gradient(800px 520px at 88% -6%, var(--haze-2) 0%, rgba(56,189,248,0) 55%),
+    radial-gradient(900px 640px at 30% 92%, var(--haze-3) 0%, rgba(37,99,235,0) 60%),
+    linear-gradient(180deg, var(--bg) 0%, var(--haze-4) 100%);
+}
+a{color:inherit;text-decoration:none}
+img{max-width:100%;display:block}
+::selection{background:var(--primary-soft)}
+:focus-visible{outline:none;box-shadow:var(--focus)}
+
+.siteHeader{
+  position:sticky;
+  top:0;
+  z-index:50;
+  background:var(--header-bg);
+  backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--header-border);
+}
+.siteHeader .siteNav a{
+  color:var(--header-link);
+}
+.siteHeader .siteNav a:hover,
+.siteHeader .siteNav a.is-active{
+  color:var(--header-link-active);
+}
+.siteHeader .btn.ghost{
+  color:#ffffff;
+  border-color:var(--header-ghost-border);
+}
+.siteHeader .btn.primary{
+  border-color:#2f6cf5;
+  background:linear-gradient(180deg, #2f6cf5 0%, #2459d6 100%);
+}
+.siteHeader .btn.secondary{
+  color:#ffffff;
+  background:var(--header-ghost);
+  border-color:var(--header-ghost-border);
+}
+.siteHeader .themeSelect{
+  background:rgba(255,255,255,0.12);
+  color:#ffffff;
+  border-color:var(--header-ghost-border);
+}
+.siteHeader .themeSelect:hover,
+.siteHeader .themeSelect:focus{
+  background:rgba(255,255,255,0.18);
+  border-color:rgba(255,255,255,0.34);
+}
+.announceBar .btn.ghost{
+  color:#e6f0ff;
+  border-color:rgba(255,255,255,0.2);
+}
+.siteHeader .navToggle{
+  color:#ffffff;
+  border-color:var(--header-ghost-border);
+  background:rgba(255,255,255,0.06);
+}
+.wordmark{
+  display:flex;
+  gap:6px;
+  align-items:center;
+  font-family:var(--font-display);
+  font-weight:800;
+  font-size:20px;
+}
+.wordmark .brandFleet{color:#ffffff}
+.wordmark .brandAI{color:#4c8dff}
+
+/* Sign-in text link — clean, no border box */
+.siteSignIn{
+  font-size:14px;
+  font-weight:700;
+  color:rgba(255,255,255,0.78);
+  padding:8px 14px;
+  border-radius:999px;
+  border:1px solid transparent;
+  transition:color .15s ease, background .15s ease, border-color .15s ease;
+  white-space:nowrap;
+  cursor:pointer;
+}
+.siteSignIn:hover{
+  color:#ffffff;
+  background:rgba(255,255,255,0.08);
+  border-color:rgba(255,255,255,0.12);
+}
+
+/* Mono live tag used in hero shell */
+.monoTag{
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  padding:4px 10px;
+  border-radius:999px;
+  font-size:11px;
+  font-weight:700;
+  letter-spacing:0.08em;
+  font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;
+  border:1px solid;
+}
+
+.footer{
+  background:var(--footer-bg);
+  color:var(--footer-text);
+}
+.footer a{color:rgba(255,255,255,0.8)}
+.footer a:hover{color:#ffffff}
