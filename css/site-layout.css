@@ -1259,3 +1259,110 @@
 .scopeGrid .card{
   height:100%;
 }
+
+/* ── Stats band ──────────────────────────────────── */
+.statsBand{
+  padding:0;
+  border-top:1px solid color-mix(in srgb, var(--border) 65%, transparent);
+  border-bottom:1px solid color-mix(in srgb, var(--border) 65%, transparent);
+  background:color-mix(in srgb, var(--panel) 28%, transparent);
+}
+.statsBand__grid{
+  display:grid;
+  grid-template-columns:repeat(4, minmax(0,1fr));
+  gap:0;
+}
+.statsBand__item{
+  display:flex;
+  flex-direction:column;
+  gap:5px;
+  padding:22px 28px;
+  border-right:1px solid color-mix(in srgb, var(--border) 55%, transparent);
+}
+.statsBand__item:last-child{border-right:0}
+.statsBand__value{
+  font-size:20px;
+  font-weight:800;
+  font-family:var(--font-display);
+  color:var(--text);
+  line-height:1.1;
+}
+.statsBand__label{
+  font-size:12px;
+  color:var(--muted);
+  line-height:1.45;
+}
+@media (max-width:900px){
+  .statsBand__grid{grid-template-columns:repeat(2, minmax(0,1fr))}
+  .statsBand__item:nth-child(2){border-right:0}
+}
+@media (max-width:600px){
+  .statsBand__grid{grid-template-columns:1fr}
+  .statsBand__item{border-right:0;border-bottom:1px solid color-mix(in srgb, var(--border) 55%, transparent)}
+  .statsBand__item:last-child{border-bottom:0}
+}
+
+/* ── Sensor coverage grid ────────────────────────── */
+.sensorGrid{
+  display:grid;
+  grid-template-columns:repeat(3, minmax(0,1fr));
+  gap:16px;
+}
+.sensorGroup{
+  padding:22px;
+  border-radius:20px;
+  border:1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  background:rgba(255,255,255,0.025);
+  display:grid;
+  gap:0;
+  align-content:start;
+}
+.sensorGroup--featured{
+  grid-column:span 2;
+  background:linear-gradient(135deg, color-mix(in srgb, var(--primary) 10%, rgba(255,255,255,0.02)) 0%, rgba(255,255,255,0.02) 100%);
+  border-color:color-mix(in srgb, var(--primary) 32%, var(--border));
+}
+.sensorGroup__category{
+  font-size:11px;
+  font-weight:800;
+  text-transform:uppercase;
+  letter-spacing:0.16em;
+  color:var(--primary);
+  margin-bottom:8px;
+}
+.sensorGroup h3{
+  font-size:16px;
+  font-family:var(--font-display);
+  margin:0 0 12px;
+  color:var(--text);
+}
+.sensorGroup p{
+  font-size:13px;
+  color:var(--muted);
+  line-height:1.55;
+  margin:0 0 12px;
+}
+.sensorGroup__tags{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+}
+.sensorTag{
+  display:inline-flex;
+  align-items:center;
+  padding:5px 12px;
+  border-radius:999px;
+  background:color-mix(in srgb, var(--primary) 9%, var(--bg));
+  border:1px solid color-mix(in srgb, var(--primary) 22%, var(--border));
+  font-size:12px;
+  font-weight:600;
+  color:var(--text);
+}
+@media (max-width:1100px){
+  .sensorGrid{grid-template-columns:repeat(2, minmax(0,1fr))}
+  .sensorGroup--featured{grid-column:span 2}
+}
+@media (max-width:700px){
+  .sensorGrid{grid-template-columns:1fr}
+  .sensorGroup--featured{grid-column:span 1}
+}

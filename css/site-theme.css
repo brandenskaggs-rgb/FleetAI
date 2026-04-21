@@ -73,6 +73,38 @@ img{max-width:100%;display:block}
 .wordmark .brandFleet{color:#ffffff}
 .wordmark .brandAI{color:#4c8dff}
 
+/* Sign-in text link — clean, no border box */
+.siteSignIn{
+  font-size:14px;
+  font-weight:700;
+  color:rgba(255,255,255,0.78);
+  padding:8px 14px;
+  border-radius:999px;
+  border:1px solid transparent;
+  transition:color .15s ease, background .15s ease, border-color .15s ease;
+  white-space:nowrap;
+  cursor:pointer;
+}
+.siteSignIn:hover{
+  color:#ffffff;
+  background:rgba(255,255,255,0.08);
+  border-color:rgba(255,255,255,0.12);
+}
+
+/* Mono live tag used in hero shell */
+.monoTag{
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  padding:4px 10px;
+  border-radius:999px;
+  font-size:11px;
+  font-weight:700;
+  letter-spacing:0.08em;
+  font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;
+  border:1px solid;
+}
+
 .footer{
   background:var(--footer-bg);
   color:var(--footer-text);

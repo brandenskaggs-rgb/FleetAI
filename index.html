@@ -11,6 +11,8 @@
   <link rel="stylesheet" href="/css/site-components.css?v=1775026688" />
   <link rel="stylesheet" href="/css/site-layout.css?v=1775026688" />
   <link rel="stylesheet" href="/css/design-system.css?v=1775026688" />
+  <!-- Apply saved theme before first paint to prevent flash -->
+  <script>try{var _t=localStorage.getItem("fleetai.theme");if(_t)document.documentElement.dataset.theme=_t;}catch(e){}</script>
 </head>
 <body>
   <header class="siteHeader">
@@ -29,7 +31,7 @@
           <option value="dark-blue">Dark Blue</option>
           <option value="dark-gray">Dark</option>
         </select>
-        <a class="btn secondary" href="/login.html">Sign In</a>
+        <a class="siteSignIn" href="/login.html">Sign In</a>
         <a class="btn primary" href="/request-demo.html">Request Demo</a>
         <button class="navToggle" id="navToggle" type="button">☰</button>
       </div>
@@ -51,7 +53,7 @@
         <p>Fleet AI connects vehicle telemetry, driver data, and maintenance workflows into one intelligent operating layer — built for fleets that can't afford the cost of being surprised.</p>
         <div class="heroActions">
           <a class="btn primary" href="/request-demo.html">Request Demo</a>
-          <a class="btn secondary" style="color:var(--header-link-active);border-color:var(--header-ghost-border);background:var(--header-ghost)" href="/product.html">See the Product</a>
+          <a class="btn outline-white" href="/product.html">See the Product</a>
         </div>
         <div class="heroMetrics">
           <div class="metric">
@@ -125,6 +127,30 @@
     </div>
   </section>
 
+  <!-- Stats band -->
+  <div class="statsBand">
+    <div class="container">
+      <div class="statsBand__grid">
+        <div class="statsBand__item">
+          <span class="statsBand__value">15+ sensors</span>
+          <span class="statsBand__label">per vehicle — RPM, temps, voltage, pressure, fuel, and more</span>
+        </div>
+        <div class="statsBand__item">
+          <span class="statsBand__value">OBD-II + J1939</span>
+          <span class="statsBand__label">native support for light-duty and commercial heavy-duty vehicles</span>
+        </div>
+        <div class="statsBand__item">
+          <span class="statsBand__value">Offline-first</span>
+          <span class="statsBand__label">buffer and replay keeps data intact through coverage gaps</span>
+        </div>
+        <div class="statsBand__item">
+          <span class="statsBand__value">Org-isolated</span>
+          <span class="statsBand__label">strict multi-tenant separation — no cross-fleet data mixing</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <section class="section section--tight">
     <div class="container">
       <div class="proofBand">
@@ -163,6 +189,67 @@
           <div class="valueCard__number">03</div>
           <h3>Proof before commitment</h3>
           <p>Run a real pilot on live vehicles in real conditions. Fleet AI is only worth deploying broadly if it earns that right in the field first.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section section--tight section--tint">
+    <div class="container">
+      <div class="sectionHeader sectionHeader--centered">
+        <h2>What Fleet AI listens to</h2>
+        <p>Every signal that matters — automatically organized into the picture your team needs to make confident maintenance decisions.</p>
+      </div>
+      <div class="sensorGrid">
+        <div class="sensorGroup">
+          <div class="sensorGroup__category">Engine Health</div>
+          <h3>Core Performance</h3>
+          <div class="sensorGroup__tags">
+            <span class="sensorTag">RPM</span>
+            <span class="sensorTag">Engine Load</span>
+            <span class="sensorTag">Oil Pressure</span>
+            <span class="sensorTag">Manifold Pressure</span>
+            <span class="sensorTag">Engine Hours</span>
+          </div>
+        </div>
+        <div class="sensorGroup">
+          <div class="sensorGroup__category">Thermal Systems</div>
+          <h3>Temperature Monitoring</h3>
+          <div class="sensorGroup__tags">
+            <span class="sensorTag">Coolant Temp</span>
+            <span class="sensorTag">Oil Temp</span>
+            <span class="sensorTag">EGT</span>
+            <span class="sensorTag">Transmission Temp</span>
+          </div>
+        </div>
+        <div class="sensorGroup">
+          <div class="sensorGroup__category">Fuel &amp; Emissions</div>
+          <h3>Efficiency &amp; Compliance</h3>
+          <div class="sensorGroup__tags">
+            <span class="sensorTag">Fuel Rate</span>
+            <span class="sensorTag">Fuel Level</span>
+            <span class="sensorTag">Fuel Delivery Pressure</span>
+            <span class="sensorTag">DPF Soot Load</span>
+          </div>
+        </div>
+        <div class="sensorGroup">
+          <div class="sensorGroup__category">Electrical &amp; Motion</div>
+          <h3>Power &amp; Speed</h3>
+          <div class="sensorGroup__tags">
+            <span class="sensorTag">Battery Voltage</span>
+            <span class="sensorTag">Vehicle Speed</span>
+          </div>
+        </div>
+        <div class="sensorGroup sensorGroup--featured">
+          <div class="sensorGroup__category" style="color:var(--accent)">2015+ Vehicles</div>
+          <h3>Advanced Sensor Package</h3>
+          <p>Newer vehicles with modern ECUs unlock additional native sensor channels. Pre-2015 fleets are addon-eligible for hardware expansion — no vehicle left behind.</p>
+          <div class="sensorGroup__tags">
+            <span class="sensorTag">TPMS</span>
+            <span class="sensorTag">Accelerometer / Vibration</span>
+            <span class="sensorTag">Dashcam Integration</span>
+            <span class="sensorTag">Trailer Sensor</span>
+          </div>
         </div>
       </div>
     </div>
@@ -252,10 +339,10 @@
       <div class="card">
         <div class="card__title">What this is not</div>
         <ul class="featureList">
-          <li><span class="dot" style="background:var(--orange)"></span>Not GPS-only fleet tracking dressed up as AI</li>
-          <li><span class="dot" style="background:var(--orange)"></span>Not autonomous control or black-box autopilot</li>
-          <li><span class="dot" style="background:var(--orange)"></span>Not a replacement for operator judgment and shop discipline</li>
-          <li><span class="dot" style="background:var(--orange)"></span>Not a fit if you want to skip real-world validation</li>
+          <li><span class="dot" style="background:var(--accent)"></span>Not GPS-only fleet tracking dressed up as AI</li>
+          <li><span class="dot" style="background:var(--accent)"></span>Not autonomous control or black-box autopilot</li>
+          <li><span class="dot" style="background:var(--accent)"></span>Not a replacement for operator judgment and shop discipline</li>
+          <li><span class="dot" style="background:var(--accent)"></span>Not a fit if you want to skip real-world validation</li>
         </ul>
       </div>
     </div>
@@ -270,7 +357,7 @@
         </div>
         <div class="heroActions">
           <a class="btn primary" href="/request-demo.html">Request Demo</a>
-          <a class="btn secondary" style="color:var(--header-link-active);border-color:var(--header-ghost-border);background:var(--header-ghost)" href="/pilot.html">Start Access Request</a>
+          <a class="btn outline-white" href="/pilot.html">Start Access Request</a>
         </div>
       </div>
     </div>

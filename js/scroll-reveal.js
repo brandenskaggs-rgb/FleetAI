@@ -1,6 +1,6 @@
 function initScrollReveal(){
   const reduce = window.matchMedia("(prefers-reduced-motion: reduce)");
-  document.querySelectorAll("[id]").forEach((el) => el.classList.add("anchor"));
+  document.querySelectorAll("section[id], h1[id], h2[id], h3[id]").forEach((el) => el.classList.add("anchor"));
   const targets = Array.from(document.querySelectorAll(".section, .sectionHeader, .card, .panel, .hero"))
     .filter((el) => !el.classList.contains("reveal"))
     .filter((el) => !el.closest(".legal-page"));
