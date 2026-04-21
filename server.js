@@ -607,6 +607,8 @@ app.use((err, req, res, next) => {
 });
 
 app.get("/", (req, res) => {
+  res.set("Cache-Control", "no-cache, no-store, must-revalidate");
+  res.set("Pragma", "no-cache");
   res.sendFile(path.join(SITE_ROOT, "index.html"));
 });
 
@@ -635,10 +637,12 @@ app.get("/driver_app", (req, res) => {
 });
 
 app.get("/driver_app/", (req, res) => {
+  res.set("Cache-Control", "no-cache, no-store, must-revalidate");
   res.sendFile(path.join(UI_DIR, "driver-tablet.html"));
 });
 
 app.get("/driver", (req, res) => {
+  res.set("Cache-Control", "no-cache, no-store, must-revalidate");
   res.sendFile(path.join(UI_DIR, "driver-tablet.html"));
 });
 
