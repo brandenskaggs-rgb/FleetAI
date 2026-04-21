@@ -1,839 +1,1672 @@
-﻿<!doctype html>
-<html lang="en" data-theme="light">
+<!doctype html>
+<html lang="en">
 <head>
-  <link rel="stylesheet" href="/css/theme.css" />
-
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Fleet AI - Driver Tablet</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1" />
+  <title>Fleet AI — Driver</title>
   <style>
     @import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap");
 
-    :root{
-      --bg:#F8FBFF;
-      --bg2:#FFFFFF;
-      --panel:#FFFFFF;
-      --panel2:#F3F7FF;
-      --border:rgba(18,52,89,.12);
-      --text:#0E1B2C;
-      --muted:#5B6F8A;
-      --primary:#2D6BFF;
-      --primary2:#1F57D6;
-      --shadow: 0 14px 32px rgba(10,30,60,.10);
-      --radius: 16px;
-      --chip: rgba(45,107,255,.12);
-      --font-body: "Manrope", "Segoe UI", Tahoma, Arial, sans-serif;
-      --font-display: "Space Grotesk", "Manrope", "Segoe UI", Tahoma, Arial, sans-serif;
+    :root {
+      --bg:       #111827;
+      --bg2:      #0d1117;
+      --panel:    #1f2937;
+      --panel2:   #374151;
+      --border:   rgba(255,255,255,.09);
+      --text:     #f9fafb;
+      --muted:    #9ca3af;
+      --primary:  #3b82f6;
+      --primaryD: #2563eb;
+      --amber:    #f59e0b;
+      --danger:   #ef4444;
+      --success:  #22c55e;
+      --shadow:   0 4px 24px rgba(0,0,0,.5);
+      --radius:   14px;
+      --font-body:"Manrope","Segoe UI",Tahoma,Arial,sans-serif;
+      --font-disp:"Space Grotesk","Manrope","Segoe UI",Tahoma,Arial,sans-serif;
+      --nav-h:    64px;
+      --hdr-h:    60px;
     }
 
-    *{box-sizing:border-box}
-    body{
-      margin:0;
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
       font-family: var(--font-body);
-      color:var(--text);
-      background:
-        radial-gradient(1100px 620px at 12% -10%, rgba(60,140,255,.20) 0%, rgba(60,140,255,0.0) 55%),
-        linear-gradient(180deg, var(--bg) 0%, var(--bg2) 100%);
-      min-height:100vh;
-    }
-    .app{
-      max-width: 980px;
-      margin:0 auto;
-      padding:24px;
-    }
-    .topbar{
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      gap:12px;
-      margin-bottom:18px;
-    }
-    .tabs{
-      display:flex;
-      gap:8px;
-      margin-bottom:16px;
-      flex-wrap:wrap;
-    }
-    .tabBtn{
-      border:1px solid var(--border);
-      background: var(--panel);
+      background: var(--bg);
       color: var(--text);
-      border-radius:12px;
-      padding:10px 14px;
-      font-weight:700;
-      font-size:13px;
-      cursor:pointer;
+      min-height: 100vh;
+      overflow-x: hidden;
     }
-    .tabBtn.active{
-      border-color: rgba(45,107,255,.45);
-      background: rgba(45,107,255,.12);
-      color:#0f3aa8;
-    }
-    .brand{
-      display:flex; gap:12px; align-items:center;
-    }
-    .logo{
-      width:46px;height:46px;border-radius:16px;
-      background: linear-gradient(135deg, rgba(77,163,255,.95) 0%, rgba(47,123,220,.95) 60%);
-      border:1px solid rgba(77,163,255,.35);
-      display:grid;place-items:center;
-      font-weight:800;
-      font-family: var(--font-display);
-      color:#071225;
-    }
-    .brand h1{margin:0;font-size:18px;font-family:var(--font-display)}
-    .brand small{display:block;margin-top:4px;color:var(--muted);font-size:12px}
 
-    .pill{
-      padding:8px 12px;
-      border-radius:999px;
-      border:1px solid var(--border);
-      background: var(--panel);
-      font-size:12px;
-      font-weight:700;
-      color:var(--text);
+    /* ── Header ─────────────────────────────────────── */
+    .appHeader {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: var(--hdr-h);
+      background: var(--bg2);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      z-index: 100;
     }
-    .pill.good{border-color: rgba(43,220,155,.35); background: rgba(43,220,155,.12); color:#0d6b4f;}
-    .pill.warn{border-color: rgba(255,176,32,.35); background: rgba(255,176,32,.12); color:#8a5d12;}
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .logo {
+      width: 38px; height: 38px;
+      border-radius: 10px;
+      background: linear-gradient(135deg,#3b82f6 0%,#2563eb 100%);
+      display: grid; place-items: center;
+      font-weight: 800;
+      font-family: var(--font-disp);
+      font-size: 14px;
+      color: #fff;
+      flex-shrink: 0;
+    }
+    .brandName {
+      font-family: var(--font-disp);
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .brandSub {
+      font-size: 11px;
+      color: var(--muted);
+      display: block;
+    }
+    .hdrRight {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .connPill {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: rgba(255,255,255,.06);
+      border: 1px solid var(--border);
+      color: var(--muted);
+    }
+    .connPill .dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--muted);
+      flex-shrink: 0;
+    }
+    .connPill.live { color: var(--success); border-color: rgba(34,197,94,.3); background: rgba(34,197,94,.08); }
+    .connPill.live .dot { background: var(--success); box-shadow: 0 0 6px var(--success); }
+    .connPill.stale { color: var(--amber); border-color: rgba(245,158,11,.3); background: rgba(245,158,11,.08); }
+    .connPill.stale .dot { background: var(--amber); }
+    .gearBtn {
+      width: 38px; height: 38px;
+      border-radius: 10px;
+      background: rgba(255,255,255,.06);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      display: grid; place-items: center;
+      cursor: pointer;
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+    .gearBtn:hover { background: rgba(255,255,255,.12); color: var(--text); }
 
-    .grid{
-      display:grid;
-      grid-template-columns: repeat(2, minmax(0,1fr));
-      gap:16px;
+    /* ── Main content ───────────────────────────────── */
+    .appMain {
+      padding-top: var(--hdr-h);
+      padding-bottom: var(--nav-h);
+      min-height: 100vh;
     }
-    @media (max-width: 860px){
-      .grid{grid-template-columns: 1fr}
+    .tabPanel { display: none; }
+    .tabPanel.active { display: block; }
+
+    /* ── Bottom nav ─────────────────────────────────── */
+    .bottomNav {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      height: var(--nav-h);
+      background: var(--bg2);
+      border-top: 1px solid var(--border);
+      display: flex;
+      z-index: 100;
     }
-    .card{
+    .navBtn {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-family: var(--font-body);
+      font-size: 10px;
+      font-weight: 700;
+      cursor: pointer;
+      border-top: 2px solid transparent;
+      transition: color .15s, border-color .15s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .navBtn svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+    .navBtn.active { color: var(--primary); border-top-color: var(--primary); }
+
+    /* ── Shared card ────────────────────────────────── */
+    .card {
       background: var(--panel);
-      border:1px solid var(--border);
+      border: 1px solid var(--border);
       border-radius: var(--radius);
       box-shadow: var(--shadow);
-      overflow:hidden;
+      overflow: hidden;
     }
-    .hd{
-      padding:16px;
-      border-bottom:1px solid var(--border);
-      background: var(--panel2);
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      gap:10px;
+    .cardHd {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(255,255,255,.03);
     }
-    .hd h2{margin:0;font-size:15px;font-family:var(--font-display)}
-    .bd{padding:16px}
-    .field{
-      display:grid;
-      gap:8px;
-      margin-bottom:12px;
-    }
-    label{font-size:12px;color:var(--muted);font-weight:700}
-    input{
-      border:1px solid var(--border);
-      background: var(--panel);
-      color: var(--text);
-      border-radius:12px;
-      padding:12px 12px;
-      font-size:14px;
-      outline:none;
-    }
-    input:focus{
-      border-color: rgba(45,107,255,.45);
-      box-shadow: 0 0 0 3px rgba(45,107,255,.16);
-    }
-    .btn{
-      border:1px solid var(--border);
-      background: var(--panel);
-      border-radius:12px;
-      padding:12px 14px;
-      font-weight:700;
-      font-size:14px;
-      font-family: var(--font-display);
-      cursor:pointer;
-    }
-    .btn.primary{
-      border-color: var(--primary2);
-      background: linear-gradient(180deg, var(--primary) 0%, var(--primary2) 100%);
-      color:#fff;
-    }
-    .note{
-      padding:12px 14px;
-      border-radius:12px;
-      border:1px dashed var(--border);
-      background: var(--panel2);
+    .cardHd h3 {
+      font-size: 13px;
+      font-weight: 700;
+      font-family: var(--font-disp);
       color: var(--muted);
-      font-size:12px;
-      line-height:1.5;
+      text-transform: uppercase;
+      letter-spacing: .05em;
     }
-    .statusRow{
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      gap:12px;
+    .cardBd { padding: 16px; }
+
+    /* ── Status badges ──────────────────────────────── */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      background: rgba(255,255,255,.05);
     }
-    .statusValue{
-      font-size:18px;
-      font-weight:800;
-      font-family: var(--font-display);
+    .badge.good  { color: var(--success); border-color: rgba(34,197,94,.35);  background: rgba(34,197,94,.1);  }
+    .badge.warn  { color: var(--amber);   border-color: rgba(245,158,11,.35); background: rgba(245,158,11,.1); }
+    .badge.bad   { color: var(--danger);  border-color: rgba(239,68,68,.35);  background: rgba(239,68,68,.1);  }
+
+    /* ── Buttons ────────────────────────────────────── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 12px 18px;
+      border-radius: 10px;
+      font-family: var(--font-disp);
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,.06);
+      color: var(--text);
+      transition: background .15s;
+      -webkit-tap-highlight-color: transparent;
     }
-    .hide{display:none}
-    .driverChat{
-      display:flex;
-      flex-direction:column;
-      gap:0;
+    .btn:hover { background: rgba(255,255,255,.12); }
+    .btn.primary { background: var(--primary); border-color: var(--primaryD); color: #fff; }
+    .btn.primary:hover { background: var(--primaryD); }
+    .btn.amber { background: var(--amber); border-color: #d97706; color: #000; }
+    .btn.full { width: 100%; }
+    .btn.sm { padding: 8px 12px; font-size: 12px; }
+    .btn.icon { padding: 10px; border-radius: 10px; }
+
+    /* ── Form inputs ────────────────────────────────── */
+    .field { display: grid; gap: 6px; margin-bottom: 14px; }
+    .field label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+    input, textarea {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--text);
+      font-family: var(--font-body);
+      font-size: 15px;
+      padding: 12px 14px;
+      outline: none;
+      width: 100%;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    input:focus, textarea:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(59,130,246,.2);
+    }
+
+    /* ══════════════════════════════════════════════════
+       TAB 1 — HOME
+    ══════════════════════════════════════════════════ */
+    #tab-home { padding: 16px; }
+
+    /* Driver row */
+    .driverRow {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+    .driverRowLeft { display: flex; align-items: center; gap: 12px; }
+    .driverAvatar {
+      width: 44px; height: 44px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, var(--primary) 0%, var(--primaryD) 100%);
+      display: grid; place-items: center;
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+    .driverInfo .driverName {
+      font-size: 17px;
+      font-weight: 800;
+      font-family: var(--font-disp);
+      color: var(--text);
+    }
+    .driverInfo .driverVehicle {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    /* Duty status badge (large) */
+    .dutyBadge {
+      padding: 6px 14px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      cursor: pointer;
+      border: none;
+      font-family: var(--font-disp);
+    }
+    .dutyBadge.on-duty    { background: rgba(34,197,94,.18);  color: var(--success); }
+    .dutyBadge.driving    { background: rgba(59,130,246,.18); color: var(--primary); }
+    .dutyBadge.off-duty   { background: rgba(255,255,255,.08); color: var(--muted); }
+    .dutyBadge.sleeper    { background: rgba(107,114,128,.18); color: #9ca3af; }
+
+    /* Gauge */
+    .gaugeWrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 8px 0 20px;
+    }
+    .gaugeLabel {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      margin-bottom: 12px;
+    }
+    .gaugeSvgWrap { position: relative; width: 200px; height: 200px; }
+    .gaugeCenter {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+    }
+    .gaugeScore {
+      font-size: 3.2rem;
+      font-weight: 800;
+      font-family: var(--font-disp);
+      line-height: 1;
+    }
+    .gaugeScoreLabel {
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    /* System chips */
+    .sysChips {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin-top: 16px;
+    }
+    .sysChip {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 7px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      border: 1px solid var(--border);
+      background: var(--panel);
+    }
+    .sysChip.normal { color: var(--success); border-color: rgba(34,197,94,.3);  background: rgba(34,197,94,.08);  }
+    .sysChip.warning{ color: var(--amber);   border-color: rgba(245,158,11,.3); background: rgba(245,158,11,.08); }
+    .sysChip.danger { color: var(--danger);  border-color: rgba(239,68,68,.3);  background: rgba(239,68,68,.08);  }
+
+    /* Quick-action cards on home */
+    .homeCards {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 16px;
+    }
+    .statCard {
+      background: var(--panel);
+      border: 1px solid var(--border);
       border-radius: var(--radius);
-      border:1px solid rgba(148,163,184,.22);
-      overflow:hidden;
-      background:#0f1622;
-      color:#e2e8f0;
+      padding: 14px;
     }
-    .driverChatHeader{
-      padding:14px 16px;
-      background:#0b111b;
-      border-bottom:1px solid rgba(148,163,184,.16);
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      gap:12px;
+    .statCardLabel {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      margin-bottom: 6px;
     }
-    .driverChatHeader h2{margin:0;font-size:16px;font-family:var(--font-display)}
-    .driverChatHeader small{color:#94a3b8}
-    .driverChatPrompts{
-      display:flex;
-      flex-wrap:wrap;
-      gap:8px;
-      padding:12px 16px;
-      background:#0f1724;
-      border-bottom:1px solid rgba(148,163,184,.12);
+    .statCardVal {
+      font-size: 22px;
+      font-weight: 800;
+      font-family: var(--font-disp);
     }
-    .driverChatPrompts .btn{
-      background:transparent;
-      color:#e2e8f0;
-      border-color: rgba(148,163,184,.25);
-      font-size:12px;
-      padding:8px 10px;
+    .statCardVal.muted { color: var(--muted); font-size: 16px; }
+
+    /* ══════════════════════════════════════════════════
+       TAB 2 — LOGBOOK
+    ══════════════════════════════════════════════════ */
+    #tab-logbook { padding: 16px; }
+
+    .dutyHero {
+      text-align: center;
+      padding: 28px 16px 20px;
     }
-    .driverChatLog{
-      max-height: 360px;
-      overflow:auto;
-      background:#0f1622;
+    .dutyHeroLabel {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      margin-bottom: 10px;
     }
-    .driverMsg{
-      padding:14px 16px;
-      border-bottom:1px solid rgba(148,163,184,.12);
-      display:flex;
-      flex-direction:column;
-      gap:6px;
+    .dutyHeroBig {
+      font-size: 2.4rem;
+      font-weight: 800;
+      font-family: var(--font-disp);
+      letter-spacing: .02em;
+      margin-bottom: 16px;
     }
-    .driverMsg .meta{color:#94a3b8;font-size:11px}
-    .driverMsg.user{
-      align-items:flex-end;
-      background: rgba(30,41,59,.45);
+    .dutyHeroBig.on-duty  { color: var(--success); }
+    .dutyHeroBig.driving  { color: var(--primary); }
+    .dutyHeroBig.off-duty { color: var(--muted); }
+    .dutyHeroBig.sleeper  { color: #6b7280; }
+
+    .dutyPicker {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 20px;
     }
-    .driverMsg.ai{
-      align-items:flex-start;
+    .dutyOption {
+      padding: 14px 10px;
+      border-radius: 12px;
+      border: 2px solid var(--border);
+      background: var(--panel);
+      font-family: var(--font-disp);
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      text-align: center;
+      transition: all .15s;
+      -webkit-tap-highlight-color: transparent;
     }
-    .driverMsgText{
-      font-size:15px;
-      line-height:1.6;
-      color:#e2e8f0;
-      max-width: 75%;
-      text-align:left;
-      word-break:break-word;
+    .dutyOption:hover { border-color: rgba(255,255,255,.2); }
+    .dutyOption.selected { border-color: var(--primary); background: rgba(59,130,246,.15); color: var(--primary); }
+
+    .hoursRow {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 20px;
     }
-    .driverMsg.user .driverMsgText{
-      text-align:right;
+
+    .logList { display: flex; flex-direction: column; gap: 2px; }
+    .logEntry {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 14px;
+      background: var(--panel);
+      border-radius: 10px;
+      border: 1px solid var(--border);
     }
-    .driverChatInput{
-      display:flex;
-      gap:10px;
-      align-items:flex-end;
-      padding:12px 16px;
-      background:#0b111b;
-      border-top:1px solid rgba(148,163,184,.16);
-      position: sticky;
-      bottom:0;
-      z-index:2;
+    .logEntryTime { font-size: 12px; color: var(--muted); font-weight: 600; min-width: 52px; }
+    .logEntryText { font-size: 13px; font-weight: 600; flex: 1; }
+    .logEntryStatus { font-size: 11px; font-weight: 700; }
+    .logEntryStatus.on-duty  { color: var(--success); }
+    .logEntryStatus.driving  { color: var(--primary); }
+    .logEntryStatus.off-duty { color: var(--muted); }
+    .logEntryStatus.sleeper  { color: #6b7280; }
+
+    .remarkRow {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
     }
-    .inputWrap{
-      position:relative;
-      flex:1;
+    .remarkRow input { flex: 1; }
+
+    /* ══════════════════════════════════════════════════
+       TAB 3 — SENSORS
+    ══════════════════════════════════════════════════ */
+    #tab-sensors { padding: 16px; }
+
+    .sensorGrid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
     }
-    .inputWrap textarea{
-      width:100%;
-      min-height:64px;
-      max-height:140px;
-      padding:10px 38px 10px 12px;
-      border-radius:12px;
-      border:1px solid rgba(148,163,184,.22);
-      background:#0f1724;
-      color:#e2e8f0;
-      resize:vertical;
-      font-size:15px;
+    .sensorTile {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 14px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-height: 140px;
     }
-    .micBtn{
-      position:absolute;
-      right:8px;
-      bottom:8px;
-      width:28px;
-      height:28px;
-      border-radius:999px;
-      border:1px solid rgba(148,163,184,.25);
-      background:rgba(30,41,59,.6);
-      color:#e2e8f0;
-      display:grid;
-      place-items:center;
-      cursor:pointer;
-      font-size:12px;
+    .sensorTile.warn-border  { border-color: rgba(245,158,11,.4); }
+    .sensorTile.danger-border{ border-color: rgba(239,68,68,.45); }
+    .sensorTileTop {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
     }
-    .micBtn.active{
-      border-color:#60a5fa;
-      box-shadow:0 0 0 3px rgba(96,165,250,.2);
+    .sensorIcon { font-size: 18px; line-height: 1; }
+    .sensorName {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .04em;
     }
-    .voiceNotice{
-      font-size:12px;
-      color:#94a3b8;
-      padding:8px 16px;
-      background:#0b111b;
-      border-top:1px solid rgba(148,163,184,.12);
+    .sensorVal {
+      font-size: 2rem;
+      font-weight: 800;
+      font-family: var(--font-disp);
+      line-height: 1.1;
+      margin: 4px 0;
     }
-    .recIndicator{
-      display:inline-flex;
-      align-items:center;
-      gap:6px;
-      font-size:12px;
-      color:#e2e8f0;
+    .sensorUnit {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--muted);
+      margin-left: 3px;
     }
-    .recDot{
-      width:8px;height:8px;border-radius:999px;background:#ef4444;
-      animation: pulse 1s infinite;
+    .sensorBar {
+      height: 5px;
+      background: rgba(255,255,255,.08);
+      border-radius: 3px;
+      overflow: hidden;
+      margin-top: auto;
     }
-    @keyframes pulse{
-      0%,100%{transform:scale(1);opacity:.5;}
-      50%{transform:scale(1.2);opacity:1;}
+    .sensorBarFill {
+      height: 100%;
+      border-radius: 3px;
+      background: var(--success);
+      transition: width .4s, background .4s;
+    }
+    .sensorBarFill.warn   { background: var(--amber); }
+    .sensorBarFill.danger { background: var(--danger); }
+    .sensorTier {
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: .07em;
+      color: var(--success);
+    }
+    .sensorTier.warn   { color: var(--amber); }
+    .sensorTier.danger { color: var(--danger); }
+
+    /* ══════════════════════════════════════════════════
+       TAB 4 — ADVISOR
+    ══════════════════════════════════════════════════ */
+    #tab-advisor {
+      display: flex;
+      flex-direction: column;
+      height: calc(100vh - var(--hdr-h) - var(--nav-h));
+    }
+    #tab-advisor.active { display: flex; }
+
+    .chatHeader {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-shrink: 0;
+    }
+    .chatHeader h2 { font-size: 16px; font-family: var(--font-disp); }
+    .chatHeader small { color: var(--muted); font-size: 12px; display: block; margin-top: 2px; }
+
+    .chatPrompts {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .promptChip {
+      font-size: 12px;
+      padding: 7px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(245,158,11,.35);
+      background: rgba(245,158,11,.08);
+      color: var(--amber);
+      font-weight: 700;
+      cursor: pointer;
+      font-family: var(--font-body);
+      -webkit-tap-highlight-color: transparent;
+    }
+    .promptChip:hover { background: rgba(245,158,11,.16); }
+
+    .chatLog {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .chatMsg {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      max-width: 82%;
+    }
+    .chatMsg.user { align-self: flex-end; align-items: flex-end; }
+    .chatMsg.ai   { align-self: flex-start; align-items: flex-start; }
+    .chatMsgMeta { font-size: 10px; color: var(--muted); font-weight: 600; }
+    .chatBubble {
+      padding: 10px 14px;
+      border-radius: 14px;
+      font-size: 14px;
+      line-height: 1.55;
+      word-break: break-word;
+    }
+    .chatMsg.user .chatBubble {
+      background: var(--primary);
+      color: #fff;
+      border-bottom-right-radius: 4px;
+    }
+    .chatMsg.ai .chatBubble {
+      background: var(--panel2);
+      color: var(--text);
+      border-bottom-left-radius: 4px;
+    }
+    .chatAiDot {
+      width: 26px; height: 26px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, var(--primary) 0%, var(--primaryD) 100%);
+      display: grid; place-items: center;
+      font-size: 12px;
+      flex-shrink: 0;
+      margin-bottom: 4px;
+    }
+
+    .chatInputArea {
+      padding: 10px 14px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      gap: 8px;
+      align-items: flex-end;
+      flex-shrink: 0;
+    }
+    .chatInputWrap { flex: 1; position: relative; }
+    .chatInputWrap textarea {
+      min-height: 48px;
+      max-height: 120px;
+      padding: 12px 40px 12px 14px;
+      resize: none;
+      border-radius: 12px;
+      font-size: 14px;
+    }
+    .micBtn {
+      position: absolute;
+      right: 8px; bottom: 8px;
+      width: 28px; height: 28px;
+      border-radius: 999px;
+      background: rgba(255,255,255,.08);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      display: grid; place-items: center;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    .micBtn.active { border-color: var(--primary); color: var(--primary); box-shadow: 0 0 0 3px rgba(59,130,246,.2); }
+    .chatSendBtn {
+      width: 44px; height: 44px;
+      border-radius: 12px;
+      background: var(--primary);
+      border: 1px solid var(--primaryD);
+      color: #fff;
+      display: grid; place-items: center;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .chatSendBtn:hover { background: var(--primaryD); }
+    .chatSendBtn svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+    .voiceNotice {
+      font-size: 11px;
+      color: var(--muted);
+      padding: 6px 16px 10px;
+      flex-shrink: 0;
+    }
+    .recIndicator { display: inline-flex; align-items: center; gap: 6px; }
+    .recDot { width: 7px; height: 7px; border-radius: 50%; background: var(--danger); animation: pulse 1s infinite; }
+    @keyframes pulse { 0%,100%{opacity:.5;transform:scale(1)} 50%{opacity:1;transform:scale(1.25)} }
+
+    /* ══════════════════════════════════════════════════
+       SETUP MODAL
+    ══════════════════════════════════════════════════ */
+    .modalBackdrop {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.65);
+      backdrop-filter: blur(4px);
+      z-index: 200;
+      display: flex;
+      align-items: flex-end;
+    }
+    .modalBackdrop.hide { display: none; }
+    .modalSheet {
+      background: var(--bg);
+      border-top: 1px solid var(--border);
+      border-radius: 20px 20px 0 0;
+      width: 100%;
+      max-height: 92vh;
+      overflow-y: auto;
+      padding: 0 0 32px;
+    }
+    .modalHd {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      position: sticky; top: 0;
+      background: var(--bg);
+      z-index: 1;
+    }
+    .modalHd h2 { font-size: 17px; font-family: var(--font-disp); }
+    .modalClose {
+      width: 32px; height: 32px;
+      border-radius: 999px;
+      background: rgba(255,255,255,.08);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      display: grid; place-items: center;
+      cursor: pointer;
+      font-size: 18px;
+    }
+    .modalSection {
+      padding: 20px 20px 8px;
+    }
+    .modalSectionTitle {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .07em;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .noteBox {
+      padding: 10px 14px;
+      border-radius: 10px;
+      border: 1px dashed var(--border);
+      background: rgba(255,255,255,.03);
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.5;
+      margin-top: 10px;
+    }
+
+    /* ── Misc ───────────────────────────────────────── */
+    .hide { display: none !important; }
+    .mt8  { margin-top: 8px; }
+    .mt12 { margin-top: 12px; }
+    .mt16 { margin-top: 16px; }
+    .sectionTitle {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .07em;
+      margin-bottom: 10px;
+    }
+    .divider {
+      height: 1px;
+      background: var(--border);
+      margin: 16px 0;
     }
   </style>
 </head>
 <body>
-  <div class="app">
-    <div class="topbar">
-      <div class="brand">
-        <div class="logo">FA</div>
-        <div>
-          <h1 id="companyName">Fleet AI</h1>
-          <small>Driver Tablet</small>
-        </div>
-      </div>
-      <div class="pill" id="telemetryStatus">Waiting for live data</div>
+
+<!-- ── Header ──────────────────────────────────────── -->
+<header class="appHeader">
+  <div class="brand">
+    <div class="logo">FA</div>
+    <div>
+      <span class="brandName" id="companyName">Fleet AI</span>
+      <span class="brandSub">Driver Tablet</span>
     </div>
-
-    <div class="tabs">
-      <button class="tabBtn active" id="tabOps" type="button">Operations</button>
-      <button class="tabBtn" id="tabAdvisor" type="button">AI Advisor</button>
+  </div>
+  <div class="hdrRight">
+    <div class="connPill" id="telemetryStatus">
+      <span class="dot"></span>
+      <span id="telemetryText">Disconnected</span>
     </div>
+    <button class="gearBtn" id="openSetup" aria-label="Setup">⚙️</button>
+  </div>
+</header>
 
-    <div class="grid" id="opsPanel">
-      <div class="card">
-        <div class="hd">
-          <h2>Server Connection</h2>
-          <span class="pill" id="serverStatus">Default</span>
-        </div>
-        <div class="bd">
-          <div class="field">
-            <label for="serverAddress">Server address</label>
-            <input id="serverAddress" type="text" placeholder="https://fleetai.yourdomain.com" />
+<!-- ── Main content ─────────────────────────────────── -->
+<main class="appMain">
+
+  <!-- ═══ TAB: HOME ═══════════════════════════════════ -->
+  <div id="tab-home" class="tabPanel active">
+    <div style="padding:16px;">
+
+      <!-- Driver row -->
+      <div class="driverRow">
+        <div class="driverRowLeft">
+          <div class="driverAvatar">🚛</div>
+          <div class="driverInfo">
+            <div class="driverName" id="homeDriverName">Not Signed In</div>
+            <div class="driverVehicle" id="homeVehicleLabel">No vehicle assigned</div>
           </div>
-          <button class="btn secondary" id="btnSaveServer">Save Server</button>
-          <div class="note" id="serverNote" style="margin-top:12px;">Used for pairing and AI requests.</div>
+        </div>
+        <button class="dutyBadge off-duty" id="dutyBadgeBtn">OFF DUTY</button>
+      </div>
+
+      <!-- Health gauge -->
+      <div class="gaugeWrap">
+        <div class="gaugeLabel">Vehicle Health</div>
+        <div class="gaugeSvgWrap">
+          <svg viewBox="0 0 200 200" width="200" height="200">
+            <!-- Track -->
+            <circle cx="100" cy="100" r="80"
+              fill="none"
+              stroke="rgba(255,255,255,.07)"
+              stroke-width="14"
+              stroke-linecap="round"
+              transform="rotate(-90 100 100)"
+            />
+            <!-- Arc -->
+            <circle cx="100" cy="100" r="80"
+              fill="none"
+              stroke="#22c55e"
+              stroke-width="14"
+              stroke-linecap="round"
+              stroke-dasharray="502.65"
+              stroke-dashoffset="502.65"
+              transform="rotate(-90 100 100)"
+              id="gaugeArc"
+            />
+          </svg>
+          <div class="gaugeCenter">
+            <span class="gaugeScore" id="gaugeScore" style="color:var(--muted)">--</span>
+            <span class="gaugeScoreLabel">/ 100</span>
+          </div>
+        </div>
+
+        <!-- System status chips -->
+        <div class="sysChips" id="sysChips">
+          <span class="sysChip" id="chip-engine">⚙️ Engine</span>
+          <span class="sysChip" id="chip-battery">🔋 Battery</span>
+          <span class="sysChip" id="chip-coolant">🌡️ Coolant</span>
+          <span class="sysChip" id="chip-dpf">🔵 DPF</span>
+          <span class="sysChip" id="chip-transmission">⚡ Trans</span>
         </div>
       </div>
 
-      <div class="card">
-        <div class="hd">
-          <h2>Driver Sign-In</h2>
-          <span class="pill warn" id="authStatus">Not signed in</span>
+      <!-- Quick stat cards -->
+      <div class="homeCards">
+        <div class="statCard">
+          <div class="statCardLabel">Vehicle</div>
+          <div class="statCardVal" id="homeVehicleId" style="color:var(--muted);font-size:16px;">--</div>
         </div>
-        <div class="bd">
-          <div class="field">
-            <label for="companyCode">Company Code</label>
-            <input id="companyCode" type="text" placeholder="Company code" />
-          </div>
-          <div class="field">
-            <label for="driverPin">Driver PIN</label>
-            <input id="driverPin" type="password" inputmode="numeric" placeholder="Enter PIN" />
-          </div>
-          <button class="btn primary" id="btnLogin">Sign In</button>
-          <div class="note" id="authNote" style="margin-top:12px;">Waiting for a time-limited driver PIN from dispatch.</div>
+        <div class="statCard">
+          <div class="statCardLabel">Speed</div>
+          <div class="statCardVal" id="homeSpeed">-- <span style="font-size:13px;color:var(--muted);font-weight:600;">kph</span></div>
         </div>
-      </div>
-
-      <div class="card">
-        <div class="hd">
-          <h2>Device Pairing</h2>
-          <span class="pill warn" id="pairStatus">Not paired</span>
+        <div class="statCard">
+          <div class="statCardLabel">Engine RPM</div>
+          <div class="statCardVal" id="homeRpm">--</div>
         </div>
-        <div class="bd">
-          <div class="field">
-            <label for="pairCode">Vehicle Pair Code</label>
-            <input id="pairCode" type="text" inputmode="numeric" placeholder="Enter pair code" />
-          </div>
-          <div class="field">
-            <label for="deviceLabel">Tablet Label</label>
-            <input id="deviceLabel" type="text" placeholder="e.g. Tablet - Cab 1" />
-          </div>
-          <button class="btn primary" id="btnPair">Pair Device</button>
-          <div class="note" id="pairNote" style="margin-top:12px;">Pairing links this tablet to the selected vehicle.</div>
+        <div class="statCard">
+          <div class="statCardLabel">Coolant</div>
+          <div class="statCardVal" id="homeCoolant">-- <span style="font-size:13px;color:var(--muted);font-weight:600;">°C</span></div>
         </div>
-      </div>
-
-      <div class="card">
-        <div class="hd">
-          <h2>Vehicle Confirmation</h2>
-          <span class="pill" id="vehicleStatus">Unassigned</span>
-        </div>
-        <div class="bd">
-          <div class="statusRow">
-            <div>
-              <div style="font-size:12px;color:var(--muted);font-weight:700;">Assigned Vehicle</div>
-              <div class="statusValue" id="vehicleId">--</div>
-            </div>
-            <div>
-              <div style="font-size:12px;color:var(--muted);font-weight:700;">Driver</div>
-              <div class="statusValue" id="driverName">--</div>
-            </div>
-          </div>
-          <div class="note" style="margin-top:12px;">Confirm with dispatch if vehicle assignment is incorrect.</div>
-        </div>
-      </div>
-
-      <div class="card">
-        <div class="hd">
-          <h2>Live Telemetry</h2>
-          <span class="pill" id="streamStatus">Waiting</span>
-        </div>
-        <div class="bd">
-          <div class="note" id="streamNote">Waiting for OBD-II/J1939 connection and telemetry stream.</div>
-          <div class="statusRow" style="margin-top:12px;">
-            <div>
-              <div style="font-size:12px;color:var(--muted);font-weight:700;">J1939 Status</div>
-              <div class="statusValue" id="j1939Status">Disconnected</div>
-            </div>
-            <div>
-              <div style="font-size:12px;color:var(--muted);font-weight:700;">Last Frame</div>
-              <div class="statusValue" id="j1939LastFrame">--</div>
-            </div>
-          </div>
-          <div class="statusRow" style="margin-top:10px;">
-            <div>
-              <div style="font-size:12px;color:var(--muted);font-weight:700;">Diagnostics</div>
-              <div class="statusValue" id="j1939DiagStatus">Unavailable</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div id="advisorPanel" class="hide">
-      <div class="driverChat">
-        <div class="driverChatHeader">
-          <div>
-            <h2>AI Advisor</h2>
-            <small>Driver-safe guidance and explanations.</small>
-          </div>
-          <button class="btn" id="driverClear">Clear</button>
-        </div>
-        <div class="driverChatPrompts" id="driverPrompts"></div>
-        <div class="driverChatLog" id="driverChatLog"></div>
-        <div class="driverChatInput">
-          <div class="inputWrap">
-            <textarea id="driverInput" placeholder="Ask the AI Advisor..."></textarea>
-            <button class="micBtn" id="driverMic" aria-label="Voice input">
-              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M12 3a3 3 0 0 1 3 3v5a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3z"></path>
-                <path d="M5 11a7 7 0 0 0 14 0"></path>
-                <path d="M12 18v3"></path>
-              </svg>
-            </button>
-          </div>
-          <button class="btn primary" id="driverSend">Send</button>
-        </div>
-        <div class="voiceNotice" id="voiceNotice">Voice disabled until vehicle speed is available.</div>
       </div>
     </div>
   </div>
 
-  <script src="/js/config.js"></script>
-  <script>
-    const LOG_ERRORS = false;
-    const DRIVER_CHAT_KEY = "fleetai.driverChatHistory";
-    const SERVER_STORAGE_KEY = "fleetai.apiBase";
-    const apiUrl = (path) => (typeof window.apiUrl === "function" ? window.apiUrl(path) : path);
+  <!-- ═══ TAB: LOGBOOK ════════════════════════════════ -->
+  <div id="tab-logbook" class="tabPanel">
+    <div style="padding:16px;">
 
-    const $ = (id)=>document.getElementById(id);
-    function logError(){
-      if(LOG_ERRORS){
-        console.error.apply(console, arguments);
-      }
+      <!-- Duty hero -->
+      <div class="dutyHero">
+        <div class="dutyHeroLabel">Current Duty Status</div>
+        <div class="dutyHeroBig off-duty" id="dutyHeroBig">OFF DUTY</div>
+      </div>
+
+      <!-- Status picker -->
+      <div class="sectionTitle">Change Status</div>
+      <div class="dutyPicker">
+        <button class="dutyOption" data-duty="on-duty">🟢 On Duty</button>
+        <button class="dutyOption" data-duty="driving">🔵 Driving</button>
+        <button class="dutyOption selected" data-duty="off-duty">⚫ Off Duty</button>
+        <button class="dutyOption" data-duty="sleeper">🌙 Sleeper</button>
+      </div>
+
+      <!-- Hours -->
+      <div class="sectionTitle">Hours Today</div>
+      <div class="hoursRow">
+        <div class="statCard">
+          <div class="statCardLabel">On Duty</div>
+          <div class="statCardVal" id="hoursOnDuty">0h 0m</div>
+        </div>
+        <div class="statCard">
+          <div class="statCardLabel">Driving</div>
+          <div class="statCardVal" id="hoursDriving">0h 0m</div>
+        </div>
+      </div>
+
+      <!-- Log entries -->
+      <div class="sectionTitle">Trip Log</div>
+      <div class="logList" id="logList"></div>
+      <div class="remarkRow mt8">
+        <input id="remarkInput" type="text" placeholder="Add a remark…" />
+        <button class="btn sm" id="remarkBtn">Add</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ TAB: SENSORS ════════════════════════════════ -->
+  <div id="tab-sensors" class="tabPanel">
+    <div style="padding:16px;">
+      <div class="sectionTitle">Live Telemetry</div>
+      <div class="sensorGrid" id="sensorGrid">
+        <!-- Tiles rendered by JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ TAB: ADVISOR ════════════════════════════════ -->
+  <div id="tab-advisor" class="tabPanel">
+    <div class="chatHeader">
+      <div>
+        <h2>AI Advisor</h2>
+        <small>Driver-safe guidance. Ask anything about your truck.</small>
+      </div>
+      <button class="btn sm" id="driverClear">Clear</button>
+    </div>
+    <div class="chatPrompts" id="driverPrompts"></div>
+    <div class="chatLog" id="driverChatLog"></div>
+    <div class="voiceNotice" id="voiceNotice">Voice disabled until vehicle speed is available.</div>
+    <div class="chatInputArea">
+      <div class="chatInputWrap">
+        <textarea id="driverInput" placeholder="Ask the AI Advisor…" rows="1"></textarea>
+        <button class="micBtn" id="driverMic" aria-label="Voice input">🎤</button>
+      </div>
+      <button class="chatSendBtn" id="driverSend" aria-label="Send">
+        <svg viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+      </button>
+    </div>
+  </div>
+
+</main>
+
+<!-- ── Bottom nav ────────────────────────────────────── -->
+<nav class="bottomNav">
+  <button class="navBtn active" data-tab="home">
+    <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+    Home
+  </button>
+  <button class="navBtn" data-tab="logbook">
+    <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+    Logbook
+  </button>
+  <button class="navBtn" data-tab="sensors">
+    <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+    Sensors
+  </button>
+  <button class="navBtn" data-tab="advisor">
+    <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+    Advisor
+  </button>
+</nav>
+
+<!-- ── Setup modal ───────────────────────────────────── -->
+<div class="modalBackdrop hide" id="setupModal">
+  <div class="modalSheet">
+    <div class="modalHd">
+      <h2>⚙️ Setup</h2>
+      <button class="modalClose" id="closeSetup">✕</button>
+    </div>
+
+    <!-- Server -->
+    <div class="modalSection">
+      <div class="modalSectionTitle">🌐 Server Connection <span class="badge" id="serverStatus">Default</span></div>
+      <div class="field">
+        <label for="serverAddress">Server address</label>
+        <input id="serverAddress" type="text" placeholder="https://fleetai.yourdomain.com" />
+      </div>
+      <button class="btn full" id="btnSaveServer">Save Server</button>
+      <div class="noteBox" id="serverNote">Using current site origin for API requests.</div>
+    </div>
+
+    <div class="divider" style="margin:0 20px;"></div>
+
+    <!-- Driver sign-in -->
+    <div class="modalSection">
+      <div class="modalSectionTitle">👤 Driver Sign-In <span class="badge warn" id="authStatus">Not signed in</span></div>
+      <div class="field">
+        <label for="companyCode">Company Code</label>
+        <input id="companyCode" type="text" placeholder="Company code" autocomplete="off" />
+      </div>
+      <div class="field">
+        <label for="driverPin">Driver PIN</label>
+        <input id="driverPin" type="password" inputmode="numeric" placeholder="Enter PIN" />
+      </div>
+      <button class="btn primary full" id="btnLogin">Sign In</button>
+      <div class="noteBox mt8" id="authNote">Waiting for a time-limited driver PIN from dispatch.</div>
+    </div>
+
+    <div class="divider" style="margin:0 20px;"></div>
+
+    <!-- Pairing -->
+    <div class="modalSection">
+      <div class="modalSectionTitle">🔗 Device Pairing <span class="badge warn" id="pairStatus">Not paired</span></div>
+      <div class="field">
+        <label for="pairCode">Vehicle Pair Code</label>
+        <input id="pairCode" type="text" inputmode="numeric" placeholder="Enter pair code" />
+      </div>
+      <div class="field">
+        <label for="deviceLabel">Tablet Label</label>
+        <input id="deviceLabel" type="text" placeholder="e.g. Tablet — Cab 1" />
+      </div>
+      <button class="btn primary full" id="btnPair">Pair Device</button>
+      <div class="noteBox mt8" id="pairNote">Pairing links this tablet to the selected vehicle.</div>
+    </div>
+
+    <div class="divider" style="margin:0 20px;"></div>
+
+    <!-- Vehicle confirmation -->
+    <div class="modalSection">
+      <div class="modalSectionTitle">🚛 Vehicle Status <span class="badge" id="vehicleStatus">Unassigned</span></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div class="statCard">
+          <div class="statCardLabel">Vehicle ID</div>
+          <div class="statCardVal muted" id="vehicleId">--</div>
+        </div>
+        <div class="statCard">
+          <div class="statCardLabel">Driver</div>
+          <div class="statCardVal muted" id="driverName">--</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="/js/config.js"></script>
+<script>
+// ── Constants & state ─────────────────────────────────
+const LOG_ERRORS = false;
+const DRIVER_CHAT_KEY    = "fleetai.driverChatHistory";
+const SERVER_STORAGE_KEY = "fleetai.apiBase";
+const LOGBOOK_KEY        = "fleetai.logbookEntries";
+const DUTY_KEY           = "fleetai.dutyStatus";
+
+const $ = (id) => document.getElementById(id);
+function logError() { if(LOG_ERRORS) console.error(...arguments); }
+
+// Client-side sensor thresholds (mirrors ml.js SENSOR_DANGER_THRESHOLDS)
+const SENSOR_THRESHOLDS = {
+  coolantTemp:   { warn: 90,   danger: 105, unit:'°C',  icon:'🌡️', label:'Coolant Temp',    higherIsBad:true  },
+  rpm:           { warn: 2000, danger: 2800,unit:'rpm', icon:'⚙️', label:'Engine RPM',      higherIsBad:true  },
+  batteryVoltage:{ warnMax:12.4,dangerMax:12.0,unit:'V',icon:'🔋',label:'Battery',          higherIsBad:false },
+  engineLoad:    { warn: 80,   danger: 95,  unit:'%',  icon:'📊', label:'Engine Load',      higherIsBad:true  },
+  dpfSootLoad:   { warn: 70,   danger: 85,  unit:'%',  icon:'🔵', label:'DPF Soot',         higherIsBad:true  },
+  fuelLevel:     { warnMax:25, dangerMax:10,unit:'%',  icon:'⛽', label:'Fuel Level',        higherIsBad:false },
+  oilTemp:       { warn:110,   danger:125,  unit:'°C', icon:'🛢️', label:'Oil Temp',          higherIsBad:true  },
+  vehicleSpeed:  { warn:115,   danger:130,  unit:'kph',icon:'💨', label:'Speed',             higherIsBad:true  },
+  transmissionTemp:{warn:90,   danger:110,  unit:'°C', icon:'⚡', label:'Trans Temp',        higherIsBad:true  },
+  egtC:          { warn:600,   danger:750,  unit:'°C', icon:'🔥', label:'Exhaust Temp',      higherIsBad:true  }
+};
+
+// Chip → sensor key mapping for home status chips
+const CHIP_SENSORS = {
+  'chip-engine':       ['rpm', 'engineLoad'],
+  'chip-battery':      ['batteryVoltage'],
+  'chip-coolant':      ['coolantTemp'],
+  'chip-dpf':          ['dpfSootLoad'],
+  'chip-transmission': ['transmissionTemp']
+};
+
+let driverChat     = [];
+let driverSpeedKph = null;
+let recognition    = null;
+let recording      = false;
+let currentMetrics = {};
+let currentDuty    = 'off-duty';
+let logbookEntries = [];
+let currentVehicleId = null;
+let healthPollTimer  = null;
+
+// ── API helpers ───────────────────────────────────────
+function normalizeBase(value) {
+  if(!value) return "";
+  const t = value.trim().replace(/\/+$/, "");
+  if(!t) return "";
+  return (t.startsWith("http://") || t.startsWith("https://")) ? t : `http://${t}`;
+}
+function applyApiBase(value) {
+  window.API_BASE_URL = value;
+  window.apiUrl = (path) => {
+    const raw = String(path || "");
+    if(!raw) return value || "";
+    if(raw.startsWith("http://") || raw.startsWith("https://")) return raw;
+    if(!value) return raw.startsWith("/") ? raw : `/${raw}`;
+    return raw.startsWith("/") ? `${value}${raw}` : `${value}/${raw}`;
+  };
+}
+function loadServerBase() {
+  try { return localStorage.getItem(SERVER_STORAGE_KEY) || ""; } catch(e) { return ""; }
+}
+function saveServerBase(value) {
+  try {
+    if(value) localStorage.setItem(SERVER_STORAGE_KEY, value);
+    else localStorage.removeItem(SERVER_STORAGE_KEY);
+  } catch(e) {}
+  applyApiBase(value);
+  updateServerUi();
+}
+async function postJson(path, payload) {
+  let res;
+  try {
+    res = await fetch(window.apiUrl ? window.apiUrl(path) : path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload || {})
+    });
+  } catch(err) { throw new Error("Server unreachable. Check the server address."); }
+  if(!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `HTTP ${res.status}`);
+  }
+  return res.json();
+}
+async function getJson(path) {
+  try {
+    const res = await fetch(window.apiUrl ? window.apiUrl(path) : path);
+    if(!res.ok) return null;
+    return res.json();
+  } catch(e) { return null; }
+}
+
+// ── Device ID ─────────────────────────────────────────
+function getDeviceId() {
+  try {
+    const e = localStorage.getItem("fleetai.deviceId");
+    if(e) return e;
+    const f = (crypto && crypto.randomUUID) ? crypto.randomUUID() : `device_${Date.now()}`;
+    localStorage.setItem("fleetai.deviceId", f);
+    return f;
+  } catch(e) { return `device_${Date.now()}`; }
+}
+
+// ── Setup modal ───────────────────────────────────────
+function openSetup()  { $("setupModal").classList.remove("hide"); }
+function closeSetup() { $("setupModal").classList.add("hide"); }
+
+function updateServerUi() {
+  const stored = loadServerBase();
+  const input  = $("serverAddress");
+  const status = $("serverStatus");
+  const note   = $("serverNote");
+  if(input)  input.value = stored;
+  if(status) { status.textContent = stored ? "Custom" : "Default"; status.className = stored ? "badge good" : "badge"; }
+  if(note)   note.textContent = stored ? `Using ${stored}` : "Using current site origin for API requests.";
+}
+
+// ── Telemetry status pill ─────────────────────────────
+function setTelemetryPill(state, label) {
+  const pill = $("telemetryStatus");
+  const txt  = $("telemetryText");
+  if(!pill || !txt) return;
+  pill.className = `connPill ${state}`;
+  txt.textContent = label;
+}
+
+// ── Health gauge ──────────────────────────────────────
+const GAUGE_CIRC = 2 * Math.PI * 80; // r=80
+
+function setGauge(score) {
+  const arc   = $("gaugeArc");
+  const label = $("gaugeScore");
+  if(!arc || !label) return;
+  if(score == null) {
+    arc.setAttribute("stroke-dashoffset", GAUGE_CIRC);
+    arc.setAttribute("stroke", "#374151");
+    label.textContent = "--";
+    label.style.color = "var(--muted)";
+    return;
+  }
+  const pct    = Math.max(0, Math.min(100, score)) / 100;
+  const offset = GAUGE_CIRC * (1 - pct);
+  const color  = score >= 80 ? "#22c55e" : score >= 50 ? "#f59e0b" : "#ef4444";
+  arc.setAttribute("stroke-dashoffset", offset.toFixed(2));
+  arc.setAttribute("stroke", color);
+  label.textContent = score;
+  label.style.color = color;
+}
+
+function updateChips(sensorRisks) {
+  Object.entries(CHIP_SENSORS).forEach(([chipId, keys]) => {
+    const chip = $(chipId);
+    if(!chip) return;
+    const maxRisk = keys.reduce((max, k) => {
+      const r = sensorRisks?.[k];
+      return r != null ? Math.max(max, r) : max;
+    }, 0);
+    chip.className = `sysChip ${maxRisk >= 70 ? 'danger' : maxRisk >= 30 ? 'warning' : 'normal'}`;
+  });
+}
+
+async function refreshHealthData() {
+  const vid = currentVehicleId;
+  if(!vid || vid === "--") {
+    setGauge(null);
+    updateChips({});
+    return;
+  }
+  const data = await getJson(`/api/vehicles/${encodeURIComponent(vid)}/prediction`);
+  if(!data || !data.data) { setGauge(null); return; }
+  const pred = data.data;
+  setGauge(pred.healthScore);
+  updateChips(pred.sensorRisks || {});
+}
+
+// ── Home quick stats ──────────────────────────────────
+function updateHomeStats(metrics) {
+  const speed   = metrics?.vehicleSpeed;
+  const rpm     = metrics?.rpm;
+  const coolant = metrics?.coolantTemp;
+
+  const homeSpeed   = $("homeSpeed");
+  const homeRpm     = $("homeRpm");
+  const homeCoolant = $("homeCoolant");
+
+  if(homeSpeed) {
+    if(speed != null) homeSpeed.innerHTML = `${Math.round(speed)} <span style="font-size:13px;color:var(--muted);font-weight:600;">kph</span>`;
+    else homeSpeed.textContent = "--";
+  }
+  if(homeRpm)     homeRpm.textContent = rpm != null ? Math.round(rpm).toLocaleString() : "--";
+  if(homeCoolant) {
+    if(coolant != null) homeCoolant.innerHTML = `${coolant.toFixed(0)} <span style="font-size:13px;color:var(--muted);font-weight:600;">°C</span>`;
+    else homeCoolant.textContent = "--";
+  }
+
+  // speed storage for voice gating
+  driverSpeedKph = speed != null ? speed : null;
+  try { if(speed != null) localStorage.setItem("fleetai.currentSpeedKph", speed); } catch(e) {}
+  updateVoiceNotice();
+}
+
+// ── Sensor tiles ──────────────────────────────────────
+function getTier(key, value) {
+  const t = SENSOR_THRESHOLDS[key];
+  if(!t || value == null) return "normal";
+  if(t.higherIsBad) {
+    if(t.danger != null && value >= t.danger) return "danger";
+    if(t.warn   != null && value >= t.warn)   return "warning";
+  } else {
+    if(t.dangerMax != null && value <= t.dangerMax) return "danger";
+    if(t.warnMax   != null && value <= t.warnMax)   return "warning";
+  }
+  return "normal";
+}
+
+function getRiskPct(key, value) {
+  const t = SENSOR_THRESHOLDS[key];
+  if(!t || value == null) return 0;
+  const tier = getTier(key, value);
+  if(tier === "danger")  return 90;
+  if(tier === "warning") return 55;
+  return 20;
+}
+
+function buildSensorTiles() {
+  const grid = $("sensorGrid");
+  if(!grid) return;
+  grid.innerHTML = "";
+  Object.entries(SENSOR_THRESHOLDS).forEach(([key, cfg]) => {
+    const val  = currentMetrics?.[key];
+    const tier = getTier(key, val);
+    const pct  = getRiskPct(key, val);
+    const tileClass = tier === "danger" ? "sensorTile danger-border" : tier === "warning" ? "sensorTile warn-border" : "sensorTile";
+    const dispVal = val != null ? (Number.isInteger(val) ? val.toLocaleString() : val.toFixed(1)) : "--";
+    const tierLabel = tier === "normal" ? "NORMAL" : tier === "warning" ? "WARNING" : "DANGER";
+    const barClass  = tier === "normal" ? "" : tier;
+    const tierCls   = tier === "normal" ? "" : tier;
+    const valColor  = tier === "danger" ? "var(--danger)" : tier === "warning" ? "var(--amber)" : "var(--text)";
+    grid.innerHTML += `
+      <div class="${tileClass}">
+        <div class="sensorTileTop">
+          <span class="sensorIcon">${cfg.icon}</span>
+          <span class="sensorTier ${tierCls}">${val != null ? tierLabel : ""}</span>
+        </div>
+        <div class="sensorName">${cfg.label}</div>
+        <div class="sensorVal" style="color:${valColor}">
+          ${dispVal}<span class="sensorUnit">${val != null ? cfg.unit : ""}</span>
+        </div>
+        <div class="sensorBar">
+          <div class="sensorBarFill ${barClass}" style="width:${pct}%"></div>
+        </div>
+      </div>`;
+  });
+}
+
+// ── Telemetry polling ─────────────────────────────────
+let telLastSeen = 0;
+async function pollTelemetry() {
+  try {
+    const data = await getJson("/api/telemetry/now");
+    if(data && data.metrics) {
+      currentMetrics = data.metrics;
+      telLastSeen = Date.now();
+      buildSensorTiles();
+      updateHomeStats(data.metrics);
     }
+  } catch(e) {}
+  const age = Date.now() - telLastSeen;
+  if(telLastSeen === 0)      setTelemetryPill("", "Disconnected");
+  else if(age < 5000)        setTelemetryPill("live", "Live");
+  else if(age < 30000)       setTelemetryPill("stale", `${Math.round(age/1000)}s ago`);
+  else                       setTelemetryPill("", "Disconnected");
+}
 
-    function normalizeBase(value){
-      if(!value) return "";
-      const trimmed = value.trim().replace(/\/+$/, "");
-      if(!trimmed) return "";
-      if(trimmed.startsWith("http://") || trimmed.startsWith("https://")) return trimmed;
-      return `http://${trimmed}`;
+// ── Duty status ───────────────────────────────────────
+const DUTY_LABELS = {
+  'on-duty': 'ON DUTY', 'driving': 'DRIVING',
+  'off-duty': 'OFF DUTY', 'sleeper': 'SLEEPER BERTH'
+};
+
+function saveDuty(duty) {
+  currentDuty = duty;
+  try { localStorage.setItem(DUTY_KEY, duty); } catch(e) {}
+}
+function loadDuty() {
+  try { return localStorage.getItem(DUTY_KEY) || 'off-duty'; } catch(e) { return 'off-duty'; }
+}
+function applyDuty(duty) {
+  saveDuty(duty);
+  const label = DUTY_LABELS[duty] || duty.toUpperCase();
+  const heroBig = $("dutyHeroBig");
+  const badge   = $("dutyBadgeBtn");
+  if(heroBig) { heroBig.className = `dutyHeroBig ${duty}`; heroBig.textContent = label; }
+  if(badge)   { badge.className = `dutyBadge ${duty}`; badge.textContent = label; }
+  document.querySelectorAll(".dutyOption").forEach(el => {
+    el.classList.toggle("selected", el.dataset.duty === duty);
+  });
+  addLogEntry(`Status → ${label}`, duty);
+}
+
+// ── Logbook ───────────────────────────────────────────
+function loadLogbook() {
+  try { const r = localStorage.getItem(LOGBOOK_KEY); if(r) logbookEntries = JSON.parse(r) || []; } catch(e) {}
+}
+function saveLogbook() {
+  try { localStorage.setItem(LOGBOOK_KEY, JSON.stringify(logbookEntries)); } catch(e) {}
+}
+function addLogEntry(text, status) {
+  const ts = new Date();
+  logbookEntries.unshift({ ts: ts.toISOString(), text, status: status || currentDuty });
+  if(logbookEntries.length > 100) logbookEntries = logbookEntries.slice(0, 100);
+  saveLogbook();
+  renderLogbook();
+}
+function renderLogbook() {
+  const list = $("logList");
+  if(!list) return;
+  if(!logbookEntries.length) {
+    list.innerHTML = `<div style="color:var(--muted);font-size:13px;padding:12px 0;">No entries yet.</div>`;
+    return;
+  }
+  list.innerHTML = logbookEntries.slice(0, 20).map(e => {
+    const d = new Date(e.ts);
+    const time = d.toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' });
+    return `<div class="logEntry">
+      <span class="logEntryTime">${time}</span>
+      <span class="logEntryText">${e.text}</span>
+      <span class="logEntryStatus ${e.status || ''}">${DUTY_LABELS[e.status] || (e.status||'').toUpperCase()}</span>
+    </div>`;
+  }).join("");
+}
+
+// Basic hour tracking (accumulate per-duty-status since midnight)
+function computeHours() {
+  const midnight = new Date(); midnight.setHours(0,0,0,0);
+  let onDutyMs = 0, drivingMs = 0;
+  const entries = [...logbookEntries].reverse();
+  for(let i = 0; i < entries.length - 1; i++) {
+    const a = new Date(entries[i].ts), b = new Date(entries[i+1].ts);
+    if(b < midnight) continue;
+    const start = Math.max(a.getTime(), midnight.getTime());
+    const end   = b.getTime();
+    if(end <= start) continue;
+    const ms = end - start;
+    if(entries[i].status === 'on-duty') onDutyMs += ms;
+    if(entries[i].status === 'driving') { onDutyMs += ms; drivingMs += ms; }
+  }
+  const fmt = (ms) => {
+    const h = Math.floor(ms/3600000), m = Math.floor((ms%3600000)/60000);
+    return `${h}h ${m}m`;
+  };
+  const onDutyEl = $("hoursOnDuty"), drivingEl = $("hoursDriving");
+  if(onDutyEl) onDutyEl.textContent = fmt(onDutyMs);
+  if(drivingEl) drivingEl.textContent = fmt(drivingMs);
+}
+
+// ── Chat ──────────────────────────────────────────────
+function saveDriverChat() {
+  try { localStorage.setItem(DRIVER_CHAT_KEY, JSON.stringify(driverChat)); } catch(e) {}
+}
+function loadDriverChat() {
+  try { const r = localStorage.getItem(DRIVER_CHAT_KEY); if(r) driverChat = JSON.parse(r) || []; } catch(e) {}
+}
+
+function renderDriverChat() {
+  const log = $("driverChatLog");
+  if(!log) return;
+  log.innerHTML = "";
+  driverChat.forEach(msg => {
+    const isUser = msg.role === "user";
+    const wrap = document.createElement("div");
+    wrap.className = `chatMsg ${isUser ? "user" : "ai"}`;
+    const time = new Date(msg.ts || Date.now()).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+    if(!isUser) {
+      const dot = document.createElement("div");
+      dot.className = "chatAiDot";
+      dot.textContent = "AI";
+      wrap.appendChild(dot);
     }
+    wrap.innerHTML += `
+      <div class="chatMsgMeta">${isUser ? "You" : "AI Advisor"} · ${time}</div>
+      <div class="chatBubble">${msg.content}</div>`;
+    log.appendChild(wrap);
+  });
+  log.scrollTop = log.scrollHeight;
+}
 
-    function applyApiBase(value){
-      window.API_BASE_URL = value;
-      window.apiUrl = (path) => {
-        const raw = String(path || "");
-        if(!raw) return value || "";
-        if(raw.startsWith("http://") || raw.startsWith("https://")) return raw;
-        if(!value) return raw.startsWith("/") ? raw : `/${raw}`;
-        if(raw.startsWith("/")) return `${value}${raw}`;
-        return `${value}/${raw}`;
-      };
-    }
+function appendDriverMessage(role, text) {
+  const log = $("driverChatLog");
+  if(!log) return;
+  const ts   = Date.now();
+  const item = { role, content: text, ts };
+  driverChat.push(item);
+  saveDriverChat();
+  const isUser = role === "user";
+  const wrap = document.createElement("div");
+  wrap.className = `chatMsg ${isUser ? "user" : "ai"}`;
+  const time = new Date(ts).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+  if(!isUser) {
+    const dot = document.createElement("div");
+    dot.className = "chatAiDot"; dot.textContent = "AI";
+    wrap.appendChild(dot);
+  }
+  const meta   = document.createElement("div"); meta.className = "chatMsgMeta";
+  meta.textContent = `${isUser ? "You" : "AI Advisor"} · ${time}`;
+  const bubble = document.createElement("div"); bubble.className = "chatBubble";
+  bubble.textContent = text;
+  wrap.appendChild(meta);
+  wrap.appendChild(bubble);
+  log.appendChild(wrap);
+  log.scrollTop = log.scrollHeight;
+}
 
-    function loadServerBase(){
-      try{
-        return localStorage.getItem(SERVER_STORAGE_KEY) || "";
-      }catch(e){
-        return "";
-      }
-    }
+function renderDriverPrompts() {
+  const prompts = [
+    "Any issues with my truck?",
+    "Is it safe to keep driving?",
+    "What does this warning mean?",
+    "Check my engine readings."
+  ];
+  const el = $("driverPrompts");
+  if(!el) return;
+  el.innerHTML = prompts.map(p =>
+    `<button class="promptChip" data-p="${encodeURIComponent(p)}">${p}</button>`
+  ).join("");
+  el.querySelectorAll(".promptChip").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const text = decodeURIComponent(btn.getAttribute("data-p"));
+      const inp = $("driverInput");
+      if(inp) { inp.value = text; inp.focus(); }
+    });
+  });
+}
 
-    function saveServerBase(value){
-      try{
-        if(value){
-          localStorage.setItem(SERVER_STORAGE_KEY, value);
-        }else{
-          localStorage.removeItem(SERVER_STORAGE_KEY);
-        }
-      }catch(e){}
-      applyApiBase(value);
-      updateServerUi();
-    }
+async function sendDriverMessage() {
+  const input = $("driverInput");
+  const text  = (input?.value || "").trim();
+  if(!text) return;
+  input.value = "";
+  appendDriverMessage("user", text);
+  const vid = currentVehicleId;
+  if(!vid || vid === "--") {
+    appendDriverMessage("ai", "No vehicle paired yet. Tap ⚙️ to set up your device.");
+    return;
+  }
+  try {
+    const res = await postJson("/api/ai/chat", {
+      messages: driverChat.slice(-8).map(m => ({ role: m.role === "user" ? "user" : "assistant", content: m.content })),
+      context: { vehicleId: vid, deviceId: getDeviceId(), driverName: $("driverName")?.textContent || "" }
+    });
+    appendDriverMessage("ai", res.reply || "No response available.");
+  } catch(err) {
+    appendDriverMessage("ai", "Unable to reach AI service. Try again later.");
+  }
+}
 
-    function updateServerUi(){
-      const input = $("serverAddress");
-      const status = $("serverStatus");
-      const note = $("serverNote");
-      const stored = loadServerBase();
-      if(input) input.value = stored;
-      if(status){
-        status.textContent = stored ? "Custom" : "Default";
-        status.className = stored ? "pill good" : "pill";
-      }
-      if(note){
-        note.textContent = stored
-          ? `Using ${stored} for API requests.`
-          : "Using current site origin for API requests.";
-      }
-    }
+// ── Voice ─────────────────────────────────────────────
+function updateVoiceNotice() {
+  const notice = $("voiceNotice");
+  if(!notice) return;
+  if(recording) { notice.innerHTML = '<span class="recIndicator"><span class="recDot"></span>Recording…</span>'; return; }
+  if(driverSpeedKph === null)    notice.textContent = "Voice disabled until speed is available.";
+  else if(driverSpeedKph > 0)   notice.textContent = "Voice disabled while vehicle is moving.";
+  else                           notice.textContent = "Voice input available — vehicle stopped.";
+}
+function initSpeech() {
+  const Speech = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if(!Speech) return;
+  recognition = new Speech();
+  recognition.lang = "en-US"; recognition.interimResults = true;
+  recognition.onresult = (e) => {
+    let t = "";
+    for(let i = e.resultIndex; i < e.results.length; i++) t += e.results[i][0].transcript;
+    const inp = $("driverInput"); if(inp) inp.value = t.trim();
+  };
+  recognition.onend = () => { recording = false; $("driverMic")?.classList.remove("active"); };
+}
+function toggleVoice() {
+  if(driverSpeedKph === null || driverSpeedKph > 0) { updateVoiceNotice(); return; }
+  if(!recognition) { updateVoiceNotice(); return; }
+  if(recording) { recognition.stop(); recording = false; }
+  else          { recognition.start(); recording = true; $("driverMic")?.classList.add("active"); }
+  updateVoiceNotice();
+}
 
-    function loadCompanyName(){
-      try{
-        const saved = localStorage.getItem("fleetai.companyName");
-        if(saved) $("companyName").textContent = saved;
-      }catch(e){}
-    }
+// ── Login / Pairing ───────────────────────────────────
+async function login() {
+  const companyCode = $("companyCode")?.value.trim();
+  const driverPin   = $("driverPin")?.value.trim();
+  if(!companyCode || !driverPin) { $("authNote").textContent = "Company code and driver PIN required."; return; }
+  try {
+    const data = await postJson("/auth/driverLogin", { companyCode, driverPin });
+    $("authStatus").textContent = "Signed in"; $("authStatus").className = "badge good";
+    const dname  = data.driverName || "--";
+    const vid    = data.vehicleId  || "--";
+    $("driverName").textContent = dname;
+    $("vehicleId").textContent  = vid;
+    $("vehicleStatus").textContent  = vid !== "--" ? "Assigned" : "Unassigned";
+    $("vehicleStatus").className    = vid !== "--" ? "badge good" : "badge";
+    $("authNote").textContent = "Signed in. Proceed to device pairing if needed.";
+    // Update home tab
+    $("homeDriverName").textContent = dname;
+    $("homeVehicleLabel").textContent = vid !== "--" ? `Vehicle: ${vid}` : "No vehicle assigned";
+    $("homeVehicleId").textContent  = vid;
+    currentVehicleId = vid !== "--" ? vid : null;
+    try { localStorage.setItem("fleetai.companyName", data.companyName || companyCode); $("companyName").textContent = data.companyName || "Fleet AI"; } catch(e) {}
+    if(currentVehicleId) refreshHealthData();
+  } catch(err) {
+    logError("Driver login failed", err);
+    $("authStatus").textContent = "Not signed in"; $("authStatus").className = "badge warn";
+    $("authNote").textContent = err.message || "Unable to sign in.";
+  }
+}
 
-    function getDeviceId(){
-      try{
-        const existing = localStorage.getItem("fleetai.deviceId");
-        if(existing) return existing;
-        const fresh = (crypto && crypto.randomUUID) ? crypto.randomUUID() : `device_${Date.now()}`;
-        localStorage.setItem("fleetai.deviceId", fresh);
-        return fresh;
-      }catch(e){
-        return `device_${Date.now()}`;
-      }
-    }
+async function pairDevice() {
+  const pairingCode = $("pairCode")?.value.trim();
+  const deviceLabel = $("deviceLabel")?.value.trim();
+  if(!pairingCode || !deviceLabel) { $("pairNote").textContent = "Pair code and tablet label required."; return; }
+  try {
+    await postJson("/api/pairings/claim", { pairingCode, deviceId: getDeviceId(), deviceLabel });
+    $("pairStatus").textContent = "Paired"; $("pairStatus").className = "badge good";
+    $("pairNote").textContent = "Device paired. Waiting for telemetry stream.";
+  } catch(err) {
+    logError("Pairing failed", err);
+    $("pairStatus").textContent = "Not paired"; $("pairStatus").className = "badge warn";
+    $("pairNote").textContent = err.message || "Unable to pair device.";
+  }
+}
 
-    function getVehicleId(){
-      return $("vehicleId")?.textContent?.trim() || "";
-    }
+// ── Tab switching ─────────────────────────────────────
+function setActiveTab(tabId) {
+  document.querySelectorAll(".tabPanel").forEach(el => el.classList.remove("active"));
+  document.querySelectorAll(".navBtn").forEach(el => el.classList.remove("active"));
+  const panel = $(`tab-${tabId}`);
+  if(panel) panel.classList.add("active");
+  const btn = document.querySelector(`.navBtn[data-tab="${tabId}"]`);
+  if(btn) btn.classList.add("active");
+  if(tabId === "sensors") buildSensorTiles();
+  if(tabId === "logbook") { renderLogbook(); computeHours(); }
+  if(tabId === "home")    refreshHealthData();
+}
 
-    function setActiveTab(target){
-      $("tabOps").classList.toggle("active", target === "ops");
-      $("tabAdvisor").classList.toggle("active", target === "advisor");
-      $("opsPanel").classList.toggle("hide", target !== "ops");
-      $("advisorPanel").classList.toggle("hide", target !== "advisor");
-    }
+// ── Init ──────────────────────────────────────────────
+function init() {
+  // Server
+  const base = normalizeBase(loadServerBase());
+  applyApiBase(base);
+  updateServerUi();
 
-    let driverChat = [];
-    let driverSpeedKph = null;
-    let recognition = null;
-    let recording = false;
+  // Duty
+  currentDuty = loadDuty();
+  const dutyLabel = DUTY_LABELS[currentDuty] || "OFF DUTY";
+  const heroBig = $("dutyHeroBig"), badge = $("dutyBadgeBtn");
+  if(heroBig) { heroBig.className = `dutyHeroBig ${currentDuty}`; heroBig.textContent = dutyLabel; }
+  if(badge)   { badge.className = `dutyBadge ${currentDuty}`; badge.textContent = dutyLabel; }
+  document.querySelectorAll(".dutyOption").forEach(el =>
+    el.classList.toggle("selected", el.dataset.duty === currentDuty)
+  );
 
-    function saveDriverChat(){
-      try{ localStorage.setItem(DRIVER_CHAT_KEY, JSON.stringify(driverChat)); }catch(e){}
-    }
+  // Logbook
+  loadLogbook();
+  renderLogbook();
 
-    function loadDriverChat(){
-      try{
-        const raw = localStorage.getItem(DRIVER_CHAT_KEY);
-        if(raw) driverChat = JSON.parse(raw) || [];
-      }catch(e){}
-    }
+  // Company name
+  try {
+    const cn = localStorage.getItem("fleetai.companyName");
+    if(cn) $("companyName").textContent = cn;
+  } catch(e) {}
 
-    function appendDriverMessage(role, text){
-      const log = $("driverChatLog");
-      if(!log) return;
-      const wrap = document.createElement("div");
-      wrap.className = `driverMsg ${role}`;
-      const meta = document.createElement("div");
-      meta.className = "meta";
-      meta.textContent = `${role === "user" ? "Driver" : "AI Advisor"} - ${new Date().toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"})}`;
-      const body = document.createElement("div");
-      body.className = "driverMsgText";
-      body.textContent = text;
-      wrap.appendChild(meta);
-      wrap.appendChild(body);
-      log.appendChild(wrap);
-      log.scrollTop = log.scrollHeight;
-      driverChat.push({ role, content: text, ts: Date.now() });
-      saveDriverChat();
-    }
+  // Chat
+  loadDriverChat();
+  renderDriverChat();
+  renderDriverPrompts();
+  initSpeech();
+  updateVoiceNotice();
 
-    function renderDriverChat(){
-      const log = $("driverChatLog");
-      if(!log) return;
-      log.innerHTML = "";
-      driverChat.forEach((msg)=>{
-        const wrap = document.createElement("div");
-        wrap.className = `driverMsg ${msg.role}`;
-        const meta = document.createElement("div");
-        meta.className = "meta";
-        meta.textContent = `${msg.role === "user" ? "Driver" : "AI Advisor"} - ${new Date(msg.ts || Date.now()).toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"})}`;
-        const body = document.createElement("div");
-        body.className = "driverMsgText";
-        body.textContent = msg.content;
-        wrap.appendChild(meta);
-        wrap.appendChild(body);
-        log.appendChild(wrap);
-      });
-      log.scrollTop = log.scrollHeight;
-    }
+  // Initial sensor tiles
+  buildSensorTiles();
 
-    function renderDriverPrompts(){
-      const prompts = [
-        "Any issues detected on my vehicle?",
-        "What should I check today?",
-        "Is my truck safe to continue driving?",
-        "Explain this alert in simple terms."
-      ];
-      const el = $("driverPrompts");
-      if(!el) return;
-      el.innerHTML = prompts.map(p=>`<button class="btn" data-driver-prompt="${encodeURIComponent(p)}">${p}</button>`).join("");
-      document.querySelectorAll("[data-driver-prompt]").forEach(btn=>{
-        btn.addEventListener("click", ()=>{
-          const text = decodeURIComponent(btn.getAttribute("data-driver-prompt"));
-          $("driverInput").value = text;
-          $("driverInput").focus();
-        });
-      });
-    }
+  // Gauge placeholder
+  setGauge(null);
 
-    function updateVoiceNotice(){
-      const notice = $("voiceNotice");
-      if(!notice) return;
-      if(recording){
-        notice.innerHTML = '<span class="recIndicator"><span class="recDot"></span>Recording...</span>';
-        return;
-      }
-      if(driverSpeedKph === null){
-        notice.textContent = "Voice disabled until vehicle speed is available.";
-      } else if(driverSpeedKph > 0){
-        notice.textContent = "Voice disabled while vehicle is moving.";
-      } else {
-        notice.textContent = "Voice input available (vehicle stopped).";
-      }
-    }
+  // ── Event listeners ──────────────────────────────────
+  // Nav
+  document.querySelectorAll(".navBtn").forEach(btn =>
+    btn.addEventListener("click", () => setActiveTab(btn.dataset.tab))
+  );
+  // Duty badge (home) → go to logbook
+  $("dutyBadgeBtn")?.addEventListener("click", () => setActiveTab("logbook"));
+  // Duty options
+  document.querySelectorAll(".dutyOption").forEach(btn =>
+    btn.addEventListener("click", () => applyDuty(btn.dataset.duty))
+  );
+  // Setup modal
+  $("openSetup")?.addEventListener("click", openSetup);
+  $("closeSetup")?.addEventListener("click", closeSetup);
+  $("setupModal")?.addEventListener("click", (e) => { if(e.target === $("setupModal")) closeSetup(); });
+  // Server / login / pair
+  $("btnSaveServer")?.addEventListener("click", () => saveServerBase(normalizeBase($("serverAddress").value)));
+  $("btnLogin")?.addEventListener("click", login);
+  $("btnPair")?.addEventListener("click", pairDevice);
+  // Remark
+  $("remarkBtn")?.addEventListener("click", () => {
+    const v = $("remarkInput")?.value.trim();
+    if(v) { addLogEntry(v, currentDuty); $("remarkInput").value = ""; computeHours(); }
+  });
+  $("remarkInput")?.addEventListener("keydown", (e) => {
+    if(e.key === "Enter") { e.preventDefault(); $("remarkBtn").click(); }
+  });
+  // Chat
+  $("driverSend")?.addEventListener("click", sendDriverMessage);
+  $("driverInput")?.addEventListener("keydown", (e) => {
+    if(e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendDriverMessage(); }
+  });
+  $("driverClear")?.addEventListener("click", () => { driverChat = []; saveDriverChat(); renderDriverChat(); });
+  $("driverMic")?.addEventListener("click", toggleVoice);
 
-    function updateSpeedFromStorage(){
-      try{
-        const raw = localStorage.getItem("fleetai.currentSpeedKph");
-        if(raw !== null && raw !== ""){
-          const v = Number(raw);
-          driverSpeedKph = Number.isFinite(v) ? v : null;
-        }
-      }catch(e){}
-      updateVoiceNotice();
-    }
+  // ── Polling ──────────────────────────────────────────
+  pollTelemetry();
+  setInterval(pollTelemetry, 3000);
+  setInterval(() => { if(currentVehicleId) refreshHealthData(); }, 30000);
+  setInterval(updateVoiceNotice, 2000);
+}
 
-    function initSpeech(){
-      const Speech = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if(!Speech){
-        return;
-      }
-      recognition = new Speech();
-      recognition.lang = "en-US";
-      recognition.interimResults = true;
-      recognition.onresult = (e)=>{
-        let transcript = "";
-        for(let i = e.resultIndex; i < e.results.length; i += 1){
-          transcript += e.results[i][0].transcript;
-        }
-        $("driverInput").value = transcript.trim();
-      };
-      recognition.onend = ()=>{
-        recording = false;
-        $("driverMic").classList.remove("active");
-      };
-    }
-
-    function toggleVoice(){
-      if(driverSpeedKph === null || driverSpeedKph > 0){
-        updateVoiceNotice();
-        return;
-      }
-      if(!recognition){
-        updateVoiceNotice();
-        return;
-      }
-      if(recording){
-        recognition.stop();
-        recording = false;
-      } else {
-        recognition.start();
-        recording = true;
-        $("driverMic").classList.add("active");
-      }
-      updateVoiceNotice();
-    }
-
-    async function sendDriverMessage(){
-      const input = $("driverInput");
-      const text = input.value.trim();
-      if(!text) return;
-      input.value = "";
-      appendDriverMessage("user", text);
-
-      const vehicleId = getVehicleId();
-      if(!vehicleId || vehicleId === "--"){
-        appendDriverMessage("ai", "No live data yet. Pair a vehicle to receive guidance.");
-        return;
-      }
-      try{
-        const res = await postJson("/api/ai/chat", {
-          messages: driverChat.slice(-8).map(m=>({ role: m.role === "user" ? "user" : "assistant", content: m.content })),
-          context: { vehicleId, deviceId: getDeviceId(), driverName: $("driverName").textContent || "" }
-        });
-        appendDriverMessage("ai", res.reply || "No response available.");
-      }catch(err){
-        appendDriverMessage("ai", "Unable to reach AI service. Try again later.");
-      }
-    }
-
-    async function postJson(path, payload){
-      let res;
-      try{
-        res = await fetch(apiUrl(path), {
-          method: "POST",
-          headers: {"Content-Type":"application/json"},
-          body: JSON.stringify(payload || {})
-        });
-      }catch(err){
-        throw new Error("Server unreachable. Check the server address.");
-      }
-      if(!res.ok){
-        const err = await res.json().catch(()=>({}));
-        throw new Error(err.error || `HTTP ${res.status}`);
-      }
-      return res.json();
-    }
-
-    async function login(){
-      const companyCode = $("companyCode").value.trim();
-      const driverPin = $("driverPin").value.trim();
-      if(!companyCode || !driverPin){
-        $("authNote").textContent = "Company code and driver PIN required.";
-        return;
-      }
-      try{
-        const data = await postJson("/auth/driverLogin", { companyCode, driverPin });
-        $("authStatus").textContent = "Signed in";
-        $("authStatus").className = "pill good";
-        $("driverName").textContent = data.driverName || "--";
-        $("vehicleId").textContent = data.vehicleId || "--";
-        $("vehicleStatus").textContent = data.vehicleId ? "Assigned" : "Unassigned";
-        $("authNote").textContent = "Signed in. Proceed to device pairing.";
-      }catch(err){
-        logError("Driver login failed", err);
-        $("authStatus").textContent = "Not signed in";
-        $("authStatus").className = "pill warn";
-        $("authNote").textContent = err.message || "Unable to sign in.";
-      }
-    }
-
-    async function pairDevice(){
-      const pairingCode = $("pairCode").value.trim();
-      const deviceLabel = $("deviceLabel").value.trim();
-      if(!pairingCode || !deviceLabel){
-        $("pairNote").textContent = "Pair code and tablet label required.";
-        return;
-      }
-      try{
-        await postJson("/api/pairings/claim", {
-          pairingCode,
-          deviceId: getDeviceId(),
-          deviceLabel
-        });
-        $("pairStatus").textContent = "Paired";
-        $("pairStatus").className = "pill good";
-        $("pairNote").textContent = "Device paired. Waiting for telemetry stream.";
-        $("telemetryStatus").textContent = "Waiting for live data";
-        $("streamStatus").textContent = "Waiting";
-        $("j1939Status").textContent = "Waiting";
-        $("j1939LastFrame").textContent = "--";
-        $("j1939DiagStatus").textContent = "Pending";
-      }catch(err){
-        logError("Pairing failed", err);
-        $("pairStatus").textContent = "Not paired";
-        $("pairStatus").className = "pill warn";
-        $("pairNote").textContent = err.message || "Unable to pair device.";
-      }
-    }
-
-    function init(){
-      const initialBase = normalizeBase(loadServerBase());
-      applyApiBase(initialBase);
-      updateServerUi();
-      loadCompanyName();
-      loadDriverChat();
-      renderDriverChat();
-      renderDriverPrompts();
-      initSpeech();
-      updateSpeedFromStorage();
-      setInterval(updateSpeedFromStorage, 2000);
-      $("btnSaveServer").addEventListener("click", () => {
-        const value = normalizeBase($("serverAddress").value);
-        saveServerBase(value);
-      });
-      $("btnLogin").addEventListener("click", login);
-      $("btnPair").addEventListener("click", pairDevice);
-      $("tabOps").addEventListener("click", ()=> setActiveTab("ops"));
-      $("tabAdvisor").addEventListener("click", ()=> setActiveTab("advisor"));
-      $("driverSend").addEventListener("click", sendDriverMessage);
-      $("driverInput").addEventListener("keydown", (e)=>{
-        if(e.key === "Enter" && !e.shiftKey){
-          e.preventDefault();
-          sendDriverMessage();
-        }
-      });
-      $("driverClear").addEventListener("click", ()=>{
-        driverChat = [];
-        saveDriverChat();
-        renderDriverChat();
-      });
-      $("driverMic").addEventListener("click", toggleVoice);
-    }
-
-    document.addEventListener("DOMContentLoaded", init);
-  </script>
+document.addEventListener("DOMContentLoaded", init);
+</script>
 </body>
 </html>
-
