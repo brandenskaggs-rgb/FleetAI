@@ -1,17 +1,17 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <link rel="stylesheet" href="/css/theme.css?v=1775026688" />
+  <link rel="stylesheet" href="/css/theme.css?v=20260420" />
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Fleet AI — Predictive Reliability Infrastructure</title>
-  <meta name="description" content="Fleet AI is predictive reliability infrastructure for serious fleet operators. Catch failures earlier, reduce downtime, and keep your operation running." />
-  <link rel="stylesheet" href="/css/site-tokens.css?v=1775026688" />
-  <link rel="stylesheet" href="/css/site-theme.css?v=1775026688" />
-  <link rel="stylesheet" href="/css/site-components.css?v=1775026688" />
-  <link rel="stylesheet" href="/css/site-layout.css?v=1775026688" />
-  <link rel="stylesheet" href="/css/design-system.css?v=1775026688" />
-  <!-- Apply saved theme before first paint to prevent flash -->
+  <meta name="description" content="Fleet AI reads your vehicles in real time — detecting mechanical drift before it becomes a breakdown — and delivers a prioritized maintenance queue your operators can act on." />
+  <link rel="stylesheet" href="/css/site-tokens.css?v=20260420" />
+  <link rel="stylesheet" href="/css/site-theme.css?v=20260420" />
+  <link rel="stylesheet" href="/css/site-components.css?v=20260420" />
+  <link rel="stylesheet" href="/css/site-layout.css?v=20260420" />
+  <link rel="stylesheet" href="/css/design-system.css?v=20260420" />
+  <!-- Apply saved theme before first paint — prevents flash -->
   <script>try{var _t=localStorage.getItem("fleetai.theme");if(_t)document.documentElement.dataset.theme=_t;}catch(e){}</script>
 </head>
 <body>
@@ -45,12 +45,13 @@
     </div>
   </div>
 
+  <!-- ── Hero ── -->
   <section class="hero hero--spicy">
     <div class="container heroGrid heroGrid--command">
       <div>
         <span class="badge">Predictive reliability infrastructure</span>
         <h1>Stop reacting to breakdowns. Start seeing them coming.</h1>
-        <p>Fleet AI connects vehicle telemetry, driver data, and maintenance workflows into one intelligent operating layer — built for fleets that can't afford the cost of being surprised.</p>
+        <p>Fleet AI reads your vehicles in real time — detecting mechanical drift in coolant temps, oil pressure, RPM, and 15+ other signals — and tells your team which trucks need service before they break down on the road.</p>
         <div class="heroActions">
           <a class="btn primary" href="/request-demo.html">Request Demo</a>
           <a class="btn outline-white" href="/product.html">See the Product</a>
@@ -127,7 +128,7 @@
     </div>
   </section>
 
-  <!-- Stats band -->
+  <!-- ── Stats band ── -->
   <div class="statsBand">
     <div class="container">
       <div class="statsBand__grid">
@@ -151,116 +152,124 @@
     </div>
   </div>
 
-  <section class="section section--tight">
-    <div class="container">
-      <div class="proofBand">
-        <div>
-          <div class="proofBand__label">What Fleet AI is designed to do</div>
-          <h2>Not another GPS tracker. An actual reliability system.</h2>
-        </div>
-        <div class="proofBand__items">
-          <span>Surface developing failures before they happen</span>
-          <span>Organize maintenance around risk, not guesswork</span>
-          <span>Keep operators and leadership on the same data</span>
-          <span>Validate fit on real vehicles before scaling</span>
-        </div>
-      </div>
-    </div>
-  </section>
-
+  <!-- ── What is Fleet AI ── -->
   <section class="section">
     <div class="container">
-      <div class="sectionHeader sectionHeader--centered">
-        <h2>Built for the hardest parts of running a fleet</h2>
-        <p>Downtime is expensive. Reactive maintenance is inefficient. Bad visibility leads to bad decisions. Fleet AI is built to address all three.</p>
-      </div>
-      <div class="valueGrid">
-        <div class="valueCard">
-          <div class="valueCard__number">01</div>
-          <h3>Earlier failure signals</h3>
-          <p>Detect mechanical drift across RPM, MAP, coolant, voltage, and sensor baselines before the vehicle tells you by breaking down on the road.</p>
+      <div class="whatIsGrid">
+        <div>
+          <div class="eyebrow">What Fleet AI actually is</div>
+          <h2>A predictive maintenance platform — not another dashboard</h2>
+          <p>Fleet AI plugs into your vehicles via OBD-II or J1939 and continuously reads sensor data across the entire drivetrain — engine, thermal, fuel, electrical. ML models learn what normal looks like for each specific vehicle, then flag when something starts drifting off baseline.</p>
+          <p>The output isn't a chart or another alert to ignore. It's a prioritized queue of which vehicles need attention, why, and how soon — delivered to the people who can actually do something about it.</p>
+          <div class="heroActions" style="margin-top:24px">
+            <a class="btn primary" href="/pilot.html">Join the Pilot</a>
+            <a class="btn secondary" href="/product.html">How it works</a>
+          </div>
         </div>
-        <div class="valueCard">
-          <div class="valueCard__number">02</div>
-          <h3>Operator-ready prioritization</h3>
-          <p>Convert raw telemetry into a structured queue — what needs action now, what can wait, and what leadership needs to know about.</p>
-        </div>
-        <div class="valueCard">
-          <div class="valueCard__number">03</div>
-          <h3>Proof before commitment</h3>
-          <p>Run a real pilot on live vehicles in real conditions. Fleet AI is only worth deploying broadly if it earns that right in the field first.</p>
+        <div class="whatIsPanel">
+          <div class="whatIsItem">
+            <div class="whatIsItem__dot"></div>
+            <div>
+              <strong>Learns each vehicle's baseline</strong>
+              <span>Every truck gets its own ML model. Drift is measured against that vehicle's own history — not a generic threshold that doesn't fit your operation.</span>
+            </div>
+          </div>
+          <div class="whatIsItem">
+            <div class="whatIsItem__dot"></div>
+            <div>
+              <strong>Surfaces problems hours or days early</strong>
+              <span>Failure precursors — rising coolant variance, inconsistent oil pressure, RPM instability — are caught before they turn into a roadside breakdown or missed delivery.</span>
+            </div>
+          </div>
+          <div class="whatIsItem">
+            <div class="whatIsItem__dot"></div>
+            <div>
+              <strong>Gives operators something actionable</strong>
+              <span>Fleet AI recommends. Your team decides. No autonomous control, no black box — just clear signals and structured priorities your shop can act on.</span>
+            </div>
+          </div>
         </div>
       </div>
     </div>
   </section>
 
-  <section class="section section--tight section--tint">
+  <!-- ── Feature rows ── -->
+  <section class="section section--tint">
     <div class="container">
-      <div class="sectionHeader sectionHeader--centered">
-        <h2>What Fleet AI listens to</h2>
-        <p>Every signal that matters — automatically organized into the picture your team needs to make confident maintenance decisions.</p>
+      <div class="sectionHeader" style="max-width:560px;margin-bottom:40px">
+        <h2>Why serious fleet operators use Fleet AI</h2>
+        <p>Three problems that cost real money. Three specific things Fleet AI does about them.</p>
       </div>
-      <div class="sensorGrid">
-        <div class="sensorGroup">
-          <div class="sensorGroup__category">Engine Health</div>
-          <h3>Core Performance</h3>
-          <div class="sensorGroup__tags">
-            <span class="sensorTag">RPM</span>
-            <span class="sensorTag">Engine Load</span>
-            <span class="sensorTag">Oil Pressure</span>
-            <span class="sensorTag">Manifold Pressure</span>
-            <span class="sensorTag">Engine Hours</span>
-          </div>
+      <div class="featureRows">
+        <div class="featureRow">
+          <div class="featureRow__num">01</div>
+          <h3 class="featureRow__title">Catch failures before they happen</h3>
+          <p class="featureRow__desc">ML models track each vehicle's sensor baseline across 15+ streams. When coolant, RPM, or oil pressure start drifting — even slightly — Fleet AI opens an inspection window before the vehicle fails in service. You find out in the shop, not on the highway.</p>
         </div>
-        <div class="sensorGroup">
-          <div class="sensorGroup__category">Thermal Systems</div>
-          <h3>Temperature Monitoring</h3>
-          <div class="sensorGroup__tags">
-            <span class="sensorTag">Coolant Temp</span>
-            <span class="sensorTag">Oil Temp</span>
-            <span class="sensorTag">EGT</span>
-            <span class="sensorTag">Transmission Temp</span>
-          </div>
+        <div class="featureRow">
+          <div class="featureRow__num">02</div>
+          <h3 class="featureRow__title">Turn raw telemetry into a clear action queue</h3>
+          <p class="featureRow__desc">Raw sensor data gets processed into a structured list — what needs immediate service, what's trending toward a problem, and what's healthy. No decoding dashboards. No arguing about which truck to pull first. Just a prioritized queue your team can work through.</p>
         </div>
-        <div class="sensorGroup">
-          <div class="sensorGroup__category">Fuel &amp; Emissions</div>
-          <h3>Efficiency &amp; Compliance</h3>
-          <div class="sensorGroup__tags">
-            <span class="sensorTag">Fuel Rate</span>
-            <span class="sensorTag">Fuel Level</span>
-            <span class="sensorTag">Fuel Delivery Pressure</span>
-            <span class="sensorTag">DPF Soot Load</span>
-          </div>
-        </div>
-        <div class="sensorGroup">
-          <div class="sensorGroup__category">Electrical &amp; Motion</div>
-          <h3>Power &amp; Speed</h3>
-          <div class="sensorGroup__tags">
-            <span class="sensorTag">Battery Voltage</span>
-            <span class="sensorTag">Vehicle Speed</span>
-          </div>
-        </div>
-        <div class="sensorGroup sensorGroup--featured">
-          <div class="sensorGroup__category" style="color:var(--accent)">2015+ Vehicles</div>
-          <h3>Advanced Sensor Package</h3>
-          <p>Newer vehicles with modern ECUs unlock additional native sensor channels. Pre-2015 fleets are addon-eligible for hardware expansion — no vehicle left behind.</p>
-          <div class="sensorGroup__tags">
-            <span class="sensorTag">TPMS</span>
-            <span class="sensorTag">Accelerometer / Vibration</span>
-            <span class="sensorTag">Dashcam Integration</span>
-            <span class="sensorTag">Trailer Sensor</span>
-          </div>
+        <div class="featureRow">
+          <div class="featureRow__num">03</div>
+          <h3 class="featureRow__title">Validate on real vehicles before committing</h3>
+          <p class="featureRow__desc">The pilot is free and structured. Run Fleet AI on a group of live vehicles. If it catches real problems, improves decisions, and fits your operation — scale it. If not, you'll know fast without a large commitment or a long contract.</p>
         </div>
       </div>
     </div>
   </section>
 
+  <!-- ── What Fleet AI monitors ── -->
+  <section class="section">
+    <div class="container">
+      <div class="sectionHeader sectionHeader--centered" style="margin-bottom:36px">
+        <h2>What Fleet AI monitors</h2>
+        <p>15+ sensor streams per vehicle, processed continuously across OBD-II and J1939 protocols.</p>
+      </div>
+      <div class="sensorSimpleGrid">
+        <div class="sensorSimpleGroup">
+          <div class="sensorSimpleGroup__title">Engine &amp; Performance</div>
+          <ul>
+            <li>RPM</li>
+            <li>Engine Load</li>
+            <li>Engine Oil Pressure</li>
+            <li>Intake Manifold Pressure</li>
+            <li>Engine Hours</li>
+            <li>Vehicle Speed</li>
+          </ul>
+        </div>
+        <div class="sensorSimpleGroup">
+          <div class="sensorSimpleGroup__title">Thermal Systems</div>
+          <ul>
+            <li>Coolant Temperature</li>
+            <li>Engine Oil Temperature</li>
+            <li>Exhaust Gas Temperature (EGT)</li>
+            <li>Transmission Temperature</li>
+          </ul>
+        </div>
+        <div class="sensorSimpleGroup">
+          <div class="sensorSimpleGroup__title">Fuel, Emissions &amp; Electrical</div>
+          <ul>
+            <li>Fuel Rate</li>
+            <li>Fuel Level</li>
+            <li>Fuel Delivery Pressure</li>
+            <li>DPF Soot Load</li>
+            <li>Battery Voltage</li>
+          </ul>
+        </div>
+      </div>
+      <p class="sensorNote">2015+ vehicles unlock additional native channels: TPMS, accelerometer/vibration, dashcam integration, and trailer sensors. Pre-2015 fleets are addon-eligible — no vehicle left out.</p>
+    </div>
+  </section>
+
+  <!-- ── Infrastructure section ── -->
   <section class="section section--tint">
     <div class="container twoColumnStory">
       <div>
         <div class="sectionHeader">
-          <h2>Serious infrastructure for serious fleet environments</h2>
-          <p>Fleet AI is built to operate like infrastructure — not a demo app with AI branding on top of it.</p>
+          <h2>Built to run like infrastructure — not a demo</h2>
+          <p>Fleet AI is designed for real fleet environments where connectivity is inconsistent, security matters, and the data has to be right.</p>
         </div>
         <ul class="featureList featureList--strong">
           <li><span class="dot"></span>Multi-protocol telemetry: OBD-II for light-duty, J1939 for heavy-duty</li>
@@ -270,61 +279,63 @@
           <li><span class="dot"></span>Operator-authorized actions — Fleet AI recommends, humans decide</li>
         </ul>
         <div class="heroActions" style="margin-top:28px">
-          <a class="btn primary" href="/product.html">See the Product</a>
-          <a class="btn secondary" href="/security.html">Security Posture</a>
+          <a class="btn primary" href="/product.html">Full product overview</a>
+          <a class="btn secondary" href="/security.html">Security posture</a>
         </div>
       </div>
       <div class="stackCards">
         <div class="stackCard">
           <div class="stackCard__eyebrow">Maintenance</div>
           <h3>Inspection windows, not vague warnings</h3>
-          <p>Recommended service timing is grounded in actual sensor drift and operating context — not generic alerts.</p>
+          <p>Recommended service timing is grounded in actual sensor drift and operating context — not generic alerts that don't account for your vehicles.</p>
         </div>
         <div class="stackCard">
           <div class="stackCard__eyebrow">Operations</div>
           <h3>One command view for the whole fleet</h3>
-          <p>Operators see the same source of truth — no disconnected spreadsheets, no competing dashboards.</p>
+          <p>Operators and leadership see the same source of truth — no disconnected spreadsheets, no competing dashboards, no he-said-she-said on vehicle status.</p>
         </div>
         <div class="stackCard">
           <div class="stackCard__eyebrow">Leadership</div>
-          <h3>Reliability intelligence rolls up cleanly</h3>
-          <p>Summaries and risk reporting are designed to support real decisions, not just look impressive in a deck.</p>
+          <h3>Reliability intelligence that rolls up cleanly</h3>
+          <p>Summaries and risk reporting are designed to support real decisions — not just look impressive in a quarterly deck.</p>
         </div>
       </div>
     </div>
   </section>
 
+  <!-- ── Operating loop ── -->
   <section class="section">
     <div class="container">
       <div class="sectionHeader sectionHeader--centered">
         <h2>How the operating loop works</h2>
-        <p>Four steps. Real vehicles. Real decisions.</p>
+        <p>Four steps from raw telemetry to your team taking action.</p>
       </div>
       <div class="operatingLoop">
         <div class="loopStep">
           <div class="loopStep__index">01</div>
           <h3>Collect</h3>
-          <p>Pull data from vehicle interfaces and connected operator/driver devices across your fleet.</p>
+          <p>Fleet AI reads sensor data directly from vehicle interfaces via OBD-II or J1939 — continuously, with offline buffering when connectivity drops.</p>
         </div>
         <div class="loopStep">
           <div class="loopStep__index">02</div>
-          <h3>Clean</h3>
-          <p>Reconcile signals, remove noise, and ensure the intelligence layer works with trustworthy data.</p>
+          <h3>Analyze</h3>
+          <p>ML models compare live readings against each vehicle's established baseline and flag signals that indicate developing mechanical drift.</p>
         </div>
         <div class="loopStep">
           <div class="loopStep__index">03</div>
           <h3>Prioritize</h3>
-          <p>Surface what deserves immediate action, what needs monitoring, and what can be safely ignored.</p>
+          <p>Signals get ranked by urgency — what needs immediate attention, what needs monitoring, and what can safely wait — into a clear operator queue.</p>
         </div>
         <div class="loopStep">
           <div class="loopStep__index">04</div>
           <h3>Act</h3>
-          <p>Operators and leadership get aligned on the same data in the right format for each role.</p>
+          <p>Operators and leadership see the same prioritized picture. Fleet AI recommends the timing and reasoning — your team makes the calls.</p>
         </div>
       </div>
     </div>
   </section>
 
+  <!-- ── Fit / not-fit ── -->
   <section class="section section--tint">
     <div class="container grid-2">
       <div class="card card--dark">
@@ -337,7 +348,7 @@
         </ul>
       </div>
       <div class="card">
-        <div class="card__title">What this is not</div>
+        <div class="card__title">What Fleet AI is not</div>
         <ul class="featureList">
           <li><span class="dot" style="background:var(--accent)"></span>Not GPS-only fleet tracking dressed up as AI</li>
           <li><span class="dot" style="background:var(--accent)"></span>Not autonomous control or black-box autopilot</li>
@@ -348,16 +359,17 @@
     </div>
   </section>
 
+  <!-- ── CTA ── -->
   <section class="section">
     <div class="container ctaBand ctaBand--executive">
       <div class="ctaInner">
         <div>
-          <h3>The strongest case for Fleet AI is still proof on real vehicles.</h3>
-          <p>Start with a structured pilot. Validate fit in a live environment. Scale only if it earns it.</p>
+          <h3>The pilot is free. The only ask is real vehicles and real data.</h3>
+          <p>We validate Fleet AI the same way you should — on live vehicles, in real conditions, before anyone scales anything.</p>
         </div>
         <div class="heroActions">
-          <a class="btn primary" href="/request-demo.html">Request Demo</a>
-          <a class="btn outline-white" href="/pilot.html">Start Access Request</a>
+          <a class="btn primary" href="/pilot.html">Apply for the Pilot</a>
+          <a class="btn outline-white" href="/request-demo.html">Request a Demo First</a>
         </div>
       </div>
     </div>
@@ -390,7 +402,7 @@
     </div>
   </footer>
 
-  <script src="/js/site.js"></script>
-  <script src="/js/scroll-reveal.js"></script>
+  <script src="/js/site.js?v=20260420"></script>
+  <script src="/js/scroll-reveal.js?v=20260420"></script>
 </body>
 </html>
