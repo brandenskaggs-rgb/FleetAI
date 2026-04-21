@@ -1302,67 +1302,164 @@
   .statsBand__item:last-child{border-bottom:0}
 }
 
-/* ── Sensor coverage grid ────────────────────────── */
-.sensorGrid{
+/* ── What is Fleet AI section ──────────────────────── */
+.whatIsGrid{
   display:grid;
-  grid-template-columns:repeat(3, minmax(0,1fr));
-  gap:16px;
+  grid-template-columns:1.1fr 0.9fr;
+  gap:52px;
+  align-items:start;
 }
-.sensorGroup{
-  padding:22px;
-  border-radius:20px;
-  border:1px solid color-mix(in srgb, var(--border) 72%, transparent);
-  background:rgba(255,255,255,0.025);
+.whatIsGrid .eyebrow{margin-bottom:14px}
+.whatIsGrid h2{
+  font-size:32px;
+  line-height:1.15;
+  margin:0 0 18px;
+  font-family:var(--font-display);
+}
+.whatIsGrid p{
+  color:var(--muted);
+  font-size:15px;
+  line-height:1.75;
+  margin:0 0 14px;
+}
+.whatIsPanel{
   display:grid;
   gap:0;
-  align-content:start;
+  padding:28px;
+  border-radius:22px;
+  border:1px solid color-mix(in srgb, var(--primary) 18%, var(--border));
+  background:color-mix(in srgb, var(--primary) 5%, var(--panel));
 }
-.sensorGroup--featured{
-  grid-column:span 2;
-  background:linear-gradient(135deg, color-mix(in srgb, var(--primary) 10%, rgba(255,255,255,0.02)) 0%, rgba(255,255,255,0.02) 100%);
-  border-color:color-mix(in srgb, var(--primary) 32%, var(--border));
+.whatIsItem{
+  display:flex;
+  gap:16px;
+  align-items:flex-start;
+  padding:18px 0;
+  border-bottom:1px solid color-mix(in srgb, var(--border) 55%, transparent);
 }
-.sensorGroup__category{
+.whatIsItem:first-child{padding-top:0}
+.whatIsItem:last-child{padding-bottom:0;border-bottom:0}
+.whatIsItem__dot{
+  width:8px;
+  height:8px;
+  border-radius:50%;
+  background:var(--primary);
+  margin-top:5px;
+  flex-shrink:0;
+}
+.whatIsItem strong{
+  display:block;
+  font-size:14px;
+  font-weight:700;
+  margin-bottom:5px;
+  color:var(--text);
+}
+.whatIsItem span{
+  font-size:13px;
+  color:var(--muted);
+  line-height:1.6;
+}
+@media (max-width:900px){
+  .whatIsGrid{grid-template-columns:1fr;gap:28px}
+}
+
+/* ── Feature rows ──────────────────────────────────── */
+.featureRows{
+  display:grid;
+  gap:0;
+}
+.featureRow{
+  display:grid;
+  grid-template-columns:64px 1fr 1.6fr;
+  gap:28px;
+  align-items:start;
+  padding:32px 0;
+  border-bottom:1px solid color-mix(in srgb, var(--border) 60%, transparent);
+}
+.featureRow:first-child{padding-top:0}
+.featureRow:last-child{border-bottom:0;padding-bottom:0}
+.featureRow__num{
+  font-size:42px;
+  font-weight:800;
+  font-family:var(--font-display);
+  color:color-mix(in srgb, var(--primary) 22%, var(--border));
+  line-height:1;
+  padding-top:2px;
+}
+.featureRow__title{
+  font-size:20px;
+  font-weight:700;
+  font-family:var(--font-display);
+  line-height:1.25;
+  color:var(--text);
+  margin:0;
+}
+.featureRow__desc{
+  font-size:15px;
+  color:var(--muted);
+  line-height:1.72;
+  margin:0;
+}
+@media (max-width:900px){
+  .featureRow{grid-template-columns:48px 1fr;row-gap:10px}
+  .featureRow__desc{grid-column:1/-1;padding-left:76px}
+}
+@media (max-width:600px){
+  .featureRow{grid-template-columns:1fr;gap:10px}
+  .featureRow__num{font-size:32px}
+  .featureRow__desc{padding-left:0;grid-column:unset}
+}
+
+/* ── Sensor list ───────────────────────────────────── */
+.sensorSimpleGrid{
+  display:grid;
+  grid-template-columns:repeat(3, minmax(0,1fr));
+  gap:32px;
+  margin-bottom:24px;
+}
+.sensorSimpleGroup{display:grid;gap:12px;align-content:start}
+.sensorSimpleGroup__title{
   font-size:11px;
   font-weight:800;
   text-transform:uppercase;
   letter-spacing:0.16em;
   color:var(--primary);
-  margin-bottom:8px;
+  padding-bottom:10px;
+  border-bottom:1px solid color-mix(in srgb, var(--border) 60%, transparent);
 }
-.sensorGroup h3{
-  font-size:16px;
-  font-family:var(--font-display);
-  margin:0 0 12px;
+.sensorSimpleGroup ul{
+  list-style:none;
+  margin:0;
+  padding:0;
+  display:grid;
+  gap:9px;
+}
+.sensorSimpleGroup li{
+  font-size:14px;
   color:var(--text);
+  display:flex;
+  align-items:center;
+  gap:10px;
 }
-.sensorGroup p{
+.sensorSimpleGroup li::before{
+  content:"";
+  width:5px;
+  height:5px;
+  border-radius:50%;
+  background:var(--primary);
+  flex-shrink:0;
+  opacity:0.55;
+}
+.sensorNote{
+  text-align:center;
   font-size:13px;
   color:var(--muted);
-  line-height:1.55;
-  margin:0 0 12px;
+  margin:0;
+  padding:16px 20px;
+  border-radius:12px;
+  border:1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  background:color-mix(in srgb, var(--panel) 40%, transparent);
 }
-.sensorGroup__tags{
-  display:flex;
-  flex-wrap:wrap;
-  gap:6px;
-}
-.sensorTag{
-  display:inline-flex;
-  align-items:center;
-  padding:5px 12px;
-  border-radius:999px;
-  background:color-mix(in srgb, var(--primary) 9%, var(--bg));
-  border:1px solid color-mix(in srgb, var(--primary) 22%, var(--border));
-  font-size:12px;
-  font-weight:600;
-  color:var(--text);
-}
-@media (max-width:1100px){
-  .sensorGrid{grid-template-columns:repeat(2, minmax(0,1fr))}
-  .sensorGroup--featured{grid-column:span 2}
-}
-@media (max-width:700px){
-  .sensorGrid{grid-template-columns:1fr}
-  .sensorGroup--featured{grid-column:span 1}
+@media (max-width:900px){
+  .sensorSimpleGrid{grid-template-columns:1fr;gap:20px}
 }
