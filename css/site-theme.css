@@ -75,20 +75,21 @@ img{max-width:100%;display:block}
 
 /* Sign-in text link — clean, no border box */
 .siteSignIn{
-  font-size:14px;
-  font-weight:700;
-  color:rgba(255,255,255,0.78);
-  padding:8px 14px;
+  font-size:13px;
+  font-weight:600;
+  color:rgba(255,255,255,0.72);
+  padding:6px 12px;
   border-radius:999px;
   border:1px solid transparent;
   transition:color .15s ease, background .15s ease, border-color .15s ease;
   white-space:nowrap;
   cursor:pointer;
+  letter-spacing:0.01em;
 }
 .siteSignIn:hover{
   color:#ffffff;
-  background:rgba(255,255,255,0.08);
-  border-color:rgba(255,255,255,0.12);
+  background:rgba(255,255,255,0.07);
+  border-color:rgba(255,255,255,0.1);
 }
 
 /* Mono live tag used in hero shell */
