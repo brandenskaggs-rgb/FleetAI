@@ -20,20 +20,22 @@ function registerAuthRoutes(app, deps) {
     clearCustomerSessionCookie,
     customerSessionStore,
     persistSessionStoresSoon,
-    getSessionFromRequest,
     getSession,
     clearSessionCookie,
     sessionStore,
     bcrypt,
     nowIso,
-    sanitizeString,
-    requireSuperAdmin,
-    requireEmployeeSession,
-    requireEmployeeApi,
-    requireRole,
-    addAudit,
     writeData
   } = deps;
+
+  function sendRemovedRoute(res, canonicalPath) {
+    setNoStore(res);
+    return res.status(410).json({
+      ok: false,
+      code: "ROUTE_REMOVED",
+      message: `This route has been removed. Use ${canonicalPath} instead.`
+    });
+  }
 
   async function handleCustomerLogin(req, res, next) {
     const { email, password } = req.body || {};
@@ -117,7 +119,7 @@ function registerAuthRoutes(app, deps) {
     }
   }
 
-  function sendEmployeeError(res, err) {
+  function sendEmployeeError(res) {
     return sendEmployeeLoginResponse(res, 500, formatAuthError(AUTH_ERRORS.SERVER_MISCONFIG, { message: "Server error" }));
   }
 
@@ -137,9 +139,7 @@ function registerAuthRoutes(app, deps) {
             return sendEmployeeLoginResponse(res, 200, {
               ok: true,
               success: true,
-              session: {
-                expiresAt: devSession.expiresAt
-              },
+              session: { expiresAt: devSession.expiresAt },
               user: {
                 id: devLookup.user.id || null,
                 email: devLookup.user.email,
@@ -172,9 +172,7 @@ function registerAuthRoutes(app, deps) {
       return sendEmployeeLoginResponse(res, 200, {
         ok: true,
         success: true,
-        session: {
-          expiresAt: session.expiresAt
-        },
+        session: { expiresAt: session.expiresAt },
         user: {
           id: result.user.id || null,
           email: result.user.email,
@@ -186,7 +184,7 @@ function registerAuthRoutes(app, deps) {
     } catch (err) {
       const message = err && err.message ? err.message : String(err);
       console.log("[AUTH] login error", { step, message });
-      return sendEmployeeError(res, err);
+      return sendEmployeeError(res);
     }
   }
 
@@ -197,11 +195,11 @@ function registerAuthRoutes(app, deps) {
     return handleEmployeeLogin(req, res);
   }
 
-  app.post("/api/auth/org/login", (req, res, next) => { setNoStore(res); return handleCustomerLogin(req, res, next); });
   app.post("/api/auth/customer/login", (req, res, next) => { setNoStore(res); return handleCustomerLogin(req, res, next); });
-  app.post("/api/auth/login", (req, res, next) => { setNoStore(res); return handleCustomerLogin(req, res, next); });
-  app.post("/api/auth/login-customer", (req, res, next) => { setNoStore(res); return handleCustomerLogin(req, res, next); });
-  app.post("/api/customer/login", (req, res, next) => { setNoStore(res); return handleCustomerLogin(req, res, next); });
+  app.post("/api/auth/org/login", (req, res, next) => { setNoStore(res); return handleCustomerLogin(req, res, next); });
+  ["/api/auth/login", "/api/auth/login-customer", "/api/customer/login"].forEach((route) => {
+    app.all(route, (req, res) => sendRemovedRoute(res, "/api/auth/customer/login"));
+  });
 
   app.get("/api/auth/customer/session", (req, res) => {
     const session = getCustomerSession(req);
@@ -356,9 +354,10 @@ function registerAuthRoutes(app, deps) {
   });
 
   app.all("/api/employee/login", handleEmployeeLoginRoute);
-  app.all("/api/login", handleEmployeeLoginRoute);
-  app.all("/api/employee-login", handleEmployeeLoginRoute);
   app.all("/api/auth/employee/login", handleEmployeeLoginRoute);
+  ["/api/login", "/api/employee-login"].forEach((route) => {
+    app.all(route, (req, res) => sendRemovedRoute(res, "/api/auth/employee/login"));
+  });
 
   function handleEmployeeLogout(req, res) {
     const session = getSession(req);
