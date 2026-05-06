@@ -4,10 +4,15 @@ const path = require("path");
 
 const DEFAULT_SCHEMA_VERSION = 1;
 const DEFAULT_BACKUP_LIMIT = 10;
+const FILE_MODE = 0o600;
 
 function stripBom(raw) {
   if (!raw) return "";
   return raw.charCodeAt(0) === 0xfeff ? raw.slice(1) : raw;
+}
+
+function ensureParentDir(filePath) {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
 }
 
 function attemptJsonRecovery(raw) {
@@ -78,6 +83,7 @@ function createStorage(options) {
   };
 
   async function ensureFile() {
+    ensureParentDir(dataPath);
     try {
       await fsp.access(dataPath);
     } catch (err) {
@@ -85,19 +91,30 @@ function createStorage(options) {
     }
   }
 
+  async function setFilePermissions(filePath) {
+    try {
+      await fsp.chmod(filePath, FILE_MODE);
+    } catch (err) {
+      // Windows and some deploy targets may not support chmod the same way.
+    }
+  }
+
   async function writeAtomic(contents) {
+    ensureParentDir(dataPath);
     const tmpPath = `${dataPath}.tmp`;
     const stamp = new Date().toISOString().replace(/[:.]/g, "-");
     const backupPath = `${dataPath}.bak-${stamp}`;
 
-    const handle = await fsp.open(tmpPath, "w");
+    const handle = await fsp.open(tmpPath, "w", FILE_MODE);
     await handle.writeFile(contents, "utf8");
     await handle.sync();
     await handle.close();
+    await setFilePermissions(tmpPath);
 
     if (fs.existsSync(dataPath)) {
       try {
         await fsp.copyFile(dataPath, backupPath);
+        await setFilePermissions(backupPath);
         status.lastBackup = backupPath;
       } catch (backupErr) {
         console.warn(`[STORAGE] backup failed: ${backupPath}`);
@@ -106,6 +123,7 @@ function createStorage(options) {
 
     try {
       await fsp.copyFile(tmpPath, dataPath);
+      await setFilePermissions(dataPath);
     } finally {
       try {
         await fsp.unlink(tmpPath);
@@ -156,13 +174,15 @@ function createStorage(options) {
       const stamp = new Date().toISOString().replace(/[:.]/g, "-");
       const badPath = `${dataPath}.bad-${stamp}.json`;
       try {
-        await fsp.writeFile(badPath, raw, "utf8");
+        await fsp.writeFile(badPath, raw, { encoding: "utf8", mode: FILE_MODE });
+        await setFilePermissions(badPath);
       } catch (writeErr) {
         console.warn(`[STORAGE] failed to write bad snapshot: ${badPath}`);
       }
       try {
         const corruptPath = `${dataPath}.corrupt-${stamp}`;
         await fsp.rename(dataPath, corruptPath);
+        await setFilePermissions(corruptPath);
         status.lastBackup = corruptPath;
       } catch (renameErr) {
         // ignore
