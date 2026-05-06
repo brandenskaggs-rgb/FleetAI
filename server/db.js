@@ -1,17 +1,36 @@
+const fs = require("fs");
 const Database = require("better-sqlite3");
 const path = require("path");
 const crypto = require("crypto");
+const { STATE_DIR } = require("./config/authStorePath");
 
-const DB_PATH = process.env.FLEETAI_DB_PATH || path.resolve(__dirname, "fleet.db");
+const DB_PATH = path.resolve(process.env.FLEETAI_DB_PATH || path.join(STATE_DIR, "fleet.db"));
 
 let _db = null;
 
+function ensureDbDir() {
+  fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
+}
+
+function applyPragmas(db) {
+  db.pragma("journal_mode = WAL");
+  db.pragma("foreign_keys = ON");
+  db.pragma("busy_timeout = 5000");
+  db.pragma("synchronous = FULL");
+  db.pragma("temp_store = MEMORY");
+  db.pragma("journal_size_limit = 67108864");
+  try {
+    db.pragma("trusted_schema = OFF");
+  } catch (err) {
+    // Older SQLite builds may not support this pragma.
+  }
+}
+
 function getDb() {
   if (_db) return _db;
-  _db = new Database(DB_PATH);
-  _db.pragma("journal_mode = WAL");
-  _db.pragma("foreign_keys = ON");
-  _db.pragma("synchronous = NORMAL");
+  ensureDbDir();
+  _db = new Database(DB_PATH, { timeout: 5000 });
+  applyPragmas(_db);
   initSchema(_db);
   return _db;
 }
@@ -103,8 +122,6 @@ function makeId(prefix) {
   return `${prefix}_${crypto.randomBytes(6).toString("hex")}`;
 }
 
-// ── Telemetry samples ──────────────────────────────────────────────────────
-
 const _insertSample = () => getDb().prepare(`
   INSERT OR REPLACE INTO telemetry_samples
     (id, org_id, vehicle_id, driver_id, ts, odometer, engine_hours, metrics, raw)
@@ -160,8 +177,6 @@ function rowToSample(row) {
   };
 }
 
-// ── Model states ───────────────────────────────────────────────────────────
-
 function upsertModelState(state) {
   getDb()
     .prepare(`
@@ -189,8 +204,6 @@ function getAllModelStates() {
     .all()
     .map((r) => JSON.parse(r.state));
 }
-
-// ── Alerts ─────────────────────────────────────────────────────────────────
 
 function insertAlert(alert) {
   getDb()
@@ -256,8 +269,6 @@ function rowToAlert(row) {
   };
 }
 
-// ── AI reports ─────────────────────────────────────────────────────────────
-
 function insertAiReport(report) {
   const id = report.id || makeId("RPT");
   getDb()
@@ -293,8 +304,6 @@ function getLatestAiReport(vehicleId) {
     createdAt: row.created_at
   };
 }
-
-// ── Vehicle capabilities ───────────────────────────────────────────────────
 
 function upsertVehicleCapabilities(cap) {
   const now = new Date().toISOString();
@@ -336,8 +345,6 @@ function getVehicleCapabilities(vehicleId) {
     updatedAt: row.updated_at
   };
 }
-
-// ── Fuel events ────────────────────────────────────────────────────────────
 
 function insertFuelEvent(evt) {
   getDb()
@@ -382,6 +389,7 @@ function getFuelEventsForVehicle(vehicleId, limit = 20) {
 }
 
 module.exports = {
+  DB_PATH,
   getDb,
   makeId,
   insertTelemetrySample,
