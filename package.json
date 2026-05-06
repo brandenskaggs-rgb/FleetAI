@@ -1,8 +1,12 @@
 {
   "name": "fleet-ai",
   "version": "1.0.0",
+  "private": true,
   "description": "Run the backend (FastAPI) and open the UI to view mock telemetry.",
   "main": "index.js",
+  "engines": {
+    "node": ">=20 <26"
+  },
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
