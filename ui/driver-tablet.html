@@ -3,1670 +3,1231 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1" />
-  <title>Fleet AI — Driver</title>
+  <title>Fleet AI Driver Console</title>
   <style>
-    @import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap");
+    @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap");
 
     :root {
-      --bg:       #111827;
-      --bg2:      #0d1117;
-      --panel:    #1f2937;
-      --panel2:   #374151;
-      --border:   rgba(255,255,255,.09);
-      --text:     #f9fafb;
-      --muted:    #9ca3af;
-      --primary:  #3b82f6;
-      --primaryD: #2563eb;
-      --amber:    #f59e0b;
-      --danger:   #ef4444;
-      --success:  #22c55e;
-      --shadow:   0 4px 24px rgba(0,0,0,.5);
-      --radius:   14px;
-      --font-body:"Manrope","Segoe UI",Tahoma,Arial,sans-serif;
-      --font-disp:"Space Grotesk","Manrope","Segoe UI",Tahoma,Arial,sans-serif;
-      --nav-h:    64px;
-      --hdr-h:    60px;
+      color-scheme: dark;
+      --bg: #07111f;
+      --bg-alt: #0d1a2f;
+      --panel: rgba(10, 20, 38, 0.92);
+      --panel-soft: rgba(16, 30, 54, 0.78);
+      --line: rgba(146, 177, 255, 0.14);
+      --line-strong: rgba(146, 177, 255, 0.26);
+      --text: #f3f7ff;
+      --muted: #93a4c2;
+      --blue: #58a6ff;
+      --blue-strong: #2f7eea;
+      --green: #33d39b;
+      --amber: #ffb84d;
+      --red: #ff6c7f;
+      --shadow: 0 22px 60px rgba(0, 0, 0, 0.35);
+      --radius: 18px;
+      --radius-sm: 12px;
+      --font-body: "Inter", system-ui, sans-serif;
+      --font-display: "Space Grotesk", "Inter", system-ui, sans-serif;
     }
 
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--text); font-family: var(--font-body); }
     body {
-      font-family: var(--font-body);
-      background: var(--bg);
-      color: var(--text);
-      min-height: 100vh;
-      overflow-x: hidden;
+      background:
+        radial-gradient(circle at top left, rgba(88,166,255,0.22), transparent 30%),
+        radial-gradient(circle at top right, rgba(51,211,155,0.12), transparent 28%),
+        linear-gradient(180deg, #07111f 0%, #091523 38%, #060d18 100%);
     }
 
-    /* ── Header ─────────────────────────────────────── */
-    .appHeader {
-      position: fixed;
-      top: 0; left: 0; right: 0;
-      height: var(--hdr-h);
-      background: var(--bg2);
-      border-bottom: 1px solid var(--border);
+    button, input, textarea { font: inherit; }
+    button { cursor: pointer; }
+
+    .shell {
+      min-height: 100vh;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 10;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 0 16px;
-      z-index: 100;
+      padding: 18px 18px 14px;
+      backdrop-filter: blur(16px);
+      background: rgba(7, 17, 31, 0.7);
+      border-bottom: 1px solid rgba(146, 177, 255, 0.08);
     }
+
     .brand {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 12px;
+      min-width: 0;
     }
-    .logo {
-      width: 38px; height: 38px;
-      border-radius: 10px;
-      background: linear-gradient(135deg,#3b82f6 0%,#2563eb 100%);
-      display: grid; place-items: center;
+
+    .brandMark {
+      width: 42px;
+      height: 42px;
+      border-radius: 14px;
+      display: grid;
+      place-items: center;
       font-weight: 800;
-      font-family: var(--font-disp);
-      font-size: 14px;
-      color: #fff;
-      flex-shrink: 0;
+      font-family: var(--font-display);
+      color: #03101f;
+      background: linear-gradient(135deg, #7fc4ff 0%, #33d39b 100%);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.55), 0 12px 28px rgba(9, 33, 61, 0.45);
     }
-    .brandName {
-      font-family: var(--font-disp);
-      font-size: 16px;
-      font-weight: 700;
-      color: var(--text);
-    }
-    .brandSub {
-      font-size: 11px;
-      color: var(--muted);
-      display: block;
-    }
-    .hdrRight {
+
+    .brandText { min-width: 0; }
+    .brandTitle { font-family: var(--font-display); font-size: 16px; font-weight: 700; }
+    .brandSub { color: var(--muted); font-size: 12px; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    .topbarRight {
       display: flex;
       align-items: center;
       gap: 10px;
     }
-    .connPill {
-      display: flex;
+
+    .statusPill,
+    .iconBtn {
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.03);
+      color: var(--muted);
+      min-height: 40px;
+    }
+
+    .statusPill {
+      display: inline-flex;
       align-items: center;
-      gap: 6px;
+      gap: 8px;
+      padding: 0 12px;
       font-size: 12px;
       font-weight: 700;
-      padding: 6px 10px;
+    }
+
+    .statusPill .dot {
+      width: 8px;
+      height: 8px;
       border-radius: 999px;
-      background: rgba(255,255,255,.06);
-      border: 1px solid var(--border);
-      color: var(--muted);
+      background: currentColor;
+      opacity: 0.9;
     }
-    .connPill .dot {
-      width: 7px; height: 7px;
-      border-radius: 50%;
-      background: var(--muted);
-      flex-shrink: 0;
-    }
-    .connPill.live { color: var(--success); border-color: rgba(34,197,94,.3); background: rgba(34,197,94,.08); }
-    .connPill.live .dot { background: var(--success); box-shadow: 0 0 6px var(--success); }
-    .connPill.stale { color: var(--amber); border-color: rgba(245,158,11,.3); background: rgba(245,158,11,.08); }
-    .connPill.stale .dot { background: var(--amber); }
-    .gearBtn {
-      width: 38px; height: 38px;
-      border-radius: 10px;
-      background: rgba(255,255,255,.06);
-      border: 1px solid var(--border);
-      color: var(--muted);
-      display: grid; place-items: center;
-      cursor: pointer;
+
+    .statusPill.live { color: var(--green); border-color: rgba(51,211,155,0.28); background: rgba(51,211,155,0.09); }
+    .statusPill.warn { color: var(--amber); border-color: rgba(255,184,77,0.28); background: rgba(255,184,77,0.09); }
+    .statusPill.off { color: var(--muted); }
+
+    .iconBtn {
+      width: 40px;
+      min-width: 40px;
+      display: grid;
+      place-items: center;
       font-size: 18px;
-      flex-shrink: 0;
     }
-    .gearBtn:hover { background: rgba(255,255,255,.12); color: var(--text); }
 
-    /* ── Main content ───────────────────────────────── */
-    .appMain {
-      padding-top: var(--hdr-h);
-      padding-bottom: var(--nav-h);
-      min-height: 100vh;
+    .main {
+      padding: 14px 14px 92px;
+      display: grid;
+      gap: 14px;
+      align-content: start;
     }
-    .tabPanel { display: none; }
-    .tabPanel.active { display: block; }
 
-    /* ── Bottom nav ─────────────────────────────────── */
-    .bottomNav {
-      position: fixed;
-      bottom: 0; left: 0; right: 0;
-      height: var(--nav-h);
-      background: var(--bg2);
-      border-top: 1px solid var(--border);
-      display: flex;
-      z-index: 100;
-    }
-    .navBtn {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 3px;
-      background: none;
-      border: none;
-      color: var(--muted);
-      font-family: var(--font-body);
-      font-size: 10px;
-      font-weight: 700;
-      cursor: pointer;
-      border-top: 2px solid transparent;
-      transition: color .15s, border-color .15s;
-      -webkit-tap-highlight-color: transparent;
-    }
-    .navBtn svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-    .navBtn.active { color: var(--primary); border-top-color: var(--primary); }
-
-    /* ── Shared card ────────────────────────────────── */
-    .card {
-      background: var(--panel);
-      border: 1px solid var(--border);
+    .panel {
+      background: linear-gradient(180deg, rgba(15, 29, 54, 0.94) 0%, rgba(10, 20, 38, 0.94) 100%);
+      border: 1px solid var(--line);
       border-radius: var(--radius);
       box-shadow: var(--shadow);
       overflow: hidden;
     }
-    .cardHd {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 14px 16px;
-      border-bottom: 1px solid var(--border);
-      background: rgba(255,255,255,.03);
-    }
-    .cardHd h3 {
-      font-size: 13px;
-      font-weight: 700;
-      font-family: var(--font-disp);
-      color: var(--muted);
-      text-transform: uppercase;
-      letter-spacing: .05em;
-    }
-    .cardBd { padding: 16px; }
 
-    /* ── Status badges ──────────────────────────────── */
-    .badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      padding: 4px 10px;
-      border-radius: 999px;
-      font-size: 11px;
-      font-weight: 700;
-      border: 1px solid var(--border);
-      color: var(--muted);
-      background: rgba(255,255,255,.05);
-    }
-    .badge.good  { color: var(--success); border-color: rgba(34,197,94,.35);  background: rgba(34,197,94,.1);  }
-    .badge.warn  { color: var(--amber);   border-color: rgba(245,158,11,.35); background: rgba(245,158,11,.1); }
-    .badge.bad   { color: var(--danger);  border-color: rgba(239,68,68,.35);  background: rgba(239,68,68,.1);  }
-
-    /* ── Buttons ────────────────────────────────────── */
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-      padding: 12px 18px;
-      border-radius: 10px;
-      font-family: var(--font-disp);
-      font-size: 14px;
-      font-weight: 700;
-      cursor: pointer;
-      border: 1px solid var(--border);
-      background: rgba(255,255,255,.06);
-      color: var(--text);
-      transition: background .15s;
-      -webkit-tap-highlight-color: transparent;
-    }
-    .btn:hover { background: rgba(255,255,255,.12); }
-    .btn.primary { background: var(--primary); border-color: var(--primaryD); color: #fff; }
-    .btn.primary:hover { background: var(--primaryD); }
-    .btn.amber { background: var(--amber); border-color: #d97706; color: #000; }
-    .btn.full { width: 100%; }
-    .btn.sm { padding: 8px 12px; font-size: 12px; }
-    .btn.icon { padding: 10px; border-radius: 10px; }
-
-    /* ── Form inputs ────────────────────────────────── */
-    .field { display: grid; gap: 6px; margin-bottom: 14px; }
-    .field label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
-    input, textarea {
-      background: var(--bg2);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      color: var(--text);
-      font-family: var(--font-body);
-      font-size: 15px;
-      padding: 12px 14px;
-      outline: none;
-      width: 100%;
-      transition: border-color .15s, box-shadow .15s;
-    }
-    input:focus, textarea:focus {
-      border-color: var(--primary);
-      box-shadow: 0 0 0 3px rgba(59,130,246,.2);
+    .hero {
+      padding: 18px;
+      position: relative;
+      overflow: hidden;
     }
 
-    /* ══════════════════════════════════════════════════
-       TAB 1 — HOME
-    ══════════════════════════════════════════════════ */
-    #tab-home { padding: 16px; }
-
-    /* Driver row */
-    .driverRow {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 20px;
-    }
-    .driverRowLeft { display: flex; align-items: center; gap: 12px; }
-    .driverAvatar {
-      width: 44px; height: 44px;
-      border-radius: 12px;
-      background: linear-gradient(135deg, var(--primary) 0%, var(--primaryD) 100%);
-      display: grid; place-items: center;
-      font-size: 18px;
-      flex-shrink: 0;
-    }
-    .driverInfo .driverName {
-      font-size: 17px;
-      font-weight: 800;
-      font-family: var(--font-disp);
-      color: var(--text);
-    }
-    .driverInfo .driverVehicle {
-      font-size: 12px;
-      color: var(--muted);
-      margin-top: 2px;
-    }
-
-    /* Duty status badge (large) */
-    .dutyBadge {
-      padding: 6px 14px;
-      border-radius: 999px;
-      font-size: 12px;
-      font-weight: 800;
-      letter-spacing: .04em;
-      text-transform: uppercase;
-      cursor: pointer;
-      border: none;
-      font-family: var(--font-disp);
-    }
-    .dutyBadge.on-duty    { background: rgba(34,197,94,.18);  color: var(--success); }
-    .dutyBadge.driving    { background: rgba(59,130,246,.18); color: var(--primary); }
-    .dutyBadge.off-duty   { background: rgba(255,255,255,.08); color: var(--muted); }
-    .dutyBadge.sleeper    { background: rgba(107,114,128,.18); color: #9ca3af; }
-
-    /* Gauge */
-    .gaugeWrap {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 8px 0 20px;
-    }
-    .gaugeLabel {
-      font-size: 11px;
-      font-weight: 700;
-      color: var(--muted);
-      text-transform: uppercase;
-      letter-spacing: .08em;
-      margin-bottom: 12px;
-    }
-    .gaugeSvgWrap { position: relative; width: 200px; height: 200px; }
-    .gaugeCenter {
+    .hero::after {
+      content: "";
       position: absolute;
-      inset: 0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 2px;
-    }
-    .gaugeScore {
-      font-size: 3.2rem;
-      font-weight: 800;
-      font-family: var(--font-disp);
-      line-height: 1;
-    }
-    .gaugeScoreLabel {
-      font-size: 12px;
-      color: var(--muted);
-      font-weight: 600;
-    }
-
-    /* System chips */
-    .sysChips {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-      justify-content: center;
-      margin-top: 16px;
-    }
-    .sysChip {
-      display: flex;
-      align-items: center;
-      gap: 5px;
-      padding: 7px 12px;
+      inset: auto -30% -30% auto;
+      width: 220px;
+      height: 220px;
       border-radius: 999px;
-      font-size: 12px;
-      font-weight: 700;
-      border: 1px solid var(--border);
-      background: var(--panel);
+      background: radial-gradient(circle, rgba(88,166,255,0.24), transparent 70%);
+      pointer-events: none;
     }
-    .sysChip.normal { color: var(--success); border-color: rgba(34,197,94,.3);  background: rgba(34,197,94,.08);  }
-    .sysChip.warning{ color: var(--amber);   border-color: rgba(245,158,11,.3); background: rgba(245,158,11,.08); }
-    .sysChip.danger { color: var(--danger);  border-color: rgba(239,68,68,.3);  background: rgba(239,68,68,.08);  }
 
-    /* Quick-action cards on home */
-    .homeCards {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
-      margin-top: 16px;
-    }
-    .statCard {
-      background: var(--panel);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 14px;
-    }
-    .statCardLabel {
+    .eyebrow {
       font-size: 11px;
-      font-weight: 700;
-      color: var(--muted);
       text-transform: uppercase;
-      letter-spacing: .05em;
-      margin-bottom: 6px;
-    }
-    .statCardVal {
-      font-size: 22px;
-      font-weight: 800;
-      font-family: var(--font-disp);
-    }
-    .statCardVal.muted { color: var(--muted); font-size: 16px; }
-
-    /* ══════════════════════════════════════════════════
-       TAB 2 — LOGBOOK
-    ══════════════════════════════════════════════════ */
-    #tab-logbook { padding: 16px; }
-
-    .dutyHero {
-      text-align: center;
-      padding: 28px 16px 20px;
-    }
-    .dutyHeroLabel {
-      font-size: 12px;
-      font-weight: 700;
+      letter-spacing: 0.14em;
       color: var(--muted);
-      text-transform: uppercase;
-      letter-spacing: .1em;
+      font-weight: 700;
       margin-bottom: 10px;
     }
-    .dutyHeroBig {
-      font-size: 2.4rem;
-      font-weight: 800;
-      font-family: var(--font-disp);
-      letter-spacing: .02em;
-      margin-bottom: 16px;
-    }
-    .dutyHeroBig.on-duty  { color: var(--success); }
-    .dutyHeroBig.driving  { color: var(--primary); }
-    .dutyHeroBig.off-duty { color: var(--muted); }
-    .dutyHeroBig.sleeper  { color: #6b7280; }
 
-    .dutyPicker {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-      margin-bottom: 20px;
-    }
-    .dutyOption {
-      padding: 14px 10px;
-      border-radius: 12px;
-      border: 2px solid var(--border);
-      background: var(--panel);
-      font-family: var(--font-disp);
-      font-size: 13px;
-      font-weight: 700;
-      cursor: pointer;
-      text-align: center;
-      transition: all .15s;
-      -webkit-tap-highlight-color: transparent;
-    }
-    .dutyOption:hover { border-color: rgba(255,255,255,.2); }
-    .dutyOption.selected { border-color: var(--primary); background: rgba(59,130,246,.15); color: var(--primary); }
-
-    .hoursRow {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
-      margin-bottom: 20px;
-    }
-
-    .logList { display: flex; flex-direction: column; gap: 2px; }
-    .logEntry {
+    .heroRow {
       display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 10px 14px;
-      background: var(--panel);
-      border-radius: 10px;
-      border: 1px solid var(--border);
-    }
-    .logEntryTime { font-size: 12px; color: var(--muted); font-weight: 600; min-width: 52px; }
-    .logEntryText { font-size: 13px; font-weight: 600; flex: 1; }
-    .logEntryStatus { font-size: 11px; font-weight: 700; }
-    .logEntryStatus.on-duty  { color: var(--success); }
-    .logEntryStatus.driving  { color: var(--primary); }
-    .logEntryStatus.off-duty { color: var(--muted); }
-    .logEntryStatus.sleeper  { color: #6b7280; }
-
-    .remarkRow {
-      display: flex;
-      gap: 8px;
-      margin-top: 12px;
-    }
-    .remarkRow input { flex: 1; }
-
-    /* ══════════════════════════════════════════════════
-       TAB 3 — SENSORS
-    ══════════════════════════════════════════════════ */
-    #tab-sensors { padding: 16px; }
-
-    .sensorGrid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
-    }
-    .sensorTile {
-      background: var(--panel);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 16px 14px 12px;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      min-height: 140px;
-    }
-    .sensorTile.warn-border  { border-color: rgba(245,158,11,.4); }
-    .sensorTile.danger-border{ border-color: rgba(239,68,68,.45); }
-    .sensorTileTop {
-      display: flex;
-      align-items: center;
+      align-items: flex-start;
       justify-content: space-between;
+      gap: 12px;
     }
-    .sensorIcon { font-size: 18px; line-height: 1; }
-    .sensorName {
-      font-size: 11px;
-      font-weight: 700;
-      color: var(--muted);
+
+    .heroName { font-family: var(--font-display); font-weight: 700; font-size: 26px; line-height: 1.02; }
+    .heroMeta { color: var(--muted); font-size: 13px; margin-top: 8px; line-height: 1.5; }
+
+    .dutyButton {
+      border: none;
+      border-radius: 999px;
+      padding: 9px 14px;
+      background: rgba(88,166,255,0.14);
+      color: var(--blue);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
       text-transform: uppercase;
-      letter-spacing: .04em;
     }
-    .sensorVal {
-      font-size: 2rem;
-      font-weight: 800;
-      font-family: var(--font-disp);
-      line-height: 1.1;
-      margin: 4px 0;
-    }
-    .sensorUnit {
-      font-size: 13px;
-      font-weight: 600;
-      color: var(--muted);
-      margin-left: 3px;
-    }
-    .sensorBar {
-      height: 5px;
-      background: rgba(255,255,255,.08);
-      border-radius: 3px;
-      overflow: hidden;
-      margin-top: auto;
-    }
-    .sensorBarFill {
-      height: 100%;
-      border-radius: 3px;
-      background: var(--success);
-      transition: width .4s, background .4s;
-    }
-    .sensorBarFill.warn   { background: var(--amber); }
-    .sensorBarFill.danger { background: var(--danger); }
-    .sensorTier {
-      font-size: 10px;
-      font-weight: 800;
-      letter-spacing: .07em;
-      color: var(--success);
-    }
-    .sensorTier.warn   { color: var(--amber); }
-    .sensorTier.danger { color: var(--danger); }
 
-    /* ══════════════════════════════════════════════════
-       TAB 4 — ADVISOR
-    ══════════════════════════════════════════════════ */
-    #tab-advisor {
-      display: flex;
-      flex-direction: column;
-      height: calc(100vh - var(--hdr-h) - var(--nav-h));
+    .heroMetrics {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 18px;
     }
-    #tab-advisor.active { display: flex; }
 
-    .chatHeader {
-      padding: 14px 16px;
-      border-bottom: 1px solid var(--border);
+    .metric {
+      padding: 14px;
+      border-radius: 16px;
+      border: 1px solid rgba(146, 177, 255, 0.12);
+      background: rgba(255,255,255,0.03);
+      min-height: 94px;
+    }
+
+    .metricLabel { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 700; }
+    .metricValue { margin-top: 10px; font-size: 26px; font-weight: 800; font-family: var(--font-display); line-height: 1; }
+    .metricSub { margin-top: 8px; color: var(--muted); font-size: 12px; }
+
+    .section {
+      padding: 18px;
+      display: grid;
+      gap: 14px;
+    }
+
+    .sectionHead {
       display: flex;
-      justify-content: space-between;
       align-items: center;
-      flex-shrink: 0;
+      justify-content: space-between;
+      gap: 12px;
     }
-    .chatHeader h2 { font-size: 16px; font-family: var(--font-disp); }
-    .chatHeader small { color: var(--muted); font-size: 12px; display: block; margin-top: 2px; }
 
-    .chatPrompts {
+    .sectionTitle { font-family: var(--font-display); font-size: 15px; font-weight: 700; }
+    .sectionMeta { color: var(--muted); font-size: 12px; }
+
+    .chipRow {
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
-      padding: 12px 16px;
-      border-bottom: 1px solid var(--border);
-      flex-shrink: 0;
     }
-    .promptChip {
-      font-size: 12px;
-      padding: 7px 12px;
+
+    .chip {
       border-radius: 999px;
-      border: 1px solid rgba(245,158,11,.35);
-      background: rgba(245,158,11,.08);
-      color: var(--amber);
+      padding: 8px 12px;
+      font-size: 12px;
       font-weight: 700;
-      cursor: pointer;
-      font-family: var(--font-body);
-      -webkit-tap-highlight-color: transparent;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.03);
+      color: var(--muted);
     }
-    .promptChip:hover { background: rgba(245,158,11,.16); }
+
+    .chip.good { color: var(--green); border-color: rgba(51,211,155,0.24); background: rgba(51,211,155,0.08); }
+    .chip.warn { color: var(--amber); border-color: rgba(255,184,77,0.24); background: rgba(255,184,77,0.08); }
+    .chip.bad { color: var(--red); border-color: rgba(255,108,127,0.24); background: rgba(255,108,127,0.08); }
+
+    .telemetryGrid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .telemetryCard {
+      border-radius: 16px;
+      padding: 14px;
+      border: 1px solid rgba(146,177,255,0.12);
+      background: rgba(255,255,255,0.025);
+      min-height: 110px;
+    }
+
+    .telemetryCard strong { display: block; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+    .telemetryCard .value { display: block; margin-top: 8px; font-size: 24px; font-family: var(--font-display); font-weight: 700; }
+    .telemetryCard .hint { display: block; margin-top: 8px; font-size: 12px; color: var(--muted); line-height: 1.45; }
+
+    .list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .listItem {
+      border-radius: 16px;
+      padding: 14px;
+      border: 1px solid rgba(146,177,255,0.12);
+      background: rgba(255,255,255,0.025);
+      display: grid;
+      gap: 8px;
+    }
+
+    .listItemTop { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+    .listItemTitle { font-weight: 700; font-size: 14px; }
+    .listItemMeta { color: var(--muted); font-size: 12px; }
+    .listItemText { color: var(--text); font-size: 13px; line-height: 1.5; }
+
+    .empty {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.6;
+      padding: 6px 0;
+    }
+
+    .dutyGrid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .dutyOption {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 14px 12px;
+      background: rgba(255,255,255,0.025);
+      color: var(--text);
+      text-align: left;
+      font-weight: 700;
+    }
+
+    .dutyOption.active {
+      border-color: rgba(88,166,255,0.42);
+      background: rgba(88,166,255,0.12);
+      color: var(--blue);
+    }
+
+    .formGrid { display: grid; gap: 12px; }
+
+    .field {
+      display: grid;
+      gap: 6px;
+    }
+
+    .field label {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .field input,
+    .composer textarea {
+      width: 100%;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      background: rgba(4, 10, 20, 0.42);
+      color: var(--text);
+      padding: 14px;
+      outline: none;
+    }
+
+    .field input:focus,
+    .composer textarea:focus {
+      border-color: rgba(88,166,255,0.4);
+      box-shadow: 0 0 0 3px rgba(88,166,255,0.12);
+    }
+
+    .actionRow {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      min-height: 46px;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      padding: 0 16px;
+      background: rgba(255,255,255,0.04);
+      color: var(--text);
+      font-weight: 700;
+    }
+
+    .btn.primary {
+      border-color: rgba(88,166,255,0.44);
+      background: linear-gradient(180deg, #58a6ff 0%, #2f7eea 100%);
+      color: #04111f;
+    }
+
+    .btn.full { width: 100%; }
+
+    .helper { color: var(--muted); font-size: 12px; line-height: 1.5; }
+    .feedback { min-height: 18px; color: var(--muted); font-size: 12px; }
+    .feedback.good { color: var(--green); }
+    .feedback.bad { color: var(--red); }
+
+    .composer {
+      display: grid;
+      gap: 10px;
+    }
+
+    .composer textarea {
+      resize: vertical;
+      min-height: 96px;
+    }
 
     .chatLog {
-      flex: 1;
-      overflow-y: auto;
-      padding: 12px 16px;
-      display: flex;
-      flex-direction: column;
+      display: grid;
       gap: 12px;
+      max-height: 360px;
+      overflow: auto;
+      padding-right: 4px;
     }
-    .chatMsg {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-      max-width: 82%;
+
+    .bubble {
+      display: grid;
+      gap: 5px;
+      max-width: 92%;
     }
-    .chatMsg.user { align-self: flex-end; align-items: flex-end; }
-    .chatMsg.ai   { align-self: flex-start; align-items: flex-start; }
-    .chatMsgMeta { font-size: 10px; color: var(--muted); font-weight: 600; }
-    .chatBubble {
-      padding: 10px 14px;
-      border-radius: 14px;
+
+    .bubble.user { justify-self: end; }
+    .bubble.ai { justify-self: start; }
+
+    .bubbleMeta { color: var(--muted); font-size: 11px; }
+
+    .bubbleBody {
+      border-radius: 18px;
+      padding: 12px 14px;
       font-size: 14px;
       line-height: 1.55;
-      word-break: break-word;
-    }
-    .chatMsg.user .chatBubble {
-      background: var(--primary);
-      color: #fff;
-      border-bottom-right-radius: 4px;
-    }
-    .chatMsg.ai .chatBubble {
-      background: var(--panel2);
-      color: var(--text);
-      border-bottom-left-radius: 4px;
-    }
-    .chatAiDot {
-      width: 26px; height: 26px;
-      border-radius: 8px;
-      background: linear-gradient(135deg, var(--primary) 0%, var(--primaryD) 100%);
-      display: grid; place-items: center;
-      font-size: 12px;
-      flex-shrink: 0;
-      margin-bottom: 4px;
+      white-space: pre-wrap;
     }
 
-    .chatInputArea {
-      padding: 10px 14px;
-      border-top: 1px solid var(--border);
-      display: flex;
+    .bubble.user .bubbleBody { background: linear-gradient(180deg, #58a6ff 0%, #2f7eea 100%); color: #04111f; }
+    .bubble.ai .bubbleBody { background: rgba(255,255,255,0.05); border: 1px solid rgba(146,177,255,0.12); }
+
+    .bottomNav {
+      position: fixed;
+      left: 12px;
+      right: 12px;
+      bottom: 12px;
+      border-radius: 20px;
+      border: 1px solid rgba(146,177,255,0.14);
+      background: rgba(6, 12, 23, 0.88);
+      backdrop-filter: blur(18px);
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      padding: 8px;
       gap: 8px;
-      align-items: flex-end;
-      flex-shrink: 0;
+      box-shadow: var(--shadow);
     }
-    .chatInputWrap { flex: 1; position: relative; }
-    .chatInputWrap textarea {
-      min-height: 48px;
-      max-height: 120px;
-      padding: 12px 40px 12px 14px;
-      resize: none;
-      border-radius: 12px;
-      font-size: 14px;
-    }
-    .micBtn {
-      position: absolute;
-      right: 8px; bottom: 8px;
-      width: 28px; height: 28px;
-      border-radius: 999px;
-      background: rgba(255,255,255,.08);
-      border: 1px solid var(--border);
-      color: var(--muted);
-      display: grid; place-items: center;
-      cursor: pointer;
-      font-size: 13px;
-    }
-    .micBtn.active { border-color: var(--primary); color: var(--primary); box-shadow: 0 0 0 3px rgba(59,130,246,.2); }
-    .chatSendBtn {
-      width: 44px; height: 44px;
-      border-radius: 12px;
-      background: var(--primary);
-      border: 1px solid var(--primaryD);
-      color: #fff;
-      display: grid; place-items: center;
-      cursor: pointer;
-      flex-shrink: 0;
-    }
-    .chatSendBtn:hover { background: var(--primaryD); }
-    .chatSendBtn svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
-    .voiceNotice {
+    .navBtn {
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      border-radius: 14px;
+      min-height: 54px;
+      display: grid;
+      place-items: center;
+      gap: 4px;
       font-size: 11px;
-      color: var(--muted);
-      padding: 6px 16px 10px;
-      flex-shrink: 0;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
     }
-    .recIndicator { display: inline-flex; align-items: center; gap: 6px; }
-    .recDot { width: 7px; height: 7px; border-radius: 50%; background: var(--danger); animation: pulse 1s infinite; }
-    @keyframes pulse { 0%,100%{opacity:.5;transform:scale(1)} 50%{opacity:1;transform:scale(1.25)} }
 
-    /* ══════════════════════════════════════════════════
-       SETUP MODAL
-    ══════════════════════════════════════════════════ */
-    .modalBackdrop {
-      position: fixed; inset: 0;
-      background: rgba(0,0,0,.65);
-      backdrop-filter: blur(4px);
-      z-index: 200;
+    .navBtn.active {
+      background: rgba(88,166,255,0.14);
+      color: var(--blue);
+    }
+
+    .hidden { display: none !important; }
+
+    .sheet {
+      position: fixed;
+      inset: 0;
+      background: rgba(2, 8, 16, 0.64);
+      backdrop-filter: blur(10px);
+      z-index: 30;
       display: flex;
       align-items: flex-end;
     }
-    .modalBackdrop.hide { display: none; }
-    .modalSheet {
-      background: var(--bg);
-      border-top: 1px solid var(--border);
-      border-radius: 20px 20px 0 0;
+
+    .sheetCard {
       width: 100%;
       max-height: 92vh;
-      overflow-y: auto;
-      padding: 0 0 32px;
-    }
-    .modalHd {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 16px 20px;
-      border-bottom: 1px solid var(--border);
-      position: sticky; top: 0;
-      background: var(--bg);
-      z-index: 1;
-    }
-    .modalHd h2 { font-size: 17px; font-family: var(--font-disp); }
-    .modalClose {
-      width: 32px; height: 32px;
-      border-radius: 999px;
-      background: rgba(255,255,255,.08);
-      border: 1px solid var(--border);
-      color: var(--muted);
-      display: grid; place-items: center;
-      cursor: pointer;
-      font-size: 18px;
-    }
-    .modalSection {
-      padding: 20px 20px 8px;
-    }
-    .modalSectionTitle {
-      font-size: 11px;
-      font-weight: 700;
-      color: var(--muted);
-      text-transform: uppercase;
-      letter-spacing: .07em;
-      margin-bottom: 14px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .noteBox {
-      padding: 10px 14px;
-      border-radius: 10px;
-      border: 1px dashed var(--border);
-      background: rgba(255,255,255,.03);
-      color: var(--muted);
-      font-size: 12px;
-      line-height: 1.5;
-      margin-top: 10px;
+      overflow: auto;
+      border-radius: 24px 24px 0 0;
+      border: 1px solid rgba(146,177,255,0.14);
+      background: linear-gradient(180deg, #0d1a2f 0%, #081220 100%);
+      padding: 18px 18px 28px;
+      box-shadow: var(--shadow);
     }
 
-    /* ── Misc ───────────────────────────────────────── */
-    .hide { display: none !important; }
-    .mt8  { margin-top: 8px; }
-    .mt12 { margin-top: 12px; }
-    .mt16 { margin-top: 16px; }
-    .sectionTitle {
-      font-size: 11px;
-      font-weight: 700;
-      color: var(--muted);
-      text-transform: uppercase;
-      letter-spacing: .07em;
-      margin-bottom: 10px;
+    .sheetHead {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
     }
-    .divider {
-      height: 1px;
-      background: var(--border);
-      margin: 16px 0;
+
+    .sheetTitle { font-family: var(--font-display); font-size: 18px; font-weight: 700; }
+
+    @media (min-width: 860px) {
+      .main {
+        max-width: 920px;
+        margin: 0 auto;
+        width: 100%;
+      }
+      .heroMetrics,
+      .telemetryGrid,
+      .dutyGrid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+      }
+      .sheet { justify-content: center; align-items: center; }
+      .sheetCard {
+        max-width: 560px;
+        border-radius: 24px;
+        max-height: 88vh;
+      }
     }
   </style>
 </head>
 <body>
+  <div class="shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brandMark">FA</div>
+        <div class="brandText">
+          <div class="brandTitle">Fleet AI Driver</div>
+          <div class="brandSub" id="brandSub">Launch console for live driver operations</div>
+        </div>
+      </div>
+      <div class="topbarRight">
+        <div class="statusPill off" id="connectionPill"><span class="dot"></span><span id="connectionText">Offline</span></div>
+        <button class="iconBtn" id="openSetupBtn" aria-label="Open setup">&#9881;</button>
+      </div>
+    </header>
 
-<!-- ── Header ──────────────────────────────────────── -->
-<header class="appHeader">
-  <div class="brand">
-    <div class="logo">FA</div>
-    <div>
-      <span class="brandName" id="companyName">Fleet AI</span>
-      <span class="brandSub">Driver Tablet</span>
-    </div>
-  </div>
-  <div class="hdrRight">
-    <div class="connPill" id="telemetryStatus">
-      <span class="dot"></span>
-      <span id="telemetryText">Disconnected</span>
-    </div>
-    <button class="gearBtn" id="openSetup" aria-label="Setup">⚙️</button>
-  </div>
-</header>
-
-<!-- ── Main content ─────────────────────────────────── -->
-<main class="appMain">
-
-  <!-- ═══ TAB: HOME ═══════════════════════════════════ -->
-  <div id="tab-home" class="tabPanel active">
-    <div style="padding:16px;">
-
-      <!-- Driver row -->
-      <div class="driverRow">
-        <div class="driverRowLeft">
-          <div class="driverAvatar">🚛</div>
-          <div class="driverInfo">
-            <div class="driverName" id="homeDriverName">Not Signed In</div>
-            <div class="driverVehicle" id="homeVehicleLabel">No vehicle assigned</div>
+    <main class="main">
+      <section class="panel view" data-view="home">
+        <div class="hero">
+          <div class="eyebrow">Driver status</div>
+          <div class="heroRow">
+            <div>
+              <div class="heroName" id="driverName">Unpaired tablet</div>
+              <div class="heroMeta" id="driverMeta">Sign in with your company code and driver PIN, then claim a pairing code for this device.</div>
+            </div>
+            <button class="dutyButton" id="dutyBadge">Off Duty</button>
+          </div>
+          <div class="heroMetrics">
+            <div class="metric">
+              <div class="metricLabel">Vehicle</div>
+              <div class="metricValue" id="vehicleValue">--</div>
+              <div class="metricSub" id="vehicleSub">Waiting for assignment</div>
+            </div>
+            <div class="metric">
+              <div class="metricLabel">Health score</div>
+              <div class="metricValue" id="healthValue">--</div>
+              <div class="metricSub" id="healthSub">Telemetry required</div>
+            </div>
+            <div class="metric">
+              <div class="metricLabel">Latest update</div>
+              <div class="metricValue" id="updateValue">--</div>
+              <div class="metricSub" id="updateSub">No live feed yet</div>
+            </div>
+            <div class="metric">
+              <div class="metricLabel">Open alerts</div>
+              <div class="metricValue" id="alertValue">0</div>
+              <div class="metricSub" id="alertSub">No current alert feed</div>
+            </div>
           </div>
         </div>
-        <button class="dutyBadge off-duty" id="dutyBadgeBtn">OFF DUTY</button>
-      </div>
+      </section>
 
-      <!-- Health gauge -->
-      <div class="gaugeWrap">
-        <div class="gaugeLabel">Vehicle Health</div>
-        <div class="gaugeSvgWrap">
-          <svg viewBox="0 0 200 200" width="200" height="200">
-            <!-- Track -->
-            <circle cx="100" cy="100" r="80"
-              fill="none"
-              stroke="rgba(255,255,255,.07)"
-              stroke-width="14"
-              stroke-linecap="round"
-              transform="rotate(-90 100 100)"
-            />
-            <!-- Arc -->
-            <circle cx="100" cy="100" r="80"
-              fill="none"
-              stroke="#22c55e"
-              stroke-width="14"
-              stroke-linecap="round"
-              stroke-dasharray="502.65"
-              stroke-dashoffset="502.65"
-              transform="rotate(-90 100 100)"
-              id="gaugeArc"
-            />
-          </svg>
-          <div class="gaugeCenter">
-            <span class="gaugeScore" id="gaugeScore" style="color:var(--muted)">--</span>
-            <span class="gaugeScoreLabel">/ 100</span>
+      <section class="panel view" data-view="vehicle">
+        <div class="section">
+          <div class="sectionHead">
+            <div>
+              <div class="sectionTitle">Live vehicle snapshot</div>
+              <div class="sectionMeta">Best-effort live data from the assigned unit</div>
+            </div>
+            <button class="btn" id="refreshVehicleBtn">Refresh</button>
+          </div>
+          <div class="chipRow" id="statusChips"></div>
+          <div class="telemetryGrid" id="telemetryGrid"></div>
+          <div class="sectionHead" style="margin-top:6px;">
+            <div>
+              <div class="sectionTitle">Active alerts</div>
+              <div class="sectionMeta">What the driver should know right now</div>
+            </div>
+          </div>
+          <div class="list" id="alertsList"></div>
+        </div>
+      </section>
+
+      <section class="panel view hidden" data-view="logbook">
+        <div class="section">
+          <div class="sectionHead">
+            <div>
+              <div class="sectionTitle">Duty and logbook</div>
+              <div class="sectionMeta">Local duty changes and notes for the current device</div>
+            </div>
+          </div>
+          <div class="dutyGrid" id="dutyGrid"></div>
+          <div class="formGrid">
+            <div class="field">
+              <label for="logNote">Driver note</label>
+              <input id="logNote" type="text" placeholder="Add a short note for your logbook" />
+            </div>
+            <div class="actionRow">
+              <button class="btn primary" id="addLogBtn">Add note</button>
+              <button class="btn" id="clearLogsBtn">Clear logbook</button>
+            </div>
+            <div class="feedback" id="logFeedback"></div>
+          </div>
+          <div class="list" id="logList"></div>
+        </div>
+      </section>
+
+      <section class="panel view hidden" data-view="assistant">
+        <div class="section">
+          <div class="sectionHead">
+            <div>
+              <div class="sectionTitle">AI advisor</div>
+              <div class="sectionMeta">Driver-safe questions about the assigned vehicle</div>
+            </div>
+            <button class="btn" id="clearChatBtn">Clear</button>
+          </div>
+          <div class="chatLog" id="chatLog"></div>
+          <div class="composer">
+            <textarea id="chatInput" placeholder="Ask Fleet AI what this alert means, whether it is safe to continue, or what to inspect next."></textarea>
+            <div class="actionRow">
+              <button class="btn primary full" id="sendChatBtn">Send to advisor</button>
+            </div>
+            <div class="feedback" id="chatFeedback"></div>
           </div>
         </div>
+      </section>
+    </main>
 
-        <!-- System status chips -->
-        <div class="sysChips" id="sysChips">
-          <span class="sysChip" id="chip-engine">⚙️ Engine</span>
-          <span class="sysChip" id="chip-battery">🔋 Battery</span>
-          <span class="sysChip" id="chip-coolant">🌡️ Coolant</span>
-          <span class="sysChip" id="chip-dpf">🔵 DPF</span>
-          <span class="sysChip" id="chip-transmission">⚡ Trans</span>
+    <nav class="bottomNav">
+      <button class="navBtn active" data-target="home">Home</button>
+      <button class="navBtn" data-target="vehicle">Vehicle</button>
+      <button class="navBtn" data-target="logbook">Logbook</button>
+      <button class="navBtn" data-target="assistant">Advisor</button>
+    </nav>
+  </div>
+
+  <div class="sheet hidden" id="setupSheet">
+    <div class="sheetCard">
+      <div class="sheetHead">
+        <div>
+          <div class="sheetTitle">Device setup</div>
+          <div class="sectionMeta">Connect this tablet to the right fleet and vehicle</div>
         </div>
+        <button class="iconBtn" id="closeSetupBtn" aria-label="Close setup">&times;</button>
       </div>
 
-      <!-- Quick stat cards -->
-      <div class="homeCards">
-        <div class="statCard">
-          <div class="statCardLabel">Vehicle</div>
-          <div class="statCardVal" id="homeVehicleId" style="color:var(--muted);font-size:16px;">--</div>
+      <div class="formGrid">
+        <div class="field">
+          <label for="apiBaseInput">API server</label>
+          <input id="apiBaseInput" type="text" placeholder="Optional custom base URL" />
         </div>
-        <div class="statCard">
-          <div class="statCardLabel">Speed</div>
-          <div class="statCardVal" id="homeSpeed">-- <span style="font-size:13px;color:var(--muted);font-weight:600;">kph</span></div>
+        <div class="field">
+          <label for="companyCodeInput">Company code</label>
+          <input id="companyCodeInput" type="text" placeholder="Enter fleet company code" />
         </div>
-        <div class="statCard">
-          <div class="statCardLabel">Engine RPM</div>
-          <div class="statCardVal" id="homeRpm">--</div>
+        <div class="field">
+          <label for="driverPinInput">Driver PIN</label>
+          <input id="driverPinInput" type="password" placeholder="Enter your driver PIN" />
         </div>
-        <div class="statCard">
-          <div class="statCardLabel">Coolant</div>
-          <div class="statCardVal" id="homeCoolant">-- <span style="font-size:13px;color:var(--muted);font-weight:600;">°C</span></div>
+        <div class="actionRow">
+          <button class="btn primary" id="driverLoginBtn">Sign in driver</button>
+          <button class="btn" id="saveApiBtn">Save server</button>
         </div>
+        <div class="feedback" id="authFeedback"></div>
+
+        <div class="field">
+          <label for="pairCodeInput">Pairing code</label>
+          <input id="pairCodeInput" type="text" placeholder="Enter six-digit pairing code" />
+        </div>
+        <div class="field">
+          <label for="deviceLabelInput">Tablet label</label>
+          <input id="deviceLabelInput" type="text" placeholder="Example: Tablet 01" />
+        </div>
+        <div class="actionRow">
+          <button class="btn primary" id="pairDeviceBtn">Pair this device</button>
+        </div>
+        <div class="feedback" id="pairFeedback"></div>
+        <div class="helper">The tablet stores its own device ID locally. Pairing links that device to the assigned truck without storing any password in the browser.</div>
       </div>
     </div>
   </div>
 
-  <!-- ═══ TAB: LOGBOOK ════════════════════════════════ -->
-  <div id="tab-logbook" class="tabPanel">
-    <div style="padding:16px;">
+  <script>
+    const STORAGE_KEYS = {
+      apiBase: "fleetai.driver.apiBase",
+      duty: "fleetai.driver.duty",
+      logs: "fleetai.driver.logs",
+      chat: "fleetai.driver.chat",
+      deviceId: "fleetai.driver.deviceId",
+      companyName: "fleetai.driver.companyName"
+    };
 
-      <!-- Duty hero -->
-      <div class="dutyHero">
-        <div class="dutyHeroLabel">Current Duty Status</div>
-        <div class="dutyHeroBig off-duty" id="dutyHeroBig">OFF DUTY</div>
-      </div>
+    const DUTY_OPTIONS = [
+      { value: "off-duty", label: "Off Duty" },
+      { value: "on-duty", label: "On Duty" },
+      { value: "driving", label: "Driving" },
+      { value: "sleeper", label: "Sleeper" }
+    ];
 
-      <!-- Status picker -->
-      <div class="sectionTitle">Change Status</div>
-      <div class="dutyPicker">
-        <button class="dutyOption" data-duty="on-duty">🟢 On Duty</button>
-        <button class="dutyOption" data-duty="driving">🔵 Driving</button>
-        <button class="dutyOption selected" data-duty="off-duty">⚫ Off Duty</button>
-        <button class="dutyOption" data-duty="sleeper">🌙 Sleeper</button>
-      </div>
+    const TELEMETRY_FIELDS = [
+      { key: "speed", label: "Speed", unit: "mph" },
+      { key: "vehicleSpeed", label: "Speed", unit: "kph" },
+      { key: "rpm", label: "Engine speed", unit: "rpm" },
+      { key: "engineRpm", label: "Engine speed", unit: "rpm" },
+      { key: "coolant_temp", label: "Coolant", unit: "°F" },
+      { key: "coolantTemp", label: "Coolant", unit: "°C" },
+      { key: "battery_v", label: "Battery", unit: "V" },
+      { key: "batteryVoltage", label: "Battery", unit: "V" },
+      { key: "engine_hours", label: "Engine hours", unit: "hrs" },
+      { key: "engineHours", label: "Engine hours", unit: "hrs" },
+      { key: "fuel_level", label: "Fuel", unit: "%" },
+      { key: "fuelLevel", label: "Fuel", unit: "%" }
+    ];
 
-      <!-- Hours -->
-      <div class="sectionTitle">Hours Today</div>
-      <div class="hoursRow">
-        <div class="statCard">
-          <div class="statCardLabel">On Duty</div>
-          <div class="statCardVal" id="hoursOnDuty">0h 0m</div>
-        </div>
-        <div class="statCard">
-          <div class="statCardLabel">Driving</div>
-          <div class="statCardVal" id="hoursDriving">0h 0m</div>
-        </div>
-      </div>
+    const state = {
+      view: "home",
+      duty: readStorage(STORAGE_KEYS.duty, "off-duty"),
+      logs: readStorage(STORAGE_KEYS.logs, []),
+      chat: readStorage(STORAGE_KEYS.chat, []),
+      vehicleId: null,
+      driverName: null,
+      companyName: readStorage(STORAGE_KEYS.companyName, "Fleet AI"),
+      telemetry: null,
+      alerts: [],
+      lastTelemetryAt: null,
+      pollTimer: null
+    };
 
-      <!-- Log entries -->
-      <div class="sectionTitle">Trip Log</div>
-      <div class="logList" id="logList"></div>
-      <div class="remarkRow mt8">
-        <input id="remarkInput" type="text" placeholder="Add a remark…" />
-        <button class="btn sm" id="remarkBtn">Add</button>
-      </div>
-    </div>
-  </div>
+    function $(id) { return document.getElementById(id); }
 
-  <!-- ═══ TAB: SENSORS ════════════════════════════════ -->
-  <div id="tab-sensors" class="tabPanel">
-    <div style="padding:16px;">
-      <div class="sectionTitle">Live Telemetry</div>
-      <div class="sensorGrid" id="sensorGrid">
-        <!-- Tiles rendered by JS -->
-      </div>
-    </div>
-  </div>
-
-  <!-- ═══ TAB: ADVISOR ════════════════════════════════ -->
-  <div id="tab-advisor" class="tabPanel">
-    <div class="chatHeader">
-      <div>
-        <h2>AI Advisor</h2>
-        <small>Driver-safe guidance. Ask anything about your truck.</small>
-      </div>
-      <button class="btn sm" id="driverClear">Clear</button>
-    </div>
-    <div class="chatPrompts" id="driverPrompts"></div>
-    <div class="chatLog" id="driverChatLog"></div>
-    <div class="voiceNotice" id="voiceNotice">Voice disabled until vehicle speed is available.</div>
-    <div class="chatInputArea">
-      <div class="chatInputWrap">
-        <textarea id="driverInput" placeholder="Ask the AI Advisor…" rows="1"></textarea>
-        <button class="micBtn" id="driverMic" aria-label="Voice input">🎤</button>
-      </div>
-      <button class="chatSendBtn" id="driverSend" aria-label="Send">
-        <svg viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-      </button>
-    </div>
-  </div>
-
-</main>
-
-<!-- ── Bottom nav ────────────────────────────────────── -->
-<nav class="bottomNav">
-  <button class="navBtn active" data-tab="home">
-    <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-    Home
-  </button>
-  <button class="navBtn" data-tab="logbook">
-    <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-    Logbook
-  </button>
-  <button class="navBtn" data-tab="sensors">
-    <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-    Sensors
-  </button>
-  <button class="navBtn" data-tab="advisor">
-    <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-    Advisor
-  </button>
-</nav>
-
-<!-- ── Setup modal ───────────────────────────────────── -->
-<div class="modalBackdrop hide" id="setupModal">
-  <div class="modalSheet">
-    <div class="modalHd">
-      <h2>⚙️ Setup</h2>
-      <button class="modalClose" id="closeSetup">✕</button>
-    </div>
-
-    <!-- Server -->
-    <div class="modalSection">
-      <div class="modalSectionTitle">🌐 Server Connection <span class="badge" id="serverStatus">Default</span></div>
-      <div class="field">
-        <label for="serverAddress">Server address</label>
-        <input id="serverAddress" type="text" placeholder="https://fleetai.yourdomain.com" />
-      </div>
-      <button class="btn full" id="btnSaveServer">Save Server</button>
-      <div class="noteBox" id="serverNote">Using current site origin for API requests.</div>
-    </div>
-
-    <div class="divider" style="margin:0 20px;"></div>
-
-    <!-- Driver sign-in -->
-    <div class="modalSection">
-      <div class="modalSectionTitle">👤 Driver Sign-In <span class="badge warn" id="authStatus">Not signed in</span></div>
-      <div class="field">
-        <label for="companyCode">Company Code</label>
-        <input id="companyCode" type="text" placeholder="Company code" autocomplete="off" />
-      </div>
-      <div class="field">
-        <label for="driverPin">Driver PIN</label>
-        <input id="driverPin" type="password" inputmode="numeric" placeholder="Enter PIN" />
-      </div>
-      <button class="btn primary full" id="btnLogin">Sign In</button>
-      <div class="noteBox mt8" id="authNote">Waiting for a time-limited driver PIN from dispatch.</div>
-    </div>
-
-    <div class="divider" style="margin:0 20px;"></div>
-
-    <!-- Pairing -->
-    <div class="modalSection">
-      <div class="modalSectionTitle">🔗 Device Pairing <span class="badge warn" id="pairStatus">Not paired</span></div>
-      <div class="field">
-        <label for="pairCode">Vehicle Pair Code</label>
-        <input id="pairCode" type="text" inputmode="numeric" placeholder="Enter pair code" />
-      </div>
-      <div class="field">
-        <label for="deviceLabel">Tablet Label</label>
-        <input id="deviceLabel" type="text" placeholder="e.g. Tablet — Cab 1" />
-      </div>
-      <button class="btn primary full" id="btnPair">Pair Device</button>
-      <div class="noteBox mt8" id="pairNote">Pairing links this tablet to the selected vehicle.</div>
-    </div>
-
-    <div class="divider" style="margin:0 20px;"></div>
-
-    <!-- Vehicle confirmation -->
-    <div class="modalSection">
-      <div class="modalSectionTitle">🚛 Vehicle Status <span class="badge" id="vehicleStatus">Unassigned</span></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-        <div class="statCard">
-          <div class="statCardLabel">Vehicle ID</div>
-          <div class="statCardVal muted" id="vehicleId">--</div>
-        </div>
-        <div class="statCard">
-          <div class="statCardLabel">Driver</div>
-          <div class="statCardVal muted" id="driverName">--</div>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<script src="/js/config.js"></script>
-<script>
-// ── Constants & state ─────────────────────────────────
-const LOG_ERRORS = false;
-const DRIVER_CHAT_KEY    = "fleetai.driverChatHistory";
-const SERVER_STORAGE_KEY = "fleetai.apiBase";
-const LOGBOOK_KEY        = "fleetai.logbookEntries";
-const DUTY_KEY           = "fleetai.dutyStatus";
-
-const $ = (id) => document.getElementById(id);
-function logError() { if(LOG_ERRORS) console.error(...arguments); }
-
-// Client-side sensor thresholds (mirrors ml.js SENSOR_DANGER_THRESHOLDS)
-const SENSOR_THRESHOLDS = {
-  coolantTemp:   { warn: 90,   danger: 105, unit:'°C',  icon:'🌡️', label:'Coolant Temp',    higherIsBad:true  },
-  rpm:           { warn: 2000, danger: 2800,unit:'rpm', icon:'⚙️', label:'Engine RPM',      higherIsBad:true  },
-  batteryVoltage:{ warnMax:12.4,dangerMax:12.0,unit:'V',icon:'🔋',label:'Battery',          higherIsBad:false },
-  engineLoad:    { warn: 80,   danger: 95,  unit:'%',  icon:'📊', label:'Engine Load',      higherIsBad:true  },
-  dpfSootLoad:   { warn: 70,   danger: 85,  unit:'%',  icon:'🔵', label:'DPF Soot',         higherIsBad:true  },
-  fuelLevel:     { warnMax:25, dangerMax:10,unit:'%',  icon:'⛽', label:'Fuel Level',        higherIsBad:false },
-  oilTemp:       { warn:110,   danger:125,  unit:'°C', icon:'🛢️', label:'Oil Temp',          higherIsBad:true  },
-  vehicleSpeed:  { warn:115,   danger:130,  unit:'kph',icon:'💨', label:'Speed',             higherIsBad:true  },
-  transmissionTemp:{warn:90,   danger:110,  unit:'°C', icon:'⚡', label:'Trans Temp',        higherIsBad:true  },
-  egtC:          { warn:600,   danger:750,  unit:'°C', icon:'🔥', label:'Exhaust Temp',      higherIsBad:true  }
-};
-
-// Chip → sensor key mapping for home status chips
-const CHIP_SENSORS = {
-  'chip-engine':       ['rpm', 'engineLoad'],
-  'chip-battery':      ['batteryVoltage'],
-  'chip-coolant':      ['coolantTemp'],
-  'chip-dpf':          ['dpfSootLoad'],
-  'chip-transmission': ['transmissionTemp']
-};
-
-let driverChat     = [];
-let driverSpeedKph = null;
-let recognition    = null;
-let recording      = false;
-let currentMetrics = {};
-let currentDuty    = 'off-duty';
-let logbookEntries = [];
-let currentVehicleId = null;
-let healthPollTimer  = null;
-
-// ── API helpers ───────────────────────────────────────
-function normalizeBase(value) {
-  if(!value) return "";
-  const t = value.trim().replace(/\/+$/, "");
-  if(!t) return "";
-  return (t.startsWith("http://") || t.startsWith("https://")) ? t : `http://${t}`;
-}
-function applyApiBase(value) {
-  window.API_BASE_URL = value;
-  window.apiUrl = (path) => {
-    const raw = String(path || "");
-    if(!raw) return value || "";
-    if(raw.startsWith("http://") || raw.startsWith("https://")) return raw;
-    if(!value) return raw.startsWith("/") ? raw : `/${raw}`;
-    return raw.startsWith("/") ? `${value}${raw}` : `${value}/${raw}`;
-  };
-}
-function loadServerBase() {
-  try { return localStorage.getItem(SERVER_STORAGE_KEY) || ""; } catch(e) { return ""; }
-}
-function saveServerBase(value) {
-  try {
-    if(value) localStorage.setItem(SERVER_STORAGE_KEY, value);
-    else localStorage.removeItem(SERVER_STORAGE_KEY);
-  } catch(e) {}
-  applyApiBase(value);
-  updateServerUi();
-}
-async function postJson(path, payload) {
-  let res;
-  try {
-    res = await fetch(window.apiUrl ? window.apiUrl(path) : path, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload || {})
-    });
-  } catch(err) { throw new Error("Server unreachable. Check the server address."); }
-  if(!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || `HTTP ${res.status}`);
-  }
-  return res.json();
-}
-async function getJson(path) {
-  try {
-    const res = await fetch(window.apiUrl ? window.apiUrl(path) : path);
-    if(!res.ok) return null;
-    return res.json();
-  } catch(e) { return null; }
-}
-
-// ── Device ID ─────────────────────────────────────────
-function getDeviceId() {
-  try {
-    const e = localStorage.getItem("fleetai.deviceId");
-    if(e) return e;
-    const f = (crypto && crypto.randomUUID) ? crypto.randomUUID() : `device_${Date.now()}`;
-    localStorage.setItem("fleetai.deviceId", f);
-    return f;
-  } catch(e) { return `device_${Date.now()}`; }
-}
-
-// ── Setup modal ───────────────────────────────────────
-function openSetup()  { $("setupModal").classList.remove("hide"); }
-function closeSetup() { $("setupModal").classList.add("hide"); }
-
-function updateServerUi() {
-  const stored = loadServerBase();
-  const input  = $("serverAddress");
-  const status = $("serverStatus");
-  const note   = $("serverNote");
-  if(input)  input.value = stored;
-  if(status) { status.textContent = stored ? "Custom" : "Default"; status.className = stored ? "badge good" : "badge"; }
-  if(note)   note.textContent = stored ? `Using ${stored}` : "Using current site origin for API requests.";
-}
-
-// ── Telemetry status pill ─────────────────────────────
-function setTelemetryPill(state, label) {
-  const pill = $("telemetryStatus");
-  const txt  = $("telemetryText");
-  if(!pill || !txt) return;
-  pill.className = `connPill ${state}`;
-  txt.textContent = label;
-}
-
-// ── Health gauge ──────────────────────────────────────
-const GAUGE_CIRC = 2 * Math.PI * 80; // r=80
-
-function setGauge(score) {
-  const arc   = $("gaugeArc");
-  const label = $("gaugeScore");
-  if(!arc || !label) return;
-  if(score == null) {
-    arc.setAttribute("stroke-dashoffset", GAUGE_CIRC);
-    arc.setAttribute("stroke", "#374151");
-    label.textContent = "--";
-    label.style.color = "var(--muted)";
-    return;
-  }
-  const pct    = Math.max(0, Math.min(100, score)) / 100;
-  const offset = GAUGE_CIRC * (1 - pct);
-  const color  = score >= 80 ? "#22c55e" : score >= 50 ? "#f59e0b" : "#ef4444";
-  arc.setAttribute("stroke-dashoffset", offset.toFixed(2));
-  arc.setAttribute("stroke", color);
-  label.textContent = score;
-  label.style.color = color;
-}
-
-function updateChips(sensorRisks) {
-  Object.entries(CHIP_SENSORS).forEach(([chipId, keys]) => {
-    const chip = $(chipId);
-    if(!chip) return;
-    const maxRisk = keys.reduce((max, k) => {
-      const r = sensorRisks?.[k];
-      return r != null ? Math.max(max, r) : max;
-    }, 0);
-    chip.className = `sysChip ${maxRisk >= 70 ? 'danger' : maxRisk >= 30 ? 'warning' : 'normal'}`;
-  });
-}
-
-async function refreshHealthData() {
-  const vid = currentVehicleId;
-  if(!vid || vid === "--") {
-    setGauge(null);
-    updateChips({});
-    return;
-  }
-  const data = await getJson(`/api/vehicles/${encodeURIComponent(vid)}/prediction`);
-  if(!data || !data.data) { setGauge(null); return; }
-  const pred = data.data;
-  setGauge(pred.healthScore);
-  updateChips(pred.sensorRisks || {});
-}
-
-// ── Home quick stats ──────────────────────────────────
-function updateHomeStats(metrics) {
-  const speed   = metrics?.vehicleSpeed;
-  const rpm     = metrics?.rpm;
-  const coolant = metrics?.coolantTemp;
-
-  const homeSpeed   = $("homeSpeed");
-  const homeRpm     = $("homeRpm");
-  const homeCoolant = $("homeCoolant");
-
-  if(homeSpeed) {
-    if(speed != null) homeSpeed.innerHTML = `${Math.round(speed)} <span style="font-size:13px;color:var(--muted);font-weight:600;">kph</span>`;
-    else homeSpeed.textContent = "--";
-  }
-  if(homeRpm)     homeRpm.textContent = rpm != null ? Math.round(rpm).toLocaleString() : "--";
-  if(homeCoolant) {
-    if(coolant != null) homeCoolant.innerHTML = `${coolant.toFixed(0)} <span style="font-size:13px;color:var(--muted);font-weight:600;">°C</span>`;
-    else homeCoolant.textContent = "--";
-  }
-
-  // speed storage for voice gating
-  driverSpeedKph = speed != null ? speed : null;
-  try { if(speed != null) localStorage.setItem("fleetai.currentSpeedKph", speed); } catch(e) {}
-  updateVoiceNotice();
-}
-
-// ── Sensor tiles ──────────────────────────────────────
-function getTier(key, value) {
-  const t = SENSOR_THRESHOLDS[key];
-  if(!t || value == null) return "normal";
-  if(t.higherIsBad) {
-    if(t.danger != null && value >= t.danger) return "danger";
-    if(t.warn   != null && value >= t.warn)   return "warning";
-  } else {
-    if(t.dangerMax != null && value <= t.dangerMax) return "danger";
-    if(t.warnMax   != null && value <= t.warnMax)   return "warning";
-  }
-  return "normal";
-}
-
-function getRiskPct(key, value) {
-  const t = SENSOR_THRESHOLDS[key];
-  if(!t || value == null) return 0;
-  const tier = getTier(key, value);
-  if(tier === "danger")  return 90;
-  if(tier === "warning") return 55;
-  return 20;
-}
-
-function buildSensorTiles() {
-  const grid = $("sensorGrid");
-  if(!grid) return;
-  grid.innerHTML = "";
-  Object.entries(SENSOR_THRESHOLDS).forEach(([key, cfg]) => {
-    const val  = currentMetrics?.[key];
-    const tier = getTier(key, val);
-    const pct  = getRiskPct(key, val);
-    const tileClass = tier === "danger" ? "sensorTile danger-border" : tier === "warning" ? "sensorTile warn-border" : "sensorTile";
-    const dispVal = val != null ? (Number.isInteger(val) ? val.toLocaleString() : val.toFixed(1)) : "--";
-    const tierLabel = tier === "normal" ? "NORMAL" : tier === "warning" ? "WARNING" : "DANGER";
-    const barClass  = tier === "normal" ? "" : tier;
-    const tierCls   = tier === "normal" ? "" : tier;
-    const valColor  = tier === "danger" ? "var(--danger)" : tier === "warning" ? "var(--amber)" : "var(--text)";
-    grid.innerHTML += `
-      <div class="${tileClass}">
-        <div class="sensorTileTop">
-          <span class="sensorIcon">${cfg.icon}</span>
-          <span class="sensorTier ${tierCls}">${val != null ? tierLabel : ""}</span>
-        </div>
-        <div class="sensorName">${cfg.label}</div>
-        <div class="sensorVal" style="color:${valColor}">
-          ${dispVal}<span class="sensorUnit">${val != null ? cfg.unit : ""}</span>
-        </div>
-        <div class="sensorBar">
-          <div class="sensorBarFill ${barClass}" style="width:${pct}%"></div>
-        </div>
-      </div>`;
-  });
-}
-
-// ── Telemetry polling ─────────────────────────────────
-let telLastSeen = 0;
-async function pollTelemetry() {
-  try {
-    const data = await getJson("/api/telemetry/now");
-    if(data && data.metrics) {
-      currentMetrics = data.metrics;
-      telLastSeen = Date.now();
-      buildSensorTiles();
-      updateHomeStats(data.metrics);
+    function readStorage(key, fallback) {
+      try {
+        const raw = localStorage.getItem(key);
+        return raw == null ? fallback : JSON.parse(raw);
+      } catch (err) {
+        return fallback;
+      }
     }
-  } catch(e) {}
-  const age = Date.now() - telLastSeen;
-  if(telLastSeen === 0)      setTelemetryPill("", "Disconnected");
-  else if(age < 5000)        setTelemetryPill("live", "Live");
-  else if(age < 30000)       setTelemetryPill("stale", `${Math.round(age/1000)}s ago`);
-  else                       setTelemetryPill("", "Disconnected");
-}
 
-// ── Duty status ───────────────────────────────────────
-const DUTY_LABELS = {
-  'on-duty': 'ON DUTY', 'driving': 'DRIVING',
-  'off-duty': 'OFF DUTY', 'sleeper': 'SLEEPER BERTH'
-};
-
-function saveDuty(duty) {
-  currentDuty = duty;
-  try { localStorage.setItem(DUTY_KEY, duty); } catch(e) {}
-}
-function loadDuty() {
-  try { return localStorage.getItem(DUTY_KEY) || 'off-duty'; } catch(e) { return 'off-duty'; }
-}
-function applyDuty(duty) {
-  saveDuty(duty);
-  const label = DUTY_LABELS[duty] || duty.toUpperCase();
-  const heroBig = $("dutyHeroBig");
-  const badge   = $("dutyBadgeBtn");
-  if(heroBig) { heroBig.className = `dutyHeroBig ${duty}`; heroBig.textContent = label; }
-  if(badge)   { badge.className = `dutyBadge ${duty}`; badge.textContent = label; }
-  document.querySelectorAll(".dutyOption").forEach(el => {
-    el.classList.toggle("selected", el.dataset.duty === duty);
-  });
-  addLogEntry(`Status → ${label}`, duty);
-}
-
-// ── Logbook ───────────────────────────────────────────
-function loadLogbook() {
-  try { const r = localStorage.getItem(LOGBOOK_KEY); if(r) logbookEntries = JSON.parse(r) || []; } catch(e) {}
-}
-function saveLogbook() {
-  try { localStorage.setItem(LOGBOOK_KEY, JSON.stringify(logbookEntries)); } catch(e) {}
-}
-function addLogEntry(text, status) {
-  const ts = new Date();
-  logbookEntries.unshift({ ts: ts.toISOString(), text, status: status || currentDuty });
-  if(logbookEntries.length > 100) logbookEntries = logbookEntries.slice(0, 100);
-  saveLogbook();
-  renderLogbook();
-}
-function renderLogbook() {
-  const list = $("logList");
-  if(!list) return;
-  if(!logbookEntries.length) {
-    list.innerHTML = `<div style="color:var(--muted);font-size:13px;padding:12px 0;">No entries yet.</div>`;
-    return;
-  }
-  list.innerHTML = logbookEntries.slice(0, 20).map(e => {
-    const d = new Date(e.ts);
-    const time = d.toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' });
-    return `<div class="logEntry">
-      <span class="logEntryTime">${time}</span>
-      <span class="logEntryText">${e.text}</span>
-      <span class="logEntryStatus ${e.status || ''}">${DUTY_LABELS[e.status] || (e.status||'').toUpperCase()}</span>
-    </div>`;
-  }).join("");
-}
-
-// Basic hour tracking (accumulate per-duty-status since midnight)
-function computeHours() {
-  const midnight = new Date(); midnight.setHours(0,0,0,0);
-  let onDutyMs = 0, drivingMs = 0;
-  const entries = [...logbookEntries].reverse();
-  for(let i = 0; i < entries.length - 1; i++) {
-    const a = new Date(entries[i].ts), b = new Date(entries[i+1].ts);
-    if(b < midnight) continue;
-    const start = Math.max(a.getTime(), midnight.getTime());
-    const end   = b.getTime();
-    if(end <= start) continue;
-    const ms = end - start;
-    if(entries[i].status === 'on-duty') onDutyMs += ms;
-    if(entries[i].status === 'driving') { onDutyMs += ms; drivingMs += ms; }
-  }
-  const fmt = (ms) => {
-    const h = Math.floor(ms/3600000), m = Math.floor((ms%3600000)/60000);
-    return `${h}h ${m}m`;
-  };
-  const onDutyEl = $("hoursOnDuty"), drivingEl = $("hoursDriving");
-  if(onDutyEl) onDutyEl.textContent = fmt(onDutyMs);
-  if(drivingEl) drivingEl.textContent = fmt(drivingMs);
-}
-
-// ── Chat ──────────────────────────────────────────────
-function saveDriverChat() {
-  try { localStorage.setItem(DRIVER_CHAT_KEY, JSON.stringify(driverChat)); } catch(e) {}
-}
-function loadDriverChat() {
-  try { const r = localStorage.getItem(DRIVER_CHAT_KEY); if(r) driverChat = JSON.parse(r) || []; } catch(e) {}
-}
-
-function renderDriverChat() {
-  const log = $("driverChatLog");
-  if(!log) return;
-  log.innerHTML = "";
-  driverChat.forEach(msg => {
-    const isUser = msg.role === "user";
-    const wrap = document.createElement("div");
-    wrap.className = `chatMsg ${isUser ? "user" : "ai"}`;
-    const time = new Date(msg.ts || Date.now()).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
-    if(!isUser) {
-      const dot = document.createElement("div");
-      dot.className = "chatAiDot";
-      dot.textContent = "AI";
-      wrap.appendChild(dot);
+    function writeStorage(key, value) {
+      try { localStorage.setItem(key, JSON.stringify(value)); } catch (err) {}
     }
-    wrap.innerHTML += `
-      <div class="chatMsgMeta">${isUser ? "You" : "AI Advisor"} · ${time}</div>
-      <div class="chatBubble">${msg.content}</div>`;
-    log.appendChild(wrap);
-  });
-  log.scrollTop = log.scrollHeight;
-}
 
-function appendDriverMessage(role, text) {
-  const log = $("driverChatLog");
-  if(!log) return;
-  const ts   = Date.now();
-  const item = { role, content: text, ts };
-  driverChat.push(item);
-  saveDriverChat();
-  const isUser = role === "user";
-  const wrap = document.createElement("div");
-  wrap.className = `chatMsg ${isUser ? "user" : "ai"}`;
-  const time = new Date(ts).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
-  if(!isUser) {
-    const dot = document.createElement("div");
-    dot.className = "chatAiDot"; dot.textContent = "AI";
-    wrap.appendChild(dot);
-  }
-  const meta   = document.createElement("div"); meta.className = "chatMsgMeta";
-  meta.textContent = `${isUser ? "You" : "AI Advisor"} · ${time}`;
-  const bubble = document.createElement("div"); bubble.className = "chatBubble";
-  bubble.textContent = text;
-  wrap.appendChild(meta);
-  wrap.appendChild(bubble);
-  log.appendChild(wrap);
-  log.scrollTop = log.scrollHeight;
-}
+    function getDeviceId() {
+      let deviceId = readStorage(STORAGE_KEYS.deviceId, null);
+      if (deviceId) return deviceId;
+      deviceId = (crypto && crypto.randomUUID) ? crypto.randomUUID() : `device_${Date.now()}`;
+      writeStorage(STORAGE_KEYS.deviceId, deviceId);
+      return deviceId;
+    }
 
-function renderDriverPrompts() {
-  const prompts = [
-    "Any issues with my truck?",
-    "Is it safe to keep driving?",
-    "What does this warning mean?",
-    "Check my engine readings."
-  ];
-  const el = $("driverPrompts");
-  if(!el) return;
-  el.innerHTML = prompts.map(p =>
-    `<button class="promptChip" data-p="${encodeURIComponent(p)}">${p}</button>`
-  ).join("");
-  el.querySelectorAll(".promptChip").forEach(btn => {
-    btn.addEventListener("click", () => {
-      const text = decodeURIComponent(btn.getAttribute("data-p"));
-      const inp = $("driverInput");
-      if(inp) { inp.value = text; inp.focus(); }
-    });
-  });
-}
+    function normalizeBase(base) {
+      const raw = String(base || "").trim();
+      if (!raw) return "";
+      return raw.replace(/\/$/, "");
+    }
 
-async function sendDriverMessage() {
-  const input = $("driverInput");
-  const text  = (input?.value || "").trim();
-  if(!text) return;
-  input.value = "";
-  appendDriverMessage("user", text);
-  const vid = currentVehicleId;
-  if(!vid || vid === "--") {
-    appendDriverMessage("ai", "No vehicle paired yet. Tap ⚙️ to set up your device.");
-    return;
-  }
-  try {
-    const res = await postJson("/api/ai/chat", {
-      messages: driverChat.slice(-8).map(m => ({ role: m.role === "user" ? "user" : "assistant", content: m.content })),
-      context: { vehicleId: vid, deviceId: getDeviceId(), driverName: $("driverName")?.textContent || "" }
-    });
-    appendDriverMessage("ai", res.reply || "No response available.");
-  } catch(err) {
-    appendDriverMessage("ai", "Unable to reach AI service. Try again later.");
-  }
-}
+    function resolveApiUrl(path) {
+      const base = normalizeBase(readStorage(STORAGE_KEYS.apiBase, ""));
+      if (!base) return path;
+      return `${base}${path.startsWith("/") ? path : `/${path}`}`;
+    }
 
-// ── Voice ─────────────────────────────────────────────
-function updateVoiceNotice() {
-  const notice = $("voiceNotice");
-  if(!notice) return;
-  if(recording) { notice.innerHTML = '<span class="recIndicator"><span class="recDot"></span>Recording…</span>'; return; }
-  if(driverSpeedKph === null)    notice.textContent = "Voice disabled until speed is available.";
-  else if(driverSpeedKph > 0)   notice.textContent = "Voice disabled while vehicle is moving.";
-  else                           notice.textContent = "Voice input available — vehicle stopped.";
-}
-function initSpeech() {
-  const Speech = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if(!Speech) return;
-  recognition = new Speech();
-  recognition.lang = "en-US"; recognition.interimResults = true;
-  recognition.onresult = (e) => {
-    let t = "";
-    for(let i = e.resultIndex; i < e.results.length; i++) t += e.results[i][0].transcript;
-    const inp = $("driverInput"); if(inp) inp.value = t.trim();
-  };
-  recognition.onend = () => { recording = false; $("driverMic")?.classList.remove("active"); };
-}
-function toggleVoice() {
-  if(driverSpeedKph === null || driverSpeedKph > 0) { updateVoiceNotice(); return; }
-  if(!recognition) { updateVoiceNotice(); return; }
-  if(recording) { recognition.stop(); recording = false; }
-  else          { recognition.start(); recording = true; $("driverMic")?.classList.add("active"); }
-  updateVoiceNotice();
-}
+    async function fetchJson(path, options = {}) {
+      const response = await fetch(resolveApiUrl(path), options);
+      const text = await response.text();
+      let payload = null;
+      try { payload = text ? JSON.parse(text) : {}; } catch (err) { payload = null; }
+      if (!response.ok) {
+        const message = payload && (payload.message || payload.error || payload.code) ? (payload.message || payload.error || payload.code) : `HTTP ${response.status}`;
+        throw new Error(message);
+      }
+      return payload;
+    }
 
-// ── Login / Pairing ───────────────────────────────────
-async function login() {
-  const companyCode = $("companyCode")?.value.trim();
-  const driverPin   = $("driverPin")?.value.trim();
-  if(!companyCode || !driverPin) { $("authNote").textContent = "Company code and driver PIN required."; return; }
-  try {
-    const data = await postJson("/auth/driverLogin", { companyCode, driverPin });
-    $("authStatus").textContent = "Signed in"; $("authStatus").className = "badge good";
-    const dname  = data.driverName || "--";
-    const vid    = data.vehicleId  || "--";
-    $("driverName").textContent = dname;
-    $("vehicleId").textContent  = vid;
-    $("vehicleStatus").textContent  = vid !== "--" ? "Assigned" : "Unassigned";
-    $("vehicleStatus").className    = vid !== "--" ? "badge good" : "badge";
-    $("authNote").textContent = "Signed in. Proceed to device pairing if needed.";
-    // Update home tab
-    $("homeDriverName").textContent = dname;
-    $("homeVehicleLabel").textContent = vid !== "--" ? `Vehicle: ${vid}` : "No vehicle assigned";
-    $("homeVehicleId").textContent  = vid;
-    currentVehicleId = vid !== "--" ? vid : null;
-    try { localStorage.setItem("fleetai.companyName", data.companyName || companyCode); $("companyName").textContent = data.companyName || "Fleet AI"; } catch(e) {}
-    if(currentVehicleId) refreshHealthData();
-  } catch(err) {
-    logError("Driver login failed", err);
-    $("authStatus").textContent = "Not signed in"; $("authStatus").className = "badge warn";
-    $("authNote").textContent = err.message || "Unable to sign in.";
-  }
-}
+    async function tryJson(paths, options = {}) {
+      let lastError = null;
+      for (const path of paths) {
+        try {
+          return await fetchJson(path, options);
+        } catch (err) {
+          lastError = err;
+        }
+      }
+      throw lastError || new Error("Request failed");
+    }
 
-async function pairDevice() {
-  const pairingCode = $("pairCode")?.value.trim();
-  const deviceLabel = $("deviceLabel")?.value.trim();
-  if(!pairingCode || !deviceLabel) { $("pairNote").textContent = "Pair code and tablet label required."; return; }
-  try {
-    await postJson("/api/pairings/claim", { pairingCode, deviceId: getDeviceId(), deviceLabel });
-    $("pairStatus").textContent = "Paired"; $("pairStatus").className = "badge good";
-    $("pairNote").textContent = "Device paired. Waiting for telemetry stream.";
-  } catch(err) {
-    logError("Pairing failed", err);
-    $("pairStatus").textContent = "Not paired"; $("pairStatus").className = "badge warn";
-    $("pairNote").textContent = err.message || "Unable to pair device.";
-  }
-}
+    function setFeedback(id, message, tone = "") {
+      const el = $(id);
+      if (!el) return;
+      el.textContent = message || "";
+      el.className = `feedback${tone ? ` ${tone}` : ""}`;
+    }
 
-// ── Tab switching ─────────────────────────────────────
-function setActiveTab(tabId) {
-  document.querySelectorAll(".tabPanel").forEach(el => el.classList.remove("active"));
-  document.querySelectorAll(".navBtn").forEach(el => el.classList.remove("active"));
-  const panel = $(`tab-${tabId}`);
-  if(panel) panel.classList.add("active");
-  const btn = document.querySelector(`.navBtn[data-tab="${tabId}"]`);
-  if(btn) btn.classList.add("active");
-  if(tabId === "sensors") buildSensorTiles();
-  if(tabId === "logbook") { renderLogbook(); computeHours(); }
-  if(tabId === "home")    refreshHealthData();
-}
+    function setConnection(stateName, label) {
+      const pill = $("connectionPill");
+      const text = $("connectionText");
+      if (!pill || !text) return;
+      pill.className = `statusPill ${stateName}`;
+      text.textContent = label;
+    }
 
-// ── Init ──────────────────────────────────────────────
-function init() {
-  // Server
-  const base = normalizeBase(loadServerBase());
-  applyApiBase(base);
-  updateServerUi();
+    function openSetup() { $("setupSheet").classList.remove("hidden"); }
+    function closeSetup() { $("setupSheet").classList.add("hidden"); }
 
-  // Duty
-  currentDuty = loadDuty();
-  const dutyLabel = DUTY_LABELS[currentDuty] || "OFF DUTY";
-  const heroBig = $("dutyHeroBig"), badge = $("dutyBadgeBtn");
-  if(heroBig) { heroBig.className = `dutyHeroBig ${currentDuty}`; heroBig.textContent = dutyLabel; }
-  if(badge)   { badge.className = `dutyBadge ${currentDuty}`; badge.textContent = dutyLabel; }
-  document.querySelectorAll(".dutyOption").forEach(el =>
-    el.classList.toggle("selected", el.dataset.duty === currentDuty)
-  );
+    function setView(nextView) {
+      state.view = nextView;
+      document.querySelectorAll(".view").forEach((el) => {
+        el.classList.toggle("hidden", el.getAttribute("data-view") !== nextView);
+      });
+      document.querySelectorAll(".navBtn").forEach((btn) => {
+        btn.classList.toggle("active", btn.getAttribute("data-target") === nextView);
+      });
+    }
 
-  // Logbook
-  loadLogbook();
-  renderLogbook();
+    function formatNumber(value, digits = 0) {
+      const num = Number(value);
+      if (!Number.isFinite(num)) return "--";
+      return digits > 0 ? num.toFixed(digits) : Math.round(num).toLocaleString();
+    }
 
-  // Company name
-  try {
-    const cn = localStorage.getItem("fleetai.companyName");
-    if(cn) $("companyName").textContent = cn;
-  } catch(e) {}
+    function formatTime(ts) {
+      if (!ts) return "--";
+      const date = new Date(ts);
+      if (Number.isNaN(date.getTime())) return "--";
+      return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    }
 
-  // Chat
-  loadDriverChat();
-  renderDriverChat();
-  renderDriverPrompts();
-  initSpeech();
-  updateVoiceNotice();
+    function relativeTime(ts) {
+      if (!ts) return "No data";
+      const delta = Date.now() - new Date(ts).getTime();
+      if (!Number.isFinite(delta)) return "No data";
+      if (delta < 60000) return `${Math.max(1, Math.round(delta / 1000))}s ago`;
+      return `${Math.max(1, Math.round(delta / 60000))}m ago`;
+    }
 
-  // Initial sensor tiles
-  buildSensorTiles();
+    function computeHealth(metrics, alerts) {
+      if (!metrics) return { score: null, label: "Telemetry required" };
+      let score = 92;
+      const coolant = firstMetric(metrics, ["coolant_temp", "coolantTemp"]);
+      const battery = firstMetric(metrics, ["battery_v", "batteryVoltage"]);
+      if (coolant != null && coolant > 220) score -= 25;
+      else if (coolant != null && coolant > 205) score -= 12;
+      if (battery != null && battery < 12.0) score -= 22;
+      else if (battery != null && battery < 12.4) score -= 10;
+      score -= Math.min(30, (alerts || []).length * 8);
+      score = Math.max(18, Math.min(99, Math.round(score)));
+      if (score >= 82) return { score, label: "Within operating band" };
+      if (score >= 60) return { score, label: "Watch system trends" };
+      return { score, label: "Inspection recommended" };
+    }
 
-  // Gauge placeholder
-  setGauge(null);
+    function firstMetric(metrics, keys) {
+      for (const key of keys) {
+        const value = metrics && metrics[key];
+        if (value != null && value !== "") return Number(value);
+      }
+      return null;
+    }
 
-  // ── Event listeners ──────────────────────────────────
-  // Nav
-  document.querySelectorAll(".navBtn").forEach(btn =>
-    btn.addEventListener("click", () => setActiveTab(btn.dataset.tab))
-  );
-  // Duty badge (home) → go to logbook
-  $("dutyBadgeBtn")?.addEventListener("click", () => setActiveTab("logbook"));
-  // Duty options
-  document.querySelectorAll(".dutyOption").forEach(btn =>
-    btn.addEventListener("click", () => applyDuty(btn.dataset.duty))
-  );
-  // Setup modal
-  $("openSetup")?.addEventListener("click", openSetup);
-  $("closeSetup")?.addEventListener("click", closeSetup);
-  $("setupModal")?.addEventListener("click", (e) => { if(e.target === $("setupModal")) closeSetup(); });
-  // Server / login / pair
-  $("btnSaveServer")?.addEventListener("click", () => saveServerBase(normalizeBase($("serverAddress").value)));
-  $("btnLogin")?.addEventListener("click", login);
-  $("btnPair")?.addEventListener("click", pairDevice);
-  // Remark
-  $("remarkBtn")?.addEventListener("click", () => {
-    const v = $("remarkInput")?.value.trim();
-    if(v) { addLogEntry(v, currentDuty); $("remarkInput").value = ""; computeHours(); }
-  });
-  $("remarkInput")?.addEventListener("keydown", (e) => {
-    if(e.key === "Enter") { e.preventDefault(); $("remarkBtn").click(); }
-  });
-  // Chat
-  $("driverSend")?.addEventListener("click", sendDriverMessage);
-  $("driverInput")?.addEventListener("keydown", (e) => {
-    if(e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendDriverMessage(); }
-  });
-  $("driverClear")?.addEventListener("click", () => { driverChat = []; saveDriverChat(); renderDriverChat(); });
-  $("driverMic")?.addEventListener("click", toggleVoice);
+    function normalizeTelemetryPayload(payload) {
+      const data = payload && payload.data ? payload.data : payload;
+      if (!data) return null;
+      const metrics = Object.assign({}, data.metrics || {});
+      ["speed", "rpm", "coolant_temp", "fuel_level", "engine_hours", "vehicleSpeed", "coolantTemp", "batteryVoltage", "battery_v", "engineRpm"].forEach((key) => {
+        if (data[key] != null && metrics[key] == null) metrics[key] = data[key];
+      });
+      return {
+        vehicleId: data.vehicleId || data.vehicle_id || state.vehicleId,
+        timestamp: data.timestamp || data.ts || data.createdAt || null,
+        metrics
+      };
+    }
 
-  // ── Polling ──────────────────────────────────────────
-  pollTelemetry();
-  setInterval(pollTelemetry, 3000);
-  setInterval(() => { if(currentVehicleId) refreshHealthData(); }, 30000);
-  setInterval(updateVoiceNotice, 2000);
-}
+    function normalizeAlertsPayload(payload) {
+      const data = payload && payload.data ? payload.data : payload;
+      return Array.isArray(data) ? data : [];
+    }
 
-document.addEventListener("DOMContentLoaded", init);
-</script>
+    function renderHero() {
+      const health = computeHealth(state.telemetry && state.telemetry.metrics, state.alerts);
+      $("driverName").textContent = state.driverName || "Unpaired tablet";
+      $("driverMeta").textContent = state.driverName
+        ? `${state.companyName || "Fleet AI"} · Device ${getDeviceId().slice(0, 8)} · ${relativeTime(state.lastTelemetryAt)}`
+        : "Sign in with your company code and driver PIN, then claim a pairing code for this device.";
+      $("vehicleValue").textContent = state.vehicleId || "--";
+      $("vehicleSub").textContent = state.vehicleId ? "Assigned vehicle" : "Waiting for assignment";
+      $("healthValue").textContent = health.score == null ? "--" : String(health.score);
+      $("healthSub").textContent = health.label;
+      $("updateValue").textContent = state.lastTelemetryAt ? formatTime(state.lastTelemetryAt) : "--";
+      $("updateSub").textContent = relativeTime(state.lastTelemetryAt);
+      $("alertValue").textContent = String((state.alerts || []).length);
+      $("alertSub").textContent = state.alerts.length ? "Needs driver attention" : "No active warning feed";
+      $("brandSub").textContent = state.vehicleId ? `Vehicle ${state.vehicleId}` : "Launch console for live driver operations";
+    }
+
+    function renderDuty() {
+      const active = DUTY_OPTIONS.find((item) => item.value === state.duty) || DUTY_OPTIONS[0];
+      $("dutyBadge").textContent = active.label;
+      $("dutyGrid").innerHTML = DUTY_OPTIONS.map((item) => `
+        <button class="dutyOption${item.value === state.duty ? " active" : ""}" data-duty="${item.value}">${item.label}</button>
+      `).join("");
+      document.querySelectorAll("[data-duty]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          state.duty = btn.getAttribute("data-duty");
+          writeStorage(STORAGE_KEYS.duty, state.duty);
+          addLog(`Duty changed to ${DUTY_OPTIONS.find((item) => item.value === state.duty).label}`);
+          renderDuty();
+          renderHero();
+        });
+      });
+    }
+
+    function addLog(text) {
+      state.logs.unshift({ text, ts: new Date().toISOString(), duty: state.duty });
+      state.logs = state.logs.slice(0, 50);
+      writeStorage(STORAGE_KEYS.logs, state.logs);
+      renderLogs();
+    }
+
+    function renderLogs() {
+      const list = $("logList");
+      if (!state.logs.length) {
+        list.innerHTML = '<div class="empty">No local log entries yet. Duty changes and notes will appear here on this tablet.</div>';
+        return;
+      }
+      list.innerHTML = state.logs.map((entry) => `
+        <div class="listItem">
+          <div class="listItemTop">
+            <div>
+              <div class="listItemTitle">${entry.text}</div>
+              <div class="listItemMeta">${formatTime(entry.ts)} · ${entry.duty.replace("-", " ")}</div>
+            </div>
+            <span class="chip">${entry.duty.replace("-", " ")}</span>
+          </div>
+        </div>
+      `).join("");
+    }
+
+    function renderTelemetry() {
+      const grid = $("telemetryGrid");
+      const chips = $("statusChips");
+      const metrics = state.telemetry && state.telemetry.metrics;
+      if (!metrics) {
+        chips.innerHTML = '<span class="chip">Waiting for live telemetry</span>';
+        grid.innerHTML = '<div class="empty">No vehicle metrics yet. Pair the device and verify the live feed is reaching the backend.</div>';
+        return;
+      }
+
+      const coolant = firstMetric(metrics, ["coolant_temp", "coolantTemp"]);
+      const battery = firstMetric(metrics, ["battery_v", "batteryVoltage"]);
+      const speed = firstMetric(metrics, ["speed", "vehicleSpeed"]);
+      const chipData = [
+        coolant != null && coolant > 220 ? ["Coolant high", "bad"] : ["Coolant stable", "good"],
+        battery != null && battery < 12.0 ? ["Battery low", "bad"] : ["Battery normal", "good"],
+        speed != null && speed > 72 ? ["High speed", "warn"] : ["Speed normal", "good"]
+      ];
+      chips.innerHTML = chipData.map(([label, tone]) => `<span class="chip ${tone}">${label}</span>`).join("");
+
+      const cards = TELEMETRY_FIELDS.map((item) => {
+        const value = metrics[item.key];
+        if (value == null || value === "") return null;
+        return `
+          <div class="telemetryCard">
+            <strong>${item.label}</strong>
+            <span class="value">${formatNumber(value, String(value).includes(".") ? 1 : 0)} <span style="font-size:13px;color:var(--muted);font-family:var(--font-body);">${item.unit}</span></span>
+            <span class="hint">Latest vehicle stream for the assigned unit.</span>
+          </div>
+        `;
+      }).filter(Boolean);
+      grid.innerHTML = cards.length ? cards.join("") : '<div class="empty">Telemetry arrived, but none of the launch metrics were populated in the latest payload.</div>';
+    }
+
+    function renderAlerts() {
+      const list = $("alertsList");
+      if (!state.alerts.length) {
+        list.innerHTML = '<div class="empty">No active alert feed for this vehicle right now.</div>';
+        return;
+      }
+      list.innerHTML = state.alerts.slice(0, 6).map((alert) => {
+        const severity = String(alert.severity || alert.level || "info").toLowerCase();
+        const tone = severity.includes("crit") || severity.includes("high") ? "bad" : severity.includes("warn") ? "warn" : "good";
+        return `
+          <div class="listItem">
+            <div class="listItemTop">
+              <div>
+                <div class="listItemTitle">${alert.title || alert.type || "Vehicle alert"}</div>
+                <div class="listItemMeta">${formatTime(alert.createdAt || alert.created_at || alert.ts)} · ${severity || "info"}</div>
+              </div>
+              <span class="chip ${tone}">${severity || "info"}</span>
+            </div>
+            <div class="listItemText">${alert.details || alert.explanation || alert.message || "No additional alert detail available."}</div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function renderChat() {
+      const log = $("chatLog");
+      if (!state.chat.length) {
+        log.innerHTML = '<div class="empty">Ask Fleet AI what an alert means, whether it is safe to continue, or what to inspect next.</div>';
+        return;
+      }
+      log.innerHTML = state.chat.map((entry) => `
+        <div class="bubble ${entry.role}">
+          <div class="bubbleMeta">${entry.role === "user" ? "Driver" : "Fleet AI"} · ${formatTime(entry.ts)}</div>
+          <div class="bubbleBody">${entry.text}</div>
+        </div>
+      `).join("");
+      log.scrollTop = log.scrollHeight;
+    }
+
+    function appendChat(role, text) {
+      state.chat.push({ role, text, ts: new Date().toISOString() });
+      state.chat = state.chat.slice(-20);
+      writeStorage(STORAGE_KEYS.chat, state.chat);
+      renderChat();
+    }
+
+    async function handleDriverLogin() {
+      const companyCode = $("companyCodeInput").value.trim();
+      const driverPin = $("driverPinInput").value.trim();
+      if (!companyCode || !driverPin) {
+        setFeedback("authFeedback", "Company code and driver PIN are required.", "bad");
+        return;
+      }
+      setFeedback("authFeedback", "Signing in driver…");
+      try {
+        const payload = { companyCode, driverPin };
+        const data = await tryJson([
+          "/api/auth/driverLogin",
+          "/auth/driverLogin"
+        ], {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        state.driverName = data.driverName || data.driver?.name || "Driver signed in";
+        state.vehicleId = data.vehicleId || data.vehicle_id || state.vehicleId;
+        state.companyName = data.companyName || companyCode;
+        writeStorage(STORAGE_KEYS.companyName, state.companyName);
+        renderHero();
+        setFeedback("authFeedback", "Driver signed in successfully.", "good");
+        closeSetup();
+        await refreshVehicleData();
+      } catch (err) {
+        setFeedback("authFeedback", err.message || "Unable to sign in driver.", "bad");
+      }
+    }
+
+    async function handlePairDevice() {
+      const pairingCode = $("pairCodeInput").value.trim();
+      const deviceLabel = $("deviceLabelInput").value.trim() || "Fleet AI Tablet";
+      if (!pairingCode) {
+        setFeedback("pairFeedback", "Pairing code is required.", "bad");
+        return;
+      }
+      setFeedback("pairFeedback", "Claiming pairing code…");
+      const deviceId = getDeviceId();
+      const bodies = [
+        { pairingCode, deviceId, deviceLabel },
+        { code: pairingCode, device_id: deviceId, label: deviceLabel }
+      ];
+      for (const body of bodies) {
+        try {
+          const data = await tryJson([
+            "/api/pairings/claim",
+            "/pairings/claim"
+          ], {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body)
+          });
+          state.vehicleId = data.vehicleId || data.vehicle_id || data.paired_vehicle_id || state.vehicleId;
+          renderHero();
+          setFeedback("pairFeedback", "Device paired successfully.", "good");
+          closeSetup();
+          await refreshVehicleData();
+          return;
+        } catch (err) {}
+      }
+      setFeedback("pairFeedback", "Unable to claim pairing code. Double-check the code and server URL.", "bad");
+    }
+
+    async function refreshVehicleData() {
+      if (!state.vehicleId) {
+        state.telemetry = null;
+        state.alerts = [];
+        renderHero();
+        renderTelemetry();
+        renderAlerts();
+        return;
+      }
+
+      try {
+        const telemetry = await tryJson([
+          `/api/vehicles/${encodeURIComponent(state.vehicleId)}/metrics/latest`,
+          `/api/telemetry/latest?vehicle_id=${encodeURIComponent(state.vehicleId)}`,
+          `/api/telemetry/latest?vehicleId=${encodeURIComponent(state.vehicleId)}`,
+          `/api/telemetry?vehicle_id=${encodeURIComponent(state.vehicleId)}`
+        ]);
+        state.telemetry = normalizeTelemetryPayload(telemetry);
+        state.lastTelemetryAt = state.telemetry && state.telemetry.timestamp ? state.telemetry.timestamp : new Date().toISOString();
+        setConnection("live", "Live data");
+      } catch (err) {
+        state.telemetry = null;
+        setConnection("warn", "Vehicle linked, no feed");
+      }
+
+      try {
+        const alerts = await tryJson([
+          `/api/alerts?vehicle_id=${encodeURIComponent(state.vehicleId)}&limit=6`,
+          `/api/alerts?vehicleId=${encodeURIComponent(state.vehicleId)}&limit=6`,
+          `/api/driver/alerts?vehicleId=${encodeURIComponent(state.vehicleId)}`
+        ]);
+        state.alerts = normalizeAlertsPayload(alerts);
+      } catch (err) {
+        state.alerts = [];
+      }
+
+      renderHero();
+      renderTelemetry();
+      renderAlerts();
+    }
+
+    async function sendChat() {
+      const input = $("chatInput");
+      const text = input.value.trim();
+      if (!text) return;
+      if (!state.vehicleId) {
+        setFeedback("chatFeedback", "Pair and assign a vehicle before using the advisor.", "bad");
+        return;
+      }
+      input.value = "";
+      appendChat("user", text);
+      setFeedback("chatFeedback", "Waiting for Fleet AI…");
+      try {
+        const payload = {
+          messages: state.chat.slice(-8).map((entry) => ({
+            role: entry.role === "user" ? "user" : "assistant",
+            content: entry.text
+          })),
+          context: {
+            vehicleId: state.vehicleId,
+            driverName: state.driverName,
+            deviceId: getDeviceId()
+          }
+        };
+        const data = await tryJson(["/api/ai/chat"], {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        appendChat("ai", data.reply || "No advisor response returned.");
+        setFeedback("chatFeedback", "");
+      } catch (err) {
+        appendChat("ai", "Unable to reach the advisor right now. Check the server connection and try again.");
+        setFeedback("chatFeedback", err.message || "Advisor unavailable.", "bad");
+      }
+    }
+
+    function renderAll() {
+      renderHero();
+      renderDuty();
+      renderLogs();
+      renderTelemetry();
+      renderAlerts();
+      renderChat();
+      $("apiBaseInput").value = normalizeBase(readStorage(STORAGE_KEYS.apiBase, ""));
+    }
+
+    function bindEvents() {
+      $("openSetupBtn").addEventListener("click", openSetup);
+      $("closeSetupBtn").addEventListener("click", closeSetup);
+      $("setupSheet").addEventListener("click", (event) => {
+        if (event.target === $("setupSheet")) closeSetup();
+      });
+      $("driverLoginBtn").addEventListener("click", handleDriverLogin);
+      $("pairDeviceBtn").addEventListener("click", handlePairDevice);
+      $("saveApiBtn").addEventListener("click", () => {
+        const next = normalizeBase($("apiBaseInput").value);
+        writeStorage(STORAGE_KEYS.apiBase, next);
+        setFeedback("authFeedback", next ? `Saved server ${next}` : "Using current site origin.", "good");
+      });
+      $("refreshVehicleBtn").addEventListener("click", refreshVehicleData);
+      $("addLogBtn").addEventListener("click", () => {
+        const text = $("logNote").value.trim();
+        if (!text) {
+          setFeedback("logFeedback", "Enter a note before adding it to the logbook.", "bad");
+          return;
+        }
+        addLog(text);
+        $("logNote").value = "";
+        setFeedback("logFeedback", "Log entry saved on this tablet.", "good");
+      });
+      $("clearLogsBtn").addEventListener("click", () => {
+        state.logs = [];
+        writeStorage(STORAGE_KEYS.logs, state.logs);
+        renderLogs();
+        setFeedback("logFeedback", "Local logbook cleared.", "good");
+      });
+      $("sendChatBtn").addEventListener("click", sendChat);
+      $("clearChatBtn").addEventListener("click", () => {
+        state.chat = [];
+        writeStorage(STORAGE_KEYS.chat, state.chat);
+        renderChat();
+        setFeedback("chatFeedback", "Conversation cleared on this tablet.", "good");
+      });
+      $("chatInput").addEventListener("keydown", (event) => {
+        if (event.key === "Enter" && !event.shiftKey) {
+          event.preventDefault();
+          sendChat();
+        }
+      });
+      document.querySelectorAll(".navBtn").forEach((btn) => {
+        btn.addEventListener("click", () => setView(btn.getAttribute("data-target")));
+      });
+      $("dutyBadge").addEventListener("click", () => setView("logbook"));
+    }
+
+    function startPolling() {
+      if (state.pollTimer) clearInterval(state.pollTimer);
+      state.pollTimer = setInterval(refreshVehicleData, 10000);
+    }
+
+    function init() {
+      setConnection("off", "Offline");
+      setView(state.view);
+      bindEvents();
+      renderAll();
+      startPolling();
+      refreshVehicleData();
+      appendChat("ai", "Driver console ready. Pair a vehicle, then ask what an alert means or what to inspect next.");
+    }
+
+    document.addEventListener("DOMContentLoaded", init);
+  </script>
 </body>
 </html>
