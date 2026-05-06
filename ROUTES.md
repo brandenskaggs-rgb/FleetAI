@@ -2,7 +2,7 @@
 
 ## Server Entry Points
 - Primary server: `server.js` (Express, serves static UI + API)
-- Legacy server: `server/server.js` (not used by `npm start`)
+- Legacy server: `server/server.js` (documented historically; do not use for launch)
 
 ## UI Routes (GET)
 - `/` -> `index.html` (server.js)
@@ -13,7 +13,7 @@
 - `/security.html` -> `security.html` (static)
 - `/about.html` -> `about.html` (static)
 - `/request-demo.html` -> `request-demo.html` (static)
-- `/login.html` -> `login.html` (static)
+- `/login.html` -> redirect to `/customer-login.html`
 - `/customer-login.html` -> `customer-login.html` (static)
 - `/signup.html` -> `signup.html` (static)
 - `/employee-login.html` -> `employee-login.html` (static)
@@ -27,9 +27,6 @@
 - `/ui/fleetai-dashboard.html` -> `ui/fleetai-dashboard.html` (static)
 - `/ui/driver-tablet.html` -> `ui/driver-tablet.html` (static)
 - `/ui/force-reset.html` -> `ui/force-reset.html` (static)
-- `/app/dashboard.html` -> `app/dashboard.html` (static)
-- `/app/billing.html` -> `app/billing.html` (static)
-- `/app/settings.html` -> `app/settings.html` (static)
 
 ## API Routes (prefix `/api`)
 All API routes are implemented in `server.js` unless otherwise noted.
@@ -40,16 +37,31 @@ All API routes are implemented in `server.js` unless otherwise noted.
 - `GET /api/debug/routes` -> `{ cwd, dirname, port, routes:[{method,path}] }`
 
 ### Employee Auth + Session
-- `POST /api/employee/login` -> `{ ok, token?, employee }`
+Canonical launch routes:
+- `POST /api/auth/employee/login` -> `{ ok, success, session, user, redirect }`
+- `POST /api/employee/login` -> same as above
 - `POST /api/employee/logout` -> `{ ok:true }`
+- `POST /api/auth/logout` -> `{ ok:true }`
 - `GET /api/employee/session` -> `{ employee:{ id,email,role } }`
 - `GET /api/auth/session` -> `{ authenticated:true, user:{ id,email,role } }`
 
+Removed aliases now return `410 ROUTE_REMOVED`:
+- `/api/login`
+- `/api/employee-login`
+
 ### Customer Auth + Session
-- `POST /api/auth/login` -> `{ ok:true, user:{ id,email,role,orgId,displayName }, mustResetPassword, redirectTo }`
+Canonical launch routes:
+- `POST /api/auth/customer/login` -> `{ ok:true, user, session }`
+- `POST /api/auth/org/login` -> same customer login payload
 - `POST /api/auth/reset-password` -> `{ ok:true, redirectTo }`
 - `POST /api/auth/customer/logout` -> `{ ok:true }`
-- `GET /api/me` -> `{ ok:true, user:{ id,email,role,orgId,displayName }, resetRequired }`
+- `GET /api/auth/customer/session` -> `{ ok:true, user }`
+- `GET /api/me` -> `{ ok:true, user, resetRequired }`
+
+Removed aliases now return `410 ROUTE_REMOVED`:
+- `/api/auth/login`
+- `/api/auth/login-customer`
+- `/api/customer/login`
 
 ### Admin Setup
 - `GET /api/admin/setup/status` -> `{ enabled, hasSuperAdmin, reason }`
