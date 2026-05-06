@@ -6,6 +6,7 @@ server/data.json.backup-*
 server/sessions.json
 server/sessions.json.tmp
 server/logs/
+server/state/
 /tmp/fleetai_test_cookie.txt
 
 # Python artifacts and local model binaries
