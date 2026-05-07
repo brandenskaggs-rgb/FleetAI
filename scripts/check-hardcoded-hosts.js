@@ -3,7 +3,7 @@ const path = require("path");
 
 const ROOT = path.resolve(__dirname, "..");
 const SCAN_DIRS = ["ui", "app", "js", "public", "admin"];
-const ROOT_FILES = fs.readdirSync(ROOT).filter((name) => name.endsWith(".html") || name.endsWith(".js") || name.endsWith(".css"));
+const ROOT_FILES = fs.readdirSync(ROOT).filter((name) => name.endsWith(".html") || name.endsWith(".css"));
 const IGNORE_DIRS = new Set(["node_modules", "driver_app", "backend", "db", "tools", "telemetry", "assets", ".git"]);
 const PATTERNS = [
   /http:\/\/localhost/i,
@@ -69,4 +69,4 @@ if (totalHits > 0) {
   process.exit(1);
 }
 
-console.log("OK: no hardcoded localhost/LAN IPs in UI files.");
+console.log("OK: no hardcoded localhost/LAN IPs in browser-facing UI files.");

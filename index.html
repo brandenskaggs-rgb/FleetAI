@@ -49,25 +49,25 @@
   <section class="hero hero--spicy">
     <div class="container heroGrid heroGrid--command">
       <div>
-        <span class="badge">The AI Fleet Management Platform</span>
-        <h1>Stop reacting to breakdowns. Start seeing them coming.</h1>
+        <h1>Predict breakdowns before they happen.</h1>
+        <p class="heroLead">Fleet AI's advanced ML engine reads OBD-II and J1939 telemetry, learns each vehicle's unique baseline, detects mechanical drift early, and turns risk into a prioritized maintenance queue your team can schedule before the shoulder becomes the shop.</p>
         <p>Fleet AI reads your vehicles in real time — detecting mechanical drift in coolant temps, oil pressure, RPM, and 15+ other signals — and tells your team which trucks need service before they break down on the road.</p>
         <div class="heroActions">
           <a class="btn primary" href="/request-demo.html">Request Demo</a>
-          <a class="btn outline-white" href="/product.html">See the Product</a>
+          <a class="btn outline-white" href="/product.html">See How It Works</a>
         </div>
         <div class="heroMetrics">
           <div class="metric">
+            <span class="metric__value">7-21 days</span>
+            <span class="metric__label">early issue visibility for many fleets</span>
+          </div>
+          <div class="metric">
+            <span class="metric__value">15+</span>
+            <span class="metric__label">sensor streams analyzed</span>
+          </div>
+          <div class="metric">
             <span class="metric__value">31</span>
-            <span class="metric__label">fleet solutions</span>
-          </div>
-          <div class="metric">
-            <span class="metric__value">AI-Powered</span>
-            <span class="metric__label">predictive engine</span>
-          </div>
-          <div class="metric">
-            <span class="metric__value">DOT</span>
-            <span class="metric__label">compliant</span>
+            <span class="metric__label">connected fleet solutions</span>
           </div>
         </div>
         <div class="heroProof">
@@ -80,43 +80,45 @@
 
       <div class="commandShell">
         <div class="commandShell__top">
-          <span>fleet-ai / ops-command</span>
+          <span>fleet-ai / predictive-command</span>
           <span class="monoTag" style="background:rgba(0,201,141,0.12);border-color:rgba(0,201,141,0.25);color:#00c98d">● live</span>
         </div>
 
         <div class="commandShell__card commandShell__card--alert">
-          <div class="shellLabel">active reliability signal</div>
+          <div class="shellLabel">predictive risk queue</div>
+          <h3>Cooling variance detected on Unit 2701 — schedule within 36 hours</h3>
+          <p>ML drift score moved outside the vehicle baseline across coolant temperature, RPM stability, and load correlation.</p>
           <h3>Cooling variance detected on Truck 214 — 36hr inspection window</h3>
           <p>Drift outside baseline across 3 consecutive telemetry cycles. Fleet AI recommends scheduling service before next long-haul route.</p>
           <div class="shellMetaRow">
-            <span class="statusChip statusChip--warning">Inspect soon</span>
-            <span>Source: J1939 stream</span>
+            <span class="statusChip statusChip--warning">High impact</span>
+            <span>Recommended action: schedule maintenance</span>
           </div>
         </div>
 
         <div class="commandShell__grid">
           <div class="commandShell__card">
-            <div class="shellLabel">telemetry health</div>
+            <div class="shellLabel">maintenance scheduler</div>
             <div class="miniStat">
-              <strong style="color:#00c98d">Stable</strong>
-              <span>offline buffer ready</span>
+              <strong>36 hrs</strong>
+              <span>inspection window</span>
             </div>
             <div class="miniList">
-              <div><span>RPM stream</span><span>locked</span></div>
-              <div><span>MAP sensor</span><span>clean</span></div>
-              <div><span>Device sync</span><span>current</span></div>
+              <div><span>Cooling system</span><span>Priority</span></div>
+              <div><span>Main shop bay</span><span>2.0 hrs</span></div>
+              <div><span>Parts check</span><span>ready</span></div>
             </div>
           </div>
           <div class="commandShell__card">
-            <div class="shellLabel">operator queue</div>
+            <div class="shellLabel">AI advisor</div>
             <div class="miniStat">
-              <strong>3</strong>
-              <span>items need attention</span>
+              <strong style="color:#00c98d">92%</strong>
+              <span>confidence</span>
             </div>
             <div class="miniList">
-              <div><span>Maintenance</span><span>2</span></div>
-              <div><span>Compliance</span><span>1</span></div>
-              <div><span>Critical</span><span style="color:#00c98d">0</span></div>
+              <div><span>Likely system</span><span>Cooling</span></div>
+              <div><span>Failure window</span><span>2-5 days</span></div>
+              <div><span>Next step</span><span>Work order</span></div>
             </div>
           </div>
         </div>
@@ -368,7 +370,59 @@
         <h2 style="font-size:clamp(28px,4vw,42px);font-weight:800;margin:0 0 12px;line-height:1.15">31 Solutions. One Platform.</h2>
         <p style="color:var(--muted-text,#94a3b8);max-width:560px;margin:0 auto;font-size:16px;line-height:1.6">Everything a modern fleet operation needs — from predictive AI to DOT compliance — built and connected from day one.</p>
       </div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px">
+      <div class="solutionPillars">
+        <div class="solutionPillar">
+          <h3>Vehicle Health</h3>
+          <ul>
+            <li>Predictive diagnostics</li>
+            <li>OBD-II and J1939 telemetry</li>
+            <li>Engine health scoring</li>
+            <li>DTC analysis</li>
+            <li>Recall tracking</li>
+          </ul>
+        </div>
+        <div class="solutionPillar">
+          <h3>Maintenance Management</h3>
+          <ul>
+            <li>Preventative maintenance scheduling</li>
+            <li>Work orders</li>
+            <li>Maintenance logs</li>
+            <li>Parts inventory</li>
+            <li>Service windows from ML risk</li>
+          </ul>
+        </div>
+        <div class="solutionPillar">
+          <h3>Operations Optimization</h3>
+          <ul>
+            <li>Dispatch jobs</li>
+            <li>Route optimization</li>
+            <li>Load management</li>
+            <li>GPS and geofencing</li>
+            <li>Fuel and expense tracking</li>
+          </ul>
+        </div>
+        <div class="solutionPillar">
+          <h3>Safety &amp; Compliance</h3>
+          <ul>
+            <li>DVIR and inspections</li>
+            <li>DOT compliance</li>
+            <li>Hours of service</li>
+            <li>Driver safety scoring</li>
+            <li>Documents and audit readiness</li>
+          </ul>
+        </div>
+        <div class="solutionPillar">
+          <h3>Analytics &amp; AI</h3>
+          <ul>
+            <li>AI Fleet Advisor</li>
+            <li>Executive reports</li>
+            <li>Fleet dashboards</li>
+            <li>Team roles</li>
+            <li>Multi-org management</li>
+          </ul>
+        </div>
+      </div>
+      <div id="legacySolutionGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px">
         <div class="solutionCard"><div class="solutionCard__icon">🧠</div><div><strong>Predictive Breakdown Prevention</strong><p>AI detects failures before they happen — hours or days ahead</p></div></div>
         <div class="solutionCard"><div class="solutionCard__icon">📡</div><div><strong>Real-Time Asset Tracking</strong><p>Know where every vehicle is, always — live map with full history</p></div></div>
         <div class="solutionCard"><div class="solutionCard__icon">📊</div><div><strong>Live Telemetry Monitoring</strong><p>15+ engine signals streamed and processed continuously</p></div></div>
@@ -412,8 +466,18 @@
         <h2 style="font-size:clamp(24px,3.5vw,38px);font-weight:800;margin:0 0 12px">The command center your fleet deserves</h2>
         <p style="color:var(--muted-text,#94a3b8);max-width:520px;margin:0 auto;font-size:16px">White &amp; grey UI. Grouped navigation. Every solution one click away.</p>
       </div>
-      <!-- CSS-only dashboard mockup -->
-      <div class="dashMock">
+      <div class="dashboardShots" aria-label="Fleet AI dashboard screenshots">
+        <figure class="dashboardShot dashboardShot--primary">
+          <img src="/assets/images/dashboard-ops-console.png" alt="Fleet AI dashboard showing predictive risk queue, AI Advisor, maintenance scheduling, and fleet health metrics" loading="lazy">
+          <figcaption>Operations console with the predictive risk queue, maintenance schedule, and AI Advisor visible in one workspace.</figcaption>
+        </figure>
+        <figure class="dashboardShot">
+          <img src="/assets/images/dashboard-ops-console-focus.png" alt="Fleet AI dashboard with navigation collapsed for a wider focus workspace" loading="lazy">
+          <figcaption>Focus mode hides the navigation when dispatchers and maintenance teams need more room.</figcaption>
+        </figure>
+      </div>
+      <!-- Legacy CSS-only dashboard mockup retained for compatibility but hidden in CSS -->
+      <div class="dashMock" id="legacyDashMock">
         <div class="dashMock__sidebar">
           <div class="dashMock__logo">Fleet<span>AI</span></div>
           <div class="dashMock__navGroup">

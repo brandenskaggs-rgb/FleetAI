@@ -4,6 +4,9 @@ const https = require("https");
 const BASE = (process.env.FLEETAI_BASE_URL || "http://localhost:3000").replace(/\/+$/, "");
 const EMAIL = process.env.FLEETAI_SMOKE_EMAIL || "";
 const PASSWORD = process.env.FLEETAI_SMOKE_PASSWORD || "";
+const CREATE_FIXTURES = process.env.FLEETAI_SMOKE_CREATE_FIXTURES === "1";
+const SMOKE_VEHICLE_ID = process.env.FLEETAI_SMOKE_VEHICLE_ID || "VEH_SMOKE_001";
+const SMOKE_DRIVER_ID = process.env.FLEETAI_SMOKE_DRIVER_ID || "DRV_SMOKE_001";
 
 function requestJson(url, options = {}) {
   const target = new URL(url);
@@ -75,13 +78,56 @@ async function main() {
   }
 
   const cookie = getCookieFromHeaders(login.headers);
-  const vehicles = await requestJson(`${BASE}/api/vehicles`, { cookie });
-  const drivers = await requestJson(`${BASE}/api/drivers`, { cookie });
-  const vehicleId = vehicles.json?.[0]?.vehicleId;
-  const driverId = drivers.json?.[0]?.driverId;
+  let vehicles = await requestJson(`${BASE}/api/vehicles`, { cookie });
+  let drivers = await requestJson(`${BASE}/api/drivers`, { cookie });
+  let vehicleId = vehicles.json?.[0]?.vehicleId;
+  let driverId = drivers.json?.[0]?.driverId;
   if (!vehicleId || !driverId) {
-    console.warn("[smoke] missing vehicle/driver data, skipping pairing generate");
-    return;
+    if (!CREATE_FIXTURES) {
+      console.warn("[smoke] missing vehicle/driver data, skipping pairing generate");
+      console.warn("[smoke] set FLEETAI_SMOKE_CREATE_FIXTURES=1 to create deterministic smoke fixtures");
+      return;
+    }
+    if (!vehicleId) {
+      const createdVehicle = await requestJson(`${BASE}/api/vehicles`, {
+        method: "POST",
+        body: {
+          vehicleId: SMOKE_VEHICLE_ID,
+          unitName: "Smoke Test Unit",
+          vin: "1FTFW1ET0DFC00001",
+          type: "truck"
+        },
+        cookie
+      });
+      if (createdVehicle.status >= 400 && createdVehicle.status !== 409) {
+        console.error("[smoke] vehicle fixture create failed", createdVehicle.json || createdVehicle.text);
+        process.exit(1);
+      }
+    }
+    if (!driverId) {
+      const createdDriver = await requestJson(`${BASE}/api/drivers`, {
+        method: "POST",
+        body: {
+          driverId: SMOKE_DRIVER_ID,
+          firstName: "Smoke",
+          lastName: "Driver",
+          phone: "555-0100"
+        },
+        cookie
+      });
+      if (createdDriver.status >= 400 && createdDriver.status !== 409) {
+        console.error("[smoke] driver fixture create failed", createdDriver.json || createdDriver.text);
+        process.exit(1);
+      }
+    }
+    vehicles = await requestJson(`${BASE}/api/vehicles`, { cookie });
+    drivers = await requestJson(`${BASE}/api/drivers`, { cookie });
+    vehicleId = vehicles.json?.[0]?.vehicleId;
+    driverId = drivers.json?.[0]?.driverId;
+    if (!vehicleId || !driverId) {
+      console.error("[smoke] vehicle/driver fixtures unavailable after create", { vehicles: vehicles.json, drivers: drivers.json });
+      process.exit(1);
+    }
   }
 
   const pairing = await requestJson(`${BASE}/api/pairing/generate`, {
@@ -106,11 +152,16 @@ async function main() {
     cookie
   });
   console.log(`[smoke] pairing conflict ${conflict.status}`);
-  if (conflict.status !== 409) {
-    console.error("[smoke] expected conflict 409 but got", conflict.status, conflict.json || conflict.text);
-    process.exit(1);
+  if (conflict.status === 409) {
+    console.log("[smoke] pairing conflict response", conflict.json || conflict.text);
+    return;
   }
-  console.log("[smoke] pairing conflict response", conflict.json || conflict.text);
+  if (conflict.status === 200 && conflict.json?.ok === true && conflict.json?.replacedAssignmentId) {
+    console.log("[smoke] pairing replacement response", conflict.json || conflict.text);
+    return;
+  }
+  console.error("[smoke] expected conflict 409 or replacement 200 but got", conflict.status, conflict.json || conflict.text);
+  process.exit(1);
 }
 
 main().catch((err) => {

@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -r \"registerAuthRoutes\" \"c:\\\\Dev\\\\Fleet AI\\\\Fleet AI\" --include=\"*.js\" ! -path \"*/node_modules/*\" ! -path \"*/.venv/*\" ! -path \"*/.git/*\")",
+      "Bash(xargs basename *)"
+    ]
+  }
+}

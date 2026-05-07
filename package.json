@@ -14,6 +14,7 @@
     "dev:start": "node -e \"process.env.DEV_SETUP='true'; require('./server.js')\"",
     "prod:start": "node -e \"process.env.DEV_SETUP='false'; require('./server.js')\"",
     "smoke": "node scripts/smoke.js",
+    "smoke:solutions": "node scripts/solution-smoke.js",
     "check:hosts": "node scripts/check-hardcoded-hosts.js",
     "check:dashboard": "node scripts/check-dashboard-pairing.js",
     "validate-config": "node scripts/validate-config.js",
@@ -22,6 +23,7 @@
     "preflight": "node tools/preflight-check.js",
     "audit:links": "node tools/link-audit.js",
     "verify": "npm run preflight && npm run audit:links",
+    "launch:check": "node scripts/validate-config.js && node tools/preflight-check.js && node scripts/ui-smoke.js && node scripts/check-dashboard-pairing.js && node scripts/check-hardcoded-hosts.js && node tools/link-audit.js",
     "tag:known-good": "node tools/print-tag-instructions.js"
   },
   "keywords": [],
@@ -35,5 +37,10 @@
     "dotenv": "^16.4.5",
     "express": "^5.2.1",
     "sql.js": "^1.14.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.59.1",
+    "pixelmatch": "^7.2.0",
+    "pngjs": "^7.0.0"
   }
 }

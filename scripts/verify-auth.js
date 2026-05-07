@@ -96,7 +96,8 @@ async function run() {
     });
     assert(customerLogin.res.ok, "Customer login HTTP failure", customerLogin.data);
     assert(customerLogin.data.ok !== false, "Customer login app failure", customerLogin.data);
-    assert(customerLogin.data.session?.token, "Customer login missing session token", customerLogin.data);
+    assert(customerLogin.data.session?.expiresAt, "Customer login missing session expiry", customerLogin.data);
+    assert(customerLogin.data.session?.user?.email === CUSTOMER_EMAIL, "Customer login returned wrong session user", customerLogin.data);
     const customerCookie = extractCookieJar(customerLogin.setCookies);
     assert(customerCookie, "Customer login missing auth cookie", customerLogin.setCookies);
 

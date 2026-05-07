@@ -6,6 +6,8 @@ const ROOT = process.cwd();
 function listHtmlFiles() {
   const results = [];
   function walk(dir) {
+    const base = path.basename(dir);
+    if (base === "node_modules" || base === ".git" || base === ".gradle" || base === "build") return;
     const entries = fs.readdirSync(dir, { withFileTypes: true });
     entries.forEach((e) => {
       const p = path.join(dir, e.name);
@@ -61,8 +63,31 @@ function collectFunctionNames(jsText) {
   for (const m of fnMatches) names.add(m[1]);
   const assignMatches = jsText.matchAll(/\b([A-Za-z0-9_]+)\s*=\s*function\b/g);
   for (const m of assignMatches) names.add(m[1]);
+  const windowAssignMatches = jsText.matchAll(/\bwindow\.([A-Za-z0-9_]+)\s*=\s*(?:async\s+)?function\b/g);
+  for (const m of windowAssignMatches) names.add(m[1]);
   const arrowMatches = jsText.matchAll(/\b([A-Za-z0-9_]+)\s*=\s*\([^)]*\)\s*=>/g);
   for (const m of arrowMatches) names.add(m[1]);
+  return names;
+}
+
+function extractCalledNames(code) {
+  const names = [];
+  const safeGlobals = new Set([
+    "alert",
+    "confirm",
+    "document.getElementById",
+    "window.location.replace",
+    "window.location.assign"
+  ]);
+  const calls = code.matchAll(/(?:^|[^\w$.])((?:window\.)?[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*)\s*\(/g);
+  for (const match of calls) {
+    let name = match[1] || "";
+    if (!name) continue;
+    if (safeGlobals.has(name)) continue;
+    if (name.startsWith("window.")) name = name.slice("window.".length);
+    if (safeGlobals.has(name)) continue;
+    names.push(name);
+  }
   return names;
 }
 
@@ -94,11 +119,11 @@ function main() {
 
     const onclicks = [...html.matchAll(/onclick=["']([^"']+)["']/gi)].map((m) => m[1]);
     onclicks.forEach((code) => {
-      const name = (code.split("(")[0] || "").trim();
-      if (!name) return;
-      if (!fnNames.has(name)) {
-        warnings.push(`Missing onclick function: ${name} (from ${path.relative(ROOT, file)})`);
-      }
+      extractCalledNames(code).forEach((name) => {
+        if (!fnNames.has(name)) {
+          warnings.push(`Missing onclick function: ${name} (from ${path.relative(ROOT, file)})`);
+        }
+      });
     });
   });
 

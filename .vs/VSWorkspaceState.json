@@ -1,0 +1,12 @@
+{
+  "ExpandedNodes": [
+    "",
+    "\\backend",
+    "\\backend\\app",
+    "\\backend\\app\\services",
+    "\\fleet_ai",
+    "\\fleet_ai\\prediction"
+  ],
+  "SelectedNode": "\\fleet_ai\\training",
+  "PreviewInSolutionExplorer": false
+}

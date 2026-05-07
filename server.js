@@ -23,6 +23,7 @@ const { registerSystemStatusRoutes } = require("./server/routes/systemStatus");
 const { registerLegacyPairingRoutes } = require("./server/routes/legacyPairing");
 const { registerAuthRoutes } = require("./server/routes/authRoutes");
 const { registerFleetOpsRoutes } = require("./server/routes/fleetOpsRoutes");
+const { registerSolutionRoutes } = require("./server/routes/solutionRoutes");
 const { startWatchdog } = require("./tools/watchdog");
 const { normalizeAuthData, loadAuthStore, saveAuthStore } = require("./server/authStore");
 const { createAuthService } = require("./server/auth/authService");
@@ -74,6 +75,7 @@ const PORT = Number(process.env.PORT) || 3000;
 const SITE_ROOT = path.resolve(__dirname);
 const UI_DIR = path.resolve(__dirname, "ui");
 const ADMIN_DIR = path.resolve(__dirname, "admin");
+const APP_DIR = path.resolve(__dirname, "app");
 const DRIVER_DIR = path.resolve(__dirname, "driver_app");
 const CSS_DIR = path.resolve(__dirname, "css");
 const JS_DIR = path.resolve(__dirname, "js");
@@ -1079,6 +1081,17 @@ registerFleetOpsRoutes(app, {
   triggerTelemetryPipeline,
   storeNormalizedSnapshot,
   normalizeMetrics
+});
+
+registerSolutionRoutes(app, {
+  readData,
+  writeData,
+  sanitizeString,
+  parseNumberField,
+  nowIso,
+  makeId,
+  addAudit,
+  requireEmployeeOrCustomerApi: (req, res, next) => requireEmployeeOrCustomerApi(req, res, next)
 });
 
 app.post("/api/telemetry/snapshot", (req, res) => {
@@ -4839,6 +4852,7 @@ registerAuthRoutes(app, {
 app.use("/", express.static(SITE_ROOT));
 app.use("/ui", express.static(UI_DIR));
 app.use("/admin", express.static(ADMIN_DIR));
+app.use("/app", express.static(APP_DIR));
 app.use("/driver_app", express.static(DRIVER_DIR));
 app.use("/css", express.static(CSS_DIR));
 app.use("/js", express.static(JS_DIR));
@@ -5007,6 +5021,7 @@ app.use((req, res, next) => {
     "  /ui/fleetai-dashboard.html",
     "  /admin/setup.html",
     "  /admin/setup",
+    "  /app/dashboard.html",
     "  /employee-login.html"
   ].join("\n"));
 });

@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:fleetaiops.com)",
+      "Bash(curl -sI https://fleetaiops.com/index.html)",
+      "Read(//c/Dev/Fleet AI/Fleet AI/**)",
+      "Bash(gh pr *)"
+    ]
+  }
+}

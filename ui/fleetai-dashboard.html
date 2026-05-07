@@ -145,27 +145,27 @@
 
     /* ── Light (White/Grey) Theme ─────────────────────────────────────── */
     :root[data-theme="light"]{
-      --bg:#F0F4F8;
-      --bg2:#E8EDF3;
+      --bg:#F6F8FB;
+      --bg2:#EEF3F8;
       --panel:#FFFFFF;
-      --panel2:#F8FAFC;
-      --border:#E2E8F0;
-      --text:#0F172A;
-      --muted:#64748B;
-      --primary:#2563EB;
-      --primary-600:#1D4ED8;
-      --primary-soft:rgba(37,99,235,0.08);
-      --chip:rgba(37,99,235,0.10);
-      --shadow-sm:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04);
-      --shadow-md:0 4px 8px rgba(0,0,0,.08),0 2px 4px rgba(0,0,0,.04);
-      --shadow-lg:0 10px 25px rgba(0,0,0,.10),0 4px 10px rgba(0,0,0,.05);
-      --radius:12px;
-      --radius-lg:16px;
-      --focus-ring:0 0 0 3px rgba(37,99,235,.20);
+      --panel2:#F8FAFD;
+      --border:#DCE5EF;
+      --text:#0B1728;
+      --muted:#607087;
+      --primary:#185DDC;
+      --primary-600:#124BB5;
+      --primary-soft:rgba(24,93,220,0.08);
+      --chip:rgba(24,93,220,0.10);
+      --shadow-sm:0 1px 2px rgba(15,23,42,.05),0 8px 22px rgba(30,49,75,.04);
+      --shadow-md:0 10px 28px rgba(30,49,75,.08);
+      --shadow-lg:0 18px 46px rgba(30,49,75,.12);
+      --radius:8px;
+      --radius-lg:10px;
+      --focus-ring:0 0 0 3px rgba(24,93,220,.18);
       --ink:var(--text);
       --line:var(--border);
       --bg-glow:rgba(37,99,235,.05);
-      --good:#16A34A;
+      --good:#178F5B;
       --warn:#D97706;
       --bad:#DC2626;
       --primary2:var(--primary-600);
@@ -178,18 +178,28 @@
     }
 
     /* Grouped sidebar nav */
-    .navGroup{ margin-top:6px; }
+    .navGroup{ margin-top:14px; }
     .navGroupLabel{
       font-size:10px;
       font-weight:800;
-      letter-spacing:.8px;
+      letter-spacing:.9px;
       text-transform:uppercase;
       color:var(--muted);
-      padding:8px 12px 4px;
-      opacity:.75;
+      padding:4px 8px 6px;
+      opacity:.82;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+    }
+    .navGroupLabel::after{
+      content:"";
+      height:1px;
+      flex:1;
+      margin-left:10px;
+      background:linear-gradient(90deg,var(--border),transparent);
     }
     .navGroup .nav button, .nav > .navGroup button{
-      padding-left:18px;
+      padding-left:12px;
     }
 
     body{
@@ -197,9 +207,8 @@
       font-family: var(--font-body);
       color:var(--ink);
       background:
-        radial-gradient(900px 520px at 12% -12%, var(--bg-glow) 0%, rgba(0,0,0,0) 60%),
-        radial-gradient(800px 520px at 88% -6%, color-mix(in srgb, var(--bg-glow) 70%, transparent) 0%, rgba(0,0,0,0) 55%),
-        radial-gradient(900px 640px at 30% 92%, color-mix(in srgb, var(--bg-glow) 55%, transparent) 0%, rgba(0,0,0,0) 60%),
+        radial-gradient(900px 520px at 12% -12%, rgba(24,93,220,.06) 0%, rgba(0,0,0,0) 60%),
+        radial-gradient(800px 520px at 88% -6%, rgba(23,143,91,.05) 0%, rgba(0,0,0,0) 55%),
         linear-gradient(180deg, var(--bg) 0%, var(--bg2, var(--bg)) 100%);
     }
     body:before{
@@ -211,57 +220,75 @@
         radial-gradient(900px 520px at 12% 8%, color-mix(in srgb, var(--bg-glow) 65%, transparent) 0%, rgba(0,0,0,0) 65%),
         radial-gradient(720px 420px at 70% 10%, color-mix(in srgb, var(--bg-glow) 45%, transparent) 0%, rgba(0,0,0,0) 70%),
         radial-gradient(860px 520px at 40% 78%, color-mix(in srgb, var(--bg-glow) 40%, transparent) 0%, rgba(0,0,0,0) 72%);
-      opacity:0.30;
-      filter: blur(22px);
+      opacity:0.18;
+      filter: blur(26px);
       z-index:0;
     }
 
     .app{
       display:grid;
-      grid-template-columns: 260px 1fr;
+      grid-template-columns: 236px 1fr;
       min-height: 100vh;
       position:relative;
       z-index:1;
-      gap: 20px;
-      padding: 12px 12px 24px;
+      gap: 16px;
+      padding: 10px 12px 24px;
+      transition:grid-template-columns .18s ease;
+    }
+    .app.nav-collapsed{
+      grid-template-columns: 0 minmax(0,1fr);
     }
     @media (max-width: 980px){
       .app{grid-template-columns: 1fr; padding: 12px}
       .sidebar{position:static; max-height:none; overflow:visible;}
+      .app.nav-collapsed{grid-template-columns:1fr}
     }
 
     /* Sidebar */
     .sidebar{
-      padding:18px 14px;
-      border:1px solid var(--line);
-      border-radius: var(--radius-lg);
+      padding:16px 10px;
+      border:1px solid rgba(220,229,239,.9);
+      border-radius: 12px;
       background: var(--panel);
-      box-shadow: var(--shadow-sm);
+      box-shadow: 0 1px 2px rgba(15,23,42,.04);
       position: sticky;
       top: 12px;
       align-self: start;
       max-height: none;
       overflow: visible;
+      transition:opacity .16s ease, transform .18s ease, padding .18s ease, border-color .18s ease;
+    }
+    .app.nav-collapsed .sidebar{
+      opacity:0;
+      transform:translateX(-18px);
+      pointer-events:none;
+      padding-left:0;
+      padding-right:0;
+      border-color:transparent;
+      overflow:hidden;
+    }
+    @media (max-width:980px){
+      .app.nav-collapsed .sidebar{display:none}
     }
     .brand{
       display:flex; align-items:center; gap:12px;
-      padding:10px 10px 16px 10px;
+      padding:8px 10px 16px;
       border-bottom:1px solid var(--line);
-      margin-bottom:14px;
+      margin-bottom:12px;
     }
     .logo{
-      width:42px;height:42px;border-radius:14px;
-      background: linear-gradient(135deg, rgba(77,163,255,.95) 0%, rgba(47,123,220,.95) 60%);
-      border:1px solid rgba(77,163,255,.35);
-      box-shadow: 0 14px 34px rgba(0,0,0,.35);
+      width:34px;height:34px;border-radius:8px;
+      background: linear-gradient(135deg, #185DDC 0%, #12A874 100%);
+      border:1px solid rgba(24,93,220,.18);
+      box-shadow:none;
       display:grid;place-items:center;
       font-weight:900; letter-spacing:.4px;
-      color:#071225;
+      color:#fff;
     }
     /* logo: simple FA marker (no halo) */
     .logo{width:42px;height:42px;border-radius:14px;display:grid;place-items:center;position:relative;z-index:2}
     /* ambient canvas layers removed (static blue theme) */
-    .brand h1{margin:0;font-size:15px;line-height:1.1;letter-spacing:.2px;font-family:var(--font-display)}
+    .brand h1{margin:0;font-size:18px;line-height:1.1;letter-spacing:-.1px;font-family:var(--font-display)}
     .brand small{display:block;margin-top:4px;font-size:12px;color:var(--muted)}
 
     .nav{
@@ -273,18 +300,18 @@
       text-align:left;
       border:1px solid transparent;
       background: transparent;
-      border-radius:12px;
-      padding:10px 12px;
-      font-weight:700;
+      border-radius:8px;
+      padding:9px 10px;
+      font-weight:650;
       font-size:12px;
-      font-family: var(--font-display);
+      font-family: var(--font-body);
       color:var(--text);
       cursor:pointer;
       box-shadow: none;
       display:flex; justify-content:space-between; align-items:center;
       transition: background .15s ease, border-color .15s ease, color .15s ease;
       gap:10px;
-      height:44px;
+      height:34px;
       pointer-events:auto;
       position:relative;
       z-index:11;
@@ -300,20 +327,21 @@
       display:none;
     }
     .nav button:hover{
-      border-color: color-mix(in srgb, var(--primary) 20%, var(--border));
-      background: color-mix(in srgb, var(--panel2) 70%, var(--primary) 30%);
+      border-color: rgba(24,93,220,.16);
+      background: rgba(24,93,220,.06);
     }
     .nav button.active{
-      border-color: color-mix(in srgb, var(--primary) 35%, var(--border));
-      background: color-mix(in srgb, var(--panel) 92%, var(--primary) 8%);
+      border-color: rgba(24,93,220,.14);
+      background: rgba(24,93,220,.08);
       box-shadow: inset 3px 0 0 var(--primary);
+      color:#0B4EB3;
     }
     .nav .tag{
       font-size:10px;
       font-weight:800;
-      padding:3px 8px;
-      border-radius:999px;
-      border:1px solid color-mix(in srgb, var(--primary) 35%, var(--border));
+      padding:2px 7px;
+      border-radius:8px;
+      border:1px solid rgba(24,93,220,.16);
       background: var(--chip);
       color: var(--primary2);
       white-space:nowrap;
@@ -325,7 +353,7 @@
       color:var(--muted);
       line-height:1.45;
       padding:12px;
-      border-radius:14px;
+      border-radius:8px;
       border:1px dashed var(--border);
       background: var(--panel2);
     }
@@ -348,15 +376,15 @@
       width: 100%;
       display:flex;
       flex-direction:column;
-      gap: 16px;
+      gap: 12px;
     }
 
-    .siteHeader{
-      padding: 16px 20px;
+    .main .siteHeader{
+      padding: 10px 14px;
       background: var(--panel);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-lg);
-      box-shadow: var(--shadow-sm);
+      border: 1px solid rgba(220,229,239,.9);
+      border-radius: 12px;
+      box-shadow: none;
     }
     .siteHeader__row{
       display:flex;
@@ -387,6 +415,18 @@
       gap:10px;
       flex-wrap:wrap;
     }
+    .navCollapseBtn{
+      width:auto;
+      min-width:78px;
+      padding:0 12px;
+      display:inline-grid;
+      place-items:center;
+      font-size:12px;
+      font-weight:800;
+      box-shadow:none;
+      border-radius:10px;
+      white-space:nowrap;
+    }
     .headerTheme{
       height:36px;
       padding:6px 10px;
@@ -415,11 +455,11 @@
       align-items:center;
       justify-content:space-between;
       gap:16px;
-      padding: 12px 16px;
+      padding: 10px 14px;
       background: var(--panel);
       border: 1px solid var(--border);
-      border-radius: var(--radius-lg);
-      box-shadow: var(--shadow-sm);
+      border-radius: 12px;
+      box-shadow: none;
       flex-wrap:wrap;
     }
     .subHeader__left{
@@ -440,20 +480,15 @@
       margin-bottom:14px;
       flex-wrap:wrap;
     }
-    .topTabs,
-    .tabBar,
-    .topTab{
-      display:none !important;
-    }
     .topTabs{
       display:flex;
       flex-wrap:wrap;
-      gap:8px;
-      padding:6px;
-      border-radius: var(--radius-lg);
-      border:1px solid var(--border);
+      gap:6px;
+      padding:6px 0 2px;
+      border-radius:0;
+      border:0;
       background: var(--panel);
-      box-shadow: var(--shadow-sm);
+      box-shadow:none;
     }
     .tabBar{
       align-items:center;
@@ -463,11 +498,11 @@
       border:1px solid transparent;
       background: transparent;
       color: var(--text);
-      border-radius:10px;
-      padding:8px 12px;
+      border-radius:8px 8px 0 0;
+      padding:8px 10px;
       font-size:12px;
-      font-weight:700;
-      font-family: var(--font-display);
+      font-weight:650;
+      font-family: var(--font-body);
       cursor:pointer;
       transition: background .15s ease, border-color .15s ease;
       height:36px;
@@ -477,8 +512,8 @@
       border-color: color-mix(in srgb, var(--primary) 20%, transparent);
     }
     .topTab.active{
-      background: color-mix(in srgb, var(--primary) 10%, transparent);
-      border-color: color-mix(in srgb, var(--primary) 28%, transparent);
+      background:#fff;
+      border-color: rgba(24,93,220,.14);
       box-shadow: inset 0 -2px 0 var(--primary);
       color: var(--text);
     }
@@ -560,9 +595,9 @@
     /* Cards */
     .card{
       background: var(--panel);
-      border:1px solid var(--border);
-      border-radius: var(--radius-lg);
-      box-shadow: var(--shadow-sm);
+      border:1px solid rgba(220,229,239,.95);
+      border-radius: 10px;
+      box-shadow:none;
       overflow:hidden;
     }
     .hd{
@@ -572,7 +607,7 @@
       justify-content:space-between;
       gap:10px;
       border-bottom: 1px solid color-mix(in srgb, var(--border) 75%, transparent);
-      background: var(--panel2);
+      background: linear-gradient(180deg,#fff,var(--panel2));
     }
     .hd h2{margin:0;font-size:14px;letter-spacing:.2px;font-family:var(--font-display)}
     .hd .meta{font-size:12px;color:var(--muted)}
@@ -942,11 +977,34 @@
       display:none !important;
       opacity:0;
     }
-    .section{margin-top:18px;}
+    .main .section{
+      margin-top:10px;
+      padding:12px 0 28px;
+    }
     .subtle{
       font-size:11px;color:var(--muted);
-      margin-top:10px;
+      margin-top:4px;
       display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap;
+    }
+    .subtle:has(#connectionStatus){
+      height:0;
+      min-height:0;
+      margin-top:0 !important;
+      justify-content:flex-end;
+      overflow:visible;
+      position:relative;
+      z-index:2;
+    }
+    #connectionStatus{
+      padding:2px 8px;
+      border:1px solid var(--border);
+      border-radius:999px;
+      background:var(--panel2);
+      font-size:10px;
+      font-weight:800;
+      text-transform:uppercase;
+      letter-spacing:.04em;
+      transform:translateY(4px);
     }
     .warnBanner{
       border:1px solid rgba(255,176,32,.25);
@@ -968,6 +1026,200 @@
     }
 
     /* AI Advisor */
+    .opsShell{
+      display:grid;
+      grid-template-columns:minmax(0,1fr) 292px;
+      gap:12px;
+      align-items:start;
+    }
+    @media (max-width: 1180px){.opsShell{grid-template-columns:1fr}.opsAdvisorDock{position:static}}
+    .opsMain{display:flex;flex-direction:column;gap:12px;min-width:0}
+    .commandStrip{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:8px;
+    }
+    @media (max-width: 860px){.commandStrip{grid-template-columns:repeat(2,1fr)}}
+    @media (max-width: 560px){.commandStrip{grid-template-columns:1fr}}
+    .commandMetric{
+      background:#fff;
+      border:1px solid rgba(220,229,239,.95);
+      border-radius:10px;
+      padding:12px 14px;
+      min-height:96px;
+      box-shadow:none;
+    }
+    .commandMetric__label{
+      font-size:11px;
+      font-weight:800;
+      letter-spacing:.04em;
+      text-transform:uppercase;
+      color:var(--muted);
+      margin-bottom:10px;
+    }
+    .commandMetric__value{
+      font-family:var(--font-display);
+      font-size:26px;
+      font-weight:750;
+      letter-spacing:-.02em;
+      color:var(--text);
+    }
+    .commandMetric__value.is-good{color:var(--good)}
+    .commandMetric__value.is-warn{color:var(--warn)}
+    .commandMetric__value.is-bad{color:var(--bad)}
+    .commandMetric__sub{
+      margin-top:8px;
+      font-size:12px;
+      color:var(--muted);
+      line-height:1.35;
+    }
+    .opsPanel{
+      background:#fff;
+      border:1px solid rgba(220,229,239,.95);
+      border-radius:10px;
+      overflow:hidden;
+    }
+    .opsPanel__head{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      padding:12px 14px;
+      border-bottom:1px solid var(--border);
+      background:linear-gradient(180deg,#fff,#f9fbfe);
+    }
+    .opsPanel__title{
+      margin:0;
+      font-size:15px;
+      font-family:var(--font-display);
+      font-weight:750;
+      letter-spacing:-.01em;
+    }
+    .opsPanel__meta{font-size:12px;color:var(--muted)}
+    .opsPanel__body{padding:12px 14px}
+    .opsGrid{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:12px;
+    }
+    @media (max-width: 900px){.opsGrid{grid-template-columns:1fr}}
+    .riskTableWrap{overflow:auto}
+    .riskTableWrap table{border-radius:0;border:0}
+    .riskTableWrap .bd{padding:0}
+    .driftCanvas{
+      min-height:252px;
+      border:1px solid var(--border);
+      border-radius:10px;
+      background:
+        linear-gradient(180deg,rgba(23,143,91,.08),transparent 55%),
+        repeating-linear-gradient(to bottom,transparent 0 45px,rgba(96,112,135,.12) 46px),
+        #fff;
+      padding:18px;
+      position:relative;
+      overflow:hidden;
+    }
+    .driftLine{
+      position:absolute;
+      left:24px;
+      right:24px;
+      bottom:66px;
+      height:120px;
+      background:linear-gradient(135deg,transparent 0 12%,#185DDC 12% 14%,transparent 14% 24%,#185DDC 24% 26%,transparent 26% 38%,#185DDC 38% 40%,transparent 40% 53%,#185DDC 53% 55%,transparent 55% 70%,#185DDC 70% 72%,transparent 72% 84%,#DC2626 84% 87%,transparent 87%);
+      opacity:.95;
+    }
+    .driftBand{
+      position:absolute;
+      left:24px;
+      right:24px;
+      top:104px;
+      height:72px;
+      border-top:1px dashed rgba(23,143,91,.42);
+      border-bottom:1px dashed rgba(23,143,91,.42);
+      background:rgba(23,143,91,.07);
+    }
+    .scheduleList{display:grid;gap:10px}
+    .scheduleItem{
+      display:grid;
+      grid-template-columns:42px 1fr auto;
+      gap:10px;
+      align-items:center;
+      padding:10px 0;
+      border-bottom:1px solid rgba(220,229,239,.9);
+    }
+    .scheduleItem:last-child{border-bottom:0}
+    .scheduleDate{
+      font-size:12px;
+      color:var(--muted);
+      text-transform:uppercase;
+      line-height:1.25;
+      font-weight:800;
+    }
+    .scheduleItem strong{font-size:13px;color:var(--text)}
+    .scheduleItem span{display:block;font-size:12px;color:var(--muted);margin-top:2px}
+    .opsAdvisorDock{
+      position:sticky;
+      top:12px;
+      background:#fff;
+      border:1px solid rgba(220,229,239,.95);
+      border-radius:12px;
+      min-height:calc(100vh - 24px);
+      display:flex;
+      flex-direction:column;
+      overflow:hidden;
+    }
+    .app.nav-collapsed .opsShell{
+      grid-template-columns:minmax(0,1fr) 320px;
+    }
+    @media (max-width:1180px){
+      .app.nav-collapsed .opsShell{grid-template-columns:1fr}
+    }
+    .opsAdvisorDock__head{
+      padding:16px;
+      border-bottom:1px solid var(--border);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+    }
+    .opsAdvisorDock__title{
+      font-family:var(--font-display);
+      font-weight:750;
+      font-size:16px;
+    }
+    .opsAdvisorDock__body{
+      padding:14px;
+      display:grid;
+      gap:14px;
+      font-size:13px;
+      color:var(--text);
+      line-height:1.55;
+    }
+    .advisorReco{
+      border:1px solid var(--border);
+      border-radius:10px;
+      padding:14px;
+      background:linear-gradient(180deg,#fff,#f9fbfe);
+    }
+    .advisorPrompt{
+      width:100%;
+      border:1px solid var(--border);
+      background:#fff;
+      border-radius:8px;
+      padding:10px 12px;
+      color:#124BB5;
+      text-align:left;
+      font-weight:650;
+      cursor:pointer;
+    }
+    .advisorPrompt + .advisorPrompt{margin-top:8px}
+    .advisorMiniInput{
+      margin-top:auto;
+      padding:14px 16px;
+      border-top:1px solid var(--border);
+      background:var(--panel2);
+    }
+    .advisorMiniInput button{width:100%;justify-content:center}
+
     .aiAdvisor-shell{
       display:flex;
       flex-direction:column;
@@ -1192,31 +1444,34 @@
       </div>
 
       <div class="nav">
-        <!-- Overview -->
+        <!-- Command -->
+        <div class="navGroup">
+          <div class="navGroupLabel">Command</div>
         <button class="active" data-view="dashboard" data-route="dashboard">
-          <span class="navItem"><span class="navLabel">&#x1F3E0; Overview</span></span>
+            <span class="navItem"><span class="navLabel">Overview</span></span>
           <span class="tag">Home</span>
         </button>
+          <button data-view="alerts" data-route="alerts">
+            <span class="navItem"><span class="navLabel">Alerts</span></span>
+            <span class="tag" id="alertCount">--</span>
+          </button>
+        </div>
 
         <!-- Monitoring -->
         <div class="navGroup">
           <div class="navGroupLabel">Monitoring</div>
           <button data-view="telemetry" data-route="telemetry">
-            <span class="navItem"><span class="navLabel">&#x1F4E1; Live Telemetry</span></span>
+            <span class="navItem"><span class="navLabel">Live Telemetry</span></span>
             <span class="tag">Live</span>
           </button>
           <button data-view="telemetry-history" data-route="telemetry-history">
-            <span class="navItem"><span class="navLabel">&#x1F4C8; History</span></span>
+            <span class="navItem"><span class="navLabel">History</span></span>
           </button>
           <button data-view="health-risk" data-route="health-risk">
-            <span class="navItem"><span class="navLabel">&#x2665; Health &amp; Risk</span></span>
+            <span class="navItem"><span class="navLabel">Health &amp; Risk</span></span>
           </button>
           <button data-view="dtc-history" data-route="dtc-history">
-            <span class="navItem"><span class="navLabel">&#x26A0; DTC Codes</span></span>
-          </button>
-          <button data-view="alerts" data-route="alerts">
-            <span class="navItem"><span class="navLabel">&#x1F514; Alerts</span></span>
-            <span class="tag" id="alertCount">--</span>
+            <span class="navItem"><span class="navLabel">DTC Codes</span></span>
           </button>
         </div>
 
@@ -1224,14 +1479,14 @@
         <div class="navGroup">
           <div class="navGroupLabel">Fleet</div>
           <button data-view="vehicles" data-route="vehicles">
-            <span class="navItem"><span class="navLabel">&#x1F69A; Vehicles</span></span>
+            <span class="navItem"><span class="navLabel">Vehicles</span></span>
           </button>
           <button data-view="gps" data-route="gps">
-            <span class="navItem"><span class="navLabel">&#x1F5FA; GPS / Tracking</span></span>
+            <span class="navItem"><span class="navLabel">GPS / Tracking</span></span>
             <span class="tag">Map</span>
           </button>
           <button data-view="cameras" data-route="cameras">
-            <span class="navItem"><span class="navLabel">&#x1F4F7; Cameras</span></span>
+            <span class="navItem"><span class="navLabel">Cameras</span></span>
           </button>
         </div>
 
@@ -1239,17 +1494,17 @@
         <div class="navGroup">
           <div class="navGroupLabel">Drivers &amp; Dispatch</div>
           <button data-view="drivers" data-route="drivers">
-            <span class="navItem"><span class="navLabel">&#x1F465; Drivers</span></span>
+            <span class="navItem"><span class="navLabel">Drivers</span></span>
           </button>
           <button data-view="safety" data-route="safety">
-            <span class="navItem"><span class="navLabel">&#x1F6E1; Safety Scores</span></span>
+            <span class="navItem"><span class="navLabel">Safety Scores</span></span>
           </button>
           <button data-view="compliance" data-route="compliance">
-            <span class="navItem"><span class="navLabel">&#x23F1; Hours of Service</span></span>
+            <span class="navItem"><span class="navLabel">Hours of Service</span></span>
             <span class="tag">HOS</span>
           </button>
           <button data-view="dispatch" data-route="dispatch">
-            <span class="navItem"><span class="navLabel">&#x1F4CB; Dispatch</span></span>
+            <span class="navItem"><span class="navLabel">Dispatch</span></span>
             <span class="tag" style="background:rgba(22,163,74,.12);color:#15803d;border-color:rgba(22,163,74,.25)">New</span>
           </button>
         </div>
@@ -1258,11 +1513,11 @@
         <div class="navGroup">
           <div class="navGroupLabel">Inspections</div>
           <button data-view="dvir" data-route="dvir">
-            <span class="navItem"><span class="navLabel">&#x1F4DD; DVIR / Pre-Trip</span></span>
+            <span class="navItem"><span class="navLabel">DVIR / Pre-Trip</span></span>
             <span class="tag" style="background:rgba(22,163,74,.12);color:#15803d;border-color:rgba(22,163,74,.25)">New</span>
           </button>
           <button data-view="dot-compliance" data-route="dot-compliance">
-            <span class="navItem"><span class="navLabel">&#x2705; DOT Compliance</span></span>
+            <span class="navItem"><span class="navLabel">DOT Compliance</span></span>
             <span class="tag" style="background:rgba(22,163,74,.12);color:#15803d;border-color:rgba(22,163,74,.25)">New</span>
           </button>
         </div>
@@ -1271,17 +1526,17 @@
         <div class="navGroup">
           <div class="navGroupLabel">Maintenance</div>
           <button data-view="maintenance" data-route="maintenance">
-            <span class="navItem"><span class="navLabel">&#x1F6E0; Work Orders</span></span>
+            <span class="navItem"><span class="navLabel">Work Orders</span></span>
           </button>
           <button data-view="maintenance-logs" data-route="maintenance-logs">
-            <span class="navItem"><span class="navLabel">&#x1F527; Maintenance Logs</span></span>
+            <span class="navItem"><span class="navLabel">Maintenance Logs</span></span>
           </button>
           <button data-view="parts-inventory" data-route="parts-inventory">
-            <span class="navItem"><span class="navLabel">&#x1F4E6; Parts Inventory</span></span>
+            <span class="navItem"><span class="navLabel">Parts Inventory</span></span>
             <span class="tag" style="background:rgba(22,163,74,.12);color:#15803d;border-color:rgba(22,163,74,.25)">New</span>
           </button>
           <button data-view="recalls" data-route="recalls">
-            <span class="navItem"><span class="navLabel">&#x1F6A8; Recalls</span></span>
+            <span class="navItem"><span class="navLabel">Recalls</span></span>
             <span class="tag" style="background:rgba(22,163,74,.12);color:#15803d;border-color:rgba(22,163,74,.25)">New</span>
           </button>
         </div>
@@ -1290,10 +1545,10 @@
         <div class="navGroup">
           <div class="navGroupLabel">Fuel &amp; Costs</div>
           <button data-view="fuel-events" data-route="fuel-events">
-            <span class="navItem"><span class="navLabel">&#x26FD; Fuel Events</span></span>
+            <span class="navItem"><span class="navLabel">Fuel Events</span></span>
           </button>
           <button data-view="reports" data-route="reports">
-            <span class="navItem"><span class="navLabel">&#x1F4C4; Reports</span></span>
+            <span class="navItem"><span class="navLabel">Reports</span></span>
           </button>
         </div>
 
@@ -1301,7 +1556,7 @@
         <div class="navGroup">
           <div class="navGroupLabel">AI Insights</div>
           <button data-view="advisor" data-route="advisor">
-            <span class="navItem"><span class="navLabel">&#x2728; AI Advisor</span></span>
+            <span class="navItem"><span class="navLabel">AI Advisor</span></span>
             <span class="tag">AI</span>
           </button>
         </div>
@@ -1310,13 +1565,13 @@
         <div class="navGroup">
           <div class="navGroupLabel">Workspace</div>
           <button data-view="pairing" data-route="pairing">
-            <span class="navItem"><span class="navLabel">&#x1F4F1; Device Pairing</span></span>
+            <span class="navItem"><span class="navLabel">Device Pairing</span></span>
           </button>
           <button data-view="addons" data-route="addons">
-            <span class="navItem"><span class="navLabel">&#x1F9F1; Add-Ons</span></span>
+            <span class="navItem"><span class="navLabel">Add-Ons</span></span>
           </button>
           <button data-view="settings" data-route="settings">
-            <span class="navItem"><span class="navLabel">&#x2699; Settings</span></span>
+            <span class="navItem"><span class="navLabel">Settings</span></span>
           </button>
         </div>
       </div>
@@ -1344,6 +1599,7 @@
             <div class="brandMeta">Customer fleet workspace</div>
           </div>
           <div class="headerActions">
+            <button class="btn navCollapseBtn" id="btnToggleNav" type="button" aria-label="Hide navigation" title="Hide navigation">Hide nav</button>
             <select id="headerThemeSelect" class="headerTheme">
               <option value="light">Light (Default)</option>
               <option value="light-blue">Light Cool Blue</option>
@@ -1392,6 +1648,11 @@
         <button class="topTab" data-route="fuel-events">Fuel &amp; Costs</button>
         <button class="topTab" data-route="dtc-history">DTC History</button>
         <button class="topTab" data-route="alerts">Alerts</button>
+        <button class="topTab" data-route="dispatch">Jobs</button>
+        <button class="topTab" data-route="dvir">DVIR</button>
+        <button class="topTab" data-route="dot-compliance">DOT</button>
+        <button class="topTab" data-route="parts-inventory">Parts</button>
+        <button class="topTab" data-route="recalls">Recalls</button>
         <button class="topTab" data-route="safety">Safety</button>
         <button class="topTab" data-route="compliance">Compliance</button>
         <button class="topTab" data-route="gps">GPS</button>
@@ -1417,131 +1678,165 @@
 
       <!-- DASHBOARD VIEW -->
       <section id="view-dashboard" class="section">
-        <div class="kpis">
-          <div class="kpi">
-            <div class="kpiHeader">
-              <div class="kpiLabel">Uptime</div>
-              <div class="t">Fleet Uptime (est.)</div>
+        <div class="opsShell">
+          <div class="opsMain">
+            <div class="commandStrip">
+              <div class="commandMetric">
+                <div class="commandMetric__label">Fleet Health</div>
+                <div class="commandMetric__value is-good" id="kpiUptime">--</div>
+                <div class="commandMetric__sub">Live uptime estimate and vehicle health coverage</div>
+              </div>
+              <div class="commandMetric">
+                <div class="commandMetric__label">Vehicles At Risk</div>
+                <div class="commandMetric__value is-bad" id="kpiActions">--</div>
+                <div class="commandMetric__sub">High-priority items in the next 14 days</div>
+              </div>
+              <div class="commandMetric">
+                <div class="commandMetric__label">Maintenance Due</div>
+                <div class="commandMetric__value is-warn" id="kpiAvoided">--</div>
+                <div class="commandMetric__sub">Estimated downtime cost exposure avoided</div>
+              </div>
+              <div class="commandMetric">
+                <div class="commandMetric__label">Live Signal Health</div>
+                <div class="commandMetric__value" id="kpiROI">--</div>
+                <div class="commandMetric__sub">Pilot ROI estimate updates with real history</div>
+              </div>
             </div>
-            <div class="v" id="kpiUptime">--</div>
-            <div class="s">No live data yet</div>
-          </div>
-          <div class="kpi">
-            <div class="kpiHeader">
-              <div class="kpiLabel">Avoided</div>
-              <div class="t">Estimated Downtime Cost Avoided</div>
-            </div>
-            <div class="v" id="kpiAvoided">--</div>
-            <div class="s">No live data yet</div>
-          </div>
-          <div class="kpi">
-            <div class="kpiHeader">
-              <div class="kpiLabel">Queue</div>
-              <div class="t">Priority Actions (next 14 days)</div>
-            </div>
-            <div class="v" id="kpiActions">--</div>
-            <div class="s">No live data yet</div>
-          </div>
-          <div class="kpi">
-            <div class="kpiHeader">
-              <div class="kpiLabel">ROI</div>
-              <div class="t">Projected ROI (pilot estimate)</div>
-            </div>
-            <div class="v" id="kpiROI">--</div>
-            <div class="s">No live data yet</div>
-          </div>
-        </div>
 
-        <div class="grid2">
-          <div class="card">
-            <div class="hd">
-              <h2>Priority Queue</h2>
-              <div class="meta">"Tell me what to fix first"</div>
+            <div class="opsPanel">
+              <div class="opsPanel__head">
+                <div>
+                  <h2 class="opsPanel__title">Predictive Risk Queue</h2>
+                  <div class="opsPanel__meta">Vehicles ranked by breakdown risk and recommended service window</div>
+                </div>
+                <button class="btn ghost" onclick="setHashRoute('health-risk')">View all risks</button>
+              </div>
+              <div class="opsPanel__body riskTableWrap" id="queue"></div>
             </div>
-            <div class="bd" id="queue"></div>
+
+            <div class="opsGrid">
+              <div class="opsPanel">
+                <div class="opsPanel__head">
+                  <div>
+                    <h2 class="opsPanel__title">Sensor Drift Timeline</h2>
+                    <div class="opsPanel__meta">Why the ML engine is flagging developing risk</div>
+                  </div>
+                  <span class="pill2 warn" id="tireRiskTimestamp">Waiting for data</span>
+                </div>
+                <div class="opsPanel__body">
+                  <div class="driftCanvas">
+                    <div class="commandMetric__label">Cooling System Variance</div>
+                    <div class="driftBand"></div>
+                    <div class="driftLine"></div>
+                    <div style="position:absolute;right:18px;top:18px" class="pill2 bad">Drift detected</div>
+                    <div style="position:absolute;left:18px;bottom:18px;color:var(--muted);font-size:12px">Normal range compared against the selected vehicle baseline</div>
+                  </div>
+                  <div class="row" style="margin-top:10px">
+                    <div class="l">
+                      <h3>Tire / subsystem risk</h3>
+                      <p><b id="tireRiskScore">--</b> confidence: <span id="tireRiskConfidence">--</span></p>
+                      <div id="tireRiskReasons" class="mini">No telemetry yet.</div>
+                    </div>
+                    <div class="r"><span class="chip" id="tireRiskActions">Connect a device to populate risk.</span></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="opsPanel">
+                <div class="opsPanel__head">
+                  <div>
+                    <h2 class="opsPanel__title">Maintenance Schedule</h2>
+                    <div class="opsPanel__meta">Next service windows and work planning</div>
+                  </div>
+                  <button class="btn ghost" onclick="setHashRoute('maintenance')">Open calendar</button>
+                </div>
+                <div class="opsPanel__body">
+                  <div class="scheduleList">
+                    <div class="scheduleItem">
+                      <div class="scheduleDate">May<br>13</div>
+                      <div><strong>Cooling system inspection</strong><span>Main shop bay 2 · 2.0 hrs</span></div>
+                      <span class="pill2 bad">Overdue</span>
+                    </div>
+                    <div class="scheduleItem">
+                      <div class="scheduleDate">May<br>14</div>
+                      <div><strong>DPF cleaning</strong><span>Unit risk queue · 1.5 hrs</span></div>
+                      <span class="pill2">8:00 AM</span>
+                    </div>
+                    <div class="scheduleItem">
+                      <div class="scheduleDate">May<br>15</div>
+                      <div><strong>Battery load test</strong><span>Quick lane · 1.0 hr</span></div>
+                      <span class="pill2 good">10:00 AM</span>
+                    </div>
+                  </div>
+                  <div id="recommendationsList" style="margin-top:14px"></div>
+                  <div class="subtle" id="recommendationsHelp"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="opsGrid">
+              <div class="opsPanel">
+                <div class="opsPanel__head">
+                  <div>
+                    <h2 class="opsPanel__title">Live Alerts</h2>
+                    <div class="opsPanel__meta">Maintenance-first events ranked by downtime risk</div>
+                  </div>
+                  <button class="btn ghost" onclick="setHashRoute('alerts')">View alerts</button>
+                </div>
+                <div class="opsPanel__body" id="notifFeed"></div>
+              </div>
+
+              <div class="opsPanel">
+                <div class="opsPanel__head">
+                  <div>
+                    <h2 class="opsPanel__title">Fleet Health Table</h2>
+                    <div class="opsPanel__meta">Snapshot from vehicles and assignments</div>
+                  </div>
+                </div>
+                <div class="opsPanel__body" style="padding:0">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th style="width:18%;">Vehicle</th>
+                        <th style="width:16%;">Status</th>
+                        <th>Assigned Driver</th>
+                        <th style="width:18%;">Last Service</th>
+                        <th style="width:16%;">Risk</th>
+                      </tr>
+                    </thead>
+                    <tbody id="fleetTable"></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
           </div>
 
-          <div class="card">
-            <div class="hd">
-              <h2>Alerts Overview</h2>
-              <div class="meta">Open maintenance events and next steps</div>
+          <aside class="opsAdvisorDock">
+            <div class="opsAdvisorDock__head">
+              <div class="opsAdvisorDock__title">AI Advisor</div>
+              <span class="tag">Live</span>
             </div>
-            <div class="bd" id="notifFeed"></div>
-            <div class="bd" style="padding-top:0;">
-              <div class="subtle">
-                <div><span class="kbd">Maintenance-first</span> actions are ranked by downtime risk</div>
-                <div><span class="kbd">Context</span> GPS + Cameras support faster resolution</div>
+            <div class="opsAdvisorDock__body">
+              <div>
+                <strong>Reliability recommendation</strong>
+                <p style="margin:8px 0 0;color:var(--muted)">Focus today on cooling-system variance, battery load tests, and any DTCs paired with rising temperature or voltage drift.</p>
               </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="card" style="margin-top:14px;">
-          <div class="hd">
-            <h2>Recommendations</h2>
-            <div class="meta">Predictive service windows based on your history</div>
-          </div>
-          <div class="bd" id="recommendationsList"></div>
-          <div class="bd" style="padding-top:0;">
-            <div class="subtle" id="recommendationsHelp"></div>
-          </div>
-        </div>
-
-        <div class="card" style="margin-top:14px;">
-          <div class="hd">
-            <h2>Tire Risk</h2>
-            <div class="meta">Awaiting live telemetry feed</div>
-          </div>
-          <div class="bd">
-            <div class="row">
-              <div class="l">
-                <h3>Risk Score</h3>
-                <p><b id="tireRiskScore">--</b> <span class="mini">confidence: <span id="tireRiskConfidence">--</span></span></p>
+              <div class="advisorReco">
+                <div class="commandMetric__label">Maintenance Recommendation</div>
+                <strong>Schedule the highest-risk inspection window first.</strong>
+                <p style="margin:8px 0 0;color:var(--muted)">Fleet AI recommendations are advisory. Confirm with your shop process before taking a vehicle out of service.</p>
               </div>
-              <div class="r" style="text-align:right;">
-                <div class="chip" id="tireRiskTimestamp">Last updated --</div>
+              <div>
+                <button class="advisorPrompt" onclick="setHashRoute('advisor')">Why is this vehicle at risk?</button>
+                <button class="advisorPrompt" onclick="setHashRoute('advisor')">Show cooling system trends</button>
+                <button class="advisorPrompt" onclick="setHashRoute('advisor')">What maintenance is due this week?</button>
+                <button class="advisorPrompt" onclick="setHashRoute('advisor')">Summarize yesterday's alerts</button>
               </div>
             </div>
-            <div class="row">
-              <div class="l">
-                <h3>Top Reasons</h3>
-                <div id="tireRiskReasons" class="mini">--</div>
-              </div>
-              <div class="r" style="text-align:right;">
-                <div class="chip">Tire Risk Model</div>
-              </div>
+            <div class="advisorMiniInput">
+              <button class="btn primary" onclick="setHashRoute('advisor')">Open AI Advisor</button>
             </div>
-            <div class="row">
-              <div class="l">
-                <h3>Recommended Actions</h3>
-                <div id="tireRiskActions" class="mini">--</div>
-              </div>
-              <div class="r" style="text-align:right;">
-                <div class="chip">Next Steps</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="card" style="margin-top:14px;">
-          <div class="hd">
-            <h2>Fleet Health Table</h2>
-            <div class="meta">Snapshot from vehicles list</div>
-          </div>
-          <div class="bd" style="padding-top:12px;">
-            <table>
-              <thead>
-                <tr>
-                  <th style="width:18%;">Vehicle</th>
-                  <th style="width:16%;">Status</th>
-                  <th>Assigned Driver</th>
-                  <th style="width:18%;">Last Service</th>
-                  <th style="width:16%;">Risk</th>
-                </tr>
-              </thead>
-              <tbody id="fleetTable"></tbody>
-            </table>
-          </div>
+          </aside>
         </div>
       </section>
 
@@ -2657,6 +2952,16 @@
             <div class="meta">Load assignments and route coordination</div>
           </div>
           <div class="bd">
+            <form id="dispatchJobForm" onsubmit="return submitDispatchJob(event)" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:14px;padding:12px;border:1px solid var(--border);border-radius:8px;background:var(--panel2)">
+              <select id="dispatchDriver" style="padding:8px 10px;border:1px solid var(--border);border-radius:6px;background:var(--panel);color:var(--text);font-size:13px"><option value="">Driver optional</option></select>
+              <select id="dispatchVehicle" style="padding:8px 10px;border:1px solid var(--border);border-radius:6px;background:var(--panel);color:var(--text);font-size:13px"><option value="">Vehicle optional</option></select>
+              <input id="dispatchOrigin" type="text" placeholder="Origin" style="padding:8px 10px;border:1px solid var(--border);border-radius:6px;background:var(--panel);color:var(--text);font-size:13px">
+              <input id="dispatchDestination" type="text" placeholder="Destination" style="padding:8px 10px;border:1px solid var(--border);border-radius:6px;background:var(--panel);color:var(--text);font-size:13px">
+              <input id="dispatchEta" type="datetime-local" style="padding:8px 10px;border:1px solid var(--border);border-radius:6px;background:var(--panel);color:var(--text);font-size:13px">
+              <input id="dispatchCargoWeight" type="number" min="0" step="1" placeholder="Cargo weight" style="padding:8px 10px;border:1px solid var(--border);border-radius:6px;background:var(--panel);color:var(--text);font-size:13px">
+              <button type="submit" class="btn primary" style="font-size:12px;padding:8px 14px">Create Job</button>
+              <div id="dispatchStatus" style="align-self:center;color:var(--muted);font-size:12px"></div>
+            </form>
             <div class="tableWrap" style="overflow-x:auto">
               <table style="width:100%;border-collapse:collapse;font-size:13px">
                 <thead>
@@ -2668,11 +2973,12 @@
                     <th style="text-align:left;padding:8px 12px;color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.5px">Destination</th>
                     <th style="text-align:left;padding:8px 12px;color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.5px">Status</th>
                     <th style="text-align:left;padding:8px 12px;color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.5px">ETA</th>
+                    <th style="text-align:left;padding:8px 12px;color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.5px">Load</th>
                   </tr>
                 </thead>
                 <tbody id="dispatchJobsBody">
                   <tr>
-                    <td colspan="7" style="padding:32px;text-align:center;color:var(--muted);font-size:13px">No active jobs. Dispatch assignments will appear here.</td>
+                    <td colspan="8" style="padding:32px;text-align:center;color:var(--muted);font-size:13px">No active jobs. Dispatch assignments will appear here.</td>
                   </tr>
                 </tbody>
               </table>
@@ -2835,9 +3141,18 @@
           <div class="cardHd">
             <div class="title">Parts Inventory</div>
             <div class="meta">Shop stock, reorder thresholds, and vendor management</div>
-            <button class="btn primary" style="margin-left:auto;font-size:12px;padding:6px 14px" onclick="alert('Add part — coming soon')">+ Add Part</button>
           </div>
           <div class="bd">
+            <form id="partsInventoryForm" onsubmit="return submitPart(event)" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px;padding:12px;border:1px solid var(--border);border-radius:8px;background:var(--panel2)">
+              <input id="partNumber" type="text" placeholder="Part #" style="padding:8px 10px;border:1px solid var(--border);border-radius:6px;background:var(--panel);color:var(--text);font-size:13px">
+              <input id="partName" type="text" placeholder="Name" style="padding:8px 10px;border:1px solid var(--border);border-radius:6px;background:var(--panel);color:var(--text);font-size:13px">
+              <input id="partQty" type="number" min="0" step="1" placeholder="Qty on hand" style="padding:8px 10px;border:1px solid var(--border);border-radius:6px;background:var(--panel);color:var(--text);font-size:13px">
+              <input id="partReorderAt" type="number" min="0" step="1" placeholder="Reorder at" style="padding:8px 10px;border:1px solid var(--border);border-radius:6px;background:var(--panel);color:var(--text);font-size:13px">
+              <input id="partVendor" type="text" placeholder="Vendor" style="padding:8px 10px;border:1px solid var(--border);border-radius:6px;background:var(--panel);color:var(--text);font-size:13px">
+              <input id="partLastOrderedAt" type="date" style="padding:8px 10px;border:1px solid var(--border);border-radius:6px;background:var(--panel);color:var(--text);font-size:13px">
+              <button type="submit" class="btn primary" style="font-size:12px;padding:8px 14px">Add Part</button>
+              <div id="partsInventoryStatus" style="align-self:center;color:var(--muted);font-size:12px"></div>
+            </form>
             <div class="tableWrap" style="overflow-x:auto">
               <table style="width:100%;border-collapse:collapse;font-size:13px">
                 <thead>
@@ -3155,13 +3470,26 @@
       fuelEvents: {
         data: [],
         fuelSignalAvailable: false
-      }
+      },
+      dvirRecords: [],
+      dispatchJobs: [],
+      partsInventory: [],
+      dotCompliance: null
     };
 
     /***********************
      * HELPERS
      ***********************/
     const $ = (id)=>document.getElementById(id);
+    function escapeHtml(value){
+      return String(value ?? "").replace(/[&<>"']/g, (ch)=>({
+        "&":"&amp;",
+        "<":"&lt;",
+        ">":"&gt;",
+        "\"":"&quot;",
+        "'":"&#39;"
+      }[ch]));
+    }
     function normalizeApiBase(value){
       return String(value || "").trim().replace(/\/$/, "");
     }
@@ -4255,7 +4583,89 @@
       }
     }
 
-    function submitDvir(){
+    function setInlineStatus(id, message, tone){
+      const el = $(id);
+      if(!el) return;
+      el.textContent = message || "";
+      el.style.color = tone === "error" ? "var(--bad)" : (tone === "success" ? "var(--good)" : "var(--muted)");
+    }
+
+    function formatDateTime(value){
+      if(!value) return "--";
+      const d = new Date(value);
+      return Number.isNaN(d.getTime()) ? "--" : d.toLocaleString();
+    }
+
+    function formatShortDate(value){
+      if(!value) return "--";
+      const d = new Date(value);
+      return Number.isNaN(d.getTime()) ? "--" : d.toLocaleDateString();
+    }
+
+    function labelForVehicle(vehicleId){
+      const vehicle = (state.vehicles || []).find(v=>v.vehicleId === vehicleId || v.id === vehicleId);
+      return vehicle ? `${vehicle.unitName || vehicle.vehicleId} (${vehicle.vehicleId})` : (vehicleId || "--");
+    }
+
+    function labelForDriver(driverId){
+      const driver = (state.drivers || []).find(d=>d.driverId === driverId || d.id === driverId);
+      return driver ? `${driver.firstName || ""} ${driver.lastName || ""}`.trim() || driver.driverId : (driverId || "--");
+    }
+
+    function renderSolutionSelects(){
+      const dvirVehicle = $("dvirVehicle");
+      if(dvirVehicle){
+        dvirVehicle.innerHTML = `<option value="">Select vehicle...</option>` + (state.vehicles || []).map(v=>`<option value="${escapeHtml(v.vehicleId)}">${escapeHtml(v.unitName || v.vehicleId)} (${escapeHtml(v.vehicleId)})</option>`).join("");
+      }
+      const dvirDriver = $("dvirDriver");
+      if(dvirDriver){
+        dvirDriver.innerHTML = `<option value="">Select driver...</option>` + (state.drivers || []).map(d=>`<option value="${escapeHtml(d.driverId)}">${escapeHtml(`${d.firstName || ""} ${d.lastName || ""}`.trim() || d.driverId)}</option>`).join("");
+      }
+      const dispatchVehicle = $("dispatchVehicle");
+      if(dispatchVehicle){
+        dispatchVehicle.innerHTML = `<option value="">Vehicle optional</option>` + (state.vehicles || []).map(v=>`<option value="${escapeHtml(v.vehicleId)}">${escapeHtml(v.unitName || v.vehicleId)} (${escapeHtml(v.vehicleId)})</option>`).join("");
+      }
+      const dispatchDriver = $("dispatchDriver");
+      if(dispatchDriver){
+        dispatchDriver.innerHTML = `<option value="">Driver optional</option>` + (state.drivers || []).map(d=>`<option value="${escapeHtml(d.driverId)}">${escapeHtml(`${d.firstName || ""} ${d.lastName || ""}`.trim() || d.driverId)}</option>`).join("");
+      }
+    }
+
+    function renderDvirHistory(){
+      const historyEl = $("dvirHistoryBody");
+      if(!historyEl) return;
+      const records = state.dvirRecords || [];
+      if(!records.length){
+        historyEl.innerHTML = `<div style="color:var(--muted);font-size:13px;padding:16px 0">No DVIRs submitted yet for this workspace.</div>`;
+        return;
+      }
+      historyEl.innerHTML = records.map(record=>{
+        const typeLabel = record.type === "post" ? "Post-Trip" : "Pre-Trip";
+        const hasDefects = record.defectStatus === "defects_noted" || !!record.defects;
+        const statusBadge = hasDefects
+          ? `<span style="background:rgba(217,119,6,.12);color:#b45309;border:1px solid rgba(217,119,6,.25);border-radius:4px;padding:2px 7px;font-size:11px;font-weight:600">Defects Noted</span>`
+          : `<span style="background:rgba(22,163,74,.12);color:#15803d;border:1px solid rgba(22,163,74,.25);border-radius:4px;padding:2px 7px;font-size:11px;font-weight:600">Satisfactory</span>`;
+        return `<div style="padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--panel2);margin-bottom:8px;font-size:13px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+          <span style="color:var(--muted);font-size:11px;min-width:160px">${escapeHtml(formatDateTime(record.submittedAt || record.inspectedAt))}</span>
+          <span style="color:var(--text);font-weight:600">${typeLabel}</span>
+          ${statusBadge}
+          <span style="color:var(--muted)">${escapeHtml(record.vehicleLabel || labelForVehicle(record.vehicleId))} &middot; ${escapeHtml(record.driverLabel || labelForDriver(record.driverId))}</span>
+          <span style="color:var(--muted);font-size:11px;margin-left:auto">Signed: ${escapeHtml(record.signature || "--")}</span>
+        </div>`;
+      }).join("");
+    }
+
+    async function loadDvirHistory(){
+      try{
+        const data = await fetchJson(`${API_BASE_URL}/api/dvir`);
+        state.dvirRecords = Array.isArray(data.data) ? data.data : [];
+        renderDvirHistory();
+      }catch(err){
+        renderDvirHistory();
+      }
+    }
+
+    async function submitDvirLegacyLocal(){
       const vehicle = document.getElementById("dvirVehicle")?.value;
       const driver = document.getElementById("dvirDriver")?.value;
       const odometer = document.getElementById("dvirOdometer")?.value;
@@ -4295,7 +4705,216 @@
       document.getElementById("dvirForm")?.reset();
       if(typeof window.showBanner === "function") window.showBanner("DVIR submitted successfully");
     }
+    async function submitDvir(){
+      const vehicle = $("dvirVehicle")?.value;
+      const driver = $("dvirDriver")?.value;
+      const odometer = $("dvirOdometer")?.value;
+      const type = $("dvirType")?.value || "pre";
+      const inspectedAt = $("dvirDateTime")?.value;
+      const signature = $("dvirSignature")?.value?.trim();
+      const checkedItems = [...document.querySelectorAll('[name="dvirItem"]:checked')].map(el => el.value);
+      const notes = $("dvirNotes")?.value?.trim();
+      if(!vehicle){ alert("Vehicle is required to submit a DVIR."); return; }
+      if(!driver){ alert("Driver is required to submit a DVIR."); return; }
+      if(!signature){ alert("Driver signature is required to submit a DVIR."); return; }
+      if(checkedItems.length === 0){ alert("Please check all items that were inspected."); return; }
+      try{
+        await fetchJson(`${API_BASE_URL}/api/dvir`, {
+          method:"POST",
+          body:{
+            vehicleId: vehicle,
+            driverId: driver,
+            odometer: odometer ? Number(odometer) : null,
+            type,
+            inspectedAt,
+            inspectedItems: checkedItems,
+            defects: notes || "",
+            signature
+          }
+        });
+        $("dvirForm")?.reset();
+        if(typeof window.showBanner === "function") window.showBanner("DVIR submitted successfully");
+        await loadDvirHistory();
+        if(state.view === "dot-compliance") await loadDotCompliance();
+      }catch(err){
+        alert(err && err.message ? err.message : "DVIR submission failed.");
+      }
+    }
     window.submitDvir = submitDvir;
+
+    function renderDispatchJobs(){
+      const body = $("dispatchJobsBody");
+      if(!body) return;
+      const jobs = state.dispatchJobs || [];
+      if(!jobs.length){
+        body.innerHTML = `<tr><td colspan="8" style="padding:32px;text-align:center;color:var(--muted);font-size:13px">No active jobs. Dispatch assignments will appear here.</td></tr>`;
+        return;
+      }
+      body.innerHTML = jobs.map(job=>{
+        const status = String(job.status || "scheduled").replace(/_/g, " ");
+        const load = job.cargoWeight != null ? `${job.cargoWeight} lb` : (job.deliveryStatus || "--");
+        return `<tr style="border-bottom:1px solid var(--border)">
+          <td style="padding:10px 12px;font-weight:600;color:var(--text)">${escapeHtml(job.jobId || job.id || "--")}</td>
+          <td style="padding:10px 12px;color:var(--text)">${escapeHtml(job.driverLabel || labelForDriver(job.driverId))}</td>
+          <td style="padding:10px 12px;color:var(--text)">${escapeHtml(job.vehicleLabel || labelForVehicle(job.vehicleId))}</td>
+          <td style="padding:10px 12px;color:var(--muted)">${escapeHtml(job.origin || "--")}</td>
+          <td style="padding:10px 12px;color:var(--muted)">${escapeHtml(job.destination || "--")}</td>
+          <td style="padding:10px 12px"><span class="pill2">${escapeHtml(status)}</span></td>
+          <td style="padding:10px 12px;color:var(--muted)">${escapeHtml(formatDateTime(job.eta))}</td>
+          <td style="padding:10px 12px;color:var(--muted)">${escapeHtml(load)}</td>
+        </tr>`;
+      }).join("");
+    }
+
+    async function loadDispatchJobs(){
+      renderSolutionSelects();
+      try{
+        const data = await fetchJson(`${API_BASE_URL}/api/dispatch/jobs`);
+        state.dispatchJobs = Array.isArray(data.data) ? data.data : [];
+        renderDispatchJobs();
+        setInlineStatus("dispatchStatus", `${state.dispatchJobs.length} job(s) loaded`, "success");
+      }catch(err){
+        renderDispatchJobs();
+        setInlineStatus("dispatchStatus", "Unable to load dispatch jobs.", "error");
+      }
+    }
+
+    async function submitDispatchJob(event){
+      if(event) event.preventDefault();
+      const origin = $("dispatchOrigin")?.value?.trim();
+      const destination = $("dispatchDestination")?.value?.trim();
+      if(!origin || !destination){
+        setInlineStatus("dispatchStatus", "Origin and destination are required.", "error");
+        return false;
+      }
+      try{
+        await fetchJson(`${API_BASE_URL}/api/dispatch/jobs`, {
+          method:"POST",
+          body:{
+            driverId: $("dispatchDriver")?.value || "",
+            vehicleId: $("dispatchVehicle")?.value || "",
+            origin,
+            destination,
+            eta: $("dispatchEta")?.value || "",
+            cargoWeight: $("dispatchCargoWeight")?.value ? Number($("dispatchCargoWeight").value) : null
+          }
+        });
+        $("dispatchJobForm")?.reset();
+        setInlineStatus("dispatchStatus", "Dispatch job created.", "success");
+        await loadDispatchJobs();
+      }catch(err){
+        setInlineStatus("dispatchStatus", err && err.message ? err.message : "Dispatch job failed.", "error");
+      }
+      return false;
+    }
+    window.submitDispatchJob = submitDispatchJob;
+
+    function renderPartsInventory(){
+      const body = $("partsInventoryBody");
+      if(!body) return;
+      const parts = state.partsInventory || [];
+      if(!parts.length){
+        body.innerHTML = `<tr><td colspan="7" style="padding:32px;text-align:center;color:var(--muted);font-size:13px">No parts added yet. Use "Add Part" to build your inventory.</td></tr>`;
+        return;
+      }
+      body.innerHTML = parts.map(part=>{
+        const reorder = part.status === "reorder";
+        const status = reorder
+          ? `<span class="pill2 warn">Reorder</span>`
+          : `<span class="pill2 good">OK</span>`;
+        return `<tr style="border-bottom:1px solid var(--border)">
+          <td style="padding:10px 12px;font-weight:600;color:var(--text)">${escapeHtml(part.partNumber || "--")}</td>
+          <td style="padding:10px 12px;color:var(--text)">${escapeHtml(part.name || "--")}</td>
+          <td style="padding:10px 12px;color:var(--muted)">${escapeHtml(part.quantityOnHand ?? 0)}</td>
+          <td style="padding:10px 12px;color:var(--muted)">${escapeHtml(part.reorderAt ?? 0)}</td>
+          <td style="padding:10px 12px;color:var(--muted)">${escapeHtml(part.vendor || "--")}</td>
+          <td style="padding:10px 12px;color:var(--muted)">${escapeHtml(formatShortDate(part.lastOrderedAt))}</td>
+          <td style="padding:10px 12px">${status}</td>
+        </tr>`;
+      }).join("");
+    }
+
+    async function loadPartsInventory(){
+      try{
+        const data = await fetchJson(`${API_BASE_URL}/api/parts`);
+        state.partsInventory = Array.isArray(data.data) ? data.data : [];
+        renderPartsInventory();
+        const alerts = Array.isArray(data.reorderAlerts) ? data.reorderAlerts.length : 0;
+        setInlineStatus("partsInventoryStatus", alerts ? `${alerts} reorder alert(s)` : `${state.partsInventory.length} part(s) loaded`, alerts ? "error" : "success");
+      }catch(err){
+        renderPartsInventory();
+        setInlineStatus("partsInventoryStatus", "Unable to load parts.", "error");
+      }
+    }
+
+    async function submitPart(event){
+      if(event) event.preventDefault();
+      const partNumber = $("partNumber")?.value?.trim();
+      const name = $("partName")?.value?.trim();
+      if(!partNumber || !name){
+        setInlineStatus("partsInventoryStatus", "Part # and name are required.", "error");
+        return false;
+      }
+      try{
+        await fetchJson(`${API_BASE_URL}/api/parts`, {
+          method:"POST",
+          body:{
+            partNumber,
+            name,
+            quantityOnHand: $("partQty")?.value ? Number($("partQty").value) : 0,
+            reorderAt: $("partReorderAt")?.value ? Number($("partReorderAt").value) : 0,
+            vendor: $("partVendor")?.value?.trim() || "",
+            lastOrderedAt: $("partLastOrderedAt")?.value || null
+          }
+        });
+        $("partsInventoryForm")?.reset();
+        setInlineStatus("partsInventoryStatus", "Part added.", "success");
+        await loadPartsInventory();
+      }catch(err){
+        setInlineStatus("partsInventoryStatus", err && err.message ? err.message : "Part save failed.", "error");
+      }
+      return false;
+    }
+    window.submitPart = submitPart;
+
+    function renderDotCompliance(){
+      const data = state.dotCompliance || {};
+      const dvir = data.dvir || {};
+      const cards = document.querySelectorAll("#view-dot-compliance .card .bd");
+      if(cards[0]){
+        cards[0].innerHTML = `<div style="font-size:28px;font-weight:700;color:var(--warn)">Not Connected</div><div style="font-size:12px;color:var(--muted);margin-top:4px">HOS data is not connected yet</div>`;
+      }
+      if(cards[1]){
+        const last = dvir.lastSubmittedAt ? formatDateTime(dvir.lastSubmittedAt) : "No DVIRs";
+        cards[1].innerHTML = `<div style="font-size:28px;font-weight:700;color:${dvir.lastSubmittedAt ? "var(--good)" : "var(--warn)"}">${escapeHtml(dvir.last24h ?? 0)}</div><div style="font-size:12px;color:var(--muted);margin-top:4px">DVIRs in last 24h · Last: ${escapeHtml(last)}</div>`;
+      }
+      if(cards[2]){
+        const violations = Array.isArray(data.violations) ? data.violations.length : 0;
+        cards[2].innerHTML = `<div style="font-size:28px;font-weight:700;color:${violations ? "var(--warn)" : "var(--good)"}">${violations}</div><div style="font-size:12px;color:var(--muted);margin-top:4px">${violations ? "DVIR defects need review" : "No active violations"}</div>`;
+      }
+      if(cards[3]){
+        const pct = dvir.total ? `${dvir.compliancePct}%` : "--";
+        cards[3].innerHTML = `<div style="font-size:28px;font-weight:700;color:${dvir.withDefects ? "var(--warn)" : "var(--good)"}">${escapeHtml(pct)}</div><div style="font-size:12px;color:var(--muted);margin-top:4px">${escapeHtml(dvir.total || 0)} persisted DVIR record(s)</div>`;
+      }
+      const log = cards[4];
+      if(log){
+        const violations = Array.isArray(data.violations) ? data.violations : [];
+        log.innerHTML = violations.length
+          ? violations.map(v=>`<div style="padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--panel2);margin-bottom:8px;font-size:13px;color:var(--text)">${escapeHtml(v.message || "Compliance item needs review")}</div>`).join("")
+          : `<div style="color:var(--muted);font-size:13px;padding:16px 0;text-align:center">No violations on record. Fleet is in compliance.</div>`;
+      }
+    }
+
+    async function loadDotCompliance(){
+      try{
+        const data = await fetchJson(`${API_BASE_URL}/api/dot-compliance`);
+        state.dotCompliance = data.data || null;
+        renderDotCompliance();
+      }catch(err){
+        state.dotCompliance = null;
+        renderDotCompliance();
+      }
+    }
 
     function safeInvoke(name){
       try{
@@ -4634,6 +5253,7 @@
         renderDriversTable(state.drivers, state.vehicles, state.pairings);
         renderPairingsTable(state.pairings, state.vehicles, state.drivers);
         renderPairingSelects(state.vehicles, state.drivers);
+        renderSolutionSelects();
         updateVehicleDropdown();
         renderTable();
         initGPS();
@@ -5192,6 +5812,9 @@
       }
       renderRoute(next);
     }
+    window.showView = function showView(route){
+      setHashRoute(route || "dashboard");
+    };
 
     function addonModelLabel(model){
       const map = {
@@ -5986,6 +6609,46 @@
       }
     }
 
+    const CONTEXT_TABS = [
+      { routes:["dashboard","alerts"], labels:{ dashboard:"Overview", alerts:"Alerts" } },
+      { routes:["telemetry","telemetry-history","health-risk","dtc-history","alerts"], labels:{ telemetry:"Live Telemetry", "telemetry-history":"History", "health-risk":"Health & Risk", "dtc-history":"DTC Codes", alerts:"Alerts" } },
+      { routes:["maintenance","health-risk","maintenance-logs","parts-inventory","recalls"], labels:{ maintenance:"Work Orders", "health-risk":"Risk Queue", "maintenance-logs":"History", "parts-inventory":"Parts", recalls:"Recalls" } },
+      { routes:["dispatch","drivers","gps"], labels:{ dispatch:"Jobs", drivers:"Drivers", gps:"Routes" } },
+      { routes:["dvir","dot-compliance","compliance"], labels:{ dvir:"DVIR", "dot-compliance":"DOT", compliance:"HOS" } },
+      { routes:["vehicles","drivers","gps","cameras"], labels:{ vehicles:"Vehicles", drivers:"Drivers", gps:"GPS", cameras:"Cameras" } },
+      { routes:["advisor","reports"], labels:{ advisor:"AI Advisor", reports:"Reports" } },
+      { routes:["pairing","addons","settings"], labels:{ pairing:"Device Pairing", addons:"Add-Ons", settings:"Settings" } }
+    ];
+
+    function updateContextTabs(route){
+      const tabs = Array.from(document.querySelectorAll(".topTab"));
+      if(!tabs.length) return;
+      const group = CONTEXT_TABS.find(item=>item.routes.includes(route)) || CONTEXT_TABS[0];
+      tabs.forEach(tab=>{
+        const tabRoute = tab.dataset.route;
+        const visible = group.routes.includes(tabRoute);
+        tab.style.display = visible ? "inline-flex" : "none";
+        if(visible && group.labels[tabRoute]){
+          tab.textContent = group.labels[tabRoute];
+        }
+      });
+      const bar = $("topTabs");
+      if(bar){
+        bar.setAttribute("aria-label", `${titlesForRouteGroup(route)} tabs`);
+      }
+    }
+
+    function titlesForRouteGroup(route){
+      if(["dashboard","alerts"].includes(route)) return "Command";
+      if(["telemetry","telemetry-history","health-risk","dtc-history"].includes(route)) return "Monitoring";
+      if(["maintenance","maintenance-logs","parts-inventory","recalls"].includes(route)) return "Maintenance";
+      if(["dispatch"].includes(route)) return "Dispatch";
+      if(["dvir","dot-compliance","compliance"].includes(route)) return "Compliance";
+      if(["vehicles","drivers","gps","cameras"].includes(route)) return "Fleet";
+      if(["advisor","reports"].includes(route)) return "AI";
+      return "Workspace";
+    }
+
     function renderRoute(route){
       state.view = route;
       if(DEV_LOG_NAV){
@@ -6018,13 +6681,20 @@
         "parts-inventory":["Parts Inventory","Shop inventory, reorder tracking, and vendor management"],
         recalls:["Recalls","NHTSA recall tracking and remediation status by vehicle"]
       };
+      if(!titles[route]){
+        route = "dashboard";
+        state.view = route;
+      }
       if(titles[route]){
-        $("viewTitle").textContent = titles[route][0];
-        $("viewSub").textContent = titles[route][1];
+        const titleEl = $("viewTitle");
+        const subEl = $("viewSub");
+        if(titleEl) titleEl.textContent = titles[route][0];
+        if(subEl) subEl.textContent = titles[route][1];
       }
 
       ["dashboard","telemetry","telemetry-history","fuel-events","health-risk","dtc-history","alerts","safety","compliance","gps","cameras","advisor","reports","maintenance","maintenance-logs","vehicles","drivers","pairing","addons","settings","dispatch","dvir","dot-compliance","parts-inventory","recalls"].forEach(v=>{
-        $("view-"+v).classList.toggle("hide", v!==route);
+        const section = $("view-"+v);
+        if(section) section.classList.toggle("hide", v!==route);
       });
 
       document.querySelectorAll(".nav button").forEach(b=>{
@@ -6033,6 +6703,7 @@
       document.querySelectorAll(".topTab").forEach(b=>{
         b.classList.toggle("active", b.dataset.route===route);
       });
+      updateContextTabs(route);
 
       if(route==="gps"){
         $("hudSelected").textContent = `Selected: ${state.gps.selected}`;
@@ -6071,9 +6742,38 @@
       if(route==="vehicles" || route==="drivers" || route==="pairing"){
         safeInvoke("loadFleetManagement");
       }
+      if(route==="dvir"){
+        safeInvoke("loadFleetManagement");
+        safeInvoke("loadDvirHistory");
+      }
+      if(route==="dispatch"){
+        safeInvoke("loadFleetManagement");
+        safeInvoke("loadDispatchJobs");
+      }
+      if(route==="parts-inventory"){
+        safeInvoke("loadPartsInventory");
+      }
+      if(route==="dot-compliance"){
+        safeInvoke("loadDotCompliance");
+      }
     }
 
     function initNav(){
+      const navToggle = $("btnToggleNav");
+      const appShell = document.querySelector(".app");
+      if(navToggle && appShell){
+        const setCollapsed = (collapsed)=>{
+          appShell.classList.toggle("nav-collapsed", collapsed);
+          navToggle.textContent = collapsed ? "Show nav" : "Hide nav";
+          navToggle.setAttribute("aria-label", collapsed ? "Show navigation" : "Hide navigation");
+          navToggle.setAttribute("title", collapsed ? "Show navigation" : "Hide navigation");
+          try{ localStorage.setItem("fleetai.navCollapsed", collapsed ? "1" : "0"); }catch(e){}
+        };
+        let initial = false;
+        try{ initial = localStorage.getItem("fleetai.navCollapsed") === "1"; }catch(e){}
+        setCollapsed(initial);
+        navToggle.addEventListener("click", ()=> setCollapsed(!appShell.classList.contains("nav-collapsed")));
+      }
       document.querySelectorAll(".nav button").forEach(btn=>{
         if(!btn.dataset.route && btn.dataset.view){
           btn.dataset.route = btn.dataset.view;
