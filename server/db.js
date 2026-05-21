@@ -115,6 +115,57 @@ function initSchema(db) {
       created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
     );
     CREATE INDEX IF NOT EXISTS idx_fuel_events_vehicle ON fuel_events(vehicle_id);
+
+    CREATE TABLE IF NOT EXISTS ml_model_artifacts (
+      id TEXT PRIMARY KEY,
+      model_version TEXT NOT NULL,
+      training_source TEXT,
+      model_name TEXT,
+      metadata TEXT NOT NULL,
+      artifact_path TEXT,
+      created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_ml_artifacts_version ON ml_model_artifacts(model_version, created_at);
+
+    CREATE TABLE IF NOT EXISTS ml_baseline_profiles (
+      profile_key TEXT PRIMARY KEY,
+      vehicle_class TEXT,
+      make TEXT,
+      model TEXT,
+      protocol TEXT,
+      powertrain TEXT,
+      training_source TEXT,
+      model_version TEXT,
+      profile_json TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_ml_profiles_lookup ON ml_baseline_profiles(make, model, vehicle_class);
+
+    CREATE TABLE IF NOT EXISTS ml_prediction_runs (
+      id TEXT PRIMARY KEY,
+      org_id TEXT,
+      vehicle_id TEXT NOT NULL,
+      model_version TEXT,
+      source TEXT NOT NULL,
+      confidence_stage TEXT,
+      confidence REAL,
+      risk_probability REAL,
+      health_score REAL,
+      prediction_json TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_ml_runs_vehicle ON ml_prediction_runs(vehicle_id, created_at);
+    CREATE INDEX IF NOT EXISTS idx_ml_runs_org ON ml_prediction_runs(org_id, created_at);
+
+    CREATE TABLE IF NOT EXISTS ml_feature_snapshots (
+      id TEXT PRIMARY KEY,
+      org_id TEXT,
+      vehicle_id TEXT NOT NULL,
+      prediction_run_id TEXT,
+      feature_json TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_ml_features_vehicle ON ml_feature_snapshots(vehicle_id, created_at);
   `);
 }
 
@@ -388,6 +439,135 @@ function getFuelEventsForVehicle(vehicleId, limit = 20) {
     }));
 }
 
+function upsertMlModelArtifact(metadata = {}, artifactPath = null) {
+  const modelVersion = metadata.modelVersion || metadata.model_version || "unknown";
+  const id = `MLART_${modelVersion}`;
+  getDb()
+    .prepare(`
+      INSERT OR REPLACE INTO ml_model_artifacts
+        (id, model_version, training_source, model_name, metadata, artifact_path, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `)
+    .run(
+      id,
+      modelVersion,
+      metadata.trainingSource || metadata.training_source || null,
+      metadata.model_name || metadata.modelName || null,
+      JSON.stringify(metadata || {}),
+      artifactPath || metadata.model_file || null,
+      new Date().toISOString()
+    );
+  return id;
+}
+
+function upsertMlBaselineProfile(profile = {}) {
+  const key = profile.profileKey || profile.profile_key;
+  if (!key) return null;
+  getDb()
+    .prepare(`
+      INSERT OR REPLACE INTO ml_baseline_profiles
+        (profile_key, vehicle_class, make, model, protocol, powertrain,
+         training_source, model_version, profile_json, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `)
+    .run(
+      key,
+      profile.vehicleClass || profile.vehicle_class || null,
+      profile.make || null,
+      profile.model || null,
+      profile.protocol || null,
+      profile.powertrain || null,
+      profile.trainingSource || profile.training_source || null,
+      profile.modelVersion || profile.model_version || null,
+      JSON.stringify(profile || {}),
+      new Date().toISOString()
+    );
+  return key;
+}
+
+function getMlBaselineProfile(profileKey) {
+  const row = getDb()
+    .prepare("SELECT * FROM ml_baseline_profiles WHERE profile_key = ?")
+    .get(profileKey);
+  return row ? JSON.parse(row.profile_json || "{}") : null;
+}
+
+function findMlBaselineProfile({ make, model, vehicleClass } = {}) {
+  const db = getDb();
+  const rows = db.prepare("SELECT * FROM ml_baseline_profiles").all();
+  const norm = (v) => String(v || "").trim().toLowerCase();
+  const exact = rows.find((row) =>
+    norm(row.make) === norm(make) && norm(row.model) === norm(model) && (!vehicleClass || norm(row.vehicle_class) === norm(vehicleClass))
+  );
+  const byMake = rows.find((row) => norm(row.make) === norm(make) && (!vehicleClass || norm(row.vehicle_class) === norm(vehicleClass)));
+  const byClass = rows.find((row) => vehicleClass && norm(row.vehicle_class) === norm(vehicleClass));
+  const row = exact || byMake || byClass || rows[0];
+  return row ? JSON.parse(row.profile_json || "{}") : null;
+}
+
+function insertMlPredictionRun(run = {}) {
+  const id = run.id || makeId("MLRUN");
+  getDb()
+    .prepare(`
+      INSERT INTO ml_prediction_runs
+        (id, org_id, vehicle_id, model_version, source, confidence_stage,
+         confidence, risk_probability, health_score, prediction_json, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `)
+    .run(
+      id,
+      run.orgId || null,
+      run.vehicleId,
+      run.modelVersion || null,
+      run.source || "unknown",
+      run.confidenceStage || null,
+      run.confidence ?? null,
+      run.riskProbability ?? null,
+      run.healthScore ?? null,
+      JSON.stringify(run.prediction || {}),
+      run.createdAt || new Date().toISOString()
+    );
+  return id;
+}
+
+function insertMlFeatureSnapshot(snapshot = {}) {
+  const id = snapshot.id || makeId("MLFEAT");
+  getDb()
+    .prepare(`
+      INSERT INTO ml_feature_snapshots
+        (id, org_id, vehicle_id, prediction_run_id, feature_json, created_at)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `)
+    .run(
+      id,
+      snapshot.orgId || null,
+      snapshot.vehicleId,
+      snapshot.predictionRunId || null,
+      JSON.stringify(snapshot.features || {}),
+      snapshot.createdAt || new Date().toISOString()
+    );
+  return id;
+}
+
+function syncMlArtifactsFromDisk(modelDir) {
+  const metadataPath = path.join(modelDir, "fleet_ai_model_metadata.json");
+  const profilesPath = path.join(modelDir, "fleet_ai_baseline_profiles.json");
+  const result = { artifact: false, profiles: 0 };
+  if (fs.existsSync(metadataPath)) {
+    const metadata = JSON.parse(fs.readFileSync(metadataPath, "utf8"));
+    upsertMlModelArtifact(metadata, metadata.model_file || path.join(modelDir, "fleet_ai_model.pkl"));
+    result.artifact = true;
+  }
+  if (fs.existsSync(profilesPath)) {
+    const payload = JSON.parse(fs.readFileSync(profilesPath, "utf8"));
+    const profiles = payload.profiles || payload || {};
+    Object.values(profiles).forEach((profile) => {
+      if (upsertMlBaselineProfile(profile)) result.profiles += 1;
+    });
+  }
+  return result;
+}
+
 module.exports = {
   DB_PATH,
   getDb,
@@ -408,5 +588,12 @@ module.exports = {
   upsertVehicleCapabilities,
   getVehicleCapabilities,
   insertFuelEvent,
-  getFuelEventsForVehicle
+  getFuelEventsForVehicle,
+  upsertMlModelArtifact,
+  upsertMlBaselineProfile,
+  getMlBaselineProfile,
+  findMlBaselineProfile,
+  insertMlPredictionRun,
+  insertMlFeatureSnapshot,
+  syncMlArtifactsFromDisk
 };

@@ -1,3 +1,9 @@
+node_modules/
+driver_app/.gradle/
+driver_app/.idea/
+driver_app/build/
+driver_app/app/build/
+
 server/data.json.bak-*
 server/data.json.bad-*
 server/data.json.corrupt-*
@@ -14,6 +20,7 @@ server/state/
 *.pyc
 fleet_ai/models/*.pkl
 fleet_ai/models/*.joblib
+fleet_ai/models/*.csv
 
 # Environment and secret files
 .env

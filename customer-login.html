@@ -1,127 +1,109 @@
-<!doctype html>
-<html lang="en">
+﻿<!doctype html>
+<html lang="en" data-theme="light-blue">
 <head>
-  <link rel="stylesheet" href="/css/theme.css" />
+  <link rel="stylesheet" href="css/theme.css" />
 
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Fleet AI - Customer Sign In</title>
-  <link rel="stylesheet" href="/css/site-tokens.css" />
-  <link rel="stylesheet" href="/css/site-theme.css" />
-  <link rel="stylesheet" href="/css/site-components.css" />
-  <link rel="stylesheet" href="/css/site-layout.css" />
-  <link rel="stylesheet" href="/css/design-system.css" />
+  <link rel="stylesheet" href="css/site-tokens.css" />
+  <link rel="stylesheet" href="css/site-theme.css" />
+  <link rel="stylesheet" href="css/site-components.css" />
+  <link rel="stylesheet" href="css/site-layout.css" />
+  <link rel="stylesheet" href="css/design-system.css" />
+  <script>try{document.documentElement.dataset.theme="light-blue";}catch(e){}</script>
 </head>
-<body>
-  <header class="siteHeader">
+<body class="landingV2 authV2 accessV3">
+  <header class="siteHeader accessHeader">
     <div class="container siteHeader__row">
-      <a class="wordmark" href="/index.html"><span class="brandFleet">Fleet</span><span class="brandAI">AI</span></a>
+      <a class="wordmark" href="index.html"><span class="brandFleet">Fleet</span><span class="brandAI">AI</span></a>
       <nav class="siteNav" id="siteNav">
-        <a href="/product.html">Product</a>
-        <a href="/pricing.html">Pricing</a>
-        <a href="/pilot.html">Pilot Program</a>
-        <a href="/security.html">Security</a>
-        <a href="/about.html">About Us</a>
+        <a href="product.html">Platform</a>
+        <a href="security.html">Security</a>
       </nav>
       <div class="siteActions">
-        <select class="themeSelect" id="siteThemeSelect" aria-label="Theme">
-          <option value="light-blue">Light</option>
-          <option value="dark-blue">Dark Blue</option>
-          <option value="dark-gray">Dark Gray</option>
-        </select>
-        <a class="btn secondary" href="/request-demo.html">Request Demo</a>
-        <button class="navToggle" id="navToggle" type="button">Menu</button>
+        <a class="btn secondary" href="request-demo.html">Request demo</a>
+        <a class="btn ghost" href="employee-login.html">Employee sign in</a>
+        <button class="navToggle" id="navToggle" type="button" aria-label="Open navigation">Menu</button>
       </div>
     </div>
   </header>
 
-  <section class="hero hero--spicy employeeHero">
-    <div class="container heroGrid heroGrid--command employeeLoginGrid">
-      <div>
-        <span class="badge">Secure fleet access</span>
-        <h1>Sign in to your Fleet AI operations workspace.</h1>
-        <p>Access your fleet dashboard, vehicle health visibility, and account tools using the credentials issued by Fleet AI. First-time sign-in may require a password reset.</p>
-        <div class="heroMetrics employeeHeroMetrics">
-          <div class="metric">
-            <span class="metric__value">Cookie</span>
-            <span class="metric__label">secure web session</span>
-          </div>
-          <div class="metric">
-            <span class="metric__value">Org-scoped</span>
-            <span class="metric__label">workspace access</span>
-          </div>
-          <div class="metric">
-            <span class="metric__value">Live</span>
-            <span class="metric__label">fleet visibility</span>
-          </div>
-        </div>
-        <div class="card" style="margin-top:20px; background:rgba(255,255,255,0.06); border-color:rgba(255,255,255,0.12);">
-          <div class="card__title" style="color:#fff;">Need customer access?</div>
-          <p class="card__meta" style="color:rgba(255,255,255,0.72);">Request customer access or apply for the pilot program to start evaluating Fleet AI with your operation.</p>
-          <div class="heroActions" style="margin-top:12px;">
-            <a class="btn secondary" href="/request-demo.html">Request Demo</a>
-            <a class="btn ghost" href="/pilot.html">Apply for Pilot</a>
-          </div>
+  <main class="accessPage">
+    <section class="container accessLayout">
+      <div class="accessCopy">
+        <div class="eyebrow">Customer workspace</div>
+        <h1>Sign in to your fleet command center.</h1>
+        <p>Use your company-issued Fleet AI credentials to open the dashboard, review vehicle risk, and schedule maintenance before failures disrupt routes.</p>
+        <div class="accessChecklist" aria-label="Customer workspace capabilities">
+          <div><span></span> Predictive breakdown risk queue</div>
+          <div><span></span> Maintenance scheduling and DVIR history</div>
+          <div><span></span> Org-scoped secure session access</div>
         </div>
       </div>
-      <div class="formCard employeeLoginCard" style="padding:28px;">
-        <div class="employeeLoginCard__top">
+
+      <form class="accessCard" id="customerLoginForm" onsubmit="event.preventDefault();">
+        <div class="accessCard__head">
           <div>
-            <div class="shellLabel">fleet-ai / customer-access</div>
+            <div class="shellLabel">fleet-ai / customer</div>
             <h2>Customer sign in</h2>
-            <p>Enter the credentials provided by Fleet AI.</p>
           </div>
-          <span class="monoTag">customer</span>
+          <span class="accessStatus">Secure</span>
         </div>
-        <div class="formGrid">
-          <input id="customerEmail" type="email" placeholder="Work email" />
-          <input id="customerPassword" type="password" placeholder="Temporary password" />
-          <button class="btn primary" id="customerLoginBtn">Access Workspace</button>
-          <div class="formNote">First login may require setting a new password.</div>
-          <div class="formSuccess" id="customerLoginMessage" style="display:none;"></div>
-          <div class="authDebugPanel" id="customerDebugPanel" hidden aria-hidden="true" style="margin-top:12px;">
-            <div class="muted" style="margin-top:8px;">
-              <div>Endpoint: <span id="customerDbgEndpoint">--</span></div>
-              <div>Last status: <span id="customerDbgStatus">--</span></div>
-              <div>Last error: <span id="customerDbgError">--</span></div>
-            </div>
+        <label class="fieldGroup">
+          <span>Email</span>
+          <input id="customerEmail" type="email" placeholder="name@company.com" autocomplete="email" />
+        </label>
+        <label class="fieldGroup">
+          <span>Password</span>
+          <input id="customerPassword" type="password" placeholder="Enter password" autocomplete="current-password" />
+        </label>
+        <button class="btn primary accessSubmit" id="customerLoginBtn" type="button">Open dashboard</button>
+        <div class="formNote">First sign-in may ask you to set a new 10+ character password.</div>
+        <div class="formSuccess" id="customerLoginMessage" style="display:none;"></div>
+        <div class="authDebugPanel" id="customerDebugPanel" hidden aria-hidden="true">
+          <div class="muted">
+            <div>Endpoint: <span id="customerDbgEndpoint">--</span></div>
+            <div>Last status: <span id="customerDbgStatus">--</span></div>
+            <div>Last error: <span id="customerDbgError">--</span></div>
           </div>
         </div>
-      </div>
-    </div>
-  </section>
+      </form>
+    </section>
+  </main>
 
   <footer class="footer">
     <div class="container footerGrid">
       <div class="footerCol footerBrand">
         <div class="wordmark"><span class="brandFleet">Fleet</span><span class="brandAI">AI</span></div>
-        <div class="footerMeta">© 2026 Fleet AI · Sentinel X Inc.</div>
+        <div class="footerMeta">&copy; 2026 Fleet AI &middot; Sentinel X Inc.</div>
       </div>
       <div class="footerCol">
         <h4>Product</h4>
-        <a href="/product.html">Product</a>
-        <a href="/pricing.html">Pricing</a>
-        <a href="/pilot.html">Pilot Program</a>
+        <a href="product.html">Platform</a>
+        <a href="pricing.html">Pricing</a>
+        <a href="pilot.html">Customers</a>
       </div>
       <div class="footerCol">
         <h4>Company</h4>
-        <a href="/security.html">Security</a>
-        <a href="/about.html">About</a>
-        <a href="/request-demo.html">Contact</a>
-        <a href="/employee-login.html" title="For Fleet AI staff only">Employee Portal</a>
+        <a href="security.html">Security</a>
+        <a href="about.html">Company</a>
+        <a href="request-demo.html">Contact</a>
+        <a href="employee-login.html" title="For Fleet AI staff only">Employee Portal</a>
       </div>
       <div class="footerCol">
         <h4>Legal</h4>
-        <a href="/legal/privacy.html">Privacy Policy</a>
-        <a href="/legal/terms.html">Terms</a>
+        <a href="legal/privacy.html">Privacy Policy</a>
+        <a href="legal/terms.html">Terms</a>
       </div>
     </div>
   </footer>
 
-  <script src="/js/config.js"></script>
-  <script src="/ui/js/apiConfig.js"></script>
-  <script src="/js/site.js"></script>
-  <script src="/js/customer-login.js?v=20260319c"></script>
-  <script src="/js/scroll-reveal.js"></script>
+  <script src="js/config.js"></script>
+  <script src="ui/js/apiConfig.js"></script>
+  <script src="js/site.js"></script>
+  <script src="js/customer-login.js?v=20260319c"></script>
+  <script src="js/scroll-reveal.js"></script>
 </body>
 </html>
+

@@ -97,7 +97,6 @@ function registerAuthRoutes(app, deps) {
         userId: result.user.id || null,
         role: result.user.role,
         orgId: result.user.orgId || null,
-        sessionId: session.id,
         cookieName: "fleetai_customer_session",
         ua: req.headers["user-agent"] || "",
         origin: req.headers.origin || "",
@@ -206,8 +205,6 @@ function registerAuthRoutes(app, deps) {
     console.log("[CUST-SESSION] check", {
       hasCookieHeader: Boolean(req.headers.cookie),
       sessionFound: Boolean(session),
-      sessionUserId: session?.userId || null,
-      sessionEmail: session?.email || null,
       ua: req.headers["user-agent"] || "",
       referer: req.headers.referer || ""
     });

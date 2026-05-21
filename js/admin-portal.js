@@ -311,19 +311,19 @@ function viewTemplate() {
       <section class="viewSection">
         <div class="kpiGrid">
           <div class="kpiCard">
-            <div class="kpiLabel">MRR (Monthly Recurring Revenue)</div>
+            <div class="kpiLabel">MRR Estimate</div>
             <div class="kpiValue" id="kpiMrr">--</div>
           </div>
           <div class="kpiCard">
-            <div class="kpiLabel">Active Orgs</div>
+            <div class="kpiLabel">Active Companies</div>
             <div class="kpiValue" id="kpiActiveOrgs">--</div>
           </div>
           <div class="kpiCard">
-            <div class="kpiLabel">Active Vehicles</div>
+            <div class="kpiLabel">Onboarded Vehicles</div>
             <div class="kpiValue" id="kpiActiveFleets">--</div>
           </div>
           <div class="kpiCard">
-            <div class="kpiLabel">Open Leads</div>
+            <div class="kpiLabel">Open Pipeline</div>
             <div class="kpiValue" id="kpiOpenLeads">--</div>
             <div class="muted" style="margin-top:6px; font-size:12px;">Leads awaiting action.</div>
           </div>
@@ -352,12 +352,12 @@ function viewTemplate() {
       <section class="viewSection">
         <div class="sectionHeaderRow">
           <div>
-            <h2>Organizations</h2>
-            <p class="muted">Create, review, and update pilot organizations.</p>
+            <h2>Companies</h2>
+            <p class="muted">Create, review, and move companies from pilot setup to active customer.</p>
           </div>
           <div class="headerActions">
-            <input type="search" id="orgSearch" placeholder="Search organizations" />
-            <button class="btn primary" id="orgCreateBtn" type="button">Create Organization</button>
+            <input type="search" id="orgSearch" placeholder="Search companies" />
+            <button class="btn primary" id="orgCreateBtn" type="button">Create Company</button>
           </div>
         </div>
         <div class="orgLayout">
@@ -970,15 +970,15 @@ function setActiveRoute(route) {
     btn.classList.toggle("is-active", btn.getAttribute("data-route") === route);
   });
   const titles = {
-    overview: ["Overview", "Operational metrics and recent activity."],
-    orgs: ["Organizations", "Create and manage pilot organizations."],
-    leads: ["Leads & Demos", "Inbound demo requests and pipeline status."],
-    invites: ["Invites", "Invite links for customer access."],
-    billing: ["Billing Prep", "Capture billing metadata per organization."],
+    overview: ["Overview", "Company pipeline, onboarding status, and recent internal activity."],
+    orgs: ["Companies", "Create and manage customer organizations."],
+    leads: ["Pipeline", "Inbound demo requests and pilot pipeline status."],
+    invites: ["Onboarding", "Invite links for customer access and setup."],
+    billing: ["Billing Prep", "Capture billing metadata per company."],
     features: ["Feature Flags", "Configure upcoming add-ons."],
     "system-health": ["System Health", "Diagnostics and service checks."],
     "audit-log": ["Audit Log", "Recent administrative events."],
-    users: ["Users & Roles", "Internal employee access."],
+    users: ["Employees", "Internal employee access and role assignment."],
     settings: ["Settings", "Portal preferences only."]
   };
   if (titles[route]) {

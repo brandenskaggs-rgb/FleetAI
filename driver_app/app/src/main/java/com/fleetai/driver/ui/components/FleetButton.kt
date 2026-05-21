@@ -1,6 +1,7 @@
 package com.fleetai.driver.ui.components
 
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -20,10 +21,13 @@ fun FleetButton(
     Button(
         onClick = onClick,
         enabled = enabled,
-        modifier = modifier,
-        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
+        modifier = modifier.heightIn(min = 48.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary
+        )
     ) {
-        Text(text = text, style = MaterialTheme.typography.titleLarge)
+        Text(text = text, style = MaterialTheme.typography.labelLarge)
     }
 }
 
@@ -39,9 +43,13 @@ fun LargeActionButton(
         enabled = enabled,
         modifier = modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+            .padding(vertical = 4.dp)
+            .heightIn(min = 52.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary
+        )
     ) {
-        Text(text = text, style = MaterialTheme.typography.titleLarge)
+        Text(text = text, style = MaterialTheme.typography.titleMedium)
     }
 }

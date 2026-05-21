@@ -1,4 +1,8 @@
 function initScrollReveal(){
+  if(document.body && document.body.classList.contains("landingV2")){
+    document.querySelectorAll("section[id], h1[id], h2[id], h3[id]").forEach((el) => el.classList.add("anchor"));
+    return;
+  }
   const reduce = window.matchMedia("(prefers-reduced-motion: reduce)");
   document.querySelectorAll("section[id], h1[id], h2[id], h3[id]").forEach((el) => el.classList.add("anchor"));
   const targets = Array.from(document.querySelectorAll(".section, .sectionHeader, .card, .panel, .hero"))

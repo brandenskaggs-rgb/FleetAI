@@ -1,5 +1,5 @@
-<!doctype html>
-<html lang="en">
+﻿<!doctype html>
+<html lang="en" data-theme="light-blue">
 <head>
   <link rel="stylesheet" href="/css/theme.css" />
 
@@ -13,17 +13,17 @@
   <link rel="stylesheet" href="/css/design-system.css" />
   <link rel="stylesheet" href="/css/employee-portal.css" />
 </head>
-<body>
-  <header class="siteHeader">
-    <div class="container siteHeader__row">
+<body class="employeeConsoleV2">
+  <header class="siteHeader employeeTopbar">
+    <div class="siteHeader__row">
       <a class="wordmark" href="/index.html"><span class="brandFleet">Fleet</span><span class="brandAI">AI</span></a>
+      <div class="employeeTopbar__center">
+        <span>Internal Ops</span>
+        <strong>Company onboarding console</strong>
+      </div>
       <div class="siteActions">
-        <select class="themeSelect" id="siteThemeSelect" aria-label="Theme">
-          <option value="light-blue">Light</option>
-          <option value="dark-blue">Dark Blue</option>
-          <option value="dark-gray">Dark Gray</option>
-        </select>
-        <button class="btn secondary" id="employeeSignOut" type="button">Sign Out</button>
+        <button class="btn secondary" id="adminRefreshTop" type="button">Refresh</button>
+        <button class="btn ghost" id="employeeSignOut" type="button">Sign out</button>
       </div>
     </div>
   </header>
@@ -31,26 +31,26 @@
   <main class="employeeShell">
     <aside class="employeeSidebar">
       <div class="sidebarBrand">
-        <div class="shellLabel">fleet-ai / operations-console</div>
-        <div class="brandTitle">Operations Console</div>
-        <div class="brandMeta">Internal operations · controlled access</div>
+        <div class="shellLabel">fleet-ai / internal</div>
+        <div class="brandTitle">Employee Console</div>
+        <div class="brandMeta">Companies, onboarding, access, and support.</div>
       </div>
       <nav class="sidebarNav" id="employeeNav">
         <button type="button" data-route="overview" class="is-active">Overview</button>
-        <button type="button" data-route="orgs">Organizations</button>
-        <button type="button" data-route="leads">Leads &amp; Demos</button>
-        <button type="button" data-route="invites">Invites</button>
+        <button type="button" data-route="orgs">Companies</button>
+        <button type="button" data-route="leads">Pipeline</button>
+        <button type="button" data-route="invites">Onboarding</button>
         <button type="button" data-route="billing">Billing Prep</button>
         <button type="button" data-route="features">Feature Flags</button>
         <button type="button" data-route="system-health">System Health</button>
         <button type="button" data-route="audit-log">Audit Log</button>
-        <button type="button" data-route="users">Users &amp; Roles</button>
+        <button type="button" data-route="users">Employees</button>
         <button type="button" data-route="settings">Settings</button>
         <a class="sidebarLink" href="/ui/fleetai-dashboard.html">Customer Dashboard</a>
       </nav>
       <div class="sidebarNote">
-        <div class="noteTitle">Operator note</div>
-        <div class="noteMeta">Use this console for internal administration only. Customer-facing work should stay in the customer surfaces.</div>
+        <div class="noteTitle">Launch workflow</div>
+        <div class="noteMeta">Qualify company, create org, issue customer access, then add internal owners.</div>
       </div>
     </aside>
 
@@ -59,11 +59,11 @@
         <div>
           <div class="shellLabel">operations view</div>
           <h1 id="viewTitle">Overview</h1>
-          <p id="viewSubtitle">Operational metrics, recent activity, and internal control surfaces.</p>
+          <p id="viewSubtitle">Track companies, onboarding status, customer access, and internal users.</p>
           <div class="roleMeta" id="portalRole">Role: --</div>
         </div>
         <div class="headerActions">
-          <input type="search" id="adminSearch" placeholder="Search orgs, users, or leads" />
+          <input type="search" id="adminSearch" placeholder="Search companies, users, or leads" />
           <button class="btn ghost" id="adminRefresh" type="button">Refresh</button>
           <button class="btn secondary" id="resetAuthBtn" type="button">Reset Session</button>
         </div>
@@ -88,7 +88,7 @@
 
   <div id="consoleOverlay" class="uiBlocker" hidden aria-hidden="true">
     <div class="uiBlockerCard">
-      <div class="uiBlockerTitle">Loading console…</div>
+      <div class="uiBlockerTitle">Loading console...</div>
       <div class="uiBlockerNote">If this takes too long, the console will unlock automatically.</div>
       <button class="btn secondary" id="forceUnlockBtn" type="button" style="margin-top:12px;">Force Unlock</button>
     </div>
@@ -109,7 +109,7 @@
     <div class="container footerGrid">
       <div class="footerCol footerBrand">
         <div class="wordmark"><span class="brandFleet">Fleet</span><span class="brandAI">AI</span></div>
-        <div class="footerMeta">© 2026 Fleet AI · Sentinel X Inc.</div>
+        <div class="footerMeta">&copy; 2026 Fleet AI &middot; Sentinel X Inc.</div>
       </div>
       <div class="footerCol">
         <h4>Product</h4>
@@ -213,5 +213,12 @@
     })();
   </script>
   <script src="/js/admin-portal.js?v=20260318b"></script>
+  <script>
+    document.getElementById("adminRefreshTop")?.addEventListener("click", () => {
+      document.getElementById("adminRefresh")?.click();
+    });
+  </script>
 </body>
 </html>
+
+

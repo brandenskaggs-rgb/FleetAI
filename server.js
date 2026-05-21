@@ -17,6 +17,7 @@ const ml = require("./server/ml");
 const sqliteDb = require("./server/db");
 const vinCapSvc = require("./server/services/vinCapabilityService");
 const aiReportSvc = require("./server/services/aiReportService");
+const pythonMlClient = require("./server/services/pythonMlClient");
 const { createDataStore } = require("./server/storage/dataStore");
 const { createPairingRouter } = require("./server/routes/pairing");
 const { registerSystemStatusRoutes } = require("./server/routes/systemStatus");
@@ -24,6 +25,7 @@ const { registerLegacyPairingRoutes } = require("./server/routes/legacyPairing")
 const { registerAuthRoutes } = require("./server/routes/authRoutes");
 const { registerFleetOpsRoutes } = require("./server/routes/fleetOpsRoutes");
 const { registerSolutionRoutes } = require("./server/routes/solutionRoutes");
+const { registerInternalMlApiRoutes } = require("./server/routes/internalMlApiRoutes");
 const { startWatchdog } = require("./tools/watchdog");
 const { normalizeAuthData, loadAuthStore, saveAuthStore } = require("./server/authStore");
 const { createAuthService } = require("./server/auth/authService");
@@ -108,6 +110,14 @@ const IS_PROD = process.env.NODE_ENV === "production";
 const SETUP_ALLOWED = !IS_PROD || (process.env.FLEETAI_ALLOW_SETUP || "").toLowerCase() === "true";
 const DEV_SETUP = (process.env.DEV_SETUP || "").toLowerCase() === "true";
 const DEV_SETUP_MODE = (process.env.DEV_SETUP_MODE || "").toLowerCase() === "true";
+try {
+  const syncResult = sqliteDb.syncMlArtifactsFromDisk(path.join(__dirname, "fleet_ai", "models"));
+  if (syncResult.artifact || syncResult.profiles) {
+    console.log(`[ml] synced artifacts=${syncResult.artifact ? 1 : 0} baselineProfiles=${syncResult.profiles}`);
+  }
+} catch (err) {
+  console.warn(`[ml] artifact sync skipped: ${err.message}`);
+}
 const DEV_SETUP_RESET_PASSWORDS = (process.env.DEV_SETUP_RESET_PASSWORDS || "").toLowerCase() === "true";
 const DEV_SETUP_PASSWORD = process.env.DEV_SETUP_PASSWORD || "FleetAI!12345";
 const AUTH_DEMO_WHITELIST = (process.env.AUTH_DEMO_WHITELIST || "")
@@ -565,6 +575,18 @@ app.use(express.json({
   }
 }));
 
+function denyStaticSourcePaths(req, res, next) {
+  const pathname = String(req.path || "");
+  const blocked = [
+    /^\/(?:server|backend|driver_app|fleet_ai|scripts|tools|node_modules|\.git|\.vs|\.gradle|\.idea)(?:\/|$)/i,
+    /^\/(?:server\.js|package(?:-lock)?\.json|\.env(?:\..*)?|sessions\.json|data\.json)$/i
+  ];
+  if (blocked.some((pattern) => pattern.test(pathname))) {
+    return res.status(404).send("Not found");
+  }
+  return next();
+}
+
 function isPairingPath(pathname) {
   return /^\/(api\/)?pair(ings|ing)(\/|$)/i.test(pathname || "");
 }
@@ -574,7 +596,6 @@ app.use((req, res, next) => {
   const start = Date.now();
   res.on("finish", () => {
     const raw = typeof req.rawBody === "string" ? req.rawBody : "";
-    const preview = raw.length > 600 ? `${raw.slice(0, 600)}...` : raw;
     console.log("[PAIR-RAW]", {
       method: req.method,
       path: req.path,
@@ -584,7 +605,7 @@ app.use((req, res, next) => {
       ip: req.ip,
       status: res.statusCode,
       ms: Date.now() - start,
-      rawBody: preview
+      rawBodyBytes: Buffer.byteLength(raw, "utf8")
     });
   });
   next();
@@ -593,11 +614,10 @@ app.use((req, res, next) => {
 app.use((err, req, res, next) => {
   if (err instanceof SyntaxError && err.status === 400 && "body" in err) {
     const raw = typeof req.rawBody === "string" ? req.rawBody : "";
-    const preview = raw.length > 600 ? `${raw.slice(0, 600)}...` : raw;
     console.warn("[JSON] parse error", {
       path: req.path,
       message: err.message,
-      rawBody: preview
+      rawBodyBytes: Buffer.byteLength(raw, "utf8")
     });
     return res.status(400).json({
       ok: false,
@@ -634,11 +654,7 @@ app.get("/admin/setup", (req, res) => {
   res.redirect(302, "/admin/setup.html");
 });
 
-app.get("/driver_app", (req, res) => {
-  res.redirect(302, "/driver_app/");
-});
-
-app.get("/driver_app/", (req, res) => {
+app.get(["/driver_app", "/driver_app/"], (req, res) => {
   res.set("Cache-Control", "no-cache, no-store, must-revalidate");
   res.sendFile(path.join(UI_DIR, "driver-tablet.html"));
 });
@@ -697,8 +713,6 @@ app.get("/ui/fleetai-dashboard.html", (req, res) => {
     cookieNames: Object.keys(parseCookies(req.headers.cookie || "")),
     hasCustomerCookie: Boolean(parseCookies(req.headers.cookie || "")[CUSTOMER_SESSION_COOKIE]),
     sessionFound: Boolean(session),
-    sessionUserId: session?.userId || null,
-    sessionEmail: session?.email || null,
     ua: req.headers["user-agent"] || "",
     referer: req.headers.referer || ""
   });
@@ -826,9 +840,7 @@ app.post("/api/auth/set-password", async (req, res) => {
       ok: true,
       code: "OK",
       message: "Password updated",
-      token: session.id,
       session: {
-        token: session.id,
         expiresAt: session.expiresAt,
         user: { id: user.id, email: user.email, role: user.role, orgId: user.orgId || null }
       },
@@ -915,16 +927,200 @@ app.get("/api/health", (req, res) => {
 
 // ── ML Prediction + AI Report routes ──────────────────────────────────────
 
-app.get("/api/vehicles/:vehicleId/prediction", async (req, res) => {
+function deriveSensorRisksFromPython(py) {
+  const risks = {};
+  const riskProbability = Number(py?.riskProbability);
+  if (Number.isFinite(riskProbability)) {
+    const base = Math.round(Math.max(0, Math.min(1, riskProbability)) * 100);
+    risks.modelPrior = base;
+  }
+  (py?.topFeatures || []).forEach((feature) => {
+    const z = Number(feature.zScore || 0);
+    risks[feature.metric] = Math.max(risks[feature.metric] || 0, Math.round(Math.min(100, z * 18)));
+  });
+  return risks;
+}
+
+function mergePythonAndNodePrediction(jsPrediction, pythonPrediction, context = {}) {
+  const py = pythonPrediction && pythonPrediction.ok !== false ? pythonPrediction : null;
+  if (!py) {
+    return Object.assign({}, jsPrediction, {
+      orgId: jsPrediction.orgId || context.orgId || null,
+      vehicleId: context.vehicleId || jsPrediction.vehicleId,
+      predictionSource: "node_fallback",
+      mlServiceAvailable: false,
+      mlServiceError: context.pythonError || null,
+      confidenceStage: jsPrediction.insufficientData || jsPrediction.insufficientHistory ? "calibrating" : "vehicle_specific",
+      trainingSource: "vehicle_telemetry_fallback",
+      modelVersion: "node-ewma-v1"
+    });
+  }
+  const riskProbability = Number(py.riskProbability);
+  const riskPct = Number.isFinite(riskProbability) ? Math.round(riskProbability * 100) : null;
+  const healthScore = jsPrediction.healthScore != null
+    ? jsPrediction.healthScore
+    : riskPct != null ? Math.max(0, Math.round(100 - riskPct * 0.72)) : null;
+  const topContributors = Array.isArray(jsPrediction.topContributors) && jsPrediction.topContributors.length
+    ? jsPrediction.topContributors
+    : (py.topFeatures || []).map((feature) => ({
+      metric: feature.metric,
+      value: feature.value,
+      zScore: feature.zScore,
+      reason: feature.reason || `${feature.metric} compared against pretrained prior.`
+    }));
+  return Object.assign({}, jsPrediction, {
+    orgId: jsPrediction.orgId || py.orgId || context.orgId || null,
+    vehicleId: context.vehicleId || jsPrediction.vehicleId || py.vehicleId,
+    insufficientData: false,
+    insufficientHistory: false,
+    predictionSource: "python_ml_service",
+    mlServiceAvailable: true,
+    riskProbability: Number.isFinite(riskProbability) ? riskProbability : null,
+    prediction: py.prediction,
+    anomalyScore: jsPrediction.anomalyScore != null ? jsPrediction.anomalyScore : riskPct,
+    healthScore,
+    confidence: py.confidence != null ? py.confidence : jsPrediction.confidence,
+    confidenceStage: py.confidenceStage || "pretrained_prior",
+    trainingSource: py.trainingSource || "synthetic_prior",
+    modelVersion: py.modelVersion || "python-ml",
+    baselineProfile: py.baselineProfile || null,
+    dataQuality: py.dataQuality || null,
+    topContributors,
+    sensorRisks: Object.keys(jsPrediction.sensorRisks || {}).length ? jsPrediction.sensorRisks : deriveSensorRisksFromPython(py),
+    featureVector: py.featureVector || null,
+    subsystemPriors: py.subsystemPriors || null,
+    advisoryLanguage: "Best available risk probability using pretrained synthetic priors calibrated by live vehicle telemetry."
+  });
+}
+
+app.get("/api/ml/service/status", requireEmployeeOrCustomerApi, async (req, res) => {
+  try {
+    const status = await pythonMlClient.status();
+    return res.json({ ok: true, data: status });
+  } catch (err) {
+    return res.json({
+      ok: true,
+      data: {
+        modelLoaded: false,
+        serviceAvailable: false,
+        error: err.message || "python_ml_unavailable",
+        fallback: "node-ewma-v1"
+      }
+    });
+  }
+});
+
+app.get("/api/ml/state", requireEmployeeOrCustomerApi, async (req, res) => {
+  try {
+    const states = sqliteDb.getAllModelStates();
+    const orgId = req.customer?.orgId || null;
+    const filtered = orgId ? states.filter((state) => !state.orgId || state.orgId === orgId) : states;
+    return res.json({ ok: true, data: filtered });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+app.get("/api/ml/alerts", requireEmployeeOrCustomerApi, async (req, res) => {
+  try {
+    const orgId = req.customer?.orgId || req.query.orgId || "ORG_DEFAULT";
+    const alerts = sqliteDb.getAlertsForOrg(orgId, { limit: 100, unresolvedOnly: req.query.unresolved === "true" });
+    return res.json({ ok: true, data: alerts });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+app.post("/api/ml/recompute", requireEmployeeOrCustomerApi, async (req, res) => {
+  try {
+    const vehicleId = sanitizeString(req.body?.vehicleId || req.query.vehicleId, 120);
+    if (!vehicleId) return res.status(400).json({ ok: false, error: "vehicleId required" });
+    const data = await readData();
+    const orgId = resolveOrgIdForVehicle(data, vehicleId);
+    if (req.customer && req.customer.orgId && req.customer.orgId !== orgId) {
+      return res.status(403).json({ ok: false, error: "cross_org_vehicle_denied" });
+    }
+    const samples = sqliteDb.getSamplesForVehicle(vehicleId, { limit: 5000 });
+    const jsPrediction = ml.computeFullPrediction(samples, vehicleId);
+    const caps = sqliteDb.getVehicleCapabilities(vehicleId) || {};
+    let pythonPrediction = null;
+    let pythonError = null;
+    try {
+      pythonPrediction = await pythonMlClient.predict({ orgId, vehicleId, vehicleMeta: Object.assign({}, caps, { vehicleId }), samples });
+    } catch (err) {
+      pythonError = err.message || "python_ml_unavailable";
+    }
+    const prediction = mergePythonAndNodePrediction(jsPrediction, pythonPrediction, { orgId, vehicleId, pythonError });
+    sqliteDb.upsertModelState(prediction);
+    const runId = sqliteDb.insertMlPredictionRun({
+      orgId,
+      vehicleId,
+      modelVersion: prediction.modelVersion || "node-fallback",
+      source: prediction.predictionSource || "node_fallback",
+      confidenceStage: prediction.confidenceStage || null,
+      confidence: prediction.confidence,
+      riskProbability: prediction.riskProbability,
+      healthScore: prediction.healthScore,
+      prediction
+    });
+    if (prediction.featureVector) {
+      sqliteDb.insertMlFeatureSnapshot({ orgId, vehicleId, predictionRunId: runId, features: prediction.featureVector });
+    }
+    return res.json({ ok: true, data: prediction });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+app.get("/api/vehicles/:vehicleId/prediction", requireEmployeeOrCustomerApi, async (req, res) => {
   try {
     const { vehicleId } = req.params;
-    // Try cached model state first
-    const cached = sqliteDb.getModelState(vehicleId);
-    if (cached) return res.json({ ok: true, data: cached });
-    // Compute on demand from SQLite samples
+    const data = await readData();
+    const orgId = resolveOrgIdForVehicle(data, vehicleId);
+    if (req.customer && req.customer.orgId && req.customer.orgId !== orgId) {
+      return res.status(403).json({ ok: false, error: "cross_org_vehicle_denied" });
+    }
     const samples = sqliteDb.getSamplesForVehicle(vehicleId, { limit: 5000 });
-    const prediction = ml.computeFullPrediction(samples, vehicleId);
+    const jsPrediction = ml.computeFullPrediction(samples, vehicleId);
+    const caps = sqliteDb.getVehicleCapabilities(vehicleId) || {};
+    let pythonPrediction = null;
+    let pythonError = null;
+    try {
+      pythonPrediction = await pythonMlClient.predict({
+        orgId,
+        vehicleId,
+        vehicleMeta: Object.assign({}, caps, { vehicleId }),
+        samples,
+        alertMode: req.query.alertMode || "launch_default"
+      });
+    } catch (err) {
+      pythonError = err.message || "python_ml_unavailable";
+    }
+    const prediction = mergePythonAndNodePrediction(jsPrediction, pythonPrediction, {
+      orgId,
+      vehicleId,
+      pythonError
+    });
     sqliteDb.upsertModelState(prediction);
+    const runId = sqliteDb.insertMlPredictionRun({
+      orgId,
+      vehicleId,
+      modelVersion: prediction.modelVersion || "node-fallback",
+      source: prediction.predictionSource || "node_fallback",
+      confidenceStage: prediction.confidenceStage || null,
+      confidence: prediction.confidence,
+      riskProbability: prediction.riskProbability,
+      healthScore: prediction.healthScore,
+      prediction
+    });
+    if (prediction.featureVector) {
+      sqliteDb.insertMlFeatureSnapshot({
+        orgId,
+        vehicleId,
+        predictionRunId: runId,
+        features: prediction.featureVector
+      });
+    }
     return res.json({ ok: true, data: prediction });
   } catch (err) {
     return res.status(500).json({ ok: false, error: err.message });
@@ -1092,6 +1288,14 @@ registerSolutionRoutes(app, {
   makeId,
   addAudit,
   requireEmployeeOrCustomerApi: (req, res, next) => requireEmployeeOrCustomerApi(req, res, next)
+});
+
+registerInternalMlApiRoutes(app, {
+  ml,
+  pythonMlClient,
+  sqliteDb,
+  nowIso,
+  sanitizeString
 });
 
 app.post("/api/telemetry/snapshot", (req, res) => {
@@ -4849,11 +5053,14 @@ registerAuthRoutes(app, {
 
 // Static file serving — must come AFTER all API route registrations so API
 // paths can never be shadowed by a matching file on disk.
+app.use(denyStaticSourcePaths);
 app.use("/", express.static(SITE_ROOT));
 app.use("/ui", express.static(UI_DIR));
 app.use("/admin", express.static(ADMIN_DIR));
 app.use("/app", express.static(APP_DIR));
-app.use("/driver_app", express.static(DRIVER_DIR));
+app.use("/driver_app", (req, res) => {
+  res.status(404).send("Not found");
+});
 app.use("/css", express.static(CSS_DIR));
 app.use("/js", express.static(JS_DIR));
 app.use("/assets", express.static(ASSETS_DIR));

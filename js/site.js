@@ -172,28 +172,19 @@ function initAnchors(){
   });
 }
 
-function applyTheme(theme){
-  const supported = ["light-blue","dark-blue","dark-gray"];
-  const mode = supported.includes(theme) ? theme : "light-blue";
+function applyTheme(){
+  const mode = "light-blue";
   document.documentElement.dataset.theme = mode;
-  try{ localStorage.setItem("fleetai.theme", mode); }catch(e){}
+  try{ localStorage.removeItem("fleetai.theme"); }catch(e){}
   return mode;
 }
 
 function initThemeSwitch(){
-  let theme = "dark-blue";
-  try{
-    const saved = localStorage.getItem("fleetai.theme");
-    if(saved) theme = saved;
-  }catch(e){}
-  theme = applyTheme(theme);
-  const select = document.getElementById("siteThemeSelect");
-  if(select){
-    select.value = theme;
-    select.addEventListener("change", (e)=>{
-      applyTheme(e.target.value);
-    });
-  }
+  applyTheme();
+  document.querySelectorAll("#siteThemeSelect,.themeSelect").forEach((control)=>{
+    control.setAttribute("hidden", "");
+    control.setAttribute("aria-hidden", "true");
+  });
 }
 
 document.addEventListener("DOMContentLoaded", ()=>{

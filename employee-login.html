@@ -1,78 +1,89 @@
-<!doctype html>
-<html lang="en">
+﻿<!doctype html>
+<html lang="en" data-theme="light-blue">
 <head>
-  <link rel="stylesheet" href="/css/theme.css" />
+  <link rel="stylesheet" href="css/theme.css" />
 
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Fleet AI Employee Portal</title>
-  <link rel="stylesheet" href="/css/site-tokens.css" />
-  <link rel="stylesheet" href="/css/site-theme.css" />
-  <link rel="stylesheet" href="/css/site-components.css" />
-  <link rel="stylesheet" href="/css/site-layout.css" />
-  <link rel="stylesheet" href="/css/design-system.css" />
+  <link rel="stylesheet" href="css/site-tokens.css" />
+  <link rel="stylesheet" href="css/site-theme.css" />
+  <link rel="stylesheet" href="css/site-components.css" />
+  <link rel="stylesheet" href="css/site-layout.css" />
+  <link rel="stylesheet" href="css/design-system.css" />
+  <script>try{document.documentElement.dataset.theme="light-blue";}catch(e){}</script>
 </head>
-<body>
-  <header class="siteHeader">
+<body class="landingV2 authV2 accessV3 employeeAccess">
+  <header class="siteHeader accessHeader">
     <div class="container siteHeader__row">
-      <a class="wordmark" href="/index.html"><span class="brandFleet">Fleet</span><span class="brandAI">AI</span></a>
+      <a class="wordmark" href="index.html"><span class="brandFleet">Fleet</span><span class="brandAI">AI</span></a>
+      <nav class="siteNav" id="siteNav">
+        <a href="product.html">Platform</a>
+        <a href="security.html">Security</a>
+      </nav>
       <div class="siteActions">
-        <select class="themeSelect" id="siteThemeSelect" aria-label="Theme">
-          <option value="light-blue">Light</option>
-          <option value="dark-blue">Dark Blue</option>
-          <option value="dark-gray">Dark Gray</option>
-        </select>
-        <a class="btn secondary" href="/index.html">Back to Fleet AI Home</a>
+        <a class="btn secondary" href="customer-login.html">Customer sign in</a>
+        <a class="btn ghost" href="index.html">Home</a>
       </div>
     </div>
   </header>
 
-  <section class="section">
-    <div class="container">
-      <div class="sectionHeader">
-        <h2>Fleet AI Employee Portal</h2>
-        <p>Internal access only</p>
+  <main class="accessPage">
+    <section class="container accessLayout">
+      <div class="accessCopy">
+        <div class="eyebrow">Internal operations</div>
+        <h1>Manage companies, onboarding, and Fleet AI users.</h1>
+        <p>Employee access is for Fleet AI staff managing organizations, pilot setup, customer invites, billing prep, feature flags, and internal team accounts.</p>
+        <div class="accessChecklist">
+          <div><span></span> Track companies from lead to pilot to active customer</div>
+          <div><span></span> Create customer access and onboarding invites</div>
+          <div><span></span> Add employees and assign internal roles</div>
+        </div>
       </div>
-      <div class="card" style="margin-bottom:16px;">
-        <p class="card__meta">This portal is for Fleet AI employees and authorized support personnel only. Customer accounts do not apply here.</p>
-      </div>
-      <form class="formCard" id="employeeLoginForm" style="max-width:520px; position:relative; z-index:2;">
-        <div id="cookiePrompt" class="card" style="display:none; margin-bottom:12px; border:1px solid var(--warn, #d97706); background:rgba(217,119,6,0.08);">
+
+      <form class="accessCard" id="employeeLoginForm">
+        <div class="accessCard__head">
+          <div>
+            <div class="shellLabel">fleet-ai / employee</div>
+            <h2>Employee sign in</h2>
+          </div>
+          <span class="accessStatus internal">Internal</span>
+        </div>
+        <div id="cookiePrompt" class="authNotice" style="display:none;">
           <strong>Cookies required for employee sign-in.</strong>
-          <div class="card__meta" style="margin-top:6px;">Fleet AI uses a secure session cookie for employee access. If your browser blocks cookies for this site, login will succeed and then immediately kick you back out. Please allow cookies for this site and try again.</div>
+          <div>Fleet AI uses a secure session cookie for employee access. Allow cookies for this site and try again.</div>
         </div>
         <div id="loginError" class="formError" style="display:none;"></div>
-        <label>
-          Email
-          <input id="employeeEmail" type="email" placeholder="name@fleetai.com" required />
+        <label class="fieldGroup">
+          <span>Email</span>
+          <input id="employeeEmail" type="email" placeholder="name@fleetai.com" autocomplete="email" required />
         </label>
-        <label>
-          Password
-          <input id="employeePassword" type="password" placeholder="********" required />
+        <label class="fieldGroup">
+          <span>Password</span>
+          <input id="employeePassword" type="password" placeholder="Enter password" autocomplete="current-password" required />
         </label>
-        <label>
-          2FA Code (optional)
-          <input id="employee2fa" type="text" placeholder="123456" />
+        <label class="fieldGroup">
+          <span>2FA code <em>optional</em></span>
+          <input id="employee2fa" type="text" placeholder="123456" inputmode="numeric" autocomplete="one-time-code" />
         </label>
-        <div class="heroActions">
-          <button class="btn primary" id="employeeSignIn" type="submit">Sign In</button>
-          <a class="btn secondary" href="/index.html">Back to Fleet AI Home</a>
-        </div>
-        <div class="authDebugPanel" id="employeeDebugPanel" hidden aria-hidden="true" style="margin-top:12px;">
-          <div class="muted" style="margin-top:8px;">
+        <button class="btn primary accessSubmit" id="employeeSignIn" type="submit">Open employee console</button>
+        <div class="formNote">Authorized Fleet AI employees only. Customer accounts use the customer sign-in page.</div>
+        <div class="authDebugPanel" id="employeeDebugPanel" hidden aria-hidden="true">
+          <div class="muted">
             <div>Endpoint: <span id="dbgEndpoint">--</span></div>
             <div>Last status: <span id="dbgStatus">--</span></div>
             <div>Last error: <span id="dbgError">--</span></div>
           </div>
         </div>
       </form>
-    </div>
-  </section>
+    </section>
+  </main>
 
-  <script src="/js/site.js"></script>
-  <script src="/ui/js/apiConfig.js"></script>
-  <script src="/js/scroll-reveal.js"></script>
-  <script src="/public/js/employee-login.js" defer></script>
+  <script src="js/site.js"></script>
+  <script src="ui/js/apiConfig.js"></script>
+  <script src="js/scroll-reveal.js"></script>
+  <script src="public/js/employee-login.js" defer></script>
 </body>
 </html>
+
 

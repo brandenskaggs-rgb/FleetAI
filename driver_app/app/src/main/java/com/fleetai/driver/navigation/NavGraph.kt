@@ -8,6 +8,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.fleetai.driver.ui.screens.DiagnosticsScreen
 import com.fleetai.driver.ui.screens.HomeScreen
+import com.fleetai.driver.ui.screens.InspectionScreen
 import com.fleetai.driver.ui.screens.LogbookScreen
 import com.fleetai.driver.ui.screens.NotificationsScreen
 import com.fleetai.driver.ui.screens.RouteScreen
@@ -19,6 +20,7 @@ import com.fleetai.driver.ui.viewmodel.SessionState
 object MainRoute {
     const val Home = "home"
     const val Logbook = "logbook"
+    const val Inspections = "inspections"
     const val Sensors = "sensors"
     const val Notifications = "notifications"
     const val Status = "status"
@@ -30,6 +32,7 @@ object MainRoute {
 sealed class MainScreen(val route: String, val label: String) {
     data object Home : MainScreen(MainRoute.Home, "Home")
     data object Logbook : MainScreen(MainRoute.Logbook, "Logbook")
+    data object Inspections : MainScreen(MainRoute.Inspections, "Inspect")
     data object Sensors : MainScreen(MainRoute.Sensors, "Sensors")
     data object Notifications : MainScreen(MainRoute.Notifications, "Notifications")
 }
@@ -57,6 +60,9 @@ fun MainNavGraph(
         }
         composable(MainRoute.Logbook) {
             LogbookScreen(contentPadding = contentPadding)
+        }
+        composable(MainRoute.Inspections) {
+            InspectionScreen(contentPadding = contentPadding, sessionState = sessionState)
         }
         composable(MainRoute.Sensors) {
             SensorsScreen(contentPadding = contentPadding)

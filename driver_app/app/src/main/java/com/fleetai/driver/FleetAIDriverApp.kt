@@ -5,10 +5,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.ListAlt
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Rule
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -54,6 +56,7 @@ private fun MainScaffold(sessionState: SessionState) {
     val items = listOf(
         MainScreen.Home,
         MainScreen.Logbook,
+        MainScreen.Inspections,
         MainScreen.Sensors,
         MainScreen.Notifications
     )
@@ -62,12 +65,13 @@ private fun MainScaffold(sessionState: SessionState) {
         Scaffold(
             modifier = Modifier.fillMaxSize(),
             bottomBar = {
-                NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceVariant) {
+                NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
                     items.forEach { screen ->
                         val selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true
                         val icon = when (screen) {
                             MainScreen.Home -> Icons.Default.Home
                             MainScreen.Logbook -> Icons.Default.ListAlt
+                            MainScreen.Inspections -> Icons.Default.Rule
                             MainScreen.Sensors -> Icons.Default.Speed
                             MainScreen.Notifications -> Icons.Default.Notifications
                         }
@@ -81,7 +85,14 @@ private fun MainScaffold(sessionState: SessionState) {
                                 }
                             },
                             icon = { Icon(imageVector = icon, contentDescription = screen.label) },
-                            label = { Text(screen.label) }
+                            label = { Text(screen.label) },
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = MaterialTheme.colorScheme.primary,
+                                selectedTextColor = MaterialTheme.colorScheme.primary,
+                                indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f),
+                                unselectedIconColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.58f),
+                                unselectedTextColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.58f)
+                            )
                         )
                     }
                 }

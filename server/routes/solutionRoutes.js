@@ -676,6 +676,286 @@ function registerSolutionRoutes(app, deps) {
     req.url = "/api/advisor/message";
     app.handle(req, res, next);
   });
+
+  // ── GPS LIVE POSITIONS ─────────────────────────────────────────────────────
+  app.get("/api/gps/live", requireEmployeeOrCustomerApi, async (req, res, next) => {
+    try {
+      const data = ensureCollections(await readData());
+      const orgId = resolveRequestOrgId(req, data);
+      if (!orgId) return res.status(400).json({ error: "orgId required" });
+      const telemetry = Array.isArray(data.telemetrySnapshots) ? data.telemetrySnapshots : [];
+      const latestByVehicle = {};
+      for (const snap of telemetry) {
+        const vid = sanitizeString(snap.vehicleId || snap.vehicle_id || "", 80);
+        if (!vid || !matchesOrg(snap, orgId)) continue;
+        if (!latestByVehicle[vid] || new Date(snap.timestamp || 0) > new Date(latestByVehicle[vid].timestamp || 0)) {
+          latestByVehicle[vid] = snap;
+        }
+      }
+      const vehicles = data.vehicles.filter((v) => matchesOrg(v, orgId));
+      const positions = vehicles.map((v, i) => {
+        const vid = v.vehicleId || v.id;
+        const snap = latestByVehicle[vid];
+        const metrics = snap?.metrics || snap?.signals || {};
+        const lat = parseNumberField(metrics.latitude || metrics.lat, null) || (39.7392 + i * 0.04);
+        const lon = parseNumberField(metrics.longitude || metrics.lon, null) || (-104.9903 + i * 0.05);
+        return {
+          vehicleId: vid,
+          vehicleName: sanitizeString(v.unitName || v.name || vid, 120),
+          lat,
+          lon,
+          speed: parseNumberField(metrics.speed || metrics.vehicleSpeed || 0, 0, 200) || 0,
+          heading: parseNumberField(metrics.heading || 0, 0, 360) || 0,
+          engineOn: Boolean(snap),
+          updatedAt: snap?.timestamp || null
+        };
+      });
+      res.json({ ok: true, data: positions });
+    } catch (err) { next(err); }
+  });
+
+  // ── ALERT SUBSCRIPTIONS (Email) ────────────────────────────────────────────
+  app.get("/api/alert-subscriptions", requireEmployeeOrCustomerApi, async (req, res, next) => {
+    try {
+      const data = ensureCollections(await readData());
+      const orgId = resolveRequestOrgId(req, data);
+      data.alertSubscriptions = Array.isArray(data.alertSubscriptions) ? data.alertSubscriptions : [];
+      res.json({ ok: true, data: data.alertSubscriptions.filter((s) => matchesOrg(s, orgId)) });
+    } catch (err) { next(err); }
+  });
+
+  app.post("/api/alert-subscriptions", requireEmployeeOrCustomerApi, async (req, res, next) => {
+    try {
+      const data = ensureCollections(await readData());
+      const orgId = resolveRequestOrgId(req, data);
+      if (!orgId) return res.status(400).json({ error: "orgId required" });
+      data.alertSubscriptions = Array.isArray(data.alertSubscriptions) ? data.alertSubscriptions : [];
+      const email = sanitizeString(req.body.email || "", 200);
+      if (!email || !email.includes("@")) return res.status(400).json({ error: "Valid email required" });
+      const events = Array.isArray(req.body.events)
+        ? req.body.events.map((e) => sanitizeString(e, 80)).filter(Boolean)
+        : ["alert.critical"];
+      const sub = { id: makeId("SUB"), orgId, email, events, active: true, createdAt: nowIso() };
+      data.alertSubscriptions.push(sub);
+      addAudit(data, "ALERT_SUBSCRIPTION_CREATED", email);
+      await writeData(data);
+      res.status(201).json({ ok: true, data: sub });
+    } catch (err) { next(err); }
+  });
+
+  app.delete("/api/alert-subscriptions/:id", requireEmployeeOrCustomerApi, async (req, res, next) => {
+    try {
+      const data = ensureCollections(await readData());
+      data.alertSubscriptions = Array.isArray(data.alertSubscriptions) ? data.alertSubscriptions : [];
+      const before = data.alertSubscriptions.length;
+      data.alertSubscriptions = data.alertSubscriptions.filter((s) => s.id !== req.params.id);
+      if (data.alertSubscriptions.length === before) return res.status(404).json({ error: "Subscription not found" });
+      await writeData(data);
+      res.json({ ok: true });
+    } catch (err) { next(err); }
+  });
+
+  app.post("/api/alert-subscriptions/test", requireEmployeeOrCustomerApi, async (req, res, next) => {
+    try {
+      const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY || "";
+      const email = sanitizeString(req.body.email || "", 200);
+      if (!email || !email.includes("@")) return res.status(400).json({ error: "Valid email required" });
+      if (!SENDGRID_API_KEY) {
+        return res.json({ ok: true, sent: false, message: "SendGrid not configured. Add SENDGRID_API_KEY to .env to enable email alerts." });
+      }
+      const https = require("https");
+      const payload = JSON.stringify({
+        personalizations: [{ to: [{ email }] }],
+        from: { email: process.env.SENDGRID_FROM_EMAIL || "alerts@fleetai.app", name: "Fleet AI Alerts" },
+        subject: "Fleet AI — Test Alert",
+        content: [{ type: "text/plain", value: "This is a test alert from Fleet AI. Your alert subscription is active and working correctly." }]
+      });
+      const response = await new Promise((resolve, reject) => {
+        const req2 = https.request({
+          hostname: "api.sendgrid.com",
+          path: "/v3/mail/send",
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(payload), Authorization: `Bearer ${SENDGRID_API_KEY}` }
+        }, (r) => {
+          let raw = "";
+          r.on("data", (c) => (raw += c));
+          r.on("end", () => resolve({ status: r.statusCode }));
+        });
+        req2.on("error", reject);
+        req2.write(payload);
+        req2.end();
+      });
+      if (response.status >= 200 && response.status < 300) {
+        return res.json({ ok: true, sent: true, message: `Test alert sent to ${email}` });
+      }
+      return res.json({ ok: true, sent: false, message: "SendGrid returned an error. Check your API key and sender address." });
+    } catch (err) { next(err); }
+  });
+
+  // ── PREDICTIVE MAINTENANCE AUTO-SCHEDULER ─────────────────────────────────
+  app.post("/api/predictive/run", requireEmployeeOrCustomerApi, async (req, res, next) => {
+    try {
+      const data = ensureCollections(await readData());
+      const orgId = resolveRequestOrgId(req, data);
+      if (!orgId) return res.status(400).json({ error: "orgId required" });
+      data.maintenanceLogs = Array.isArray(data.maintenanceLogs) ? data.maintenanceLogs : [];
+      data.recommendations = Array.isArray(data.recommendations) ? data.recommendations : [];
+      const mlScores = Array.isArray(data.mlPredictions) ? data.mlPredictions : [];
+      const vehicles = data.vehicles.filter((v) => matchesOrg(v, orgId));
+
+      let created = 0;
+      const results = [];
+      for (const vehicle of vehicles) {
+        const vid = vehicle.vehicleId || vehicle.id;
+        const ml = mlScores.find((p) => (p.vehicleId === vid || p.vehicle_id === vid) && matchesOrg(p, orgId));
+        const score = ml ? parseNumberField(ml.healthScore || ml.health_score || ml.score, 100) : null;
+        if (score !== null && score < 70) {
+          const existing = data.recommendations.find(
+            (r) => matchesOrg(r, orgId) && r.vehicleId === vid && r.status === "open"
+          );
+          if (!existing) {
+            const rec = {
+              id: makeId("REC"),
+              orgId,
+              vehicleId: vid,
+              vehicleName: sanitizeString(vehicle.unitName || vehicle.name || vid, 120),
+              healthScore: score,
+              priority: score < 50 ? "critical" : "high",
+              recommendation: score < 50
+                ? "Critical health score — immediate inspection required."
+                : "Elevated risk — schedule preventive service within 7 days.",
+              serviceType: score < 50 ? "IMMEDIATE_INSPECTION" : "PREVENTIVE_MAINTENANCE",
+              status: "open",
+              autoScheduled: true,
+              createdAt: nowIso()
+            };
+            data.recommendations.push(rec);
+            created++;
+            results.push({ vehicleId: vid, vehicleName: rec.vehicleName, score, priority: rec.priority });
+          }
+        }
+      }
+      if (created > 0) {
+        addAudit(data, "PREDICTIVE_SCHEDULER_RUN", `${created} work orders created`);
+        await writeData(data);
+      }
+      res.json({
+        ok: true,
+        checked: vehicles.length,
+        created,
+        message: created
+          ? `Auto-scheduled ${created} work order(s) for vehicles with health score below 70.`
+          : "All vehicles within healthy parameters. No new work orders needed.",
+        results
+      });
+    } catch (err) { next(err); }
+  });
+
+  // ── COMPLIANCE REPORT GENERATOR ────────────────────────────────────────────
+  app.get("/api/reports/compliance", requireEmployeeOrCustomerApi, async (req, res, next) => {
+    try {
+      const data = ensureCollections(await readData());
+      const orgId = resolveRequestOrgId(req, data);
+      if (!orgId) return res.status(400).json({ error: "orgId required" });
+      const type = sanitizeString(req.query.type || "full", 20);
+      const fromDate = req.query.from ? new Date(sanitizeString(req.query.from, 30)) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      const toDate = req.query.to ? new Date(sanitizeString(req.query.to, 30)) : new Date();
+      const inRange = (iso) => { const d = new Date(iso || 0); return d >= fromDate && d <= toDate; };
+
+      const dvirRecords = data.dvirRecords.filter((r) => matchesOrg(r, orgId) && inRange(r.submittedAt));
+      data.maintenanceLogs = Array.isArray(data.maintenanceLogs) ? data.maintenanceLogs : [];
+      const maintLogs = data.maintenanceLogs.filter((l) => matchesOrg(l, orgId) && inRange(l.performedAt || l.createdAt));
+      const vehicles = data.vehicles.filter((v) => matchesOrg(v, orgId));
+      const dvir = summarizeDvir(dvirRecords);
+      const maintSummary = {
+        total: maintLogs.length,
+        byType: maintLogs.reduce((acc, l) => {
+          const t = sanitizeString(l.serviceType || l.type || "OTHER", 80);
+          acc[t] = (acc[t] || 0) + 1;
+          return acc;
+        }, {}),
+        totalCost: Math.round(maintLogs.reduce((s, l) => s + parseNumberField(l.cost || 0, 0, 999999), 0) * 100) / 100
+      };
+      res.json({
+        ok: true,
+        data: {
+          generatedAt: nowIso(),
+          period: { from: fromDate.toISOString(), to: toDate.toISOString() },
+          org: { orgId, vehicleCount: vehicles.length },
+          dvir: type !== "maintenance" ? dvir : undefined,
+          dvirRecords: type === "dvir" ? dvirRecords.slice(0, 200) : undefined,
+          maintenance: type !== "dvir" ? maintSummary : undefined,
+          maintenanceLogs: type === "maintenance" ? maintLogs.slice(0, 200) : undefined,
+          hos: { status: "not_connected", message: "HOS integration not yet connected." }
+        }
+      });
+    } catch (err) { next(err); }
+  });
+
+  // ── DRIVER MESSAGING ───────────────────────────────────────────────────────
+  app.get("/api/messages", requireEmployeeOrCustomerApi, async (req, res, next) => {
+    try {
+      const data = ensureCollections(await readData());
+      const orgId = resolveRequestOrgId(req, data);
+      if (!orgId) return res.status(400).json({ error: "orgId required" });
+      data.driverMessages = Array.isArray(data.driverMessages) ? data.driverMessages : [];
+      const driverId = sanitizeString(req.query.driverId || "", 80);
+      let msgs = data.driverMessages.filter((m) => matchesOrg(m, orgId));
+      if (driverId) msgs = msgs.filter((m) => m.toDriverId === driverId);
+      msgs = msgs.slice().sort((a, b) => new Date(a.sentAt || 0) - new Date(b.sentAt || 0)).slice(-100);
+      res.json({ ok: true, data: msgs });
+    } catch (err) { next(err); }
+  });
+
+  app.post("/api/messages", requireEmployeeOrCustomerApi, async (req, res, next) => {
+    try {
+      const data = ensureCollections(await readData());
+      const orgId = resolveRequestOrgId(req, data);
+      if (!orgId) return res.status(400).json({ error: "orgId required" });
+      data.driverMessages = Array.isArray(data.driverMessages) ? data.driverMessages : [];
+      const toDriverId = sanitizeString(req.body.driverId || req.body.toDriverId || "", 80);
+      const body = sanitizeString(req.body.body || req.body.message || req.body.content || "", 2000);
+      if (!toDriverId) return res.status(400).json({ error: "driverId required" });
+      if (!body) return res.status(400).json({ error: "message body required" });
+      const driver = findDriver(data, orgId, toDriverId);
+      const msg = {
+        id: makeId("MSG"),
+        orgId,
+        toDriverId,
+        driverName: driver ? (personName(driver) || driver.driverId || toDriverId) : toDriverId,
+        fromRole: req.customer ? "dispatcher" : "employee",
+        body,
+        sentAt: nowIso(),
+        readAt: null
+      };
+      data.driverMessages.push(msg);
+      addAudit(data, "DRIVER_MESSAGE_SENT", toDriverId);
+      await writeData(data);
+      if (app._msgClients && app._msgClients[orgId]) {
+        const payload = `data: ${JSON.stringify(msg)}\n\n`;
+        app._msgClients[orgId].forEach((client) => { try { client.write(payload); } catch (_) {} });
+      }
+      res.status(201).json({ ok: true, data: msg });
+    } catch (err) { next(err); }
+  });
+
+  app.get("/api/messages/stream", requireEmployeeOrCustomerApi, (req, res, next) => {
+    try {
+      const orgId = sanitizeString(req.customer?.orgId || req.query?.orgId || "", 80);
+      if (!orgId) { res.status(400).end(); return; }
+      res.set({ "Content-Type": "text/event-stream", "Cache-Control": "no-cache", Connection: "keep-alive" });
+      res.flushHeaders();
+      res.write(`data: ${JSON.stringify({ type: "connected", orgId })}\n\n`);
+      if (!app._msgClients) app._msgClients = {};
+      if (!app._msgClients[orgId]) app._msgClients[orgId] = [];
+      app._msgClients[orgId].push(res);
+      req.on("close", () => {
+        if (app._msgClients[orgId]) {
+          app._msgClients[orgId] = app._msgClients[orgId].filter((c) => c !== res);
+        }
+      });
+    } catch (err) { next(err); }
+  });
 }
 
 module.exports = {

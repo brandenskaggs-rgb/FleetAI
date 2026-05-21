@@ -445,3 +445,311 @@ body.density-compact .panelHeader{
     grid-template-columns:1fr;
   }
 }
+
+/* Employee console v2: onboarding operations workspace */
+.employeeConsoleV2{
+  min-height:100vh;
+  background:#f6f8fb;
+  color:#07172f;
+}
+.employeeConsoleV2 .employeeTopbar{
+  position:sticky;
+  top:0;
+  z-index:20;
+  background:rgba(255,255,255,.94);
+  border-bottom:1px solid #e4ebf5;
+  backdrop-filter:blur(14px);
+}
+.employeeConsoleV2 .employeeTopbar .siteHeader__row{
+  max-width:none;
+  width:100%;
+  padding:10px 16px;
+}
+.employeeConsoleV2 .wordmark{
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+  color:#07172f;
+  min-width:148px;
+}
+.employeeConsoleV2 .wordmark::before{
+  content:"";
+  width:24px;
+  height:16px;
+  display:inline-block;
+  background:linear-gradient(135deg,#0f4cc4 0 28%,transparent 28% 38%,#1d9bf0 38% 62%,transparent 62% 72%,#14b8a6 72%);
+  border-radius:4px;
+}
+.employeeConsoleV2 .brandFleet{
+  color:#07172f;
+}
+.employeeConsoleV2 .brandAI{
+  color:#145fe8;
+}
+.employeeTopbar__center{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  min-width:0;
+  color:#52667f;
+  font-size:12px;
+}
+.employeeTopbar__center span{
+  padding:4px 8px;
+  border-radius:999px;
+  background:#eef5ff;
+  color:#145fe8;
+  font-weight:850;
+}
+.employeeTopbar__center strong{
+  color:#07172f;
+  font-size:13px;
+}
+.employeeConsoleV2 .employeeShell{
+  grid-template-columns:224px minmax(0,1fr);
+  gap:0;
+  max-width:none;
+  padding:0;
+  min-height:calc(100vh - 55px);
+}
+.employeeConsoleV2 .employeeSidebar{
+  position:sticky;
+  top:55px;
+  align-self:start;
+  min-height:calc(100vh - 55px);
+  padding:14px 10px;
+  gap:12px;
+  background:#fff;
+  border-right:1px solid #e4ebf5;
+}
+.employeeConsoleV2 .sidebarBrand{
+  border:0;
+  border-radius:8px;
+  padding:10px 8px 12px;
+  box-shadow:none;
+  background:#fff;
+}
+.employeeConsoleV2 .brandTitle{
+  color:#07172f;
+  font-size:15px;
+  letter-spacing:-.01em;
+}
+.employeeConsoleV2 .brandMeta{
+  max-width:170px;
+  color:#6b7e96;
+  line-height:1.45;
+}
+.employeeConsoleV2 .sidebarNav{
+  padding:0;
+  gap:2px;
+  border:0;
+  border-radius:0;
+  background:transparent;
+  box-shadow:none;
+}
+.employeeConsoleV2 .sidebarNav button,
+.employeeConsoleV2 .sidebarLink{
+  min-height:31px;
+  padding:7px 9px;
+  border:1px solid transparent;
+  border-radius:7px;
+  color:#263a57;
+  font-size:12px;
+  font-weight:800;
+  box-shadow:none;
+}
+.employeeConsoleV2 .sidebarNav button.is-active{
+  color:#145fe8;
+  background:#edf4ff;
+  border-color:#cfe0ff;
+  box-shadow:inset 2px 0 0 #145fe8;
+}
+.employeeConsoleV2 .sidebarLink{
+  margin-top:8px;
+  border-color:#dfe7f2;
+  background:#fff;
+  text-decoration:none;
+}
+.employeeConsoleV2 .sidebarNote{
+  border:1px solid #dfe7f2;
+  border-radius:8px;
+  padding:10px;
+  background:#f8fafc;
+  color:#52667f;
+  line-height:1.45;
+}
+.employeeConsoleV2 .noteTitle{
+  color:#07172f;
+  font-weight:850;
+}
+.employeeConsoleV2 .btn.ghost,
+.employeeConsoleV2 .btn.secondary{
+  background:#fff;
+  border-color:#d8e4f2;
+  color:#145fe8;
+  box-shadow:none;
+}
+.employeeConsoleV2 .btn.ghost:hover,
+.employeeConsoleV2 .btn.secondary:hover{
+  background:#f3f7ff;
+  border-color:#bcd1f4;
+}
+.employeeConsoleV2 .employeeMain{
+  gap:14px;
+  padding:14px 16px 26px;
+  min-width:0;
+}
+.employeeConsoleV2 .mainHeader{
+  align-items:center;
+  padding:14px;
+  border-radius:10px;
+  border-color:#dfe7f2;
+  background:#fff;
+  box-shadow:none;
+}
+.employeeConsoleV2 .mainHeader h1{
+  color:#07172f;
+  font-size:24px;
+  letter-spacing:-.02em;
+}
+.employeeConsoleV2 .mainHeader p{
+  max-width:680px;
+  color:#52667f;
+}
+.employeeConsoleV2 .roleMeta{
+  display:inline-flex;
+  margin-top:10px;
+  padding:4px 8px;
+  border-radius:999px;
+  background:#f1f5f9;
+  color:#52667f;
+  font-weight:800;
+}
+.employeeConsoleV2 .headerActions{
+  justify-content:flex-end;
+}
+.employeeConsoleV2 #adminSearch{
+  width:300px;
+  height:34px;
+  border-radius:8px;
+  border:1px solid #d8e4f2;
+  background:#f8fafc;
+  color:#07172f;
+}
+.employeeConsoleV2 .viewSection{
+  gap:14px;
+}
+.employeeConsoleV2 .kpiGrid{
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:10px;
+}
+.employeeConsoleV2 .kpiCard,
+.employeeConsoleV2 .panelCard{
+  border-radius:10px;
+  border-color:#dfe7f2;
+  background:#fff;
+  box-shadow:none;
+}
+.employeeConsoleV2 .kpiCard{
+  padding:14px;
+}
+.employeeConsoleV2 .kpiLabel{
+  color:#6b7e96;
+  text-transform:uppercase;
+  letter-spacing:.04em;
+  font-size:10px;
+  font-weight:850;
+}
+.employeeConsoleV2 .kpiValue{
+  color:#07172f;
+  font-size:24px;
+}
+.employeeConsoleV2 .panelHeader{
+  min-height:44px;
+  padding:10px 12px;
+}
+.employeeConsoleV2 .panelHeader h2,
+.employeeConsoleV2 .panelHeader h3{
+  color:#07172f;
+  font-size:14px;
+}
+.employeeConsoleV2 .panelBody{
+  padding:12px;
+}
+.employeeConsoleV2 .orgLayout,
+.employeeConsoleV2 .leadLayout{
+  grid-template-columns:minmax(0,1.55fr) minmax(320px,.75fr);
+  gap:12px;
+}
+.employeeConsoleV2 .billingLayout{
+  grid-template-columns:minmax(0,1.45fr) minmax(280px,.7fr);
+  gap:12px;
+}
+.employeeConsoleV2 .tableWrap{
+  border:1px solid #e4ebf5;
+  border-radius:8px;
+  box-shadow:none;
+}
+.employeeConsoleV2 .dataTable th{
+  color:#6b7e96;
+  background:#f8fafc;
+  font-size:10px;
+  text-transform:uppercase;
+  letter-spacing:.04em;
+}
+.employeeConsoleV2 .dataTable td{
+  font-size:12px;
+}
+.employeeConsoleV2 .detailBlock{
+  padding:9px 0;
+}
+.employeeConsoleV2 .filterTabs button{
+  border-radius:7px;
+  background:#fff;
+}
+.employeeConsoleV2 .filterTabs button.is-active{
+  color:#145fe8;
+  background:#edf4ff;
+  border-color:#cfe0ff;
+}
+.employeeConsoleV2 .footer{
+  display:none;
+}
+@media (max-width: 1100px){
+  .employeeConsoleV2 .employeeShell{
+    grid-template-columns:1fr;
+  }
+  .employeeConsoleV2 .employeeSidebar{
+    position:static;
+    min-height:0;
+    border-right:0;
+    border-bottom:1px solid #e4ebf5;
+  }
+  .employeeConsoleV2 .sidebarNav{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+  .employeeConsoleV2 .orgLayout,
+  .employeeConsoleV2 .leadLayout,
+  .employeeConsoleV2 .billingLayout{
+    grid-template-columns:1fr;
+  }
+  .employeeConsoleV2 .kpiGrid{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+}
+@media (max-width: 720px){
+  .employeeTopbar__center{
+    display:none;
+  }
+  .employeeConsoleV2 .mainHeader{
+    align-items:flex-start;
+  }
+  .employeeConsoleV2 .headerActions,
+  .employeeConsoleV2 #adminSearch{
+    width:100%;
+  }
+  .employeeConsoleV2 .kpiGrid,
+  .employeeConsoleV2 .sidebarNav{
+    grid-template-columns:1fr;
+  }
+}

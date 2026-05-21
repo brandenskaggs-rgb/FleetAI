@@ -1,0 +1,15 @@
+<svg width="520" height="120" viewBox="0 0 520 120" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">Fleet AI logo</title>
+  <desc id="desc">Fleet AI wordmark with a minimal blue road and signal mark.</desc>
+  <g transform="translate(8 14)">
+    <rect width="92" height="92" rx="22" fill="#1F5EFF"/>
+    <path d="M22 56.8C22 52.1 25.8 48.3 30.5 48.3H44.6C50.3 48.3 55.6 45.5 58.7 40.8L68 27H78.8L65.5 46.8C60.8 53.8 52.9 58 44.5 58H22V56.8Z" fill="white"/>
+    <path d="M22 70C22 65.3 25.8 61.5 30.5 61.5H52.3C58 61.5 63.3 58.7 66.4 54L70.6 47.8H81.4L73.2 60C68.5 67 60.6 71.2 52.2 71.2H22V70Z" fill="#10233F"/>
+    <path d="M22 43.6C22 38.9 25.8 35.1 30.5 35.1H39.2C44.9 35.1 50.2 32.3 53.3 27.6L56.1 23.5H66.9L60.1 33.6C55.4 40.6 47.5 44.8 39.1 44.8H22V43.6Z" fill="white" fill-opacity=".7"/>
+    <circle cx="71.2" cy="26" r="7.2" fill="#14B873"/>
+  </g>
+  <g transform="translate(124 30)">
+    <text x="0" y="54" font-family="Manrope, Inter, Segoe UI, Arial, sans-serif" font-size="58" font-weight="800" letter-spacing="-2.1" fill="#10233F">Fleet</text>
+    <text x="161" y="54" font-family="Manrope, Inter, Segoe UI, Arial, sans-serif" font-size="58" font-weight="800" letter-spacing="-2.1" fill="#1F5EFF">AI</text>
+  </g>
+</svg>
