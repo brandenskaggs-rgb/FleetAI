@@ -1,0 +1,763 @@
+// Fleet AI — Prisma Schema
+// Target: PostgreSQL (Railway)
+// Migrating from: better-sqlite3 (ML data) + JSON flat-file (auth + app data)
+// Run: npx prisma migrate dev --name init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─────────────────────────────────────────────
+// AUTH
+// ─────────────────────────────────────────────
+
+model User {
+  id                   String    @id @default(cuid())
+  email                String    @unique
+  role                 String
+  kind                 String    @default("customer")
+  orgId                String?
+  passwordHash         String    @default("")
+  passwordAlgo         String    @default("bcrypt")
+  isActive             Boolean   @default(true)
+  active               Boolean   @default(true)
+  verified             Boolean   @default(false)
+  mustSetPassword      Boolean   @default(false)
+  requirePasswordReset Boolean   @default(false)
+  firstLogin           Boolean   @default(false)
+  firstLoginRequired   Boolean   @default(false)
+  mustResetPassword    Boolean   @default(false)
+  isTemporaryPassword  Boolean   @default(false)
+  setupTokenHash       String?
+  setupTokenExpiresAt  BigInt?
+  passwordLastSetAt    DateTime?
+  lastPasswordChangeAt DateTime?
+  displayName          String    @default("")
+  lastLoginAt          DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  org             Org?             @relation(fields: [orgId], references: [id])
+  sessions        Session[]
+  maintenanceLogs MaintenanceLog[]
+
+  @@index([email])
+  @@index([orgId])
+  @@index([role])
+}
+
+model Session {
+  id          String   @id
+  userId      String?
+  email       String
+  role        String
+  loginRole   String
+  orgId       String?
+  displayName String   @default("")
+  createdAt   DateTime @default(now())
+  expiresAt   DateTime
+
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([expiresAt])
+  @@index([userId])
+}
+
+// ─────────────────────────────────────────────
+// ORGANIZATIONS
+// ─────────────────────────────────────────────
+
+model Org {
+  id         String   @id @default(cuid())
+  name       String
+  status     String   @default("LEAD")
+  email      String?
+  phone      String?
+  address    String?
+  industry   String?
+  vehicleIds String[] @default([])
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  users           User[]
+  vehicles        Vehicle[]
+  drivers         Driver[]
+  pairings        Pairing[]
+  alerts          Alert[]
+  events          Event[]
+  notifications   Notification[]
+  leads           Lead[]
+  invites         Invite[]
+  billingSettings OrgBillingSettings?
+  paymentMethod   PaymentMethod?
+  tenantSettings  TenantSettings?
+  fleetAddon      FleetAddon?
+
+  @@index([status])
+}
+
+model TenantSettings {
+  id          String @id @default(cuid())
+  orgId       String @unique
+  companyName String @default("Fleet AI")
+  logoUrl     String @default("")
+  themeMode   String @default("blue")
+  accentColor String @default("")
+
+  org Org @relation(fields: [orgId], references: [id], onDelete: Cascade)
+}
+
+model OrgBillingSettings {
+  id                 String    @id @default(cuid())
+  orgId              String    @unique
+  plan               String    @default("PILOT_CORE")
+  priceMonthly       Decimal   @default(59) @db.Decimal(10, 2)
+  status             String    @default("NONE")
+  activatedAt        DateTime?
+  nextBillAt         DateTime?
+  vehicleCount       Int       @default(0)
+  contractTermMonths Int       @default(0)
+  notes              String    @default("")
+  updatedAt          DateTime  @updatedAt
+
+  org Org @relation(fields: [orgId], references: [id], onDelete: Cascade)
+}
+
+model PaymentMethod {
+  id           String   @id @default(cuid())
+  orgId        String   @unique
+  type         String   @default("CARD_STUB")
+  billingName  String   @default("")
+  billingEmail String   @default("")
+  last4        String   @default("")
+  expMonth     Int      @default(1)
+  expYear      Int      @default(2026)
+  brand        String   @default("")
+  postalCode   String   @default("")
+  accountType  String   @default("")
+  routingLast4 String   @default("")
+  accountLast4 String   @default("")
+  updatedAt    DateTime @updatedAt
+
+  org Org @relation(fields: [orgId], references: [id], onDelete: Cascade)
+}
+
+model FleetAddon {
+  id            String   @id @default(cuid())
+  orgId         String   @unique
+  enabledAddons Json     @default("{}")
+  trailerCount  Int      @default(0)
+  updatedAt     DateTime @updatedAt
+
+  org Org @relation(fields: [orgId], references: [id], onDelete: Cascade)
+}
+
+// ─────────────────────────────────────────────
+// FLEET
+// ─────────────────────────────────────────────
+
+model Vehicle {
+  id        String   @id @default(cuid())
+  vehicleId String   @unique
+  unitName  String
+  vin       String?
+  type      String?
+  orgId     String?
+  year      Int?
+  make      String?
+  model     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  org                Org?               @relation(fields: [orgId], references: [id])
+  telemetrySamples   TelemetrySample[]
+  telemetrySnapshots TelemetrySnapshot[]
+  telemetryRecords   TelemetryRecord[]
+  modelState         ModelState?
+  alerts             Alert[]
+  aiReports          AiReport[]
+  capability         VehicleCapability?
+  fuelEvents         FuelEvent[]
+  predictionRuns     MlPredictionRun[]
+  featureSnapshots   MlFeatureSnapshot[]
+  baselines          Baseline[]
+  trendSignals       TrendSignal[]
+  recommendations    Recommendation[]
+  maintenanceLogs    MaintenanceLog[]
+  workOrders         WorkOrder[]
+  events             Event[]
+  pairings           Pairing[]
+
+  @@index([orgId])
+}
+
+model Driver {
+  id         String   @id @default(cuid())
+  driverId   String   @unique
+  firstName  String?
+  lastName   String?
+  email      String?
+  phone      String?
+  pin        String?
+  orgId      String?
+  status     String   @default("active")
+  licenseNum String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  org      Org?      @relation(fields: [orgId], references: [id])
+  pairings Pairing[]
+
+  @@index([orgId])
+}
+
+model Pairing {
+  id        String    @id @default(cuid())
+  pairCode  String?
+  vehicleId String?
+  driverId  String?
+  deviceId  String?
+  orgId     String?
+  status    String    @default("pending")
+  expiresAt DateTime?
+  claimedAt DateTime?
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  vehicle Vehicle? @relation(fields: [vehicleId], references: [vehicleId])
+  driver  Driver?  @relation(fields: [driverId], references: [driverId])
+  org     Org?     @relation(fields: [orgId], references: [id])
+
+  @@index([vehicleId, status])
+  @@index([pairCode])
+  @@index([orgId])
+}
+
+// ─────────────────────────────────────────────
+// TELEMETRY
+// ─────────────────────────────────────────────
+
+model TelemetrySample {
+  id          String   @id @default(cuid())
+  orgId       String?
+  vehicleId   String
+  driverId    String?
+  ts          DateTime
+  odometer    Decimal? @db.Decimal(12, 3)
+  engineHours Decimal? @db.Decimal(10, 2)
+  metrics     Json
+  raw         Json     @default("{}")
+  createdAt   DateTime @default(now())
+
+  vehicle Vehicle @relation(fields: [vehicleId], references: [vehicleId])
+
+  @@index([vehicleId, ts])
+  @@index([orgId])
+  @@index([ts])
+}
+
+model TelemetrySnapshot {
+  id             String   @id @default(cuid())
+  orgId          String?
+  vehicleId      String
+  driverId       String?
+  deviceId       String?
+  ts             DateTime
+  odometerMiles  Decimal? @db.Decimal(12, 3)
+  engineHours    Decimal? @db.Decimal(10, 2)
+  dtcCodes       String[] @default([])
+  rawPids        Json     @default("{}")
+  derivedMetrics Json     @default("{}")
+  coolantTemp    Decimal? @db.Decimal(8, 3)
+  batteryVoltage Decimal? @db.Decimal(6, 3)
+  engineLoad     Decimal? @db.Decimal(6, 3)
+  maf            Decimal? @db.Decimal(8, 3)
+  rpm            Decimal? @db.Decimal(8, 2)
+  stft1          Decimal? @db.Decimal(6, 3)
+  ltft1          Decimal? @db.Decimal(6, 3)
+  intakeAirTemp  Decimal? @db.Decimal(8, 3)
+  speedKph       Decimal? @db.Decimal(7, 3)
+  fuelLevelPct   Decimal? @db.Decimal(6, 3)
+  sourceProtocol String   @default("UNKNOWN")
+  vin            String?
+  createdAt      DateTime @default(now())
+
+  vehicle Vehicle @relation(fields: [vehicleId], references: [vehicleId])
+
+  @@index([vehicleId, ts])
+  @@index([orgId])
+}
+
+model TelemetryRecord {
+  id              String   @id @default(cuid())
+  orgId           String?
+  vehicleId       String
+  timestamp       DateTime
+  protocol        String   @default("derived")
+  identifier      String
+  name            String?
+  rawValue        Decimal? @db.Decimal(14, 4)
+  normalizedValue Decimal? @db.Decimal(14, 4)
+  unit            String   @default("")
+  source          String   @default("ecu")
+  validity        String   @default("ok")
+  createdAt       DateTime @default(now())
+
+  vehicle Vehicle @relation(fields: [vehicleId], references: [vehicleId])
+
+  @@index([vehicleId, timestamp])
+  @@index([identifier])
+  @@index([orgId])
+}
+
+// ─────────────────────────────────────────────
+// ML
+// ─────────────────────────────────────────────
+
+model ModelState {
+  vehicleId String   @id
+  orgId     String?
+  state     Json
+  updatedAt DateTime @updatedAt
+
+  vehicle Vehicle @relation(fields: [vehicleId], references: [vehicleId])
+
+  @@index([orgId])
+}
+
+model MlModelArtifact {
+  id             String   @id @default(cuid())
+  modelVersion   String
+  trainingSource String?
+  modelName      String?
+  metadata       Json
+  artifactPath   String?
+  createdAt      DateTime @default(now())
+
+  @@index([modelVersion, createdAt])
+}
+
+model MlBaselineProfile {
+  profileKey     String   @id
+  vehicleClass   String?
+  make           String?
+  model          String?
+  protocol       String?
+  powertrain     String?
+  trainingSource String?
+  modelVersion   String?
+  profileJson    Json
+  updatedAt      DateTime @updatedAt
+
+  @@index([make, model, vehicleClass])
+}
+
+model MlPredictionRun {
+  id              String   @id @default(cuid())
+  orgId           String?
+  vehicleId       String
+  modelVersion    String?
+  source          String
+  confidenceStage String?
+  confidence      Decimal? @db.Decimal(6, 4)
+  riskProbability Decimal? @db.Decimal(6, 4)
+  healthScore     Decimal? @db.Decimal(6, 2)
+  predictionJson  Json
+  createdAt       DateTime @default(now())
+
+  vehicle Vehicle @relation(fields: [vehicleId], references: [vehicleId])
+
+  @@index([vehicleId, createdAt])
+  @@index([orgId, createdAt])
+}
+
+model MlFeatureSnapshot {
+  id              String   @id @default(cuid())
+  orgId           String?
+  vehicleId       String
+  predictionRunId String?
+  featureJson     Json
+  createdAt       DateTime @default(now())
+
+  vehicle Vehicle @relation(fields: [vehicleId], references: [vehicleId])
+
+  @@index([vehicleId, createdAt])
+}
+
+model Baseline {
+  id             String   @id @default(cuid())
+  orgId          String?
+  vehicleId      String
+  metricKey      String
+  windowDays     Int
+  mean           Decimal? @db.Decimal(14, 6)
+  stdDev         Decimal? @db.Decimal(14, 6)
+  min            Decimal? @db.Decimal(14, 6)
+  max            Decimal? @db.Decimal(14, 6)
+  p10            Decimal? @db.Decimal(14, 6)
+  p50            Decimal? @db.Decimal(14, 6)
+  p90            Decimal? @db.Decimal(14, 6)
+  sampleCount    Int      @default(0)
+  lastComputedAt DateTime @default(now())
+
+  vehicle Vehicle @relation(fields: [vehicleId], references: [vehicleId])
+
+  @@unique([vehicleId, metricKey, windowDays])
+  @@index([vehicleId])
+}
+
+model TrendSignal {
+  id        String   @id @default(cuid())
+  orgId     String?
+  vehicleId String
+  ruleId    String
+  status    String   @default("open")
+  severity  String?
+  metrics   Json     @default("{}")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  vehicle Vehicle @relation(fields: [vehicleId], references: [vehicleId])
+
+  @@index([vehicleId, ruleId, status])
+}
+
+model PartnerWebhook {
+  id        String   @id @default(cuid())
+  apiKeyId  String
+  partner   String
+  url       String
+  events    Json     @default("[]")
+  threshold Decimal  @default(0.35) @db.Decimal(4, 2)
+  active    Boolean  @default(true)
+  secret    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([apiKeyId])
+  @@index([partner, active])
+}
+
+model FeedbackLog {
+  id              String   @id @default(cuid())
+  orgId           String?
+  vehicleId       String
+  predictionRunId String?
+  outcome         String
+  notes           String?
+  stage1Score     Decimal? @db.Decimal(6, 4)
+  stage2Score     Decimal? @db.Decimal(6, 4)
+  signalAgreement Decimal? @db.Decimal(6, 4)
+  features        Json     @default("{}")
+  reviewedBy      String?
+  createdAt       DateTime @default(now())
+
+  @@index([vehicleId])
+  @@index([outcome])
+  @@index([createdAt])
+}
+
+model PatternSignature {
+  id              String   @id @default(cuid())
+  orgId           String?
+  vehicleId       String
+  maintenanceType String
+  preWindowDays   Int
+  metricKey       String
+  signature       Json
+  observedCount   Int      @default(1)
+  lastUpdatedAt   DateTime @updatedAt
+
+  @@unique([vehicleId, maintenanceType, metricKey, preWindowDays])
+  @@index([vehicleId])
+}
+
+model Recommendation {
+  id          String   @id @default(cuid())
+  orgId       String?
+  vehicleId   String
+  title       String
+  description String?
+  status      String   @default("open")
+  severity    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  vehicle Vehicle @relation(fields: [vehicleId], references: [vehicleId])
+
+  @@index([vehicleId, status])
+}
+
+// ─────────────────────────────────────────────
+// ALERTS / EVENTS / NOTIFICATIONS
+// ─────────────────────────────────────────────
+
+model Alert {
+  id                String    @id @default(cuid())
+  orgId             String?
+  vehicleId         String
+  type              String
+  severity          String
+  explanation       String?
+  recommendedChecks Json      @default("[]")
+  acknowledged      Boolean   @default(false)
+  resolved          Boolean   @default(false)
+  createdAt         DateTime  @default(now())
+  ackAt             DateTime?
+  resolvedAt        DateTime?
+
+  org     Org?    @relation(fields: [orgId], references: [id])
+  vehicle Vehicle @relation(fields: [vehicleId], references: [vehicleId])
+
+  @@index([vehicleId, createdAt])
+  @@index([orgId, createdAt])
+  @@index([resolved])
+}
+
+model Event {
+  id                 String    @id @default(cuid())
+  orgId              String?
+  vehicleId          String
+  type               String
+  severity           String
+  status             String    @default("open")
+  dedupeKey          String?
+  detectedAt         DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  lastNotifiedAt     DateTime?
+  metricsSnapshot    Json      @default("{}")
+  explanation        String    @default("")
+  recommendedActions Json      @default("[]")
+  explanationSource  String    @default("fallback")
+
+  org     Org?    @relation(fields: [orgId], references: [id])
+  vehicle Vehicle @relation(fields: [vehicleId], references: [vehicleId])
+
+  @@index([orgId, vehicleId])
+  @@index([dedupeKey, status])
+}
+
+model Notification {
+  id            String   @id @default(cuid())
+  orgId         String?
+  vehicleId     String?
+  eventId       String?
+  recipientType String?
+  recipientId   String?
+  title         String
+  body          String
+  severity      String?
+  status        String   @default("unread")
+  createdAt     DateTime @default(now())
+
+  org Org? @relation(fields: [orgId], references: [id])
+
+  @@index([orgId, status])
+  @@index([recipientId, status])
+}
+
+// ─────────────────────────────────────────────
+// VEHICLE CAPABILITIES & AI REPORTS
+// ─────────────────────────────────────────────
+
+model VehicleCapability {
+  vehicleId        String   @id
+  vin              String?
+  year             Int?
+  make             String?
+  modelYearStr     String?
+  supportedSensors Json     @default("[]")
+  addonEligible    Boolean  @default(false)
+  addonSensors     Json     @default("[]")
+  detectedAt       DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  vehicle Vehicle @relation(fields: [vehicleId], references: [vehicleId])
+}
+
+model AiReport {
+  id                 String   @id @default(cuid())
+  orgId              String?
+  vehicleId          String
+  narrative          String
+  predictionSnapshot Json
+  modelUsed          String?
+  createdAt          DateTime @default(now())
+
+  vehicle Vehicle @relation(fields: [vehicleId], references: [vehicleId])
+
+  @@index([vehicleId, createdAt])
+}
+
+// ─────────────────────────────────────────────
+// FUEL EVENTS
+// ─────────────────────────────────────────────
+
+model FuelEvent {
+  id               String    @id @default(cuid())
+  orgId            String?
+  vehicleId        String
+  tsStart          DateTime?
+  tsEnd            DateTime?
+  fuelLevelBefore  Decimal?  @db.Decimal(6, 2)
+  fuelLevelAfter   Decimal?  @db.Decimal(6, 2)
+  gallonsEstimated Decimal?  @db.Decimal(6, 2)
+  detectedBy       String    @default("AUTO")
+  confidence       Decimal?  @db.Decimal(4, 3)
+  note             String?
+  deltaFuelPct     Decimal?  @db.Decimal(6, 2)
+  status           String    @default("suggested")
+  createdAt        DateTime  @default(now())
+
+  vehicle Vehicle @relation(fields: [vehicleId], references: [vehicleId])
+
+  @@index([vehicleId])
+  @@index([orgId])
+}
+
+// ─────────────────────────────────────────────
+// MAINTENANCE
+// ─────────────────────────────────────────────
+
+model MaintenanceLog {
+  id              String    @id @default(cuid())
+  orgId           String?
+  vehicleId       String
+  performedById   String?
+  serviceType     String?
+  serviceCategory String?
+  maintenanceType String?
+  description     String?
+  performedAt     DateTime?
+  serviceDate     DateTime?
+  odometerMiles   Decimal?  @db.Decimal(10, 2)
+  engineHours     Decimal?  @db.Decimal(10, 2)
+  laborHours      Decimal?  @db.Decimal(6, 2)
+  laborCost       Decimal?  @db.Decimal(10, 2)
+  partsCost       Decimal?  @db.Decimal(10, 2)
+  totalCost       Decimal?  @db.Decimal(10, 2)
+  parts           Json      @default("[]")
+  technicianName  String?
+  shopName        String?
+  notes           String?
+  status          String    @default("completed")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  vehicle     Vehicle @relation(fields: [vehicleId], references: [vehicleId])
+  performedBy User?   @relation(fields: [performedById], references: [id])
+
+  @@index([vehicleId, performedAt])
+  @@index([orgId])
+}
+
+model WorkOrder {
+  id          String    @id @default(cuid())
+  orgId       String?
+  vehicleId   String
+  title       String
+  description String?
+  status      String    @default("open")
+  priority    String    @default("normal")
+  dueDate     DateTime?
+  closedAt    DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  vehicle   Vehicle         @relation(fields: [vehicleId], references: [vehicleId])
+  lineItems WorkOrderLine[]
+
+  @@index([vehicleId])
+  @@index([orgId, status])
+}
+
+model WorkOrderLine {
+  id          String   @id @default(cuid())
+  workOrderId String
+  description String
+  qty         Decimal? @db.Decimal(8, 2)
+  unitCost    Decimal? @db.Decimal(10, 2)
+  totalCost   Decimal? @db.Decimal(10, 2)
+  partNumber  String?
+  createdAt   DateTime @default(now())
+
+  workOrder WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+
+  @@index([workOrderId])
+}
+
+// ─────────────────────────────────────────────
+// LEADS / INVITES / AUDIT
+// ─────────────────────────────────────────────
+
+model Lead {
+  id           String   @id @default(cuid())
+  orgId        String?
+  name         String?
+  email        String?
+  phone        String?
+  company      String?
+  status       String   @default("NEW")
+  notes        String?
+  source       String?
+  vehicleCount Int?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  org Org? @relation(fields: [orgId], references: [id])
+
+  @@index([status])
+  @@index([orgId])
+}
+
+model Invite {
+  id         String    @id @default(cuid())
+  orgId      String?
+  email      String?
+  type       String    @default("CUSTOMER")
+  token      String    @unique
+  expiresAt  DateTime?
+  acceptedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  org Org? @relation(fields: [orgId], references: [id])
+
+  @@index([token])
+  @@index([orgId])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  orgId     String?
+  userId    String?
+  event     String
+  detail    String   @default("")
+  createdAt DateTime @default(now())
+
+  @@index([orgId])
+  @@index([createdAt])
+}
+
+// ─────────────────────────────────────────────
+// API KEYS — external partner access
+// ─────────────────────────────────────────────
+
+model ApiKey {
+  id          String    @id @default(cuid())
+  keyHash     String    @unique
+  partnerName String
+  orgId       String?
+  tier        String    @default("standard")
+  enabled     Boolean   @default(true)
+  lastUsedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([keyHash])
+  @@index([orgId])
+}

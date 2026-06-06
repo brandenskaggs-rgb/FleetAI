@@ -143,7 +143,7 @@ async function generateReport(prediction, vehicleMeta = {}) {
   }
 
   // Cooldown check
-  const existing = db.getLatestAiReport(prediction.vehicleId);
+  const existing = await db.getLatestAiReport(prediction.vehicleId);
   if (existing) {
     const ageMinutes = (Date.now() - new Date(existing.createdAt).getTime()) / 60000;
     if (ageMinutes < REPORT_COOLDOWN_MINUTES) {
@@ -160,7 +160,7 @@ async function generateReport(prediction, vehicleMeta = {}) {
     narrative = buildFallbackNarrative(prediction);
   }
 
-  const reportId = db.insertAiReport({
+  const reportId = await db.insertAiReport({
     orgId: prediction.orgId || null,
     vehicleId: prediction.vehicleId,
     narrative,

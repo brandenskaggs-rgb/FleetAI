@@ -1,17 +1,392 @@
 {
-  "rows": 5840,
-  "accuracy": 0.9979452054794521,
-  "precision": 0.9076923076923077,
-  "recall": 0.9076923076923077,
-  "f1": 0.9076923076923077,
-  "roc_auc": 0.99807659007659,
-  "confusion_matrix": {
-    "tn": 5769,
-    "fp": 6,
-    "fn": 6,
-    "tp": 59
+  "overall": {
+    "model_file": "C:\\Dev\\Fleet AI\\Fleet AI\\fleet_ai\\models\\fleet_ai_model.pkl",
+    "modelVersion": "physics-v4.1.0",
+    "trainingSource": "physics_calibrated_v4",
+    "features": [
+      "vehicle_class_code",
+      "protocol_code",
+      "make_code",
+      "powertrain_code",
+      "model_year",
+      "odometer_miles",
+      "engine_hours",
+      "drive_cycle_phase_code",
+      "time_since_start_min",
+      "rpm",
+      "engine_temp",
+      "oil_temp",
+      "transmission_temp",
+      "fuel_pressure",
+      "fuel_rate",
+      "battery_voltage",
+      "vibration",
+      "dpf_soot_load",
+      "brake_temp",
+      "tire_pressure",
+      "ambient_temp_c",
+      "elevation_ft",
+      "payload_ratio",
+      "road_grade_pct",
+      "idle_hours_day",
+      "stop_go_ratio",
+      "long_haul_ratio",
+      "towing_ratio",
+      "maintenance_neglect",
+      "sensor_missing_rate",
+      "engine_temp_delta_30d",
+      "fuel_pressure_delta_30d",
+      "battery_voltage_delta_30d",
+      "vibration_delta_30d",
+      "dpf_soot_delta_30d",
+      "brake_temp_delta_30d",
+      "egr_flow_rate",
+      "coolant_oil_delta",
+      "maf_throttle_ratio",
+      "intake_ambient_delta",
+      "dpf_differential_kpa",
+      "oil_pressure",
+      "fuel_trim_short",
+      "fuel_trim_long",
+      "idle_heat_soak",
+      "throttle_lag_score",
+      "turbo_boost_kpa",
+      "exhaust_back_pressure",
+      "engine_efficiency",
+      "rpm_variance_load_adj",
+      "coolant_temp_oscillation",
+      "air_density_kg_m3",
+      "aero_drag_kw",
+      "rolling_resistance_kw",
+      "road_load_kw",
+      "volumetric_efficiency_pct",
+      "bsfc_g_per_kwh",
+      "lambda_afr",
+      "egt_c",
+      "turbo_outlet_temp_c",
+      "scr_inlet_temp_c",
+      "def_consumption_rate_pct",
+      "thermal_lag",
+      "heat_soak_delta_c",
+      "egr_cooler_fouling",
+      "oil_viscosity_cst",
+      "oil_film_thickness_ratio",
+      "oil_tbn",
+      "bearing_wear_index",
+      "bearing_spall_stage",
+      "hub_temp_fl_c",
+      "hub_temp_fr_c",
+      "hub_temp_rl_c",
+      "hub_temp_rr_c",
+      "dpf_ash_pct",
+      "dpf_in_regen",
+      "battery_soh_pct",
+      "battery_soc_pct",
+      "alternator_deficit_w",
+      "cranking_voltage_v",
+      "sensor_coolant_error_c",
+      "sensor_maf_error_pct",
+      "sensor_o2_lag_ms",
+      "hubTempFL_accel_h24",
+      "hubTempFR_accel_h24",
+      "hubTempRL_accel_h24",
+      "hubTempRR_accel_h24",
+      "coolantTemp_accel_h24",
+      "oilTemp_accel_h24",
+      "batteryVoltage_accel_h24",
+      "dpfSootLoad_accel_h24",
+      "bearingFreqScore_accel_h24",
+      "turboBearingTemp_accel_h24"
+    ],
+    "featureCount": 93,
+    "rows": 450000,
+    "failure_rate": 0.084878,
+    "accuracy": 0.990101,
+    "precision": 0.932324,
+    "recall": 0.952517,
+    "f1": 0.942312,
+    "roc_auc": 0.998759,
+    "threshold": 0.8,
+    "thresholds": {
+      "balanced": 0.8,
+      "high_precision": 0.55,
+      "high_recall": 0.18,
+      "launch_default": 0.8
+    },
+    "rf_weight": 0.3,
+    "hgb_weight": 0.7,
+    "model_name": "mixed_fleet_rf_hgb_ensemble",
+    "vehicle_classes": [
+      "cargo_van",
+      "heavy_duty_j1939",
+      "light_duty_truck",
+      "medium_duty",
+      "passenger_car"
+    ],
+    "holdout": {
+      "rows": 5840,
+      "accuracy": 0.976884,
+      "precision": 0.983635,
+      "recall": 0.959261,
+      "f1": 0.971295,
+      "roc_auc": 0.998415,
+      "brier_score": 0.019827,
+      "note": "heavy_duty seed=777 out-of-sample holdout"
+    },
+    "featureImportance": [
+      {
+        "feature": "rpm",
+        "importance": 0.074743
+      },
+      {
+        "feature": "battery_voltage",
+        "importance": 0.071096
+      },
+      {
+        "feature": "hub_temp_fl_c",
+        "importance": 0.062892
+      },
+      {
+        "feature": "drive_cycle_phase_code",
+        "importance": 0.057177
+      },
+      {
+        "feature": "hub_temp_fr_c",
+        "importance": 0.055623
+      },
+      {
+        "feature": "hub_temp_rl_c",
+        "importance": 0.053123
+      },
+      {
+        "feature": "maf_throttle_ratio",
+        "importance": 0.05067
+      },
+      {
+        "feature": "hub_temp_rr_c",
+        "importance": 0.037238
+      },
+      {
+        "feature": "idle_hours_day",
+        "importance": 0.036206
+      },
+      {
+        "feature": "bearing_wear_index",
+        "importance": 0.029371
+      },
+      {
+        "feature": "battery_soc_pct",
+        "importance": 0.02828
+      },
+      {
+        "feature": "battery_voltage_delta_30d",
+        "importance": 0.026369
+      },
+      {
+        "feature": "aero_drag_kw",
+        "importance": 0.025822
+      },
+      {
+        "feature": "bsfc_g_per_kwh",
+        "importance": 0.022751
+      },
+      {
+        "feature": "idle_heat_soak",
+        "importance": 0.021798
+      },
+      {
+        "feature": "tire_pressure",
+        "importance": 0.020337
+      },
+      {
+        "feature": "alternator_deficit_w",
+        "importance": 0.018778
+      },
+      {
+        "feature": "bearingFreqScore_accel_h24",
+        "importance": 0.017561
+      },
+      {
+        "feature": "hubTempFR_accel_h24",
+        "importance": 0.01748
+      },
+      {
+        "feature": "hubTempRL_accel_h24",
+        "importance": 0.016064
+      },
+      {
+        "feature": "hubTempFL_accel_h24",
+        "importance": 0.015433
+      },
+      {
+        "feature": "rolling_resistance_kw",
+        "importance": 0.01443
+      },
+      {
+        "feature": "vehicle_class_code",
+        "importance": 0.012056
+      },
+      {
+        "feature": "egr_cooler_fouling",
+        "importance": 0.009898
+      },
+      {
+        "feature": "hubTempRR_accel_h24",
+        "importance": 0.009801
+      }
+    ],
+    "brier_score": 0.011142,
+    "physics_engine": "v4.1 \u2014 ISA/aero/BSFC/thermal/Walther/L10/DPF/Peukert/sensor-drift + isotonic calibration",
+    "calibrated": true,
+    "notes": "Physics-informed synthetic priors v4.1. Natural-balance training (8.5% real failure rate) + Platt isotonic calibration. Output probabilities match real-world fleet base rate. Bearing life from field-calibrated L10; DPF from sawtooth regen state machine; battery from Peukert + Arrhenius aging; oil from Walther viscosity equation."
   },
-  "predicted_positive_rate": 0.01113013698630137,
-  "actual_positive_rate": 0.01113013698630137,
-  "threshold": 0.7099999999999996
+  "holdout": {
+    "rows": 5840,
+    "accuracy": 0.976884,
+    "precision": 0.983635,
+    "recall": 0.959261,
+    "f1": 0.971295,
+    "roc_auc": 0.998415,
+    "brier_score": 0.019827,
+    "note": "heavy_duty seed=777 out-of-sample holdout"
+  },
+  "byVehicleClass": {
+    "heavy_duty_j1939": {
+      "rows": 31002,
+      "precision": 0.96377,
+      "recall": 0.969714,
+      "f1": 0.966733,
+      "failureRate": 0.235372
+    },
+    "medium_duty": {
+      "rows": 12365,
+      "precision": 0.795918,
+      "recall": 0.829787,
+      "f1": 0.8125,
+      "failureRate": 0.019005
+    },
+    "light_duty_truck": {
+      "rows": 24839,
+      "precision": 0.785016,
+      "recall": 0.814189,
+      "f1": 0.799337,
+      "failureRate": 0.011917
+    },
+    "cargo_van": {
+      "rows": 18434,
+      "precision": 0.628019,
+      "recall": 0.899654,
+      "f1": 0.739687,
+      "failureRate": 0.015678
+    },
+    "passenger_car": {
+      "rows": 12360,
+      "precision": 0.837545,
+      "recall": 0.811189,
+      "f1": 0.824156,
+      "failureRate": 0.023139
+    }
+  },
+  "featureImportance": [
+    {
+      "feature": "rpm",
+      "importance": 0.074743
+    },
+    {
+      "feature": "battery_voltage",
+      "importance": 0.071096
+    },
+    {
+      "feature": "hub_temp_fl_c",
+      "importance": 0.062892
+    },
+    {
+      "feature": "drive_cycle_phase_code",
+      "importance": 0.057177
+    },
+    {
+      "feature": "hub_temp_fr_c",
+      "importance": 0.055623
+    },
+    {
+      "feature": "hub_temp_rl_c",
+      "importance": 0.053123
+    },
+    {
+      "feature": "maf_throttle_ratio",
+      "importance": 0.05067
+    },
+    {
+      "feature": "hub_temp_rr_c",
+      "importance": 0.037238
+    },
+    {
+      "feature": "idle_hours_day",
+      "importance": 0.036206
+    },
+    {
+      "feature": "bearing_wear_index",
+      "importance": 0.029371
+    },
+    {
+      "feature": "battery_soc_pct",
+      "importance": 0.02828
+    },
+    {
+      "feature": "battery_voltage_delta_30d",
+      "importance": 0.026369
+    },
+    {
+      "feature": "aero_drag_kw",
+      "importance": 0.025822
+    },
+    {
+      "feature": "bsfc_g_per_kwh",
+      "importance": 0.022751
+    },
+    {
+      "feature": "idle_heat_soak",
+      "importance": 0.021798
+    },
+    {
+      "feature": "tire_pressure",
+      "importance": 0.020337
+    },
+    {
+      "feature": "alternator_deficit_w",
+      "importance": 0.018778
+    },
+    {
+      "feature": "bearingFreqScore_accel_h24",
+      "importance": 0.017561
+    },
+    {
+      "feature": "hubTempFR_accel_h24",
+      "importance": 0.01748
+    },
+    {
+      "feature": "hubTempRL_accel_h24",
+      "importance": 0.016064
+    },
+    {
+      "feature": "hubTempFL_accel_h24",
+      "importance": 0.015433
+    },
+    {
+      "feature": "rolling_resistance_kw",
+      "importance": 0.01443
+    },
+    {
+      "feature": "vehicle_class_code",
+      "importance": 0.012056
+    },
+    {
+      "feature": "egr_cooler_fouling",
+      "importance": 0.009898
+    },
+    {
+      "feature": "hubTempRR_accel_h24",
+      "importance": 0.009801
+    }
+  ]
 }

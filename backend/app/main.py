@@ -1,7 +1,10 @@
+from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 from math import sqrt
 from typing import Dict, List, Optional
+import logging
 import os
+import random
 import string
 
 from fastapi import FastAPI, HTTPException
@@ -13,10 +16,38 @@ from pathlib import Path
 
 from app.services.ai_explain import explain_alert
 from app.routes.insights import router as insights_router
+from app.routes.predict import router as predict_router
 from app.storage import store
-
+from app.db import pg as pg_db
+from app.ml.pretrained import load_pretrained
+from app.ml.stage2 import load_stage2, retrain_stage2_from_feedback
 
 load_dotenv()
+
+logger = logging.getLogger(__name__)
+
+
+async def _stage2_retrain_loop() -> None:
+    """Retrain Stage 2 from operator feedback every 7 days."""
+    import asyncio
+    SEVEN_DAYS = 7 * 24 * 3600
+    while True:
+        await asyncio.sleep(SEVEN_DAYS)
+        try:
+            await retrain_stage2_from_feedback(pg_db)
+        except Exception as exc:
+            logger.warning("[stage2] Scheduled retrain error: %s", exc)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    import asyncio
+    await pg_db.init_pool()
+    load_pretrained()   # non-blocking; logs warning if model file absent
+    load_stage2()       # non-blocking; no-op if stage2_model.pkl absent
+    asyncio.create_task(_stage2_retrain_loop())
+    yield
+    await pg_db.close_pool()
 
 
 def utc_now() -> str:
@@ -166,19 +197,30 @@ class AlertRecord(BaseModel):
     explanation: Optional[str] = None
 
 
-app = FastAPI()
+app = FastAPI(lifespan=lifespan)
 
 UI_DASHBOARD_PATH = Path(__file__).resolve().parents[2] / "ui" / "fleetai-dashboard.html"
 
+_CORS_ORIGINS = [
+    "http://127.0.0.1:5173",
+    "http://localhost:5173",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
+_extra_origin = os.getenv("CORS_ORIGIN")
+if _extra_origin:
+    _CORS_ORIGINS.append(_extra_origin)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://127.0.0.1:5173", "http://localhost:5173"],
+    allow_origins=_CORS_ORIGINS,
     allow_credentials=True,
-    allow_methods=["GET", "POST"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 
 app.include_router(insights_router)
+app.include_router(predict_router)
 
 
 

@@ -21,11 +21,7 @@ function registerSystemStatusRoutes(app, deps) {
   } = deps;
 
   app.get("/health", async (req, res) => {
-    res.status(200).json(await healthPayload(req));
-  });
-
-  app.get("/api/health", async (req, res) => {
-    res.status(200).json(await healthPayload(req));
+    res.status(200).json(await healthPayload());
   });
 
   app.get("/api/auth/health", async (req, res) => {
@@ -36,14 +32,9 @@ function registerSystemStatusRoutes(app, deps) {
       res.status(200).json({
         ok: true,
         usersLoaded: users.length,
-        authStorePath: DATA_PATH,
         lastLoadedAt: getDataLoadStatus().lastDataLoadAt,
         dataLoadStatus: getDataLoadStatus().dataLoadStatus,
-        dataLoadError: getDataLoadError(),
-        bootstrapAllowed,
-        emailExists: req.query?.email
-          ? users.some((u) => String(u.email || "").toLowerCase() === String(req.query.email || "").toLowerCase())
-          : undefined
+        bootstrapAllowed
       });
     } catch (err) {
       res.status(500).json({ ok: false, error: err.message || "auth_health_error" });

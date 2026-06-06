@@ -4,6 +4,7 @@ driver_app/.idea/
 driver_app/build/
 driver_app/app/build/
 
+server/data.json
 server/data.json.bak-*
 server/data.json.bad-*
 server/data.json.corrupt-*
@@ -37,3 +38,5 @@ fleet_ai/models/*.csv
 *.hprof.openclaw/
 server/fleet.db
 *.db
+
+/app/generated/prisma

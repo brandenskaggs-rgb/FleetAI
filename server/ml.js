@@ -4,6 +4,7 @@ const MIN_SAMPLES = 200;
 const EWMA_ALPHA = 0.18;
 const SEASONAL_MIN_SAMPLES = 40;
 const CLIMATE_WINDOW_DAYS = 30;
+const EWMA_TAU_HOURS = 2.0; // time constant for time-weighted EWMA
 
 const METRIC_KEYS = [
   "rpm",
@@ -94,11 +95,65 @@ function computeBaseline(values) {
   };
 }
 
+/**
+ * Time-weighted EWMA baseline. Accepts [{ts, value}] sorted oldest-first.
+ * α = 1 - exp(-Δt / τ) so burst sampling doesn't inflate the model.
+ */
+function computeTimeWeightedBaseline(timestampedValues) {
+  const valid = timestampedValues
+    .map((item) => ({ ts: new Date(item.ts).getTime(), v: toNumber(item.value) }))
+    .filter((item) => !Number.isNaN(item.ts) && item.v !== null);
+
+  if (!valid.length) {
+    return { count: 0, mean: null, std: null, min: null, max: null, slope: 0 };
+  }
+
+  let mean = null;
+  let variance = null;
+  let min = valid[0].v;
+  let max = valid[0].v;
+  const plainValues = [];
+
+  for (let i = 0; i < valid.length; i += 1) {
+    const { ts, v } = valid[i];
+    min = Math.min(min, v);
+    max = Math.max(max, v);
+    plainValues.push(v);
+
+    if (mean === null) {
+      mean = v;
+      variance = 0;
+      continue;
+    }
+    const prevTs = valid[i - 1].ts;
+    const dtHours = Math.max(0, (ts - prevTs) / 3_600_000);
+    const alpha = 1 - Math.exp(-dtHours / EWMA_TAU_HOURS);
+    const a = Math.max(0.01, Math.min(0.99, alpha)); // clamp so cold start is safe
+    mean = a * v + (1 - a) * mean;
+    const diff = v - mean;
+    variance = a * diff * diff + (1 - a) * variance;
+  }
+
+  const std = variance != null ? Math.sqrt(variance) : null;
+  return {
+    count: valid.length,
+    mean,
+    std,
+    min,
+    max,
+    slope: computeSlope(plainValues)
+  };
+}
+
 function computeBaselines(samples) {
   const baselines = {};
   METRIC_KEYS.forEach((key) => {
-    const values = samples.map((s) => toNumber(s.metrics?.[key])).filter((v) => v != null);
-    baselines[key] = computeBaseline(values);
+    const timestampedValues = samples
+      .map((s) => ({ ts: s.ts, value: s.metrics?.[key] }))
+      .filter((item) => item.ts && toNumber(item.value) !== null);
+    baselines[key] = timestampedValues.length >= 2
+      ? computeTimeWeightedBaseline(timestampedValues)
+      : computeBaseline(samples.map((s) => toNumber(s.metrics?.[key])).filter((v) => v != null));
   });
   return baselines;
 }
@@ -514,6 +569,87 @@ function detectFuelEventsFromSamples(data, vehicleId) {
   }
 }
 
+// ── Multivariate failure signatures ──────────────────────────────────────────
+// Each pattern checks co-occurring metric conditions in the latest sample.
+// Returns [{id, label, severity, confidence, metrics[], description}]
+const MULTIVARIATE_SIGNATURES = [
+  {
+    id: "cooling_cascade",
+    label: "Cooling Cascade Risk",
+    severity: "critical",
+    check(m) {
+      return (m.coolantTemp ?? 0) > 95
+        && (m.engineLoad ?? 0) > 75
+        && (m.rpm ?? 0) > 1800;
+    },
+    description: "High coolant temp combined with high engine load and RPM — potential cooling system failure cascade."
+  },
+  {
+    id: "charging_failure",
+    label: "Charging System Failure",
+    severity: "critical",
+    check(m) {
+      return (m.batteryVoltage ?? 99) < 12.4
+        && (m.rpm ?? 0) > 600;
+    },
+    description: "Low battery voltage at operating RPM — alternator or charging circuit likely failing."
+  },
+  {
+    id: "dpf_critical_stack",
+    label: "DPF Critical Accumulation",
+    severity: "warning",
+    check(m) {
+      return (m.dpfSootLoad ?? 0) > 80
+        && (m.fuelRate ?? 0) > 0
+        && (m.engineLoad ?? 0) > 60;
+    },
+    description: "Near-capacity DPF with active load — regen cycle may be blocked or ineffective."
+  },
+  {
+    id: "fuel_system_stress",
+    label: "Fuel System Stress",
+    severity: "warning",
+    check(m) {
+      return (m.fuelRate ?? 0) > 0
+        && (m.maf ?? 0) > 0
+        && (m.throttlePos ?? 0) > 85
+        && (m.intakeManifoldPressure ?? 0) > 210;
+    },
+    description: "High throttle, elevated MAP, and fuel rate divergence — possible injector or turbo issue."
+  },
+  {
+    id: "thermal_overload",
+    label: "Thermal Overload",
+    severity: "critical",
+    check(m) {
+      return (m.coolantTemp ?? 0) > 100
+        && (m.oilTemp ?? 0) > 120
+        && (m.engineLoad ?? 0) > 85;
+    },
+    description: "Both coolant and oil temps critical with maximum load — imminent thermal failure risk."
+  }
+];
+
+function detectMultivariateSignatures(latestMetrics) {
+  if (!latestMetrics) return [];
+  const triggered = [];
+  for (const sig of MULTIVARIATE_SIGNATURES) {
+    try {
+      if (sig.check(latestMetrics)) {
+        triggered.push({
+          id: sig.id,
+          label: sig.label,
+          severity: sig.severity,
+          description: sig.description
+        });
+      }
+    } catch (_) {
+      // guard against unexpected metric shapes
+    }
+  }
+  return triggered;
+}
+
 function generateAlertsFromState(state) {
   if (!state || state.insufficientHistory) return [];
   const alerts = [];
@@ -706,6 +842,7 @@ function computeFullPrediction(samples, vehicleId) {
     : null;
 
   const confidence = confidenceFrom(samples.length, coverage);
+  const signatures = detectMultivariateSignatures(latest.metrics);
 
   return {
     vehicleId,
@@ -721,6 +858,7 @@ function computeFullPrediction(samples, vehicleId) {
     climateContext,
     confidence,
     coverage,
+    signatures,
     currentMetrics: latest.metrics,
     updatedAt: new Date().toISOString()
   };
@@ -738,6 +876,8 @@ module.exports = {
   computeWeeksToFailure,
   computeSensorRiskScore,
   classifySensorTier,
+  computeTimeWeightedBaseline,
+  detectMultivariateSignatures,
   generateMaintenanceLabels,
   markPreEventWindow,
   detectFuelEventsFromSamples,

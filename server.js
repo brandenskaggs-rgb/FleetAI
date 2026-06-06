@@ -26,12 +26,24 @@ const { registerAuthRoutes } = require("./server/routes/authRoutes");
 const { registerFleetOpsRoutes } = require("./server/routes/fleetOpsRoutes");
 const { registerSolutionRoutes } = require("./server/routes/solutionRoutes");
 const { registerInternalMlApiRoutes } = require("./server/routes/internalMlApiRoutes");
+const { registerMlRoutes } = require("./server/routes/mlRoutes");
+const { registerPartnerRoutes } = require("./server/routes/partnerRoutes");
+const { registerFeedbackRoutes } = require("./server/routes/feedbackRoutes");
+const { registerAdminRoutes, normalizeOrgStatus, normalizeLeadStatus, defaultBilling, defaultBillingSettings, defaultPaymentMethod, defaultFeatures } = require("./server/routes/adminRoutes");
+const { registerOrgManagementRoutes } = require("./server/routes/orgManagementRoutes");
 const { startWatchdog } = require("./tools/watchdog");
 const { normalizeAuthData, loadAuthStore, saveAuthStore } = require("./server/authStore");
 const { createAuthService } = require("./server/auth/authService");
+const prismaAuthAdapter = require("./server/auth/prismaAuthAdapter");
 const { AUTH_ERRORS, formatAuthError } = require("./server/auth/authErrors");
 const { applyAuthStoreRepair } = require("./server/auth/repairAuthStore");
 const { resolveAuthStorePath } = require("./server/config/authStorePath");
+const { errorHandler } = require("./server/middleware/errorHandler");
+const { requestLogger } = require("./server/middleware/requestLogger");
+const { predictionLimiter, defaultLimiter } = require("./server/middleware/rateLimiter");
+const { requireApiKey, generateApiKey } = require("./server/middleware/apiKeyAuth");
+const { mergePythonAndNodePrediction, deriveSensorRisksFromPython } = require("./server/lib/mlMerge");
+const { validateBody, schemas } = require("./server/middleware/validate");
 
 /**
  * Fleet AI server entry and routing map (Step 0 audit)
@@ -110,14 +122,13 @@ const IS_PROD = process.env.NODE_ENV === "production";
 const SETUP_ALLOWED = !IS_PROD || (process.env.FLEETAI_ALLOW_SETUP || "").toLowerCase() === "true";
 const DEV_SETUP = (process.env.DEV_SETUP || "").toLowerCase() === "true";
 const DEV_SETUP_MODE = (process.env.DEV_SETUP_MODE || "").toLowerCase() === "true";
-try {
-  const syncResult = sqliteDb.syncMlArtifactsFromDisk(path.join(__dirname, "fleet_ai", "models"));
+sqliteDb.syncMlArtifactsFromDisk(path.join(__dirname, "fleet_ai", "models")).then((syncResult) => {
   if (syncResult.artifact || syncResult.profiles) {
     console.log(`[ml] synced artifacts=${syncResult.artifact ? 1 : 0} baselineProfiles=${syncResult.profiles}`);
   }
-} catch (err) {
+}).catch((err) => {
   console.warn(`[ml] artifact sync skipped: ${err.message}`);
-}
+});
 const DEV_SETUP_RESET_PASSWORDS = (process.env.DEV_SETUP_RESET_PASSWORDS || "").toLowerCase() === "true";
 const DEV_SETUP_PASSWORD = process.env.DEV_SETUP_PASSWORD || "FleetAI!12345";
 const AUTH_DEMO_WHITELIST = (process.env.AUTH_DEMO_WHITELIST || "")
@@ -132,7 +143,7 @@ const COOKIE_SECURE = process.env.COOKIE_SECURE === "true"
   || IS_PROD;
 const CORS_ALLOWED_ORIGINS = parseOriginList(process.env.CORS_ALLOWED_ORIGINS || "");
 const TRUST_PROXY = resolveTrustProxySetting(process.env.TRUST_PROXY, IS_PROD);
-const BOOTSTRAP_CUSTOMER_EMAIL = (process.env.FLEETAI_BOOTSTRAP_CUSTOMER_EMAIL || "brandenskaggs01@gmail.com").toLowerCase().trim();
+const BOOTSTRAP_CUSTOMER_EMAIL = (process.env.FLEETAI_BOOTSTRAP_CUSTOMER_EMAIL || "customer@fleetai.local").toLowerCase().trim();
 const BOOTSTRAP_CUSTOMER_ENABLED = !IS_PROD && (process.env.FLEETAI_BOOTSTRAP_CUSTOMER || "true").toLowerCase() !== "false";
 const SESSION_STORE_PATH = path.resolve(__dirname, "server", "sessions.json");
 const customerSessionStore = new Map();
@@ -259,8 +270,8 @@ function generateDevPassword() {
 function buildDemoUsers() {
   const specs = [
     { email: "admin@fleetai.local", role: "EMPLOYEE", kind: "employee", envKey: "ADMIN_PASSWORD" },
-    { email: "brandenwooley07@icloud.com", role: "SUPER_ADMIN", kind: "employee", envKey: "EMPLOYEE_PASSWORD" },
-    { email: "brandenskaggs01@gmail.com", role: "CUSTOMER", kind: "customer", orgId: "ORG_DEFAULT", envKey: "CUSTOMER_PASSWORD" }
+    { email: "superadmin@fleetai.local", role: "SUPER_ADMIN", kind: "employee", envKey: "EMPLOYEE_PASSWORD" },
+    { email: "customer@fleetai.local", role: "CUSTOMER", kind: "customer", orgId: "ORG_DEFAULT", envKey: "CUSTOMER_PASSWORD" }
   ];
   const generatedPasswords = {};
   const demoUsers = specs.map((spec) => {
@@ -309,8 +320,8 @@ function verifyAuthStoreOrExit() {
 }
 
 const authService = createAuthService({
-  loadData: readData,
-  saveData: writeData,
+  loadData: prismaAuthAdapter.loadData,
+  saveData: prismaAuthAdapter.saveData,
   issueSession,
   devSetupMode: DEV_SETUP_MODE && !IS_PROD,
   demoWhitelist: AUTH_DEMO_WHITELIST,
@@ -549,7 +560,7 @@ const corsOptions = {
   },
   credentials: true,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization", "X-FleetAI-Token"]
+  allowedHeaders: ["Content-Type", "Authorization", "X-FleetAI-Token", "X-API-Key"]
 };
 app.use(cors(corsOptions));
 app.options(/.*/, cors(corsOptions));
@@ -628,10 +639,41 @@ app.use((err, req, res, next) => {
   return next(err);
 });
 
+app.use(requestLogger);
+
+// ── Health check ──────────────────────────────────────────────────────────────
+app.get("/api/health", async (req, res) => {
+  const { getPrisma } = require("./server/db");
+  let dbStatus = "ok";
+  try {
+    await getPrisma().$queryRaw`SELECT 1`;
+  } catch {
+    dbStatus = "error";
+  }
+  const status = dbStatus === "ok" ? "ok" : "degraded";
+  return res.status(dbStatus === "ok" ? 200 : 503).json({
+    success: true,
+    data: {
+      status,
+      uptime: Math.floor(process.uptime()),
+      database: dbStatus,
+      timestamp: new Date().toISOString(),
+      version: APP_VERSION || "unknown"
+    },
+    timestamp: new Date().toISOString()
+  });
+});
+
 app.get("/", (req, res) => {
   res.set("Cache-Control", "no-cache, no-store, must-revalidate");
   res.set("Pragma", "no-cache");
   res.sendFile(path.join(SITE_ROOT, "index.html"));
+});
+
+app.get("/developers.html", (req, res) => {
+  res.set("Cache-Control", "no-cache, no-store, must-revalidate");
+  res.set("Pragma", "no-cache");
+  res.sendFile(path.join(SITE_ROOT, "developers.html"));
 });
 
 app.get("/privacy.html", (req, res) => {
@@ -755,7 +797,7 @@ async function healthPayload() {
     const role = String(u.role || "").toUpperCase();
     return role.startsWith("CUSTOMER") || role === "ORG_ADMIN" || role === "CUSTOMER_ADMIN";
   }).length;
-  const payload = {
+  return {
     ok: true,
     service: "fleet-ai",
     timestamp: new Date().toISOString(),
@@ -772,11 +814,6 @@ async function healthPayload() {
       customerUsers
     }
   };
-  const email = (typeof req === "object" && req.query && req.query.email) ? String(req.query.email || "").toLowerCase().trim() : null;
-  if (email) {
-    payload.auth.emailExists = users.some((u) => String(u.email || "").toLowerCase() === email);
-  }
-  return payload;
 }
 
 const SYSTEM_STATUS_ROUTE_MANIFEST = [
@@ -813,382 +850,11 @@ registerSystemStatusRoutes(app, {
   isExpired
 });
 
-// First-login password setter (token-based)
-app.post("/api/auth/set-password", async (req, res) => {
-  const token = (req.body?.token || "").trim();
-  const newPassword = (req.body?.newPassword || "").trim();
-  if (!token || !newPassword) {
-    return res.status(400).json(formatAuthError(AUTH_ERRORS.INVALID_CREDENTIALS, {
-      message: "token and newPassword are required"
-    }));
-  }
-  try {
-    const result = await authService.setPasswordWithToken(token, newPassword);
-    if (!result.ok) {
-      return res.status(result.error.status).json(formatAuthError(result.error));
-    }
-    const user = result.user;
-    const scope = authService.isCustomerRole(user) ? "customer" : "employee";
-    const session = issueSession(scope, user);
-    if (scope === "customer") {
-      setCustomerSessionCookie(res, session.id);
-    } else {
-      setSessionCookie(res, session.id);
-    }
-    firstLoginTokens.delete(token);
-    return res.status(200).json({
-      ok: true,
-      code: "OK",
-      message: "Password updated",
-      session: {
-        expiresAt: session.expiresAt,
-        user: { id: user.id, email: user.email, role: user.role, orgId: user.orgId || null }
-      },
-      user: { id: user.id, email: user.email, role: user.role, orgId: user.orgId || null }
-    });
-  } catch (err) {
-    return res.status(500).json(formatAuthError(AUTH_ERRORS.SERVER_MISCONFIG, {
-      message: err.message || "Failed to set password"
-    }));
-  }
-});
-
-app.post("/api/auth/admin/activate", async (req, res) => {
-  const providedKey = (req.headers["x-setup-key"] || req.body?.setupKey || "").trim();
-  if (!SETUP_ALLOWED || !SETUP_KEY || providedKey !== SETUP_KEY) {
-    return res.status(403).json({ ok: false, error: "setup_key_required" });
-  }
-  const email = (req.body?.email || "").trim().toLowerCase();
-  const orgId = (req.body?.orgId || "ORG_DEFAULT").trim();
-  const role = (req.body?.role || "admin").trim();
-  if (!email) {
-    return res.status(400).json({ ok: false, error: "email_required" });
-  }
-  try {
-    let data = await readData();
-    const user = (data.users || []).find((u) => String(u.email || "").toLowerCase() === email);
-    if (!user) {
-      return res.status(404).json({ ok: false, error: "user_not_found" });
-    }
-    user.isActive = true;
-    user.verified = true;
-    user.orgId = user.orgId || orgId;
-    user.role = role;
-    user.status = "ACTIVE";
-    user.mustSetPassword = true;
-    user.requirePasswordReset = true;
-    await writeData(data);
-    return res.json({ ok: true, userId: user.id, role: user.role, orgId: user.orgId });
-  } catch (err) {
-    return res.status(500).json({ ok: false, error: err.message || "activation_failed" });
-  }
-});
-
-app.post("/api/admin/users", async (req, res) => {
-  const providedKey = (req.headers["x-setup-key"] || req.body?.setupKey || "").trim();
-  if (!SETUP_ALLOWED || !SETUP_KEY || providedKey !== SETUP_KEY) {
-    return res.status(403).json({ ok: false, error: "setup_key_required" });
-  }
-  const email = (req.body?.email || "").trim().toLowerCase();
-  const role = (req.body?.role || "customer").trim();
-  const orgId = (req.body?.orgId || "ORG_DEFAULT").trim();
-  if (!email) return res.status(400).json({ ok: false, error: "email_required" });
-  try {
-    let data = await readData();
-    const exists = (data.users || []).find((u) => String(u.email || "").toLowerCase() === email);
-    if (exists) return res.status(409).json({ ok: false, error: "user_exists" });
-    const passwordHash = await bcrypt.hash(SETUP_KEY, 12);
-    const user = {
-      id: makeId("USR"),
-      email,
-      role,
-      orgId,
-      isActive: true,
-      verified: true,
-      createdAt: nowIso(),
-      lastLoginAt: null,
-      passwordHash,
-      mustSetPassword: true,
-      requirePasswordReset: true
-    };
-    data.users = Array.isArray(data.users) ? data.users : [];
-    data.users.push(user);
-    await writeData(data);
-    return res.json({ ok: true, userId: user.id, orgId: user.orgId, role: user.role });
-  } catch (err) {
-    return res.status(500).json({ ok: false, error: err.message || "create_user_failed" });
-  }
-});
-
-app.get("/api/health", (req, res) => {
-  req.url = "/health";
-  app.handle(req, res);
-});
-
-// ── ML Prediction + AI Report routes ──────────────────────────────────────
-
-function deriveSensorRisksFromPython(py) {
-  const risks = {};
-  const riskProbability = Number(py?.riskProbability);
-  if (Number.isFinite(riskProbability)) {
-    const base = Math.round(Math.max(0, Math.min(1, riskProbability)) * 100);
-    risks.modelPrior = base;
-  }
-  (py?.topFeatures || []).forEach((feature) => {
-    const z = Number(feature.zScore || 0);
-    risks[feature.metric] = Math.max(risks[feature.metric] || 0, Math.round(Math.min(100, z * 18)));
-  });
-  return risks;
-}
-
-function mergePythonAndNodePrediction(jsPrediction, pythonPrediction, context = {}) {
-  const py = pythonPrediction && pythonPrediction.ok !== false ? pythonPrediction : null;
-  if (!py) {
-    return Object.assign({}, jsPrediction, {
-      orgId: jsPrediction.orgId || context.orgId || null,
-      vehicleId: context.vehicleId || jsPrediction.vehicleId,
-      predictionSource: "node_fallback",
-      mlServiceAvailable: false,
-      mlServiceError: context.pythonError || null,
-      confidenceStage: jsPrediction.insufficientData || jsPrediction.insufficientHistory ? "calibrating" : "vehicle_specific",
-      trainingSource: "vehicle_telemetry_fallback",
-      modelVersion: "node-ewma-v1"
-    });
-  }
-  const riskProbability = Number(py.riskProbability);
-  const riskPct = Number.isFinite(riskProbability) ? Math.round(riskProbability * 100) : null;
-  const healthScore = jsPrediction.healthScore != null
-    ? jsPrediction.healthScore
-    : riskPct != null ? Math.max(0, Math.round(100 - riskPct * 0.72)) : null;
-  const topContributors = Array.isArray(jsPrediction.topContributors) && jsPrediction.topContributors.length
-    ? jsPrediction.topContributors
-    : (py.topFeatures || []).map((feature) => ({
-      metric: feature.metric,
-      value: feature.value,
-      zScore: feature.zScore,
-      reason: feature.reason || `${feature.metric} compared against pretrained prior.`
-    }));
-  return Object.assign({}, jsPrediction, {
-    orgId: jsPrediction.orgId || py.orgId || context.orgId || null,
-    vehicleId: context.vehicleId || jsPrediction.vehicleId || py.vehicleId,
-    insufficientData: false,
-    insufficientHistory: false,
-    predictionSource: "python_ml_service",
-    mlServiceAvailable: true,
-    riskProbability: Number.isFinite(riskProbability) ? riskProbability : null,
-    prediction: py.prediction,
-    anomalyScore: jsPrediction.anomalyScore != null ? jsPrediction.anomalyScore : riskPct,
-    healthScore,
-    confidence: py.confidence != null ? py.confidence : jsPrediction.confidence,
-    confidenceStage: py.confidenceStage || "pretrained_prior",
-    trainingSource: py.trainingSource || "synthetic_prior",
-    modelVersion: py.modelVersion || "python-ml",
-    baselineProfile: py.baselineProfile || null,
-    dataQuality: py.dataQuality || null,
-    topContributors,
-    sensorRisks: Object.keys(jsPrediction.sensorRisks || {}).length ? jsPrediction.sensorRisks : deriveSensorRisksFromPython(py),
-    featureVector: py.featureVector || null,
-    subsystemPriors: py.subsystemPriors || null,
-    advisoryLanguage: "Best available risk probability using pretrained synthetic priors calibrated by live vehicle telemetry."
-  });
-}
-
-app.get("/api/ml/service/status", requireEmployeeOrCustomerApi, async (req, res) => {
-  try {
-    const status = await pythonMlClient.status();
-    return res.json({ ok: true, data: status });
-  } catch (err) {
-    return res.json({
-      ok: true,
-      data: {
-        modelLoaded: false,
-        serviceAvailable: false,
-        error: err.message || "python_ml_unavailable",
-        fallback: "node-ewma-v1"
-      }
-    });
-  }
-});
-
-app.get("/api/ml/state", requireEmployeeOrCustomerApi, async (req, res) => {
-  try {
-    const states = sqliteDb.getAllModelStates();
-    const orgId = req.customer?.orgId || null;
-    const filtered = orgId ? states.filter((state) => !state.orgId || state.orgId === orgId) : states;
-    return res.json({ ok: true, data: filtered });
-  } catch (err) {
-    return res.status(500).json({ ok: false, error: err.message });
-  }
-});
-
-app.get("/api/ml/alerts", requireEmployeeOrCustomerApi, async (req, res) => {
-  try {
-    const orgId = req.customer?.orgId || req.query.orgId || "ORG_DEFAULT";
-    const alerts = sqliteDb.getAlertsForOrg(orgId, { limit: 100, unresolvedOnly: req.query.unresolved === "true" });
-    return res.json({ ok: true, data: alerts });
-  } catch (err) {
-    return res.status(500).json({ ok: false, error: err.message });
-  }
-});
-
-app.post("/api/ml/recompute", requireEmployeeOrCustomerApi, async (req, res) => {
-  try {
-    const vehicleId = sanitizeString(req.body?.vehicleId || req.query.vehicleId, 120);
-    if (!vehicleId) return res.status(400).json({ ok: false, error: "vehicleId required" });
-    const data = await readData();
-    const orgId = resolveOrgIdForVehicle(data, vehicleId);
-    if (req.customer && req.customer.orgId && req.customer.orgId !== orgId) {
-      return res.status(403).json({ ok: false, error: "cross_org_vehicle_denied" });
-    }
-    const samples = sqliteDb.getSamplesForVehicle(vehicleId, { limit: 5000 });
-    const jsPrediction = ml.computeFullPrediction(samples, vehicleId);
-    const caps = sqliteDb.getVehicleCapabilities(vehicleId) || {};
-    let pythonPrediction = null;
-    let pythonError = null;
-    try {
-      pythonPrediction = await pythonMlClient.predict({ orgId, vehicleId, vehicleMeta: Object.assign({}, caps, { vehicleId }), samples });
-    } catch (err) {
-      pythonError = err.message || "python_ml_unavailable";
-    }
-    const prediction = mergePythonAndNodePrediction(jsPrediction, pythonPrediction, { orgId, vehicleId, pythonError });
-    sqliteDb.upsertModelState(prediction);
-    const runId = sqliteDb.insertMlPredictionRun({
-      orgId,
-      vehicleId,
-      modelVersion: prediction.modelVersion || "node-fallback",
-      source: prediction.predictionSource || "node_fallback",
-      confidenceStage: prediction.confidenceStage || null,
-      confidence: prediction.confidence,
-      riskProbability: prediction.riskProbability,
-      healthScore: prediction.healthScore,
-      prediction
-    });
-    if (prediction.featureVector) {
-      sqliteDb.insertMlFeatureSnapshot({ orgId, vehicleId, predictionRunId: runId, features: prediction.featureVector });
-    }
-    return res.json({ ok: true, data: prediction });
-  } catch (err) {
-    return res.status(500).json({ ok: false, error: err.message });
-  }
-});
-
-app.get("/api/vehicles/:vehicleId/prediction", requireEmployeeOrCustomerApi, async (req, res) => {
-  try {
-    const { vehicleId } = req.params;
-    const data = await readData();
-    const orgId = resolveOrgIdForVehicle(data, vehicleId);
-    if (req.customer && req.customer.orgId && req.customer.orgId !== orgId) {
-      return res.status(403).json({ ok: false, error: "cross_org_vehicle_denied" });
-    }
-    const samples = sqliteDb.getSamplesForVehicle(vehicleId, { limit: 5000 });
-    const jsPrediction = ml.computeFullPrediction(samples, vehicleId);
-    const caps = sqliteDb.getVehicleCapabilities(vehicleId) || {};
-    let pythonPrediction = null;
-    let pythonError = null;
-    try {
-      pythonPrediction = await pythonMlClient.predict({
-        orgId,
-        vehicleId,
-        vehicleMeta: Object.assign({}, caps, { vehicleId }),
-        samples,
-        alertMode: req.query.alertMode || "launch_default"
-      });
-    } catch (err) {
-      pythonError = err.message || "python_ml_unavailable";
-    }
-    const prediction = mergePythonAndNodePrediction(jsPrediction, pythonPrediction, {
-      orgId,
-      vehicleId,
-      pythonError
-    });
-    sqliteDb.upsertModelState(prediction);
-    const runId = sqliteDb.insertMlPredictionRun({
-      orgId,
-      vehicleId,
-      modelVersion: prediction.modelVersion || "node-fallback",
-      source: prediction.predictionSource || "node_fallback",
-      confidenceStage: prediction.confidenceStage || null,
-      confidence: prediction.confidence,
-      riskProbability: prediction.riskProbability,
-      healthScore: prediction.healthScore,
-      prediction
-    });
-    if (prediction.featureVector) {
-      sqliteDb.insertMlFeatureSnapshot({
-        orgId,
-        vehicleId,
-        predictionRunId: runId,
-        features: prediction.featureVector
-      });
-    }
-    return res.json({ ok: true, data: prediction });
-  } catch (err) {
-    return res.status(500).json({ ok: false, error: err.message });
-  }
-});
-
-app.get("/api/vehicles/:vehicleId/report", async (req, res) => {
-  try {
-    const { vehicleId } = req.params;
-    const report = sqliteDb.getLatestAiReport(vehicleId);
-    if (!report) return res.status(404).json({ ok: false, error: "No report found" });
-    return res.json({ ok: true, data: report });
-  } catch (err) {
-    return res.status(500).json({ ok: false, error: err.message });
-  }
-});
-
-app.post("/api/vehicles/:vehicleId/report/generate", async (req, res) => {
-  try {
-    const { vehicleId } = req.params;
-    const samples = sqliteDb.getSamplesForVehicle(vehicleId, { limit: 5000 });
-    const prediction = ml.computeFullPrediction(samples, vehicleId);
-    sqliteDb.upsertModelState(prediction);
-    const caps = sqliteDb.getVehicleCapabilities(vehicleId);
-    const report = await aiReportSvc.generateReport(prediction, caps || {});
-    return res.json({ ok: true, data: report });
-  } catch (err) {
-    return res.status(500).json({ ok: false, error: err.message });
-  }
-});
-
-app.get("/api/vehicles/:vehicleId/capabilities", async (req, res) => {
-  try {
-    const { vehicleId } = req.params;
-    const caps = sqliteDb.getVehicleCapabilities(vehicleId);
-    return res.json({ ok: true, data: caps || null });
-  } catch (err) {
-    return res.status(500).json({ ok: false, error: err.message });
-  }
-});
-
-app.get("/api/vehicles/:vehicleId/alerts", async (req, res) => {
-  try {
-    const { vehicleId } = req.params;
-    const unresolved = req.query.unresolved === "true";
-    const alerts = sqliteDb.getAlertsForVehicle(vehicleId, { limit: 50, unresolvedOnly: unresolved });
-    return res.json({ ok: true, data: alerts });
-  } catch (err) {
-    return res.status(500).json({ ok: false, error: err.message });
-  }
-});
-
-app.post("/api/alerts/:alertId/ack", async (req, res) => {
-  try {
-    sqliteDb.ackAlert(req.params.alertId);
-    return res.json({ ok: true });
-  } catch (err) {
-    return res.status(500).json({ ok: false, error: err.message });
-  }
-});
-
-app.post("/api/alerts/:alertId/resolve", async (req, res) => {
-  try {
-    sqliteDb.resolveAlert(req.params.alertId);
-    return res.json({ ok: true });
-  } catch (err) {
-    return res.status(500).json({ ok: false, error: err.message });
-  }
+// ── ML Prediction + AI Report routes (see server/routes/mlRoutes.js) ──────
+registerMlRoutes(app, {
+  requireEmployeeOrCustomerApi: (req, res, next) => requireEmployeeOrCustomerApi(req, res, next),
+  readData,
+  resolveOrgIdForVehicle
 });
 const PAIRING_ROUTE_MANIFEST = [
   "/api/pairings/health",
@@ -1298,7 +964,20 @@ registerInternalMlApiRoutes(app, {
   sanitizeString
 });
 
-app.post("/api/telemetry/snapshot", (req, res) => {
+registerPartnerRoutes(app, {
+  ml,
+  pythonMlClient,
+  sqliteDb,
+  nowIso,
+  sanitizeString,
+  requireSuperAdmin: (req, res, next) => requireSuperAdmin(req, res, next)
+});
+
+registerFeedbackRoutes(app, {
+  requireAuth: requireEmployeeOrCustomerApi,
+});
+
+app.post("/api/telemetry/snapshot", validateBody(schemas.telemetrySnapshot), (req, res) => {
   (async () => {
     const payload = req.body || {};
     const vehicleId = sanitizeString(payload.vehicleId || "", 80);
@@ -1977,6 +1656,10 @@ function nowIso() {
   return new Date().toISOString();
 }
 
+function makeId(prefix) {
+  return `${prefix}_${crypto.randomBytes(6).toString("hex")}`;
+}
+
 function sanitizeString(value, max = 500) {
   if (!value) return "";
   const clean = String(value).replace(/[<>]/g, "").trim();
@@ -1987,30 +1670,6 @@ function normalizeEmail(value) {
   const email = sanitizeString(value, 200).toLowerCase();
   if (!email) return "";
   return /^[^@]+@[^@]+\.[^@]+$/.test(email) ? email : "";
-}
-
-function normalizeOrgStatus(value) {
-  const raw = String(value || "").toUpperCase();
-  const allowed = ["LEAD", "PILOT", "ACTIVE", "PAUSED", "CHURNED", "DELETED"];
-  if (allowed.includes(raw)) return raw;
-  if (raw === "DEMO") return "LEAD";
-  return "LEAD";
-}
-
-function normalizeLeadStatus(value) {
-  const raw = String(value || "").toUpperCase();
-  const map = {
-    NEW: "NEW",
-    CONTACTED: "CONTACTED",
-    QUALIFIED: "SCHEDULED",
-    SCHEDULED: "SCHEDULED",
-    CONVERTED: "CONVERTED",
-    CLOSED: "CLOSED",
-    LOST: "CLOSED",
-    LEAD: "NEW",
-    WON: "CONVERTED"
-  };
-  return map[raw] || "NEW";
 }
 
 function parseNumberField(value, fallback = null) {
@@ -2724,8 +2383,10 @@ function storeNormalizedSnapshot(data, normalized, extra) {
   try {
     const sample = ml.buildTelemetrySample(normalized, extra);
     if (sample.vehicleId) {
-      // Persist to SQLite (primary store for ML pipeline)
-      sqliteDb.insertTelemetrySample(sample);
+      // Persist to PostgreSQL (primary store for ML pipeline) — fire-and-forget, best-effort
+      sqliteDb.insertTelemetrySample(sample).catch((err) => {
+        console.warn("[TEL] insertTelemetrySample failed:", err.message);
+      });
       // Also keep in-memory array for legacy pipeline compatibility
       ml.appendTelemetrySample(data, sample, TELEMETRY_RETENTION_LIMIT);
       ml.detectFuelEventsFromSamples(data, sample.vehicleId);
@@ -3389,14 +3050,14 @@ async function runTelemetryPipeline() {
       }
     }
 
-    // ML full-prediction pipeline — runs per-vehicle via SQLite samples
+    // ML full-prediction pipeline — runs per-vehicle via PostgreSQL samples
     for (const vehicleId of vehicles) {
       try {
-        const samples = sqliteDb.getSamplesForVehicle(vehicleId, { limit: 5000 });
+        const samples = await sqliteDb.getSamplesForVehicle(vehicleId, { limit: 5000 });
         if (!samples.length) continue;
         const prediction = ml.computeFullPrediction(samples, vehicleId);
-        sqliteDb.upsertModelState(prediction);
-        // Generate threshold-based alerts and persist to SQLite
+        await sqliteDb.upsertModelState(prediction);
+        // Generate threshold-based alerts and persist
         const oldState = {
           vehicleId,
           orgId: prediction.orgId || resolveOrgIdForVehicle(data, vehicleId),
@@ -3407,9 +3068,9 @@ async function runTelemetryPipeline() {
           insufficientHistory: prediction.insufficientData
         };
         const mlAlerts = ml.generateAlertsFromState(oldState);
-        mlAlerts.forEach((alert) => {
-          try { sqliteDb.insertAlert(alert); } catch (_) { /* dedup via INSERT OR IGNORE */ }
-        });
+        for (const alert of mlAlerts) {
+          try { await sqliteDb.insertAlert(alert); } catch (_) { /* dedup via upsert ignore */ }
+        }
       } catch (err) {
         console.warn(`[ML-PIPELINE] vehicle ${vehicleId}:`, err.message);
       }
@@ -3613,1386 +3274,26 @@ function startTelemetryScheduler() {
 }
 
 
-app.get("/api/admin/setup/status", async (req, res, next) => {
-  try {
-    const data = await readData();
-    const hasSuperAdmin = hasSuperAdminCached(data);
-    const enabled = SETUP_ALLOWED && !hasSuperAdmin && Boolean(SETUP_KEY);
-    const reason = hasSuperAdmin
-      ? "Setup already completed"
-      : !SETUP_ALLOWED
-        ? "Setup disabled in production"
-        : SETUP_KEY
-          ? "Setup available"
-          : "Setup key not configured on server";
-    res.json({ enabled, hasSuperAdmin, reason });
-  } catch (err) {
-    next(err);
-  }
+// ── Admin routes (setup, adminRouter, API key mgmt) — see server/routes/adminRoutes.js ──
+registerAdminRoutes(app, {
+  readData,
+  writeData,
+  requireSuperAdmin: (req, res, next) => requireSuperAdmin(req, res, next),
+  hasSuperAdminCached,
+  getRateState,
+  SETUP_KEY,
+  SETUP_ALLOWED,
+  DEFAULT_SETTINGS: DEFAULT_DATA.settings
 });
 
-app.get("/api/setup/status", (req, res) => {
-  // Alias for compatibility
-  req.url = "/api/admin/setup/status";
-  app.handle(req, res);
-});
-
-async function handleCreateSuperAdmin(req, res, next) {
-  const ipKey = req.ip || req.socket.remoteAddress || "local";
-  const rate = getRateState(ipKey);
-  if (!rate.allowed) {
-    return res.status(429).json({ error: "Too many attempts. Try again later." });
-  }
-  const { setupKey, email, password } = req.body || {};
-  console.log(`[admin-setup] attempt for ${email || "unknown"}`);
-  if (!SETUP_KEY) {
-    return res.status(503).json({ error: "Setup key not configured on server" });
-  }
-  if (!setupKey || setupKey !== SETUP_KEY) {
-    console.warn(`[admin-setup] invalid setup key for ${email || "unknown"}`);
-    return res.status(401).json({ error: "Invalid setup key" });
-  }
-  if (!SETUP_ALLOWED) {
-    return res.status(403).json({ error: "Setup is disabled in production." });
-  }
-  if (!email || !/^[^@]+@[^@]+\.[^@]+$/.test(email)) {
-    console.warn(`[admin-setup] invalid email ${email || "unknown"}`);
-    return res.status(400).json({ error: "Email must be a valid address." });
-  }
-  if (!password || password.length < 10) {
-    console.warn(`[admin-setup] weak password for ${email}`);
-    return res.status(400).json({ error: "Password must be at least 10 characters." });
-  }
-  try {
-    const data = await readData();
-    const hasSuperAdmin = hasSuperAdminCached(data);
-    if (hasSuperAdmin) {
-      return res.status(409).json({ error: "Setup already completed" });
-    }
-    const exists = (data.users || []).some((u) => u.email === email.toLowerCase());
-    if (exists) {
-      return res.status(409).json({ error: "User already exists." });
-    }
-    const passwordHash = await bcrypt.hash(password, 12);
-    const user = {
-      id: `EMP_${Date.now()}`,
-      email: email.toLowerCase(),
-      role: "SUPER_ADMIN",
-      orgId: null,
-      isActive: true,
-      passwordHash,
-      createdAt: new Date().toISOString(),
-      lastLoginAt: null
-    };
-    data.users = data.users || [];
-    data.audit = data.audit || [];
-    data.users.push(user);
-    data.audit.push({
-      event: "SUPER_ADMIN_CREATED",
-      email: user.email,
-      ts: new Date().toISOString()
-    });
-    await writeData(data);
-    console.log(`[admin-setup] super admin created for ${user.email}`);
-    res.status(201).json({ ok: true });
-  } catch (err) {
-    next(err);
-  }
-}
-
-app.post("/api/admin/setup", handleCreateSuperAdmin);
-app.post("/api/setup/create-super-admin", handleCreateSuperAdmin);
-
-function makeId(prefix) {
-  return `${prefix}_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
-}
-
-function defaultBilling(orgId, data) {
-  const price = data.settings?.defaultPilotPrice ?? 59;
-  return {
-    orgId,
-    plan: "PILOT",
-    pricePerVehicle: price,
-    vehicleCount: 0,
-    mrrEstimate: 0,
-    contractTermMonths: 0,
-    billingStatus: "NOT_BILLING",
-    updatedAt: nowIso()
-  };
-}
-
-function defaultBillingSettings(data) {
-  const price = data.settings?.defaultPilotPrice ?? 59;
-  return {
-    plan: "PILOT_CORE",
-    priceMonthly: price,
-    status: "NONE",
-    activatedAt: null,
-    nextBillAt: null,
-    vehicleCount: 0,
-    contractTermMonths: 0,
-    notes: ""
-  };
-}
-
-function defaultPaymentMethod() {
-  return {
-    type: "CARD_STUB",
-    billingName: "",
-    billingEmail: "",
-    last4: "",
-    expMonth: 1,
-    expYear: new Date().getFullYear(),
-    brand: "",
-    postalCode: "",
-    accountType: "",
-    routingLast4: "",
-    accountLast4: "",
-    updatedAt: null
-  };
-}
-
-function defaultFeatures(orgId) {
-  return {
-    orgId,
-    aiAdvisor: true,
-    safetyPack: false,
-    safetyScorePack: false,
-    compliancePack: false,
-    cameraIntegration: false,
-    advancedDiagnostics: false,
-    updatedAt: nowIso()
-  };
-}
-
-const adminRouter = express.Router();
-adminRouter.use(requireSuperAdmin);
-
-adminRouter.get("/me", (req, res) => {
-  res.json({ ok: true, user: req.employee });
-});
-
-adminRouter.get("/overview", async (req, res, next) => {
-  try {
-    const data = await readData();
-    const orgs = data.orgs || [];
-    const users = data.users || [];
-    const leads = data.leads || [];
-    const billing = data.billing || {};
-    const activeOrgs = orgs.filter((o) => o.status === "ACTIVE").length;
-    const activePilots = orgs.filter((o) => o.status === "PILOT").length;
-    const activeVehicles = (data.vehicles || []).length;
-    const mrr = Object.values(billing).reduce((sum, b) => sum + (b.mrrEstimate || 0), 0);
-    const leadsByStage = leads.reduce((acc, l) => {
-      acc[l.stage] = (acc[l.stage] || 0) + 1;
-      return acc;
-    }, {});
-    res.json({
-      ok: true,
-      data: {
-        totalOrgs: orgs.length,
-        activeOrgs,
-        activePilots,
-        activeVehicles,
-        totalUsers: users.length,
-        mrrEstimate: mrr,
-        leadsByStage
-      }
-    });
-  } catch (err) {
-    next(err);
-  }
-});
-
-adminRouter.get("/orgs", async (req, res, next) => {
-  try {
-    const data = await readData();
-    res.json({ ok: true, data: data.orgs || [] });
-  } catch (err) {
-    next(err);
-  }
-});
-
-adminRouter.post("/orgs", async (req, res, next) => {
-  const { name, industry, fleetSize, status, notes, primaryContactName, primaryContactEmail, phone, billingPlan, activeVehicles } = req.body || {};
-  if (!name) {
-    return res.status(400).json({ error: "Org name required" });
-  }
-  try {
-    const data = await readData();
-    const org = {
-      id: makeId("ORG"),
-      name,
-      status: normalizeOrgStatus(status || "LEAD"),
-      industry: industry || "",
-      fleetSize: Number.isFinite(fleetSize) ? fleetSize : 0,
-      activeVehicles: Number.isFinite(activeVehicles) ? activeVehicles : 0,
-      primaryContactName: primaryContactName || "",
-      primaryContactEmail: primaryContactEmail || "",
-      phone: phone || "",
-      billingPlan: billingPlan || "PILOT_CORE",
-      createdAt: nowIso(),
-      updatedAt: nowIso(),
-      notes: notes || ""
-    };
-    data.orgs.push(org);
-    data.billing = data.billing || {};
-    data.featureFlags = data.featureFlags || {};
-    data.billing[org.id] = defaultBilling(org.id, data);
-    data.featureFlags[org.id] = defaultFeatures(org.id);
-    addAudit(data, "ORG_CREATED", `${org.id}:${org.name}`);
-    await writeData(data);
-    res.json({ ok: true, data: org });
-  } catch (err) {
-    next(err);
-  }
-});
-
-adminRouter.get("/orgs/:id", async (req, res, next) => {
-  try {
-    const data = await readData();
-    const org = (data.orgs || []).find((o) => o.id === req.params.id);
-    if (!org) return res.status(404).json({ error: "Org not found" });
-    const billing = (data.billing || {})[org.id] || defaultBilling(org.id, data);
-    const features = (data.featureFlags || {})[org.id] || defaultFeatures(org.id);
-    const invites = (data.invites || []).filter((i) => i.orgId === org.id);
-    res.json({ ok: true, data: { org, billing, features, invites } });
-  } catch (err) {
-    next(err);
-  }
-});
-
-adminRouter.put("/orgs/:id", async (req, res, next) => {
-  try {
-    const data = await readData();
-    const org = (data.orgs || []).find((o) => o.id === req.params.id);
-    if (!org) return res.status(404).json({ error: "Org not found" });
-    const { name, industry, fleetSize, notes } = req.body || {};
-    if (name !== undefined) org.name = name;
-    if (industry !== undefined) org.industry = industry;
-    if (fleetSize !== undefined) org.fleetSize = Number(fleetSize) || 0;
-    if (notes !== undefined) org.notes = notes;
-    org.updatedAt = nowIso();
-    addAudit(data, "ORG_UPDATED", org.id);
-    await writeData(data);
-    res.json({ ok: true, data: org });
-  } catch (err) {
-    next(err);
-  }
-});
-
-adminRouter.put("/orgs/:id/status", async (req, res, next) => {
-  const { status } = req.body || {};
-  if (!status) return res.status(400).json({ error: "status required" });
-  try {
-    const data = await readData();
-    const org = (data.orgs || []).find((o) => o.id === req.params.id);
-    if (!org) return res.status(404).json({ error: "Org not found" });
-    org.status = normalizeOrgStatus(status);
-    org.updatedAt = nowIso();
-    addAudit(data, "ORG_STATUS_UPDATED", `${org.id}:${status}`);
-    await writeData(data);
-    res.json({ ok: true, data: org });
-  } catch (err) {
-    next(err);
-  }
-});
-
-adminRouter.get("/users", async (req, res, next) => {
-  try {
-    const data = await readData();
-    res.json({ ok: true, data: data.users || [] });
-  } catch (err) {
-    next(err);
-  }
-});
-
-adminRouter.post("/users", async (req, res, next) => {
-  const { email, role, orgId, password } = req.body || {};
-  if (!email || !role) return res.status(400).json({ error: "email and role required" });
-  try {
-    const data = await readData();
-    const exists = (data.users || []).some((u) => u.email === email.toLowerCase());
-    if (exists) return res.status(409).json({ error: "User already exists" });
-    const passwordHash = password ? await bcrypt.hash(password, 12) : "";
-    const user = {
-      id: makeId("USR"),
-      email: email.toLowerCase(),
-      role,
-      orgId: orgId || null,
-      isActive: true,
-      createdAt: nowIso(),
-      lastLoginAt: null,
-      passwordHash
-    };
-    data.users.push(user);
-    addAudit(data, "USER_CREATED", `${user.id}:${user.email}`);
-    await writeData(data);
-    res.json({ ok: true, data: user });
-  } catch (err) {
-    next(err);
-  }
-});
-
-adminRouter.put("/users/:id", async (req, res, next) => {
-  try {
-    const data = await readData();
-    const user = (data.users || []).find((u) => u.id === req.params.id);
-    if (!user) return res.status(404).json({ error: "User not found" });
-    const { email, orgId, isActive } = req.body || {};
-    if (email !== undefined) user.email = email.toLowerCase();
-    if (orgId !== undefined) user.orgId = orgId || null;
-    if (isActive !== undefined) user.isActive = Boolean(isActive);
-    addAudit(data, "USER_UPDATED", user.id);
-    await writeData(data);
-    res.json({ ok: true, data: user });
-  } catch (err) {
-    next(err);
-  }
-});
-
-adminRouter.put("/users/:id/role", async (req, res, next) => {
-  const { role } = req.body || {};
-  if (!role) return res.status(400).json({ error: "role required" });
-  try {
-    const data = await readData();
-    const user = (data.users || []).find((u) => u.id === req.params.id);
-    if (!user) return res.status(404).json({ error: "User not found" });
-    user.role = role;
-    addAudit(data, "USER_ROLE_UPDATED", user.id);
-    await writeData(data);
-    res.json({ ok: true, data: user });
-  } catch (err) {
-    next(err);
-  }
-});
-
-adminRouter.put("/users/:id/disable", async (req, res, next) => {
-  try {
-    const data = await readData();
-    const user = (data.users || []).find((u) => u.id === req.params.id);
-    if (!user) return res.status(404).json({ error: "User not found" });
-    user.isActive = false;
-    addAudit(data, "USER_DISABLED", user.id);
-    await writeData(data);
-    res.json({ ok: true, data: user });
-  } catch (err) {
-    next(err);
-  }
-});
-
-adminRouter.get("/invites", async (req, res, next) => {
-  try {
-    const data = await readData();
-    res.json({ ok: true, data: data.invites || [] });
-  } catch (err) {
-    next(err);
-  }
-});
-
-adminRouter.post("/invites", async (req, res, next) => {
-  const { orgId, type } = req.body || {};
-  if (!orgId || !type) return res.status(400).json({ error: "orgId and type required" });
-  try {
-    const data = await readData();
-    const token = crypto.randomBytes(16).toString("hex");
-    const hours = data.settings?.inviteExpiryHours || 72;
-    const invite = {
-      id: makeId("INV"),
-      orgId,
-      type,
-      token,
-      expiresAt: new Date(Date.now() + hours * 3600000).toISOString(),
-      createdAt: nowIso(),
-      createdBy: req.employee?.email || "system"
-    };
-    data.invites = data.invites || [];
-    data.invites.push(invite);
-    addAudit(data, "INVITE_CREATED", invite.id);
-    await writeData(data);
-    res.json({ ok: true, data: invite });
-  } catch (err) {
-    next(err);
-  }
-});
-
-adminRouter.delete("/invites/:id", async (req, res, next) => {
-  try {
-    const data = await readData();
-    const before = data.invites || [];
-    data.invites = before.filter((i) => i.id !== req.params.id);
-    addAudit(data, "INVITE_REVOKED", req.params.id);
-    await writeData(data);
-    res.json({ ok: true });
-  } catch (err) {
-    next(err);
-  }
-});
-
-adminRouter.get("/billing/:orgId", async (req, res, next) => {
-  try {
-    const data = await readData();
-    data.billing = data.billing || {};
-    const billing = data.billing[req.params.orgId] || defaultBilling(req.params.orgId, data);
-    res.json({ ok: true, data: billing });
-  } catch (err) {
-    next(err);
-  }
-});
-
-adminRouter.put("/billing/:orgId", async (req, res, next) => {
-  try {
-    const data = await readData();
-    data.billing = data.billing || {};
-    const current = data.billing[req.params.orgId] || defaultBilling(req.params.orgId, data);
-    const updates = req.body || {};
-    const nextBilling = Object.assign({}, current, updates, { updatedAt: nowIso() });
-    nextBilling.mrrEstimate = (nextBilling.pricePerVehicle || 0) * (nextBilling.vehicleCount || 0);
-    data.billing[req.params.orgId] = nextBilling;
-    addAudit(data, "BILLING_UPDATED", req.params.orgId);
-    await writeData(data);
-    res.json({ ok: true, data: nextBilling });
-  } catch (err) {
-    next(err);
-  }
-});
-
-adminRouter.get("/features/:orgId", async (req, res, next) => {
-  try {
-    const data = await readData();
-    data.featureFlags = data.featureFlags || {};
-    const features = data.featureFlags[req.params.orgId] || defaultFeatures(req.params.orgId);
-    res.json({ ok: true, data: features });
-  } catch (err) {
-    next(err);
-  }
-});
-
-adminRouter.put("/features/:orgId", async (req, res, next) => {
-  try {
-    const data = await readData();
-    data.featureFlags = data.featureFlags || {};
-    const current = data.featureFlags[req.params.orgId] || defaultFeatures(req.params.orgId);
-    const updates = req.body || {};
-    const nextFeatures = Object.assign({}, current, updates, { updatedAt: nowIso() });
-    data.featureFlags[req.params.orgId] = nextFeatures;
-    addAudit(data, "FEATURES_UPDATED", req.params.orgId);
-    await writeData(data);
-    res.json({ ok: true, data: nextFeatures });
-  } catch (err) {
-    next(err);
-  }
-});
-
-adminRouter.get("/leads", async (req, res, next) => {
-  try {
-    const data = await readData();
-    res.json({ ok: true, data: data.leads || [] });
-  } catch (err) {
-    next(err);
-  }
-});
-
-adminRouter.post("/leads", async (req, res, next) => {
-  const { companyName, contactName, contactEmail, contactPhone, stage, demoDate, notes, status } = req.body || {};
-  if (!companyName) return res.status(400).json({ error: "companyName required" });
-  try {
-    const data = await readData();
-    const leadId = makeId("LEAD");
-    const lead = {
-      id: leadId,
-      leadId,
-      companyName,
-      contactName: contactName || "",
-      contactEmail: contactEmail || "",
-      contactPhone: contactPhone || "",
-      stage: stage || "LEAD",
-      status: normalizeLeadStatus(status || stage || "NEW"),
-      demoDate: demoDate || null,
-      notes: notes || "",
-      createdAt: nowIso(),
-      updatedAt: nowIso()
-    };
-    data.leads = data.leads || [];
-    data.leads.push(lead);
-    addAudit(data, "LEAD_CREATED", lead.id);
-    await writeData(data);
-    res.json({ ok: true, data: lead });
-  } catch (err) {
-    next(err);
-  }
-});
-
-adminRouter.put("/leads/:id", async (req, res, next) => {
-  try {
-    const data = await readData();
-    const lead = (data.leads || []).find((l) => l.id === req.params.id);
-    if (!lead) return res.status(404).json({ error: "Lead not found" });
-    const updates = req.body || {};
-    Object.assign(lead, updates);
-    if (updates.status) {
-      lead.status = normalizeLeadStatus(updates.status);
-      lead.stage = lead.status;
-    }
-    lead.updatedAt = nowIso();
-    addAudit(data, "LEAD_UPDATED", lead.id);
-    await writeData(data);
-    res.json({ ok: true, data: lead });
-  } catch (err) {
-    next(err);
-  }
-});
-
-adminRouter.post("/leads/:id/convert-to-org", async (req, res, next) => {
-  try {
-    const data = await readData();
-    const lead = (data.leads || []).find((l) => l.id === req.params.id);
-    if (!lead) return res.status(404).json({ error: "Lead not found" });
-    const org = {
-      id: makeId("ORG"),
-      name: lead.companyName,
-      status: "PILOT",
-      industry: "",
-      fleetSize: 0,
-      createdAt: nowIso(),
-      updatedAt: nowIso(),
-      notes: lead.notes || ""
-    };
-    data.orgs.push(org);
-    data.billing = data.billing || {};
-    data.featureFlags = data.featureFlags || {};
-    data.billing[org.id] = defaultBilling(org.id, data);
-    data.featureFlags[org.id] = defaultFeatures(org.id);
-    lead.stage = "CONVERTED";
-    lead.status = "CONVERTED";
-    lead.orgId = org.id;
-    lead.updatedAt = nowIso();
-    addAudit(data, "ORG_CREATED", `${org.id}:${org.name}`);
-    addAudit(data, "LEAD_CONVERTED_TO_ORG", `${lead.id}:${org.id}`);
-    await writeData(data);
-    res.json({ ok: true, data: { lead, org } });
-  } catch (err) {
-    next(err);
-  }
-});
-
-adminRouter.get("/audit", async (req, res, next) => {
-  try {
-    const data = await readData();
-    res.json({ ok: true, data: (data.audit || []).slice(0, 100) });
-  } catch (err) {
-    next(err);
-  }
-});
-
-adminRouter.get("/settings", async (req, res, next) => {
-  try {
-    const data = await readData();
-    res.json({ ok: true, data: data.settings || DEFAULT_DATA.settings });
-  } catch (err) {
-    next(err);
-  }
-});
-
-adminRouter.put("/settings", async (req, res, next) => {
-  try {
-    const data = await readData();
-    data.settings = Object.assign({}, data.settings || {}, req.body || {});
-    addAudit(data, "SETTINGS_UPDATED", "settings");
-    await writeData(data);
-    res.json({ ok: true, data: data.settings });
-  } catch (err) {
-    next(err);
-  }
-});
-
-app.use("/api/admin", adminRouter);
-
-app.get("/api/leads/public-status", (req, res) => {
-  res.json({ ok: true });
-});
-
-async function handleCreateLead(req, res, next, leadTypeOverride, sourceOverride) {
-  const ipKey = req.ip || req.socket.remoteAddress || "local";
-  const rate = getRateState(`lead:${ipKey}`);
-  if (!rate.allowed) {
-    return res.status(429).json({ error: "Too many requests. Try again later." });
-  }
-  const raw = req.body || {};
-  const companyName = sanitizeString(raw.companyName, 200);
-  const contactName = sanitizeString(raw.contactName, 200);
-  const contactEmail = normalizeEmail(raw.email || raw.contactEmail);
-  const contactPhone = sanitizeString(raw.phone || raw.contactPhone, 80);
-  const fleetSize = sanitizeString(raw.fleetSize, 50);
-  const message = sanitizeString(raw.message, 1200);
-  const leadTypeRaw = String(leadTypeOverride || raw.leadType || "DEMO").toUpperCase();
-  const sourcePage = sanitizeString(sourceOverride || raw.sourcePage, 120);
-  if (!companyName || !contactName || !contactEmail) {
-    return res.status(400).json({ error: "companyName, contactName, and email are required." });
-  }
-  try {
-    const data = await readData();
-    const leadId = makeId("LEAD");
-    const lead = {
-      id: leadId,
-      leadId,
-      companyName,
-      contactName,
-      contactEmail,
-      contactPhone,
-      fleetSize,
-      message,
-      leadType: leadTypeRaw === "PILOT" ? "PILOT" : "DEMO",
-      sourcePage: sourcePage || "web",
-      status: "NEW",
-      orgId: null,
-      internalNotes: "",
-      createdAt: nowIso(),
-      updatedAt: nowIso()
-    };
-    data.leads = data.leads || [];
-    data.leads.unshift(lead);
-    addAudit(data, "LEAD_CREATED", leadId);
-    await writeData(data);
-    res.status(201).json({ ok: true, data: lead });
-  } catch (err) {
-    next(err);
-  }
-}
-
-app.post("/api/leads", (req, res, next) => handleCreateLead(req, res, next));
-app.post("/api/leads/request-demo", (req, res, next) => handleCreateLead(req, res, next, "DEMO", "request-demo"));
-app.post("/api/leads/pilot-apply", (req, res, next) => handleCreateLead(req, res, next, "PILOT", "pilot"));
-app.post("/api/leads/apply-pilot", (req, res, next) => handleCreateLead(req, res, next, "PILOT", "pilot"));
-
-app.get("/api/overview", requireEmployeeApi, async (req, res, next) => {
-  try {
-    const data = await readData();
-    const orgs = data.orgs || [];
-    const leads = data.leads || [];
-    const activeOrgs = orgs.filter((o) => normalizeOrgStatus(o.status) === "ACTIVE").length;
-    const activeVehicles = orgs.reduce((sum, o) => {
-      const count = Number(o.activeVehicles ?? o.fleetSizeEstimate ?? 0);
-      return sum + (Number.isFinite(count) ? count : 0);
-    }, 0);
-    const mrr = orgs.reduce((sum, o) => {
-      const status = normalizeOrgStatus(o.status);
-      const plan = String(o.billingPlan || "PILOT_CORE").toUpperCase();
-      if (status !== "ACTIVE" || plan !== "PILOT_CORE") return sum;
-      const count = Number(o.activeVehicles ?? o.fleetSizeEstimate ?? 0);
-      const vehicles = Number.isFinite(count) ? count : 0;
-      return sum + vehicles * 59;
-    }, 0);
-    const leadsByStatus = leads.reduce((acc, l) => {
-      const status = normalizeLeadStatus(l.status || l.stage);
-      acc[status] = (acc[status] || 0) + 1;
-      return acc;
-    }, {});
-    const openLeadStatuses = new Set(["NEW", "CONTACTED", "SCHEDULED", "QUALIFIED"]);
-    const openLeads = leads.filter((l) => openLeadStatuses.has(normalizeLeadStatus(l.status || l.stage))).length;
-    const recentAlerts = (data.alerts || []).slice(0, 6);
-    res.json({
-      ok: true,
-      data: {
-        totalOrgs: orgs.length,
-        activeOrgs,
-        activeVehicles,
-        mrrEstimate: mrr,
-        leadsByStatus,
-        openLeads,
-        recentAlerts
-      }
-    });
-  } catch (err) {
-    next(err);
-  }
-});
-
-app.get("/api/audit", requireEmployeeApi, async (req, res, next) => {
-  try {
-    const data = await readData();
-    res.json({ ok: true, data: (data.audit || []).slice(0, 100) });
-  } catch (err) {
-    next(err);
-  }
-});
-
-app.get("/api/orgs", requireEmployeeApi, async (req, res, next) => {
-  try {
-    const data = await readData();
-    const includeDeleted = req.query.includeDeleted === "1" || req.query.includeDeleted === "true";
-    const orgs = (data.orgs || [])
-      .filter((org) => {
-        if (includeDeleted) return true;
-        return String(org.status || "").toUpperCase() !== "DELETED" && !org.deletedAt;
-      })
-      .map((org) => {
-      const orgId = org.orgId || org.id || makeId("ORG");
-      return Object.assign({}, org, {
-        id: org.id || orgId,
-        orgId,
-        status: normalizeOrgStatus(org.status || "LEAD"),
-        billingPlan: org.billingPlan || "PILOT_CORE",
-        activeVehicles: Number.isFinite(Number(org.activeVehicles)) ? Number(org.activeVehicles) : 0,
-        fleetSizeEstimate: Number.isFinite(Number(org.fleetSizeEstimate)) ? Number(org.fleetSizeEstimate) : 0
-      });
-    });
-    orgs.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
-    res.json({ ok: true, data: orgs });
-  } catch (err) {
-    next(err);
-  }
-});
-
-app.post("/api/orgs", requireEmployeeApi, requireRole(["SUPER_ADMIN"]), async (req, res, next) => {
-  const raw = req.body || {};
-  const name = sanitizeString(raw.name, 200);
-  const primaryContactName = sanitizeString(raw.primaryContactName, 200);
-  const primaryContactEmail = normalizeEmail(raw.primaryContactEmail);
-  if (!name) return res.status(400).json({ error: "name required" });
-  if (!primaryContactName || !primaryContactEmail) {
-    return res.status(400).json({ error: "primaryContactName and primaryContactEmail required" });
-  }
-  try {
-    const data = await readData();
-    const orgId = makeId("ORG");
-    const org = {
-      id: orgId,
-      orgId,
-      name,
-      status: normalizeOrgStatus(raw.status),
-      primaryContactName,
-      primaryContactEmail,
-      phone: sanitizeString(raw.phone, 80),
-      fleetSizeEstimate: Number.isFinite(Number(raw.fleetSizeEstimate)) ? Number(raw.fleetSizeEstimate) : 0,
-      activeVehicles: Number.isFinite(Number(raw.activeVehicles)) ? Number(raw.activeVehicles) : 0,
-      billingPlan: sanitizeString(raw.billingPlan, 80) || "PILOT_CORE",
-      notes: sanitizeString(raw.notes, 1200),
-      createdAt: nowIso(),
-      updatedAt: nowIso()
-    };
-    data.orgs = data.orgs || [];
-    data.orgs.push(org);
-    addAudit(data, "ORG_CREATED", `${orgId}:${org.name}`);
-    await writeData(data);
-    res.status(201).json({ ok: true, data: org });
-  } catch (err) {
-    next(err);
-  }
-});
-
-app.get("/api/orgs/:orgId", requireEmployeeApi, async (req, res, next) => {
-  try {
-    const data = await readData();
-    const org = (data.orgs || []).find((o) => (o.orgId || o.id) === req.params.orgId || o.id === req.params.orgId);
-    if (!org) return res.status(404).json({ error: "Org not found" });
-    const orgId = org.orgId || org.id;
-    res.json({
-      ok: true,
-      data: Object.assign({}, org, {
-        id: org.id || orgId,
-        orgId,
-        status: normalizeOrgStatus(org.status),
-        billingPlan: org.billingPlan || "PILOT_CORE",
-        activeVehicles: Number.isFinite(Number(org.activeVehicles)) ? Number(org.activeVehicles) : 0,
-        fleetSizeEstimate: Number.isFinite(Number(org.fleetSizeEstimate)) ? Number(org.fleetSizeEstimate) : 0
-      })
-    });
-  } catch (err) {
-    next(err);
-  }
-});
-
-app.patch("/api/orgs/:orgId", requireEmployeeApi, requireRole(["SUPER_ADMIN"]), async (req, res, next) => {
-  try {
-    const data = await readData();
-    const org = (data.orgs || []).find((o) => (o.orgId || o.id) === req.params.orgId || o.id === req.params.orgId);
-    if (!org) return res.status(404).json({ error: "Org not found" });
-    const raw = req.body || {};
-    if (raw.name !== undefined) org.name = sanitizeString(raw.name, 200);
-    if (raw.status !== undefined) org.status = normalizeOrgStatus(raw.status);
-    if (raw.primaryContactName !== undefined) org.primaryContactName = sanitizeString(raw.primaryContactName, 200);
-    if (raw.primaryContactEmail !== undefined) org.primaryContactEmail = normalizeEmail(raw.primaryContactEmail);
-    if (raw.phone !== undefined) org.phone = sanitizeString(raw.phone, 80);
-    if (raw.fleetSizeEstimate !== undefined) {
-      org.fleetSizeEstimate = Number.isFinite(Number(raw.fleetSizeEstimate)) ? Number(raw.fleetSizeEstimate) : 0;
-    }
-    if (raw.activeVehicles !== undefined) {
-      org.activeVehicles = Number.isFinite(Number(raw.activeVehicles)) ? Number(raw.activeVehicles) : 0;
-    }
-    if (raw.billingPlan !== undefined) org.billingPlan = sanitizeString(raw.billingPlan, 80);
-    if (raw.billingContactName !== undefined) org.billingContactName = sanitizeString(raw.billingContactName, 200);
-    if (raw.billingEmail !== undefined) org.billingEmail = normalizeEmail(raw.billingEmail);
-    if (raw.paymentMethodType !== undefined) org.paymentMethodType = sanitizeString(raw.paymentMethodType, 20);
-    if (raw.last4 !== undefined) org.last4 = sanitizeString(raw.last4, 4);
-    if (raw.accountLast4 !== undefined) org.accountLast4 = sanitizeString(raw.accountLast4, 4);
-    if (raw.billingExpMonth !== undefined) org.billingExpMonth = sanitizeString(raw.billingExpMonth, 2);
-    if (raw.billingExpYear !== undefined) org.billingExpYear = sanitizeString(raw.billingExpYear, 4);
-    if (raw.billingUpdatedAt !== undefined) org.billingUpdatedAt = sanitizeString(raw.billingUpdatedAt, 64);
-    if (raw.notes !== undefined) org.notes = sanitizeString(raw.notes, 1200);
-    org.updatedAt = nowIso();
-    addAudit(data, "ORG_UPDATED", org.orgId || org.id || "unknown");
-    await writeData(data);
-    res.json({ ok: true, data: org });
-  } catch (err) {
-    next(err);
-  }
-});
-
-app.delete("/api/orgs/:orgId", requireEmployeeApi, requireRole(["SUPER_ADMIN"]), async (req, res, next) => {
-  try {
-    const data = await readData();
-    const org = (data.orgs || []).find((o) => (o.orgId || o.id) === req.params.orgId || o.id === req.params.orgId);
-    if (!org) return res.status(404).json({ error: "Org not found" });
-    if (String(org.status || "").toUpperCase() === "DELETED") {
-      return res.json({ ok: true, data: org });
-    }
-    org.status = "DELETED";
-    org.deletedAt = nowIso();
-    org.deletedBy = req.employee?.userId || req.employee?.email || "system";
-    org.updatedAt = nowIso();
-    addAudit(data, "ORG_DELETED", `${org.orgId || org.id}:${org.deletedBy}`);
-    await writeData(data);
-    res.json({ ok: true, data: org });
-  } catch (err) {
-    next(err);
-  }
-});
-
-app.post("/api/orgs/:orgId/restore", requireEmployeeApi, requireRole(["SUPER_ADMIN"]), async (req, res, next) => {
-  try {
-    const data = await readData();
-    const org = (data.orgs || []).find((o) => (o.orgId || o.id) === req.params.orgId || o.id === req.params.orgId);
-    if (!org) return res.status(404).json({ error: "Org not found" });
-    org.status = "ACTIVE";
-    org.deletedAt = null;
-    org.deletedBy = null;
-    org.updatedAt = nowIso();
-    addAudit(data, "ORG_RESTORED", `${org.orgId || org.id}`);
-    await writeData(data);
-    res.json({ ok: true, data: org });
-  } catch (err) {
-    next(err);
-  }
-});
-
-app.get("/api/leads", requireEmployeeApi, async (req, res, next) => {
-  try {
-    const data = await readData();
-    const leads = (data.leads || []).map((lead) => {
-      const leadId = lead.leadId || lead.id;
-      return Object.assign({}, lead, {
-        id: lead.id || leadId,
-        leadId,
-        status: normalizeLeadStatus(lead.status || lead.stage)
-      });
-    });
-    leads.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
-    res.json({ ok: true, data: leads });
-  } catch (err) {
-    next(err);
-  }
-});
-
-app.get("/api/leads/:leadId", requireEmployeeApi, async (req, res, next) => {
-  try {
-    const data = await readData();
-    const lead = (data.leads || []).find((l) => (l.leadId || l.id) === req.params.leadId || l.id === req.params.leadId);
-    if (!lead) return res.status(404).json({ error: "Lead not found" });
-    const leadId = lead.leadId || lead.id;
-    res.json({ ok: true, data: Object.assign({}, lead, { id: lead.id || leadId, leadId, status: normalizeLeadStatus(lead.status || lead.stage) }) });
-  } catch (err) {
-    next(err);
-  }
-});
-
-app.patch("/api/leads/:leadId", requireEmployeeApi, requireRole(["SUPER_ADMIN", "ADMIN", "SUPPORT"]), async (req, res, next) => {
-  try {
-    const data = await readData();
-    const lead = (data.leads || []).find((l) => (l.leadId || l.id) === req.params.leadId || l.id === req.params.leadId);
-    if (!lead) return res.status(404).json({ error: "Lead not found" });
-    const raw = req.body || {};
-    if (raw.status !== undefined) {
-      lead.status = normalizeLeadStatus(raw.status);
-      lead.stage = lead.status;
-    }
-    if (raw.internalNotes !== undefined) lead.internalNotes = sanitizeString(raw.internalNotes, 2000);
-    lead.updatedAt = nowIso();
-    addAudit(data, "LEAD_UPDATED", lead.leadId || lead.id || "unknown");
-    await writeData(data);
-    res.json({ ok: true, data: lead });
-  } catch (err) {
-    next(err);
-  }
-});
-
-app.post("/api/leads/:leadId/convert", requireEmployeeApi, requireRole(["SUPER_ADMIN"]), async (req, res, next) => {
-  try {
-    const data = await readData();
-    const lead = (data.leads || []).find((l) => (l.leadId || l.id) === req.params.leadId || l.id === req.params.leadId);
-    if (!lead) return res.status(404).json({ error: "Lead not found" });
-    const status = normalizeOrgStatus(req.body?.status || "PILOT");
-    const orgId = makeId("ORG");
-    const org = {
-      id: orgId,
-      orgId,
-      name: lead.companyName || "New Organization",
-      status,
-      primaryContactName: lead.contactName || "",
-      primaryContactEmail: lead.contactEmail || "",
-      phone: lead.contactPhone || "",
-      fleetSizeEstimate: Number.isFinite(Number(lead.fleetSize)) ? Number(lead.fleetSize) : 0,
-      activeVehicles: 0,
-      billingPlan: "PILOT_CORE",
-      notes: lead.message || "",
-      createdAt: nowIso(),
-      updatedAt: nowIso()
-    };
-    data.orgs = data.orgs || [];
-    data.orgs.push(org);
-    lead.status = "CONVERTED";
-    lead.stage = "CONVERTED";
-    lead.orgId = orgId;
-    lead.updatedAt = nowIso();
-    addAudit(data, "ORG_CREATED", `${orgId}:${org.name}`);
-    addAudit(data, "LEAD_CONVERTED_TO_ORG", `${lead.leadId || lead.id}:${orgId}`);
-    await writeData(data);
-    res.json({ ok: true, data: { lead, org } });
-  } catch (err) {
-    next(err);
-  }
-});
-
-app.get("/api/employees", requireEmployeeApi, async (req, res, next) => {
-  try {
-    const data = await readData();
-    const roles = ["SUPER_ADMIN", "ADMIN", "SUPPORT", "SALES"];
-    const employees = (data.users || []).filter((u) => roles.includes(u.role));
-    res.json({ ok: true, data: employees });
-  } catch (err) {
-    next(err);
-  }
-});
-
-app.post("/api/employees", requireEmployeeApi, requireRole(["SUPER_ADMIN"]), async (req, res, next) => {
-  const { email, role } = req.body || {};
-  const roles = ["SUPER_ADMIN", "ADMIN", "SUPPORT", "SALES"];
-  const cleanEmail = normalizeEmail(email);
-  if (!cleanEmail || !role || !roles.includes(role)) {
-    return res.status(400).json({ error: "Valid email and role required." });
-  }
-  try {
-    const data = await readData();
-    const exists = (data.users || []).some((u) => u.email === cleanEmail);
-    if (exists) return res.status(409).json({ error: "User already exists" });
-    const tempPassword = generateTempPassword();
-    const passwordHash = await bcrypt.hash(tempPassword, 12);
-    const user = {
-      id: makeId("USR"),
-      email: cleanEmail,
-      role,
-      orgId: null,
-      isActive: true,
-      mustResetPassword: true,
-      createdAt: nowIso(),
-      lastLoginAt: null,
-      passwordHash
-    };
-    data.users.push(user);
-    addAudit(data, "USER_CREATED", `${user.id}:${user.email}`);
-    await writeData(data);
-    res.status(201).json({ ok: true, data: { email: user.email, role: user.role, tempPassword } });
-  } catch (err) {
-    next(err);
-  }
-});
-
-app.post("/api/orgs/:orgId/create-customer-login", requireEmployeeApi, requireRole(["SUPER_ADMIN"]), async (req, res, next) => {
-  try {
-    const rate = getRateState(`cust-create:${req.employee?.userId || req.employee?.email || "unknown"}`);
-    if (!rate.allowed) return res.status(429).json({ error: "Too many requests. Try again later." });
-    const data = await readData();
-    const org = (data.orgs || []).find((o) => (o.orgId || o.id) === req.params.orgId || o.id === req.params.orgId);
-    if (!org) return res.status(404).json({ error: "Org not found" });
-    if (String(org.status || "").toUpperCase() === "DELETED") {
-      return res.status(400).json({ error: "Org is deleted" });
-    }
-    const email = normalizeEmail(req.body?.email || org.primaryContactEmail);
-    if (!email) return res.status(400).json({ error: "Valid email required" });
-    const exists = (data.users || []).some((u) => u.email === email);
-    if (exists) return res.status(409).json({ error: "User already exists" });
-    const tempPassword = generateTempPassword();
-    const passwordHash = await bcrypt.hash(tempPassword, 12);
-    const user = {
-      id: makeId("USR"),
-      email,
-      role: "ORG_ADMIN",
-      orgId: org.orgId || org.id,
-      displayName: sanitizeString(req.body?.contactName || org.primaryContactName || "", 200),
-      status: "ACTIVE",
-      isActive: true,
-      isTemporaryPassword: true,
-      mustSetPassword: true,
-      requirePasswordReset: true,
-      mustResetPassword: true,
-      tempPasswordIssuedAt: nowIso(),
-      passwordLastSetAt: null,
-      lastPasswordChangeAt: null,
-      createdAt: nowIso(),
-      lastLoginAt: null,
-      passwordHash
-    };
-    data.users.push(user);
-    addAudit(data, "CUSTOMER_LOGIN_CREATED", `${user.id}:${user.email}`);
-    await writeData(data);
-    res.status(201).json({ ok: true, data: { email: user.email, tempPassword } });
-  } catch (err) {
-    next(err);
-  }
-});
-
-app.post("/api/orgs/:orgId/customer/create", requireEmployeeApi, requireRole(["SUPER_ADMIN"]), async (req, res, next) => {
-  req.url = `/api/orgs/${req.params.orgId}/create-customer-login`;
-  app.handle(req, res, next);
-});
-
-app.post("/api/orgs/:orgId/customer/reset-password", requireEmployeeApi, requireRole(["SUPER_ADMIN"]), async (req, res, next) => {
-  try {
-    const rate = getRateState(`cust-reset:${req.employee?.userId || req.employee?.email || "unknown"}`);
-    if (!rate.allowed) return res.status(429).json({ error: "Too many requests. Try again later." });
-    const data = await readData();
-    const orgId = req.params.orgId;
-    const org = (data.orgs || []).find((o) => (o.orgId || o.id) === orgId || o.id === orgId);
-    if (!org) return res.status(404).json({ error: "Org not found" });
-    if (String(org.status || "").toUpperCase() === "DELETED") {
-      return res.status(400).json({ error: "Org is deleted" });
-    }
-    const email = normalizeEmail(req.body?.email || org.primaryContactEmail);
-    if (!email) return res.status(400).json({ error: "Valid email required" });
-    const user = (data.users || []).find((u) => u.email === email && ["CUSTOMER_ADMIN", "ORG_ADMIN"].includes(u.role));
-    if (!user) return res.status(404).json({ error: "Customer user not found" });
-    const tempPassword = generateTempPassword();
-    user.passwordHash = await bcrypt.hash(tempPassword, 12);
-    user.mustResetPassword = true;
-    user.requirePasswordReset = true;
-    user.isTemporaryPassword = true;
-    user.mustSetPassword = true;
-    user.tempPasswordIssuedAt = nowIso();
-    user.lastPasswordChangeAt = null;
-    user.passwordLastSetAt = null;
-    user.status = user.status || "ACTIVE";
-    user.lastLoginAt = null;
-    addAudit(data, "CUSTOMER_PASSWORD_RESET", `${user.id}:${user.email}`);
-    await writeData(data);
-    res.json({ ok: true, data: { email: user.email, tempPassword } });
-  } catch (err) {
-    next(err);
-  }
-});
-
-app.get("/api/invites", requireEmployeeApi, async (req, res, next) => {
-  try {
-    const data = await readData();
-    res.json({ ok: true, data: data.invites || [] });
-  } catch (err) {
-    next(err);
-  }
-});
-
-app.post("/api/invites", requireEmployeeApi, requireRole(["SUPER_ADMIN"]), async (req, res, next) => {
-  const { orgId, type } = req.body || {};
-  if (!orgId || !type) return res.status(400).json({ error: "orgId and type required" });
-  try {
-    const data = await readData();
-    const token = crypto.randomBytes(16).toString("hex");
-    const hours = data.settings?.inviteExpiryHours || 72;
-    const invite = {
-      id: makeId("INV"),
-      orgId,
-      type,
-      token,
-      expiresAt: new Date(Date.now() + hours * 3600000).toISOString(),
-      createdAt: nowIso(),
-      createdBy: req.employee?.email || "system"
-    };
-    data.invites = data.invites || [];
-    data.invites.push(invite);
-    addAudit(data, "INVITE_CREATED", invite.id);
-    await writeData(data);
-    res.json({ ok: true, data: invite });
-  } catch (err) {
-    next(err);
-  }
-});
-
-app.get("/api/orgs/:orgId/feature-flags", requireEmployeeApi, async (req, res, next) => {
-  try {
-    const data = await readData();
-    data.featureFlags = data.featureFlags || {};
-    const flags = data.featureFlags[req.params.orgId] || defaultFeatures(req.params.orgId);
-    res.json({ ok: true, data: flags });
-  } catch (err) {
-    next(err);
-  }
-});
-
-app.patch("/api/orgs/:orgId/feature-flags", requireEmployeeApi, requireRole(["SUPER_ADMIN"]), async (req, res, next) => {
-  try {
-    const data = await readData();
-    data.featureFlags = data.featureFlags || {};
-    const current = data.featureFlags[req.params.orgId] || defaultFeatures(req.params.orgId);
-    const updates = req.body || {};
-    const nextFlags = Object.assign({}, current, updates, { updatedAt: nowIso() });
-    data.featureFlags[req.params.orgId] = nextFlags;
-    addAudit(data, "FEATURES_UPDATED", req.params.orgId);
-    await writeData(data);
-    res.json({ ok: true, data: nextFlags });
-  } catch (err) {
-    next(err);
-  }
-});
-
-app.get("/api/org/billing", requireCustomerApi, async (req, res, next) => {
-  try {
-    const data = await readData();
-    const billing = Object.assign({}, defaultBillingSettings(data), data.orgBillingSettings || {});
-    res.json({ ok: true, data: billing });
-  } catch (err) {
-    next(err);
-  }
-});
-
-app.post("/api/org/billing", requireCustomerApi, async (req, res, next) => {
-  try {
-    const data = await readData();
-    const current = Object.assign({}, defaultBillingSettings(data), data.orgBillingSettings || {});
-    const updates = req.body || {};
-    const allowedStatus = ["NONE", "PILOT", "ACTIVE"];
-    if (updates.status && !allowedStatus.includes(updates.status)) {
-      return res.status(400).json({ error: "Invalid billing status." });
-    }
-    const nextBilling = Object.assign({}, current, updates);
-    nextBilling.plan = nextBilling.plan || "PILOT_CORE";
-    nextBilling.priceMonthly = nextBilling.priceMonthly || data.settings?.defaultPilotPrice || 59;
-    if (updates.status === "ACTIVE" && !current.activatedAt) {
-      const activatedAt = nowIso();
-      const nextDate = new Date();
-      nextDate.setDate(nextDate.getDate() + 30);
-      nextBilling.activatedAt = activatedAt;
-      nextBilling.nextBillAt = nextDate.toISOString();
-    }
-    if (updates.status === "NONE") {
-      nextBilling.activatedAt = null;
-      nextBilling.nextBillAt = null;
-    }
-    data.orgBillingSettings = nextBilling;
-    addAudit(data, "ORG_BILLING_UPDATED", "org");
-    await writeData(data);
-    res.json({ ok: true, data: nextBilling });
-  } catch (err) {
-    next(err);
-  }
-});
-
-app.get("/api/org/billing-settings", requireCustomerApi, async (req, res, next) => {
-  try {
-    const data = await readData();
-    const billing = Object.assign({}, defaultBillingSettings(data), data.orgBillingSettings || {});
-    res.json({ ok: true, data: billing });
-  } catch (err) {
-    next(err);
-  }
-});
-
-app.post("/api/org/billing-settings", requireCustomerApi, async (req, res, next) => {
-  try {
-    const data = await readData();
-    const current = Object.assign({}, defaultBillingSettings(data), data.orgBillingSettings || {});
-    const updates = req.body || {};
-    const allowedStatus = ["NONE", "PILOT", "ACTIVE"];
-    if (updates.status && !allowedStatus.includes(updates.status)) {
-      return res.status(400).json({ error: "Invalid billing status." });
-    }
-    const nextBilling = Object.assign({}, current, updates);
-    nextBilling.plan = nextBilling.plan || "PILOT_CORE";
-    nextBilling.priceMonthly = nextBilling.priceMonthly || data.settings?.defaultPilotPrice || 59;
-    if (updates.status === "ACTIVE" && !current.activatedAt) {
-      const activatedAt = nowIso();
-      const nextDate = new Date();
-      nextDate.setDate(nextDate.getDate() + 30);
-      nextBilling.activatedAt = activatedAt;
-      nextBilling.nextBillAt = nextDate.toISOString();
-    }
-    if (updates.status === "NONE") {
-      nextBilling.activatedAt = null;
-      nextBilling.nextBillAt = null;
-    }
-    data.orgBillingSettings = nextBilling;
-    addAudit(data, "ORG_BILLING_UPDATED", "org");
-    await writeData(data);
-    res.json({ ok: true, data: nextBilling });
-  } catch (err) {
-    next(err);
-  }
-});
-
-app.get("/api/billing/settings", (req, res, next) => {
-  req.url = "/api/org/billing-settings";
-  app.handle(req, res, next);
-});
-
-app.post("/api/billing/settings", (req, res, next) => {
-  req.url = "/api/org/billing-settings";
-  app.handle(req, res, next);
-});
-
-app.get("/api/org/payment-method", requireCustomerApi, async (req, res, next) => {
-  try {
-    const data = await readData();
-    const payment = Object.assign({}, defaultPaymentMethod(), data.paymentMethod || {});
-    res.json({ ok: true, data: payment });
-  } catch (err) {
-    next(err);
-  }
-});
-
-app.post("/api/org/payment-method", requireCustomerApi, async (req, res, next) => {
-  try {
-    const payload = req.body || {};
-    const allowedTypes = ["CARD_STUB", "ACH_STUB"];
-    if (!allowedTypes.includes(payload.type)) {
-      return res.status(400).json({ error: "Invalid payment method type." });
-    }
-    if (!payload.billingName || !payload.billingEmail) {
-      return res.status(400).json({ error: "Billing name and email required." });
-    }
-    if (!/^[^@]+@[^@]+\.[^@]+$/.test(payload.billingEmail)) {
-      return res.status(400).json({ error: "Billing email must be valid." });
-    }
-    const data = await readData();
-    if (payload.type === "CARD_STUB") {
-      if (!/^\d{4}$/.test(payload.last4 || "")) {
-        return res.status(400).json({ error: "Card last 4 must be exactly 4 digits." });
-      }
-      const expMonth = Number(payload.expMonth);
-      const expYear = Number(payload.expYear);
-      const currentYear = new Date().getFullYear();
-      if (!Number.isFinite(expMonth) || expMonth < 1 || expMonth > 12) {
-        return res.status(400).json({ error: "Expiration month must be 1-12." });
-      }
-      if (!Number.isFinite(expYear) || expYear < currentYear) {
-        return res.status(400).json({ error: "Expiration year must be current year or later." });
-      }
-      data.paymentMethod = {
-        type: payload.type,
-        billingName: payload.billingName.trim(),
-        billingEmail: payload.billingEmail.trim(),
-        last4: payload.last4.trim(),
-        expMonth,
-        expYear,
-        brand: typeof payload.brand === "string" ? payload.brand.slice(0, 20) : "",
-        postalCode: typeof payload.postalCode === "string" ? payload.postalCode.slice(0, 20) : "",
-        accountType: "",
-        routingLast4: "",
-        accountLast4: "",
-        updatedAt: nowIso()
-      };
-    } else {
-      if (!/^\d{4}$/.test(payload.accountLast4 || "")) {
-        return res.status(400).json({ error: "Account last 4 must be exactly 4 digits." });
-      }
-      const accountType = payload.accountType === "CHECKING" || payload.accountType === "SAVINGS"
-        ? payload.accountType
-        : "";
-      if (!accountType) {
-        return res.status(400).json({ error: "Account type required." });
-      }
-      data.paymentMethod = {
-        type: payload.type,
-        billingName: payload.billingName.trim(),
-        billingEmail: payload.billingEmail.trim(),
-        last4: "",
-        expMonth: 1,
-        expYear: new Date().getFullYear(),
-        brand: "",
-        postalCode: "",
-        accountType,
-        routingLast4: typeof payload.routingLast4 === "string" ? payload.routingLast4.slice(-4) : "",
-        accountLast4: payload.accountLast4.trim(),
-        updatedAt: nowIso()
-      };
-    }
-    addAudit(data, "PAYMENT_METHOD_UPDATED", "org");
-    await writeData(data);
-    res.json({ ok: true, data: data.paymentMethod });
-  } catch (err) {
-    next(err);
-  }
-});
-
-app.get("/api/billing/payment-method", (req, res, next) => {
-  req.url = "/api/org/payment-method";
-  app.handle(req, res, next);
-});
-
-app.post("/api/billing/payment-method", (req, res, next) => {
-  req.url = "/api/org/payment-method";
-  app.handle(req, res, next);
-});
-
-app.get("/api/invites/:token", async (req, res, next) => {
-  try {
-    const data = await readData();
-    const invite = (data.invites || []).find((i) => i.token === req.params.token);
-    if (!invite) return res.status(404).json({ error: "Invite not found" });
-    if (isExpired(invite.expiresAt)) {
-      return res.status(410).json({ error: "Invite expired" });
-    }
-    res.json({ ok: true, data: invite });
-  } catch (err) {
-    next(err);
-  }
-});
-
-app.post("/api/invites/:token/accept", async (req, res, next) => {
-  const { password, email } = req.body || {};
-  if (!password || password.length < 10) {
-    return res.status(400).json({ error: "Password must be at least 10 characters." });
-  }
-  try {
-    const data = await readData();
-    const inviteIndex = (data.invites || []).findIndex((i) => i.token === req.params.token);
-    if (inviteIndex === -1) return res.status(404).json({ error: "Invite not found" });
-    const invite = data.invites[inviteIndex];
-    if (isExpired(invite.expiresAt)) {
-      return res.status(410).json({ error: "Invite expired" });
-    }
-    const userEmail = (email || "").toLowerCase();
-    if (!userEmail || !/^[^@]+@[^@]+\.[^@]+$/.test(userEmail)) {
-      return res.status(400).json({ error: "Valid email required." });
-    }
-    const exists = (data.users || []).some((u) => u.email === userEmail);
-    if (exists) return res.status(409).json({ error: "User already exists" });
-    const role = invite.type === "DRIVER" ? "DRIVER" : invite.type === "FLEET_MANAGER" ? "FLEET_MANAGER" : "ADMIN";
-    const passwordHash = await bcrypt.hash(password, 12);
-    const user = {
-      id: makeId("USR"),
-      email: userEmail,
-      role,
-      orgId: invite.orgId || null,
-      isActive: true,
-      createdAt: nowIso(),
-      lastLoginAt: null,
-      passwordHash
-    };
-    data.users.push(user);
-    data.invites.splice(inviteIndex, 1);
-    addAudit(data, "INVITE_ACCEPTED", invite.id);
-    await writeData(data);
-    res.json({ ok: true, data: { userId: user.id, role: user.role } });
-  } catch (err) {
-    next(err);
-  }
+// ── Org management, leads, billing, invites routes — see server/routes/orgManagementRoutes.js ──
+registerOrgManagementRoutes(app, {
+  readData,
+  writeData,
+  requireEmployeeApi: (req, res, next) => requireEmployeeApi(req, res, next),
+  requireCustomerApi: (req, res, next) => requireCustomerApi(req, res, next),
+  requireRole: (roles) => requireRole(roles),
+  getRateState
 });
 
 const AUTH_ROUTE_MANIFEST = [
@@ -5048,7 +3349,8 @@ registerAuthRoutes(app, {
   bcrypt,
   nowIso,
   sanitizeString,
-  writeData
+  writeData,
+  firstLoginTokens
 });
 
 // Static file serving — must come AFTER all API route registrations so API
@@ -5232,6 +3534,9 @@ app.use((req, res, next) => {
     "  /employee-login.html"
   ].join("\n"));
 });
+
+// Centralized error handler — must be registered after all routes
+app.use(errorHandler);
 
 validateJsonFile();
 startTelemetryScheduler();

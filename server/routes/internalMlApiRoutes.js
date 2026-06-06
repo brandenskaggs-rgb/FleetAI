@@ -233,9 +233,9 @@ function registerInternalMlApiRoutes(app, deps) {
     };
   }
 
-  function persistPrediction(result) {
+  async function persistPrediction(result) {
     try {
-      const runId = sqliteDb.insertMlPredictionRun({
+      const runId = await sqliteDb.insertMlPredictionRun({
         orgId: result.orgId,
         vehicleId: result.vehicleId,
         modelVersion: result.modelVersion,
@@ -247,7 +247,7 @@ function registerInternalMlApiRoutes(app, deps) {
         prediction: result
       });
       if (result.featureVector) {
-        sqliteDb.insertMlFeatureSnapshot({
+        await sqliteDb.insertMlFeatureSnapshot({
           orgId: result.orgId,
           vehicleId: result.vehicleId,
           predictionRunId: runId,
@@ -286,8 +286,8 @@ function registerInternalMlApiRoutes(app, deps) {
       const profile = await pythonMlClient.baseline(profileKey);
       return res.json({ ok: true, data: profile, source: "python_ml_service" });
     } catch (err) {
-      const profile = sqliteDb.getMlBaselineProfile(profileKey);
-      if (profile) return res.json({ ok: true, data: profile, source: "sqlite_artifact_cache" });
+      const profile = await sqliteDb.getMlBaselineProfile(profileKey);
+      if (profile) return res.json({ ok: true, data: profile, source: "pg_artifact_cache" });
       return res.status(404).json({ ok: false, error: "baseline_not_found" });
     }
   });
@@ -322,7 +322,7 @@ function registerInternalMlApiRoutes(app, deps) {
       jsPrediction,
       pythonError
     });
-    const predictionRunId = persistPrediction(result);
+    const predictionRunId = await persistPrediction(result);
     return res.json({
       ok: true,
       data: Object.assign({}, result, {

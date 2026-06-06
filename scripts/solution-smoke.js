@@ -4,7 +4,7 @@ const http = require("http");
 const https = require("https");
 
 const BASE = (process.env.FLEETAI_BASE_URL || "http://localhost:3000").replace(/\/+$/, "");
-const EMAIL = process.env.FLEETAI_SMOKE_EMAIL || process.env.CUSTOMER_EMAIL || "brandenskaggs01@gmail.com";
+const EMAIL = process.env.FLEETAI_SMOKE_EMAIL || process.env.CUSTOMER_EMAIL || "customer@fleetai.local";
 const PASSWORD = process.env.FLEETAI_SMOKE_PASSWORD || process.env.CUSTOMER_PASSWORD || "";
 const SMOKE_VEHICLE_ID = process.env.FLEETAI_SMOKE_VEHICLE_ID || "VEH_SMOKE_001";
 const SMOKE_DRIVER_ID = process.env.FLEETAI_SMOKE_DRIVER_ID || "DRV_SMOKE_001";

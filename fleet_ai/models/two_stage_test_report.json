@@ -1,0 +1,23 @@
+{
+  "n_vehicles": 5000,
+  "stage1": {
+    "precision": 0.031212,
+    "recall": 0.866667,
+    "f1": 0.060255,
+    "tp": 26,
+    "fp": 807,
+    "fn": 4
+  },
+  "stage2": {
+    "precision": 1.0,
+    "recall": 0.866667,
+    "f1": 0.928571,
+    "tp": 26,
+    "fp": 0,
+    "fn": 4
+  },
+  "fp_reduction": {
+    "count": 807,
+    "pct": 100.0
+  }
+}

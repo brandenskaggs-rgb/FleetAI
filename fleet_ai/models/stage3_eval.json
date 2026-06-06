@@ -1,0 +1,146 @@
+{
+  "eval_seeds": [
+    777,
+    888,
+    999
+  ],
+  "fleet_size_per_seed": 10000,
+  "days": 45,
+  "total_vehicles": 30000,
+  "failing_vehicles": 18038,
+  "n_borderline": 1172,
+  "borderline_pct": 0.0391,
+  "s3_total_invocations": 4200,
+  "stage3_verdicts": {
+    "CONFIRM": 3442,
+    "DEFER": 758
+  },
+  "stage3_accuracy": {
+    "CONFIRM": {
+      "tp": 2652,
+      "fp": 135,
+      "accuracy": 0.9516
+    },
+    "CLEAR": {
+      "tp": 0,
+      "fp": 0,
+      "accuracy": 0.0
+    },
+    "DEFER": {
+      "tp": 0,
+      "fp": 0,
+      "accuracy": 0.0
+    }
+  },
+  "global_pre": {
+    "precision": 0.987287,
+    "recall": 0.430536,
+    "f1": 0.599599,
+    "tp": 7766,
+    "fp": 100,
+    "fn": 10272,
+    "tn": 11862,
+    "fpr": 0.00836
+  },
+  "global_post": {
+    "precision": 0.979537,
+    "recall": 0.445837,
+    "f1": 0.61277,
+    "tp": 8042,
+    "fp": 168,
+    "fn": 9996,
+    "tn": 11794,
+    "fpr": 0.014044
+  },
+  "borderline_pre": {
+    "precision": 0.899855,
+    "recall": 0.626263,
+    "f1": 0.738535,
+    "tp": 620,
+    "fp": 69,
+    "fn": 370,
+    "tn": 113,
+    "fpr": 0.379121
+  },
+  "borderline_post": {
+    "precision": 0.867377,
+    "recall": 0.905051,
+    "f1": 0.885813,
+    "tp": 896,
+    "fp": 137,
+    "fn": 94,
+    "tn": 45,
+    "fpr": 0.752747
+  },
+  "auc_pre": 0.947206,
+  "auc_post": 0.947091,
+  "brier_pre": 0.201552,
+  "brier_post": 0.196638,
+  "class_detail": {
+    "cargo_van": {
+      "precision": 0.834783,
+      "recall": 0.03718,
+      "f1": 0.07119,
+      "tp": 96,
+      "fp": 19,
+      "fn": 2486,
+      "tn": 3039,
+      "fpr": 0.006213,
+      "failure_rate": 0.457801,
+      "n": 5640,
+      "auc": 0.90754
+    },
+    "heavy_duty_j1939": {
+      "precision": 0.989771,
+      "recall": 0.782728,
+      "f1": 0.874157,
+      "tp": 6870,
+      "fp": 71,
+      "fn": 1907,
+      "tn": 607,
+      "fpr": 0.10472,
+      "failure_rate": 0.928292,
+      "n": 9455,
+      "auc": 0.948727
+    },
+    "light_duty_truck": {
+      "precision": 0.82,
+      "recall": 0.030472,
+      "f1": 0.05876,
+      "tp": 82,
+      "fp": 18,
+      "fn": 2609,
+      "tn": 4801,
+      "fpr": 0.003735,
+      "failure_rate": 0.358322,
+      "n": 7510,
+      "auc": 0.920443
+    },
+    "medium_duty": {
+      "precision": 0.943702,
+      "recall": 0.587292,
+      "f1": 0.724012,
+      "tp": 989,
+      "fp": 59,
+      "fn": 695,
+      "tn": 1930,
+      "fpr": 0.029663,
+      "failure_rate": 0.458481,
+      "n": 3673,
+      "auc": 0.955696
+    },
+    "passenger_car": {
+      "precision": 0.833333,
+      "recall": 0.00217,
+      "f1": 0.004329,
+      "tp": 5,
+      "fp": 1,
+      "fn": 2299,
+      "tn": 1417,
+      "fpr": 0.000705,
+      "failure_rate": 0.619022,
+      "n": 3722,
+      "auc": 0.897453
+    }
+  }
+}

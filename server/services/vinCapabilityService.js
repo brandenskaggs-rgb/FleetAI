@@ -119,12 +119,12 @@ function buildCapabilityMap(vehicleId, vin) {
 }
 
 // Called when a VIN is decoded from SPN 237 or provided in a telemetry frame.
-// Persists capabilities to SQLite and returns the capability map.
-function processVin(vehicleId, vin) {
+// Persists capabilities to PostgreSQL and returns the capability map.
+async function processVin(vehicleId, vin) {
   if (!vehicleId) return null;
   try {
     const cap = buildCapabilityMap(vehicleId, vin);
-    db.upsertVehicleCapabilities(cap);
+    await db.upsertVehicleCapabilities(cap);
     return cap;
   } catch (err) {
     console.warn("[VIN] capability upsert failed:", err.message);
@@ -133,9 +133,9 @@ function processVin(vehicleId, vin) {
 }
 
 // Returns capabilities from DB, or builds a default if not yet seen.
-function getCapabilities(vehicleId) {
+async function getCapabilities(vehicleId) {
   try {
-    return db.getVehicleCapabilities(vehicleId) || null;
+    return (await db.getVehicleCapabilities(vehicleId)) || null;
   } catch (err) {
     return null;
   }

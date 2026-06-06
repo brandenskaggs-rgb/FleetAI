@@ -1,576 +1,465 @@
 const fs = require("fs");
-const Database = require("better-sqlite3");
 const path = require("path");
 const crypto = require("crypto");
-const { STATE_DIR } = require("./config/authStorePath");
+const { PrismaClient } = require("@prisma/client");
+const { Pool } = require("pg");
+const { PrismaPg } = require("@prisma/adapter-pg");
 
-const DB_PATH = path.resolve(process.env.FLEETAI_DB_PATH || path.join(STATE_DIR, "fleet.db"));
+let _prisma = null;
+let _pool = null;
 
-let _db = null;
-
-function ensureDbDir() {
-  fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
-}
-
-function applyPragmas(db) {
-  db.pragma("journal_mode = WAL");
-  db.pragma("foreign_keys = ON");
-  db.pragma("busy_timeout = 5000");
-  db.pragma("synchronous = FULL");
-  db.pragma("temp_store = MEMORY");
-  db.pragma("journal_size_limit = 67108864");
-  try {
-    db.pragma("trusted_schema = OFF");
-  } catch (err) {
-    // Older SQLite builds may not support this pragma.
+function getPrisma() {
+  if (!_prisma) {
+    if (!_pool) {
+      _pool = new Pool({ connectionString: process.env.DATABASE_URL });
+    }
+    const adapter = new PrismaPg(_pool);
+    _prisma = new PrismaClient({ adapter });
   }
-}
-
-function getDb() {
-  if (_db) return _db;
-  ensureDbDir();
-  _db = new Database(DB_PATH, { timeout: 5000 });
-  applyPragmas(_db);
-  initSchema(_db);
-  return _db;
-}
-
-function initSchema(db) {
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS telemetry_samples (
-      id TEXT PRIMARY KEY,
-      org_id TEXT,
-      vehicle_id TEXT NOT NULL,
-      driver_id TEXT,
-      ts TEXT NOT NULL,
-      odometer REAL,
-      engine_hours REAL,
-      metrics TEXT NOT NULL,
-      raw TEXT,
-      created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
-    );
-    CREATE INDEX IF NOT EXISTS idx_ts_vehicle_ts ON telemetry_samples(vehicle_id, ts);
-    CREATE INDEX IF NOT EXISTS idx_ts_org ON telemetry_samples(org_id);
-
-    CREATE TABLE IF NOT EXISTS model_states (
-      vehicle_id TEXT PRIMARY KEY,
-      org_id TEXT,
-      state TEXT NOT NULL,
-      updated_at TEXT NOT NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS alerts (
-      id TEXT PRIMARY KEY,
-      org_id TEXT,
-      vehicle_id TEXT NOT NULL,
-      type TEXT NOT NULL,
-      severity TEXT NOT NULL,
-      explanation TEXT,
-      recommended_checks TEXT,
-      acknowledged INTEGER DEFAULT 0,
-      resolved INTEGER DEFAULT 0,
-      created_at TEXT NOT NULL,
-      ack_at TEXT,
-      resolved_at TEXT
-    );
-    CREATE INDEX IF NOT EXISTS idx_alerts_vehicle ON alerts(vehicle_id, created_at);
-    CREATE INDEX IF NOT EXISTS idx_alerts_org ON alerts(org_id, created_at);
-
-    CREATE TABLE IF NOT EXISTS ai_reports (
-      id TEXT PRIMARY KEY,
-      org_id TEXT,
-      vehicle_id TEXT NOT NULL,
-      narrative TEXT NOT NULL,
-      prediction_snapshot TEXT NOT NULL,
-      model_used TEXT,
-      created_at TEXT NOT NULL
-    );
-    CREATE INDEX IF NOT EXISTS idx_reports_vehicle ON ai_reports(vehicle_id, created_at);
-
-    CREATE TABLE IF NOT EXISTS vehicle_capabilities (
-      vehicle_id TEXT PRIMARY KEY,
-      vin TEXT,
-      year INTEGER,
-      make TEXT,
-      model_year_str TEXT,
-      supported_sensors TEXT NOT NULL,
-      addon_eligible INTEGER DEFAULT 0,
-      addon_sensors TEXT,
-      detected_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS fuel_events (
-      id TEXT PRIMARY KEY,
-      org_id TEXT,
-      vehicle_id TEXT NOT NULL,
-      ts_start TEXT,
-      ts_end TEXT,
-      fuel_level_before REAL,
-      fuel_level_after REAL,
-      gallons_estimated REAL,
-      detected_by TEXT DEFAULT 'AUTO',
-      confidence REAL,
-      note TEXT,
-      created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
-    );
-    CREATE INDEX IF NOT EXISTS idx_fuel_events_vehicle ON fuel_events(vehicle_id);
-
-    CREATE TABLE IF NOT EXISTS ml_model_artifacts (
-      id TEXT PRIMARY KEY,
-      model_version TEXT NOT NULL,
-      training_source TEXT,
-      model_name TEXT,
-      metadata TEXT NOT NULL,
-      artifact_path TEXT,
-      created_at TEXT NOT NULL
-    );
-    CREATE INDEX IF NOT EXISTS idx_ml_artifacts_version ON ml_model_artifacts(model_version, created_at);
-
-    CREATE TABLE IF NOT EXISTS ml_baseline_profiles (
-      profile_key TEXT PRIMARY KEY,
-      vehicle_class TEXT,
-      make TEXT,
-      model TEXT,
-      protocol TEXT,
-      powertrain TEXT,
-      training_source TEXT,
-      model_version TEXT,
-      profile_json TEXT NOT NULL,
-      updated_at TEXT NOT NULL
-    );
-    CREATE INDEX IF NOT EXISTS idx_ml_profiles_lookup ON ml_baseline_profiles(make, model, vehicle_class);
-
-    CREATE TABLE IF NOT EXISTS ml_prediction_runs (
-      id TEXT PRIMARY KEY,
-      org_id TEXT,
-      vehicle_id TEXT NOT NULL,
-      model_version TEXT,
-      source TEXT NOT NULL,
-      confidence_stage TEXT,
-      confidence REAL,
-      risk_probability REAL,
-      health_score REAL,
-      prediction_json TEXT NOT NULL,
-      created_at TEXT NOT NULL
-    );
-    CREATE INDEX IF NOT EXISTS idx_ml_runs_vehicle ON ml_prediction_runs(vehicle_id, created_at);
-    CREATE INDEX IF NOT EXISTS idx_ml_runs_org ON ml_prediction_runs(org_id, created_at);
-
-    CREATE TABLE IF NOT EXISTS ml_feature_snapshots (
-      id TEXT PRIMARY KEY,
-      org_id TEXT,
-      vehicle_id TEXT NOT NULL,
-      prediction_run_id TEXT,
-      feature_json TEXT NOT NULL,
-      created_at TEXT NOT NULL
-    );
-    CREATE INDEX IF NOT EXISTS idx_ml_features_vehicle ON ml_feature_snapshots(vehicle_id, created_at);
-  `);
+  return _prisma;
 }
 
 function makeId(prefix) {
   return `${prefix}_${crypto.randomBytes(6).toString("hex")}`;
 }
 
-const _insertSample = () => getDb().prepare(`
-  INSERT OR REPLACE INTO telemetry_samples
-    (id, org_id, vehicle_id, driver_id, ts, odometer, engine_hours, metrics, raw)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-`);
-
-function insertTelemetrySample(sample) {
-  _insertSample().run(
-    sample.id,
-    sample.orgId || null,
-    sample.vehicleId,
-    sample.driverId || null,
-    sample.ts,
-    sample.odometer ?? null,
-    sample.engineHours ?? null,
-    JSON.stringify(sample.metrics || {}),
-    JSON.stringify(sample.raw || {})
-  );
+// Ensure a minimal Vehicle stub exists so FK constraints are satisfied.
+// ML data arrives before the fleet manager creates the Vehicle record.
+async function ensureVehicleStub(vehicleId) {
+  if (!vehicleId) return;
+  await getPrisma().vehicle.upsert({
+    where: { vehicleId },
+    update: {},
+    create: { vehicleId, unitName: vehicleId }
+  });
 }
 
-function getSamplesForVehicle(vehicleId, { limit = 5000, since = null } = {}) {
-  const db = getDb();
-  if (since) {
-    return db
-      .prepare("SELECT * FROM telemetry_samples WHERE vehicle_id = ? AND ts >= ? ORDER BY ts ASC LIMIT ?")
-      .all(vehicleId, since, limit)
-      .map(rowToSample);
-  }
-  return db
-    .prepare("SELECT * FROM telemetry_samples WHERE vehicle_id = ? ORDER BY ts ASC LIMIT ?")
-    .all(vehicleId, limit)
-    .map(rowToSample);
+function toDate(v) {
+  if (!v) return new Date();
+  if (v instanceof Date) return v;
+  return new Date(v);
 }
 
-function getSampleCountForVehicle(vehicleId) {
-  const row = getDb()
-    .prepare("SELECT COUNT(*) as cnt FROM telemetry_samples WHERE vehicle_id = ?")
-    .get(vehicleId);
-  return row ? row.cnt : 0;
+// ─── Telemetry Samples ────────────────────────────────────────────────────────
+
+async function insertTelemetrySample(sample) {
+  await ensureVehicleStub(sample.vehicleId);
+  await getPrisma().telemetrySample.upsert({
+    where: { id: sample.id },
+    update: {
+      orgId: sample.orgId || null,
+      driverId: sample.driverId || null,
+      ts: toDate(sample.ts),
+      odometer: sample.odometer ?? null,
+      engineHours: sample.engineHours ?? null,
+      metrics: sample.metrics || {},
+      raw: sample.raw || {}
+    },
+    create: {
+      id: sample.id,
+      orgId: sample.orgId || null,
+      vehicleId: sample.vehicleId,
+      driverId: sample.driverId || null,
+      ts: toDate(sample.ts),
+      odometer: sample.odometer ?? null,
+      engineHours: sample.engineHours ?? null,
+      metrics: sample.metrics || {},
+      raw: sample.raw || {}
+    }
+  });
 }
 
 function rowToSample(row) {
   return {
     id: row.id,
-    orgId: row.org_id,
-    vehicleId: row.vehicle_id,
-    driverId: row.driver_id,
-    ts: row.ts,
-    odometer: row.odometer,
-    engineHours: row.engine_hours,
-    metrics: JSON.parse(row.metrics || "{}"),
-    raw: JSON.parse(row.raw || "{}")
+    orgId: row.orgId,
+    vehicleId: row.vehicleId,
+    driverId: row.driverId,
+    ts: row.ts instanceof Date ? row.ts.toISOString() : row.ts,
+    odometer: row.odometer !== null ? Number(row.odometer) : null,
+    engineHours: row.engineHours !== null ? Number(row.engineHours) : null,
+    metrics: row.metrics || {},
+    raw: row.raw || {}
   };
 }
 
-function upsertModelState(state) {
-  getDb()
-    .prepare(`
-      INSERT OR REPLACE INTO model_states (vehicle_id, org_id, state, updated_at)
-      VALUES (?, ?, ?, ?)
-    `)
-    .run(
-      state.vehicleId,
-      state.orgId || null,
-      JSON.stringify(state),
-      state.updatedAt || new Date().toISOString()
-    );
+async function getSamplesForVehicle(vehicleId, { limit = 5000, since = null } = {}) {
+  const where = { vehicleId };
+  if (since) where.ts = { gte: toDate(since) };
+  const rows = await getPrisma().telemetrySample.findMany({
+    where,
+    orderBy: { ts: "asc" },
+    take: limit
+  });
+  return rows.map(rowToSample);
 }
 
-function getModelState(vehicleId) {
-  const row = getDb()
-    .prepare("SELECT * FROM model_states WHERE vehicle_id = ?")
-    .get(vehicleId);
-  return row ? JSON.parse(row.state) : null;
+async function getSampleCountForVehicle(vehicleId) {
+  return getPrisma().telemetrySample.count({ where: { vehicleId } });
 }
 
-function getAllModelStates() {
-  return getDb()
-    .prepare("SELECT * FROM model_states ORDER BY updated_at DESC")
-    .all()
-    .map((r) => JSON.parse(r.state));
+// ─── Model States ─────────────────────────────────────────────────────────────
+
+async function upsertModelState(state) {
+  await ensureVehicleStub(state.vehicleId);
+  await getPrisma().modelState.upsert({
+    where: { vehicleId: state.vehicleId },
+    update: { orgId: state.orgId || null, state },
+    create: { vehicleId: state.vehicleId, orgId: state.orgId || null, state }
+  });
 }
 
-function insertAlert(alert) {
-  getDb()
-    .prepare(`
-      INSERT OR IGNORE INTO alerts
-        (id, org_id, vehicle_id, type, severity, explanation, recommended_checks, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `)
-    .run(
-      alert.id,
-      alert.orgId || null,
-      alert.vehicleId,
-      alert.type,
-      alert.severity,
-      alert.explanation || null,
-      JSON.stringify(alert.recommendedChecks || []),
-      alert.createdAt || new Date().toISOString()
-    );
+async function getModelState(vehicleId) {
+  const row = await getPrisma().modelState.findUnique({ where: { vehicleId } });
+  return row ? row.state : null;
 }
 
-function getAlertsForVehicle(vehicleId, { limit = 50, unresolvedOnly = false } = {}) {
-  const db = getDb();
-  const q = unresolvedOnly
-    ? "SELECT * FROM alerts WHERE vehicle_id = ? AND resolved = 0 ORDER BY created_at DESC LIMIT ?"
-    : "SELECT * FROM alerts WHERE vehicle_id = ? ORDER BY created_at DESC LIMIT ?";
-  return db.prepare(q).all(vehicleId, limit).map(rowToAlert);
+async function getAllModelStates() {
+  const rows = await getPrisma().modelState.findMany({ orderBy: { updatedAt: "desc" } });
+  return rows.map((r) => r.state);
 }
 
-function getAlertsForOrg(orgId, { limit = 100, unresolvedOnly = false } = {}) {
-  const db = getDb();
-  const q = unresolvedOnly
-    ? "SELECT * FROM alerts WHERE org_id = ? AND resolved = 0 ORDER BY created_at DESC LIMIT ?"
-    : "SELECT * FROM alerts WHERE org_id = ? ORDER BY created_at DESC LIMIT ?";
-  return db.prepare(q).all(orgId, limit).map(rowToAlert);
-}
+// ─── Alerts ───────────────────────────────────────────────────────────────────
 
-function ackAlert(id) {
-  getDb()
-    .prepare("UPDATE alerts SET acknowledged = 1, ack_at = ? WHERE id = ?")
-    .run(new Date().toISOString(), id);
-}
-
-function resolveAlert(id) {
-  getDb()
-    .prepare("UPDATE alerts SET resolved = 1, resolved_at = ? WHERE id = ?")
-    .run(new Date().toISOString(), id);
+async function insertAlert(alert) {
+  await ensureVehicleStub(alert.vehicleId);
+  await getPrisma().alert.upsert({
+    where: { id: alert.id },
+    update: {},
+    create: {
+      id: alert.id,
+      orgId: alert.orgId || null,
+      vehicleId: alert.vehicleId,
+      type: alert.type,
+      severity: alert.severity,
+      explanation: alert.explanation || null,
+      recommendedChecks: alert.recommendedChecks || [],
+      createdAt: toDate(alert.createdAt)
+    }
+  });
 }
 
 function rowToAlert(row) {
   return {
     id: row.id,
-    orgId: row.org_id,
-    vehicleId: row.vehicle_id,
+    orgId: row.orgId,
+    vehicleId: row.vehicleId,
     type: row.type,
     severity: row.severity,
     explanation: row.explanation,
-    recommendedChecks: JSON.parse(row.recommended_checks || "[]"),
+    recommendedChecks: Array.isArray(row.recommendedChecks) ? row.recommendedChecks : [],
     acknowledged: Boolean(row.acknowledged),
     resolved: Boolean(row.resolved),
-    createdAt: row.created_at,
-    ackAt: row.ack_at,
-    resolvedAt: row.resolved_at
+    createdAt: row.createdAt instanceof Date ? row.createdAt.toISOString() : row.createdAt,
+    ackAt: row.ackAt instanceof Date ? row.ackAt.toISOString() : row.ackAt,
+    resolvedAt: row.resolvedAt instanceof Date ? row.resolvedAt.toISOString() : row.resolvedAt
   };
 }
 
-function insertAiReport(report) {
+async function getAlertsForVehicle(vehicleId, { limit = 50, unresolvedOnly = false } = {}) {
+  const where = { vehicleId };
+  if (unresolvedOnly) where.resolved = false;
+  const rows = await getPrisma().alert.findMany({
+    where,
+    orderBy: { createdAt: "desc" },
+    take: limit
+  });
+  return rows.map(rowToAlert);
+}
+
+async function getAlertsForOrg(orgId, { limit = 100, unresolvedOnly = false } = {}) {
+  const where = { orgId };
+  if (unresolvedOnly) where.resolved = false;
+  const rows = await getPrisma().alert.findMany({
+    where,
+    orderBy: { createdAt: "desc" },
+    take: limit
+  });
+  return rows.map(rowToAlert);
+}
+
+async function ackAlert(id) {
+  await getPrisma().alert.update({
+    where: { id },
+    data: { acknowledged: true, ackAt: new Date() }
+  });
+}
+
+async function resolveAlert(id) {
+  await getPrisma().alert.update({
+    where: { id },
+    data: { resolved: true, resolvedAt: new Date() }
+  });
+}
+
+// ─── AI Reports ───────────────────────────────────────────────────────────────
+
+async function insertAiReport(report) {
   const id = report.id || makeId("RPT");
-  getDb()
-    .prepare(`
-      INSERT INTO ai_reports
-        (id, org_id, vehicle_id, narrative, prediction_snapshot, model_used, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `)
-    .run(
+  await ensureVehicleStub(report.vehicleId);
+  await getPrisma().aiReport.create({
+    data: {
       id,
-      report.orgId || null,
-      report.vehicleId,
-      report.narrative,
-      JSON.stringify(report.predictionSnapshot || {}),
-      report.modelUsed || null,
-      report.createdAt || new Date().toISOString()
-    );
+      orgId: report.orgId || null,
+      vehicleId: report.vehicleId,
+      narrative: report.narrative,
+      predictionSnapshot: report.predictionSnapshot || {},
+      modelUsed: report.modelUsed || null,
+      createdAt: toDate(report.createdAt)
+    }
+  });
   return id;
 }
 
-function getLatestAiReport(vehicleId) {
-  const row = getDb()
-    .prepare("SELECT * FROM ai_reports WHERE vehicle_id = ? ORDER BY created_at DESC LIMIT 1")
-    .get(vehicleId);
+async function getLatestAiReport(vehicleId) {
+  const row = await getPrisma().aiReport.findFirst({
+    where: { vehicleId },
+    orderBy: { createdAt: "desc" }
+  });
   if (!row) return null;
   return {
     id: row.id,
-    orgId: row.org_id,
-    vehicleId: row.vehicle_id,
+    orgId: row.orgId,
+    vehicleId: row.vehicleId,
     narrative: row.narrative,
-    predictionSnapshot: JSON.parse(row.prediction_snapshot || "{}"),
-    modelUsed: row.model_used,
-    createdAt: row.created_at
+    predictionSnapshot: row.predictionSnapshot || {},
+    modelUsed: row.modelUsed,
+    createdAt: row.createdAt instanceof Date ? row.createdAt.toISOString() : row.createdAt
   };
 }
 
-function upsertVehicleCapabilities(cap) {
-  const now = new Date().toISOString();
-  getDb()
-    .prepare(`
-      INSERT OR REPLACE INTO vehicle_capabilities
-        (vehicle_id, vin, year, make, model_year_str, supported_sensors, addon_eligible, addon_sensors, detected_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `)
-    .run(
-      cap.vehicleId,
-      cap.vin || null,
-      cap.year || null,
-      cap.make || null,
-      cap.modelYearStr || null,
-      JSON.stringify(cap.supportedSensors || []),
-      cap.addonEligible ? 1 : 0,
-      JSON.stringify(cap.addonSensors || []),
-      cap.detectedAt || now,
-      now
-    );
+// ─── Vehicle Capabilities ─────────────────────────────────────────────────────
+
+async function upsertVehicleCapabilities(cap) {
+  await ensureVehicleStub(cap.vehicleId);
+  const now = new Date();
+  await getPrisma().vehicleCapability.upsert({
+    where: { vehicleId: cap.vehicleId },
+    update: {
+      vin: cap.vin || null,
+      year: cap.year || null,
+      make: cap.make || null,
+      modelYearStr: cap.modelYearStr || null,
+      supportedSensors: cap.supportedSensors || [],
+      addonEligible: Boolean(cap.addonEligible),
+      addonSensors: cap.addonSensors || [],
+      updatedAt: now
+    },
+    create: {
+      vehicleId: cap.vehicleId,
+      vin: cap.vin || null,
+      year: cap.year || null,
+      make: cap.make || null,
+      modelYearStr: cap.modelYearStr || null,
+      supportedSensors: cap.supportedSensors || [],
+      addonEligible: Boolean(cap.addonEligible),
+      addonSensors: cap.addonSensors || [],
+      detectedAt: toDate(cap.detectedAt) || now
+    }
+  });
 }
 
-function getVehicleCapabilities(vehicleId) {
-  const row = getDb()
-    .prepare("SELECT * FROM vehicle_capabilities WHERE vehicle_id = ?")
-    .get(vehicleId);
+async function getVehicleCapabilities(vehicleId) {
+  const row = await getPrisma().vehicleCapability.findUnique({ where: { vehicleId } });
   if (!row) return null;
   return {
-    vehicleId: row.vehicle_id,
+    vehicleId: row.vehicleId,
     vin: row.vin,
     year: row.year,
     make: row.make,
-    modelYearStr: row.model_year_str,
-    supportedSensors: JSON.parse(row.supported_sensors || "[]"),
-    addonEligible: Boolean(row.addon_eligible),
-    addonSensors: JSON.parse(row.addon_sensors || "[]"),
-    detectedAt: row.detected_at,
-    updatedAt: row.updated_at
+    modelYearStr: row.modelYearStr,
+    supportedSensors: row.supportedSensors || [],
+    addonEligible: Boolean(row.addonEligible),
+    addonSensors: row.addonSensors || [],
+    detectedAt: row.detectedAt instanceof Date ? row.detectedAt.toISOString() : row.detectedAt,
+    updatedAt: row.updatedAt instanceof Date ? row.updatedAt.toISOString() : row.updatedAt
   };
 }
 
-function insertFuelEvent(evt) {
-  getDb()
-    .prepare(`
-      INSERT OR IGNORE INTO fuel_events
-        (id, org_id, vehicle_id, ts_start, ts_end, fuel_level_before, fuel_level_after,
-         gallons_estimated, detected_by, confidence, note)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `)
-    .run(
-      evt.id,
-      evt.orgId || null,
-      evt.vehicleId,
-      evt.tsStart || evt.startTs || null,
-      evt.tsEnd || evt.endTs || null,
-      evt.fuelLevelBefore ?? null,
-      evt.fuelLevelAfter ?? null,
-      evt.gallonsEstimated ?? null,
-      evt.detectedBy || "AUTO",
-      evt.confidence ?? null,
-      evt.note || null
-    );
+// ─── Fuel Events ──────────────────────────────────────────────────────────────
+
+async function insertFuelEvent(evt) {
+  await ensureVehicleStub(evt.vehicleId);
+  await getPrisma().fuelEvent.upsert({
+    where: { id: evt.id },
+    update: {},
+    create: {
+      id: evt.id,
+      orgId: evt.orgId || null,
+      vehicleId: evt.vehicleId,
+      tsStart: evt.tsStart || evt.startTs ? toDate(evt.tsStart || evt.startTs) : null,
+      tsEnd: evt.tsEnd || evt.endTs ? toDate(evt.tsEnd || evt.endTs) : null,
+      fuelLevelBefore: evt.fuelLevelBefore ?? null,
+      fuelLevelAfter: evt.fuelLevelAfter ?? null,
+      gallonsEstimated: evt.gallonsEstimated ?? null,
+      detectedBy: evt.detectedBy || "AUTO",
+      confidence: evt.confidence ?? null,
+      note: evt.note || null
+    }
+  });
 }
 
-function getFuelEventsForVehicle(vehicleId, limit = 20) {
-  return getDb()
-    .prepare("SELECT * FROM fuel_events WHERE vehicle_id = ? ORDER BY ts_end DESC LIMIT ?")
-    .all(vehicleId, limit)
-    .map((r) => ({
-      id: r.id,
-      orgId: r.org_id,
-      vehicleId: r.vehicle_id,
-      tsStart: r.ts_start,
-      tsEnd: r.ts_end,
-      fuelLevelBefore: r.fuel_level_before,
-      fuelLevelAfter: r.fuel_level_after,
-      gallonsEstimated: r.gallons_estimated,
-      detectedBy: r.detected_by,
-      confidence: r.confidence,
-      note: r.note
-    }));
+async function getFuelEventsForVehicle(vehicleId, limit = 20) {
+  const rows = await getPrisma().fuelEvent.findMany({
+    where: { vehicleId },
+    orderBy: { tsEnd: "desc" },
+    take: limit
+  });
+  return rows.map((r) => ({
+    id: r.id,
+    orgId: r.orgId,
+    vehicleId: r.vehicleId,
+    tsStart: r.tsStart instanceof Date ? r.tsStart.toISOString() : r.tsStart,
+    tsEnd: r.tsEnd instanceof Date ? r.tsEnd.toISOString() : r.tsEnd,
+    fuelLevelBefore: r.fuelLevelBefore !== null ? Number(r.fuelLevelBefore) : null,
+    fuelLevelAfter: r.fuelLevelAfter !== null ? Number(r.fuelLevelAfter) : null,
+    gallonsEstimated: r.gallonsEstimated !== null ? Number(r.gallonsEstimated) : null,
+    detectedBy: r.detectedBy,
+    confidence: r.confidence !== null ? Number(r.confidence) : null,
+    note: r.note
+  }));
 }
 
-function upsertMlModelArtifact(metadata = {}, artifactPath = null) {
+// ─── ML Model Artifacts ───────────────────────────────────────────────────────
+
+async function upsertMlModelArtifact(metadata = {}, artifactPath = null) {
   const modelVersion = metadata.modelVersion || metadata.model_version || "unknown";
   const id = `MLART_${modelVersion}`;
-  getDb()
-    .prepare(`
-      INSERT OR REPLACE INTO ml_model_artifacts
-        (id, model_version, training_source, model_name, metadata, artifact_path, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `)
-    .run(
+  await getPrisma().mlModelArtifact.upsert({
+    where: { id },
+    update: {
+      trainingSource: metadata.trainingSource || metadata.training_source || null,
+      modelName: metadata.model_name || metadata.modelName || null,
+      metadata,
+      artifactPath: artifactPath || metadata.model_file || null
+    },
+    create: {
       id,
       modelVersion,
-      metadata.trainingSource || metadata.training_source || null,
-      metadata.model_name || metadata.modelName || null,
-      JSON.stringify(metadata || {}),
-      artifactPath || metadata.model_file || null,
-      new Date().toISOString()
-    );
+      trainingSource: metadata.trainingSource || metadata.training_source || null,
+      modelName: metadata.model_name || metadata.modelName || null,
+      metadata,
+      artifactPath: artifactPath || metadata.model_file || null
+    }
+  });
   return id;
 }
 
-function upsertMlBaselineProfile(profile = {}) {
+// ─── ML Baseline Profiles ─────────────────────────────────────────────────────
+
+async function upsertMlBaselineProfile(profile = {}) {
   const key = profile.profileKey || profile.profile_key;
   if (!key) return null;
-  getDb()
-    .prepare(`
-      INSERT OR REPLACE INTO ml_baseline_profiles
-        (profile_key, vehicle_class, make, model, protocol, powertrain,
-         training_source, model_version, profile_json, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `)
-    .run(
-      key,
-      profile.vehicleClass || profile.vehicle_class || null,
-      profile.make || null,
-      profile.model || null,
-      profile.protocol || null,
-      profile.powertrain || null,
-      profile.trainingSource || profile.training_source || null,
-      profile.modelVersion || profile.model_version || null,
-      JSON.stringify(profile || {}),
-      new Date().toISOString()
-    );
+  await getPrisma().mlBaselineProfile.upsert({
+    where: { profileKey: key },
+    update: {
+      vehicleClass: profile.vehicleClass || profile.vehicle_class || null,
+      make: profile.make || null,
+      model: profile.model || null,
+      protocol: profile.protocol || null,
+      powertrain: profile.powertrain || null,
+      trainingSource: profile.trainingSource || profile.training_source || null,
+      modelVersion: profile.modelVersion || profile.model_version || null,
+      profileJson: profile
+    },
+    create: {
+      profileKey: key,
+      vehicleClass: profile.vehicleClass || profile.vehicle_class || null,
+      make: profile.make || null,
+      model: profile.model || null,
+      protocol: profile.protocol || null,
+      powertrain: profile.powertrain || null,
+      trainingSource: profile.trainingSource || profile.training_source || null,
+      modelVersion: profile.modelVersion || profile.model_version || null,
+      profileJson: profile
+    }
+  });
   return key;
 }
 
-function getMlBaselineProfile(profileKey) {
-  const row = getDb()
-    .prepare("SELECT * FROM ml_baseline_profiles WHERE profile_key = ?")
-    .get(profileKey);
-  return row ? JSON.parse(row.profile_json || "{}") : null;
+async function getMlBaselineProfile(profileKey) {
+  const row = await getPrisma().mlBaselineProfile.findUnique({ where: { profileKey } });
+  return row ? row.profileJson : null;
 }
 
-function findMlBaselineProfile({ make, model, vehicleClass } = {}) {
-  const db = getDb();
-  const rows = db.prepare("SELECT * FROM ml_baseline_profiles").all();
+async function findMlBaselineProfile({ make, model, vehicleClass } = {}) {
+  const rows = await getPrisma().mlBaselineProfile.findMany();
   const norm = (v) => String(v || "").trim().toLowerCase();
-  const exact = rows.find((row) =>
-    norm(row.make) === norm(make) && norm(row.model) === norm(model) && (!vehicleClass || norm(row.vehicle_class) === norm(vehicleClass))
+  const exact = rows.find(
+    (r) => norm(r.make) === norm(make) && norm(r.model) === norm(model) && (!vehicleClass || norm(r.vehicleClass) === norm(vehicleClass))
   );
-  const byMake = rows.find((row) => norm(row.make) === norm(make) && (!vehicleClass || norm(row.vehicle_class) === norm(vehicleClass)));
-  const byClass = rows.find((row) => vehicleClass && norm(row.vehicle_class) === norm(vehicleClass));
+  const byMake = rows.find(
+    (r) => norm(r.make) === norm(make) && (!vehicleClass || norm(r.vehicleClass) === norm(vehicleClass))
+  );
+  const byClass = rows.find((r) => vehicleClass && norm(r.vehicleClass) === norm(vehicleClass));
   const row = exact || byMake || byClass || rows[0];
-  return row ? JSON.parse(row.profile_json || "{}") : null;
+  return row ? row.profileJson : null;
 }
 
-function insertMlPredictionRun(run = {}) {
+// ─── ML Prediction Runs ───────────────────────────────────────────────────────
+
+async function insertMlPredictionRun(run = {}) {
   const id = run.id || makeId("MLRUN");
-  getDb()
-    .prepare(`
-      INSERT INTO ml_prediction_runs
-        (id, org_id, vehicle_id, model_version, source, confidence_stage,
-         confidence, risk_probability, health_score, prediction_json, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `)
-    .run(
+  await ensureVehicleStub(run.vehicleId);
+  await getPrisma().mlPredictionRun.create({
+    data: {
       id,
-      run.orgId || null,
-      run.vehicleId,
-      run.modelVersion || null,
-      run.source || "unknown",
-      run.confidenceStage || null,
-      run.confidence ?? null,
-      run.riskProbability ?? null,
-      run.healthScore ?? null,
-      JSON.stringify(run.prediction || {}),
-      run.createdAt || new Date().toISOString()
-    );
+      orgId: run.orgId || null,
+      vehicleId: run.vehicleId,
+      modelVersion: run.modelVersion || null,
+      source: run.source || "unknown",
+      confidenceStage: run.confidenceStage || null,
+      confidence: run.confidence ?? null,
+      riskProbability: run.riskProbability ?? null,
+      healthScore: run.healthScore ?? null,
+      predictionJson: run.prediction || {},
+      createdAt: toDate(run.createdAt)
+    }
+  });
   return id;
 }
 
-function insertMlFeatureSnapshot(snapshot = {}) {
+// ─── ML Feature Snapshots ─────────────────────────────────────────────────────
+
+async function insertMlFeatureSnapshot(snapshot = {}) {
   const id = snapshot.id || makeId("MLFEAT");
-  getDb()
-    .prepare(`
-      INSERT INTO ml_feature_snapshots
-        (id, org_id, vehicle_id, prediction_run_id, feature_json, created_at)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `)
-    .run(
+  await ensureVehicleStub(snapshot.vehicleId);
+  await getPrisma().mlFeatureSnapshot.create({
+    data: {
       id,
-      snapshot.orgId || null,
-      snapshot.vehicleId,
-      snapshot.predictionRunId || null,
-      JSON.stringify(snapshot.features || {}),
-      snapshot.createdAt || new Date().toISOString()
-    );
+      orgId: snapshot.orgId || null,
+      vehicleId: snapshot.vehicleId,
+      predictionRunId: snapshot.predictionRunId || null,
+      featureJson: snapshot.features || {},
+      createdAt: toDate(snapshot.createdAt)
+    }
+  });
   return id;
 }
 
-function syncMlArtifactsFromDisk(modelDir) {
+// ─── Sync Artifacts From Disk ─────────────────────────────────────────────────
+
+async function syncMlArtifactsFromDisk(modelDir) {
   const metadataPath = path.join(modelDir, "fleet_ai_model_metadata.json");
   const profilesPath = path.join(modelDir, "fleet_ai_baseline_profiles.json");
   const result = { artifact: false, profiles: 0 };
   if (fs.existsSync(metadataPath)) {
     const metadata = JSON.parse(fs.readFileSync(metadataPath, "utf8"));
-    upsertMlModelArtifact(metadata, metadata.model_file || path.join(modelDir, "fleet_ai_model.pkl"));
+    await upsertMlModelArtifact(metadata, metadata.model_file || path.join(modelDir, "fleet_ai_model.pkl"));
     result.artifact = true;
   }
   if (fs.existsSync(profilesPath)) {
     const payload = JSON.parse(fs.readFileSync(profilesPath, "utf8"));
     const profiles = payload.profiles || payload || {};
-    Object.values(profiles).forEach((profile) => {
-      if (upsertMlBaselineProfile(profile)) result.profiles += 1;
-    });
+    for (const profile of Object.values(profiles)) {
+      if (await upsertMlBaselineProfile(profile)) result.profiles += 1;
+    }
   }
   return result;
 }
 
 module.exports = {
-  DB_PATH,
-  getDb,
+  getPrisma,
   makeId,
   insertTelemetrySample,
   getSamplesForVehicle,

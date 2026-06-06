@@ -1,0 +1,793 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Fleet AI Partner Integration Reference</title>
+  <meta name="description" content="Complete technical integration guide for Fleet AI marketplace partners. API reference, webhook setup, and data schemas." />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --ink:    #0F172A;
+      --text:   #374151;
+      --muted:  #6B7280;
+      --line:   #E5E7EB;
+      --bg:     #F8FAFC;
+      --white:  #FFFFFF;
+      --blue:   #2563EB;
+      --blue-lt:#EFF6FF;
+      --green:  #059669;
+      --warn:   #D97706;
+      --red:    #DC2626;
+      --navy:   #0B1120;
+      --code-bg:#0D1117;
+      --font:   'Inter', system-ui, sans-serif;
+      --display:'Space Grotesk', system-ui, sans-serif;
+      --mono:   ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+      --syn-kw: #79C0FF;
+      --syn-str:#A5D6A7;
+      --syn-cmt:#6E7681;
+      --syn-fn: #D2A8FF;
+      --syn-prop:#FFA657;
+      --syn-num:#FF7B72;
+      --syn-var:#E6EDF3;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; -webkit-font-smoothing: antialiased; }
+    body { font-family: var(--font); color: var(--text); background: var(--white); line-height: 1.6; }
+    a { color: var(--blue); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code { font-family: var(--mono); font-size: .875em; background: var(--blue-lt); color: var(--blue); padding: 1px 6px; border-radius: 4px; }
+    h1,h2,h3,h4 { font-family: var(--display); color: var(--ink); }
+
+    /* LAYOUT */
+    .layout { display: grid; grid-template-columns: 260px 1fr; min-height: 100vh; }
+
+    /* SIDEBAR */
+    .sidebar {
+      position: sticky; top: 0; height: 100vh; overflow-y: auto;
+      background: var(--bg); border-right: 1px solid var(--line);
+      padding: 28px 0;
+    }
+    .sidebar__brand {
+      padding: 0 20px 20px; border-bottom: 1px solid var(--line); margin-bottom: 16px;
+    }
+    .sidebar__brand h1 { font-size: 15px; font-weight: 700; color: var(--ink); }
+    .sidebar__brand p  { font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .sidebar__group { margin-bottom: 4px; }
+    .sidebar__group-label {
+      font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;
+      color: var(--muted); padding: 10px 20px 4px;
+    }
+    .sidebar a {
+      display: block; padding: 6px 20px; font-size: 13px; font-weight: 500;
+      color: var(--muted); border-left: 3px solid transparent; transition: all .1s;
+    }
+    .sidebar a:hover { color: var(--ink); text-decoration: none; background: rgba(15,23,42,.04); }
+    .sidebar a.active { color: var(--blue); border-left-color: var(--blue); background: var(--blue-lt); }
+    .sidebar a.method-link { font-family: var(--mono); font-size: 12px; }
+
+    /* MAIN */
+    .main { padding: 48px 64px 96px; max-width: 860px; }
+
+    /* SECTION */
+    .doc-section { padding-top: 48px; border-top: 1px solid var(--line); margin-top: 48px; }
+    .doc-section:first-child { border-top: none; margin-top: 0; padding-top: 0; }
+    .doc-section h2 { font-size: 26px; font-weight: 700; letter-spacing: -.5px; margin-bottom: 14px; }
+    .doc-section h3 { font-size: 18px; font-weight: 700; letter-spacing: -.3px; margin: 28px 0 10px; }
+    .doc-section p  { font-size: 14px; line-height: 1.75; color: var(--text); margin-bottom: 14px; }
+    .doc-section ul, .doc-section ol { padding-left: 20px; margin-bottom: 14px; }
+    .doc-section li { font-size: 14px; line-height: 1.75; color: var(--text); }
+
+    /* ENDPOINT BLOCK */
+    .endpoint-block { margin: 28px 0; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+    .endpoint-block__title {
+      display: flex; align-items: center; gap: 12px;
+      padding: 14px 18px; background: var(--bg); border-bottom: 1px solid var(--line);
+    }
+    .endpoint-block__desc { padding: 14px 18px; font-size: 13px; color: var(--muted); border-bottom: 1px solid var(--line); }
+    .endpoint-block__body { padding: 18px; }
+
+    /* METHOD PILLS */
+    .method {
+      display: inline-flex; align-items: center; justify-content: center;
+      height: 22px; padding: 0 8px; border-radius: 5px;
+      font-family: var(--mono); font-size: 11px; font-weight: 800; letter-spacing: .5px;
+      flex-shrink: 0;
+    }
+    .m-get    { background: rgba(37,99,235,.1);  color: #1D4ED8; }
+    .m-post   { background: rgba(5,150,105,.1);  color: #065F46; }
+    .m-delete { background: rgba(220,38,38,.1);  color: #991B1B; }
+
+    .path { font-family: var(--mono); font-size: 14px; font-weight: 600; color: var(--ink); }
+
+    /* CODE BLOCKS */
+    .code-block {
+      background: var(--code-bg); border-radius: 10px; overflow: hidden;
+      margin: 14px 0; border: 1px solid rgba(255,255,255,.06);
+    }
+    .code-block__label {
+      padding: 8px 16px; font-size: 11px; font-weight: 600;
+      color: rgba(255,255,255,.3); font-family: var(--mono);
+      background: rgba(255,255,255,.04); border-bottom: 1px solid rgba(255,255,255,.06);
+    }
+    .code-block pre {
+      padding: 18px 20px; font-size: 12.5px; line-height: 1.8;
+      font-family: var(--mono); color: var(--syn-var); overflow-x: auto;
+    }
+    .kw   { color: var(--syn-kw); }
+    .str  { color: var(--syn-str); }
+    .cmt  { color: var(--syn-cmt); }
+    .fn   { color: var(--syn-fn); }
+    .prop { color: var(--syn-prop); }
+    .num  { color: var(--syn-num); }
+    .dim  { color: rgba(255,255,255,.25); }
+
+    /* PARAM TABLE */
+    .param-table { width: 100%; border-collapse: collapse; font-size: 13px; margin: 14px 0; }
+    .param-table th { text-align: left; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); padding: 8px 12px; background: var(--bg); border-bottom: 2px solid var(--line); }
+    .param-table td { padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+    .param-table tr:last-child td { border-bottom: none; }
+    .param-name { font-family: var(--mono); font-weight: 600; color: var(--ink); font-size: 12px; }
+    .param-req  { font-size: 10px; font-weight: 700; color: #DC2626; margin-left: 6px; }
+    .param-opt  { font-size: 10px; font-weight: 700; color: var(--muted); margin-left: 6px; }
+    .param-type { font-family: var(--mono); font-size: 11px; color: var(--blue); }
+    .param-desc { color: var(--muted); line-height: 1.5; }
+
+    /* ALERT BOXES */
+    .alert { padding: 14px 16px; border-radius: 8px; font-size: 13px; margin: 14px 0; line-height: 1.6; }
+    .alert-info  { background: var(--blue-lt);    border-left: 3px solid var(--blue); color: #1E40AF; }
+    .alert-warn  { background: #FFFBEB;           border-left: 3px solid var(--warn); color: #92400E; }
+    .alert-green { background: rgba(5,150,105,.08); border-left: 3px solid var(--green); color: #065F46; }
+
+    /* VALUE TABLE (for enum values etc) */
+    .value-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 14px 0; }
+    .value-item { padding: 10px 14px; border: 1px solid var(--line); border-radius: 8px; }
+    .value-item code { display: block; font-size: 12px; margin-bottom: 4px; }
+    .value-item p { font-size: 12px; color: var(--muted); margin: 0; }
+
+    /* ERROR TABLE */
+    .error-table { width: 100%; border-collapse: collapse; font-size: 13px; margin: 14px 0; }
+    .error-table th { text-align: left; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); padding: 8px 12px; background: var(--bg); border-bottom: 2px solid var(--line); }
+    .error-table td { padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; font-size: 13px; }
+    .error-table tr:last-child td { border-bottom: none; }
+
+    /* RESPONSIVE */
+    @media (max-width: 900px) {
+      .layout { grid-template-columns: 1fr; }
+      .sidebar { position: relative; height: auto; }
+      .main { padding: 32px 24px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="layout">
+
+  <!-- ── SIDEBAR ── -->
+  <aside class="sidebar">
+    <div class="sidebar__brand">
+      <h1>Fleet AI</h1>
+      <p>Partner Integration Reference</p>
+    </div>
+
+    <div class="sidebar__group">
+      <div class="sidebar__group-label">Getting started</div>
+      <a href="#overview">Overview</a>
+      <a href="#quickstart">Quickstart (5 min)</a>
+      <a href="#authentication">Authentication</a>
+      <a href="#base-url">Base URL & versioning</a>
+    </div>
+
+    <div class="sidebar__group">
+      <div class="sidebar__group-label">Predictions</div>
+      <a href="#predict" class="method-link">POST &nbsp;/predict</a>
+      <a href="#predict-batch" class="method-link">POST &nbsp;/predict/batch</a>
+      <a href="#fleet" class="method-link">GET &nbsp; /fleet</a>
+      <a href="#status" class="method-link">GET &nbsp; /status</a>
+    </div>
+
+    <div class="sidebar__group">
+      <div class="sidebar__group-label">Vehicle data</div>
+      <a href="#history" class="method-link">GET &nbsp; /vehicles/:id/history</a>
+      <a href="#rul" class="method-link">GET &nbsp; /vehicles/:id/rul</a>
+      <a href="#maintenance" class="method-link">POST &nbsp;/vehicles/:id/maintenance</a>
+    </div>
+
+    <div class="sidebar__group">
+      <div class="sidebar__group-label">Webhooks</div>
+      <a href="#webhooks-register" class="method-link">POST &nbsp;/webhooks</a>
+      <a href="#webhooks-list" class="method-link">GET &nbsp; /webhooks</a>
+      <a href="#webhooks-delete" class="method-link">DELETE /webhooks/:id</a>
+      <a href="#webhook-events">Event payloads</a>
+      <a href="#webhook-verify">Signature verification</a>
+    </div>
+
+    <div class="sidebar__group">
+      <div class="sidebar__group-label">Reference</div>
+      <a href="#data-types">Data types</a>
+      <a href="#errors">Error codes</a>
+      <a href="#rate-limits">Rate limits</a>
+      <a href="#changelog">Changelog</a>
+    </div>
+  </aside>
+
+  <!-- ── MAIN CONTENT ── -->
+  <main class="main">
+
+    <!-- OVERVIEW -->
+    <div id="overview" class="doc-section">
+      <h2>Fleet AI Partner API</h2>
+      <p>This reference covers the full integration surface for Fleet AI marketplace partners. Use it to send vehicle telemetry, receive breakdown risk predictions, register webhooks, and notify Fleet AI when maintenance is performed so vehicle baselines stay calibrated.</p>
+
+      <div class="alert alert-info">
+        <strong>API access is provisioned per partner.</strong> Contact your Fleet AI account manager to receive your <code>X-API-Key</code> credentials. The key must have tier <code>partner_ml</code> to access prediction endpoints.
+      </div>
+
+      <h3>How it works</h3>
+      <p>Your platform sends telemetry samples to <code>POST /api/partner/predict</code>. Fleet AI runs your data through a two-stage ML ensemble (Node.js EWMA + Python gradient boosting) and returns a risk probability, diagnosis, and recommended action within ~350ms. You surface that result inside your product.</p>
+      <p>For fleets of any size, use <code>POST /api/partner/predict/batch</code> to score up to 200 vehicles in a single call. Register a webhook to receive push events when a vehicle's risk crosses a threshold so you don't need to poll.</p>
+    </div>
+
+    <!-- QUICKSTART -->
+    <div id="quickstart" class="doc-section">
+      <h2>Quickstart</h2>
+      <p>Get a risk prediction for one vehicle in under 5 minutes.</p>
+
+      <h3>Step 1 — Make your first prediction</h3>
+      <p>Send the last few telemetry readings for a vehicle. At minimum you need <code>vehicleId</code> and one sample with at least one recognized metric field.</p>
+
+      <div class="code-block">
+        <div class="code-block__label">cURL</div>
+<pre><span class="kw">curl</span> -X POST https://your-domain.com/api/partner/predict \
+  -H <span class="str">"X-API-Key: fai_your_key_here"</span> \
+  -H <span class="str">"Content-Type: application/json"</span> \
+  -d <span class="str">'{
+    "vehicleId": "truck-2701",
+    "samples": [
+      {
+        "ts": "2026-06-06T10:00:00Z",
+        "rpm": 1850,
+        "coolantTemp": 94,
+        "batteryVoltage": 14.1,
+        "engineLoad": 67,
+        "vehicleSpeed": 58,
+        "fuelRate": 8.2
+      }
+    ],
+    "vehicleMeta": {
+      "year": 2019,
+      "make": "Freightliner",
+      "model": "Cascadia",
+      "vehicleClass": "heavy"
+    }
+  }'</span></pre>
+      </div>
+
+      <h3>Step 2 — Read the response</h3>
+      <p>The key fields to display in your UI are <code>riskProbability</code>, <code>prediction</code>, <code>advisoryText</code>, and <code>diagnosis.primarySubsystem</code>.</p>
+
+      <div class="code-block">
+        <div class="code-block__label">Response</div>
+<pre><span class="dim">{</span>
+  <span class="prop">"success"</span>: <span class="kw">true</span>,
+  <span class="prop">"vehicleId"</span>: <span class="str">"truck-2701"</span>,
+  <span class="prop">"riskProbability"</span>: <span class="num">0.82</span>,          <span class="cmt">// 0–1. ≥0.75 = critical, 0.35–0.74 = warning</span>
+  <span class="prop">"prediction"</span>: <span class="str">"breakdown_risk"</span>,   <span class="cmt">// see Data types section</span>
+  <span class="prop">"confidence"</span>: <span class="num">0.94</span>,
+  <span class="prop">"advisoryText"</span>: <span class="str">"Cooling system showing progressive degradation. Thermostat response has slowed over the last 14 days."</span>,
+  <span class="prop">"diagnosis"</span>: <span class="dim">{</span>
+    <span class="prop">"primarySubsystem"</span>: <span class="str">"cooling_system"</span>,
+    <span class="prop">"rootCause"</span>: <span class="str">"Thermostat response delay combined with sustained coolant temp elevation"</span>,
+    <span class="prop">"confidence"</span>: <span class="num">0.91</span>
+  <span class="dim">},</span>
+  <span class="prop">"stageSystem"</span>: <span class="dim">{</span> <span class="prop">"confirmed"</span>: <span class="kw">true</span>, <span class="prop">"signalAgreement"</span>: <span class="num">0.89</span> <span class="dim">},</span>
+  <span class="prop">"modelInfo"</span>: <span class="dim">{</span>
+    <span class="prop">"predictionSource"</span>: <span class="str">"python_ensemble"</span>,
+    <span class="prop">"latencyMs"</span>: <span class="num">342</span>
+  <span class="dim">}</span>
+<span class="dim">}</span></pre>
+      </div>
+
+      <h3>Step 3 — Register a webhook (optional but recommended)</h3>
+      <p>Instead of polling, let Fleet AI push a notification when a vehicle crosses the critical threshold.</p>
+
+      <div class="code-block">
+        <div class="code-block__label">cURL</div>
+<pre><span class="kw">curl</span> -X POST https://your-domain.com/api/partner/webhooks \
+  -H <span class="str">"X-API-Key: fai_your_key_here"</span> \
+  -H <span class="str">"Content-Type: application/json"</span> \
+  -d <span class="str">'{
+    "url": "https://hooks.your-platform.com/fleetai",
+    "events": ["risk_threshold_crossed", "stage2_confirmed"],
+    "threshold": 0.75
+  }'</span></pre>
+      </div>
+      <div class="alert alert-warn">Save the <code>secret</code> from the response — it's shown once. Use it to verify <code>X-FleetAI-Signature</code> headers on incoming payloads.</div>
+    </div>
+
+    <!-- AUTHENTICATION -->
+    <div id="authentication" class="doc-section">
+      <h2>Authentication</h2>
+      <p>All partner API requests must include your API key in the <code>X-API-Key</code> request header. Keys use the prefix <code>fai_</code> followed by 48 hex characters.</p>
+
+      <div class="code-block">
+        <div class="code-block__label">Header</div>
+<pre>X-API-Key: fai_a3f9c2d8e14b...</pre>
+      </div>
+
+      <p>Keys are tier-gated. Prediction endpoints require tier <code>partner_ml</code>. A key with the wrong tier returns <code>HTTP 403</code> with code <code>INSUFFICIENT_TIER</code>.</p>
+
+      <div class="alert alert-info">Keys never expire but can be revoked by Fleet AI at any time. Treat your key like a password — do not commit it to source control or expose it in client-side code.</div>
+    </div>
+
+    <!-- BASE URL -->
+    <div id="base-url" class="doc-section">
+      <h2>Base URL &amp; versioning</h2>
+      <p>All partner endpoints are under <code>/api/partner/</code>. There is no version prefix in the path — the API version is communicated via the <code>X-FleetAI-Version</code> response header and the <code>api_version</code> field in webhook payloads.</p>
+      <p>Breaking changes are announced with at least 60 days notice. Non-breaking additions (new fields, new event types) are made without notice and your integration should ignore unknown fields.</p>
+    </div>
+
+    <!-- ── PREDICTIONS ── -->
+
+    <!-- POST /predict -->
+    <div id="predict" class="doc-section">
+      <h2>POST /api/partner/predict</h2>
+      <p>Score a single vehicle. Send the last N telemetry readings and receive a breakdown risk probability, component diagnosis, and recommended action.</p>
+
+      <div class="alert alert-info">Send the most recent 50–200 samples for the best prediction quality. Fewer than 10 samples will return a result but with lower confidence.</div>
+
+      <h3>Request body</h3>
+      <table class="param-table">
+        <thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><span class="param-name">vehicleId</span><span class="param-req">required</span></td><td><span class="param-type">string</span></td><td class="param-desc">Your internal vehicle identifier. Used to track per-vehicle baselines.</td></tr>
+          <tr><td><span class="param-name">samples</span><span class="param-req">required</span></td><td><span class="param-type">array</span></td><td class="param-desc">Array of telemetry readings. See metric field aliases below. Max 5000 samples.</td></tr>
+          <tr><td><span class="param-name">dtcCodes</span><span class="param-opt">optional</span></td><td><span class="param-type">string[]</span></td><td class="param-desc">Active OBD-II or J1939 fault codes (e.g. <code>"P0128"</code>). Improves diagnosis accuracy significantly.</td></tr>
+          <tr><td><span class="param-name">vehicleMeta</span><span class="param-opt">optional</span></td><td><span class="param-type">object</span></td><td class="param-desc">Year, make, model, VIN, vehicleClass. Used for fleet normalization comparisons.</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Accepted metric field names</h3>
+      <p>Each sample object accepts the following metric fields. Aliases are all treated equivalently.</p>
+      <table class="param-table">
+        <thead><tr><th>Canonical</th><th>Accepted aliases</th></tr></thead>
+        <tbody>
+          <tr><td><span class="param-name">rpm</span></td><td class="param-desc"><code>rpm</code>, <code>engineRpm</code>, <code>engine_rpm</code></td></tr>
+          <tr><td><span class="param-name">coolantTemp</span></td><td class="param-desc"><code>coolantTemp</code>, <code>coolant_temp</code>, <code>engine_temp</code></td></tr>
+          <tr><td><span class="param-name">batteryVoltage</span></td><td class="param-desc"><code>batteryVoltage</code>, <code>battery_voltage</code></td></tr>
+          <tr><td><span class="param-name">engineLoad</span></td><td class="param-desc"><code>engineLoad</code>, <code>engineLoadPct</code>, <code>engine_load</code></td></tr>
+          <tr><td><span class="param-name">vehicleSpeed</span></td><td class="param-desc"><code>vehicleSpeed</code>, <code>speed</code>, <code>speedKph</code></td></tr>
+          <tr><td><span class="param-name">fuelRate</span></td><td class="param-desc"><code>fuelRate</code>, <code>fuelRateLph</code>, <code>fuel_rate</code></td></tr>
+          <tr><td><span class="param-name">oilTemp</span></td><td class="param-desc"><code>oilTemp</code>, <code>oil_temp</code></td></tr>
+          <tr><td><span class="param-name">dpfSootLoad</span></td><td class="param-desc"><code>dpfSootLoad</code>, <code>dpf_soot</code>, <code>dpfSootLoadPct</code></td></tr>
+          <tr><td><span class="param-name">intakeAirTemp</span></td><td class="param-desc"><code>intakeAirTemp</code>, <code>iat</code></td></tr>
+          <tr><td><span class="param-name">throttlePos</span></td><td class="param-desc"><code>throttlePos</code>, <code>throttlePosPct</code></td></tr>
+        </tbody>
+      </table>
+
+      <h3>Response fields</h3>
+      <table class="param-table">
+        <thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><span class="param-name">riskProbability</span></td><td><span class="param-type">number</span></td><td class="param-desc">0.0–1.0. Primary signal. ≥0.75 = critical, 0.35–0.74 = warning, &lt;0.35 = healthy.</td></tr>
+          <tr><td><span class="param-name">prediction</span></td><td><span class="param-type">string</span></td><td class="param-desc"><code>breakdown_risk</code>, <code>normal</code>, <code>insufficient_data</code></td></tr>
+          <tr><td><span class="param-name">confidence</span></td><td><span class="param-type">number</span></td><td class="param-desc">Model confidence 0.0–1.0. Below 0.6 treat as indicative, not definitive.</td></tr>
+          <tr><td><span class="param-name">advisoryText</span></td><td><span class="param-type">string</span></td><td class="param-desc">Human-readable explanation ready to display in your UI.</td></tr>
+          <tr><td><span class="param-name">diagnosis</span></td><td><span class="param-type">object</span></td><td class="param-desc"><code>primarySubsystem</code>, <code>rootCause</code>, <code>confidence</code>. May be null when data is thin.</td></tr>
+          <tr><td><span class="param-name">activeFaults</span></td><td><span class="param-type">object|null</span></td><td class="param-desc">DTC analysis: <code>codes</code>, <code>riskScore</code>, <code>systemsAffected</code>, <code>topCodes</code>. Null if no DTCs sent.</td></tr>
+          <tr><td><span class="param-name">stageSystem</span></td><td><span class="param-type">object|null</span></td><td class="param-desc">Two-stage confirmation. <code>confirmed: true</code> means a second independent model agreed. High confidence signal.</td></tr>
+          <tr><td><span class="param-name">sensorRisks</span></td><td><span class="param-type">object</span></td><td class="param-desc">Per-metric risk scores from the EWMA baseline model. Useful for drilling into which sensor drove the prediction.</td></tr>
+          <tr><td><span class="param-name">modelInfo</span></td><td><span class="param-type">object</span></td><td class="param-desc"><code>predictionSource</code>, <code>latencyMs</code>, <code>sampleCount</code>, <code>mlServiceAvailable</code>.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- POST /predict/batch -->
+    <div id="predict-batch" class="doc-section">
+      <h2>POST /api/partner/predict/batch</h2>
+      <p>Score up to 200 vehicles in a single request. Processed in parallel internally. Use this for nightly fleet sweeps or on-demand fleet-wide health checks.</p>
+
+      <div class="code-block">
+        <div class="code-block__label">Request</div>
+<pre><span class="dim">{</span>
+  <span class="prop">"vehicles"</span>: <span class="dim">[</span>
+    <span class="dim">{</span>
+      <span class="prop">"vehicleId"</span>: <span class="str">"truck-2701"</span>,
+      <span class="prop">"samples"</span>: <span class="dim">[</span> <span class="dim">{ ... }</span> <span class="dim">],</span>
+      <span class="prop">"dtcCodes"</span>: <span class="dim">[</span><span class="str">"P0128"</span><span class="dim">],</span>
+      <span class="prop">"vehicleMeta"</span>: <span class="dim">{ ... }</span>
+    <span class="dim">},</span>
+    <span class="dim">{</span>
+      <span class="prop">"vehicleId"</span>: <span class="str">"van-044"</span>,
+      <span class="prop">"samples"</span>: <span class="dim">[</span> <span class="dim">{ ... }</span> <span class="dim">]</span>
+    <span class="dim">}</span>
+  <span class="dim">]</span>
+<span class="dim">}</span></pre>
+      </div>
+
+      <div class="code-block">
+        <div class="code-block__label">Response</div>
+<pre><span class="dim">{</span>
+  <span class="prop">"success"</span>: <span class="kw">true</span>,
+  <span class="prop">"processed"</span>: <span class="num">2</span>,
+  <span class="prop">"summary"</span>: <span class="dim">{</span>
+    <span class="prop">"critical"</span>: <span class="num">1</span>,
+    <span class="prop">"warning"</span>: <span class="num">0</span>,
+    <span class="prop">"healthy"</span>: <span class="num">1</span>,
+    <span class="prop">"errors"</span>: <span class="num">0</span>
+  <span class="dim">},</span>
+  <span class="prop">"vehicles"</span>: <span class="dim">[</span>
+    <span class="dim">{</span> <span class="prop">"vehicleId"</span>: <span class="str">"truck-2701"</span>, <span class="prop">"riskProbability"</span>: <span class="num">0.82</span>, <span class="prop">"prediction"</span>: <span class="str">"breakdown_risk"</span>, <span class="prop">"success"</span>: <span class="kw">true</span>, <span class="cmt">/* ... */</span> <span class="dim">},</span>
+    <span class="dim">{</span> <span class="prop">"vehicleId"</span>: <span class="str">"van-044"</span>,   <span class="prop">"riskProbability"</span>: <span class="num">0.18</span>, <span class="prop">"prediction"</span>: <span class="str">"normal"</span>,         <span class="prop">"success"</span>: <span class="kw">true</span> <span class="dim">}</span>
+  <span class="dim">],</span>
+  <span class="prop">"latencyMs"</span>: <span class="num">580</span>
+<span class="dim">}</span></pre>
+      </div>
+      <p>Vehicles that fail validation (missing vehicleId, no samples) return <code>success: false</code> with an <code>error</code> string in that vehicle's entry. The overall request still returns <code>HTTP 200</code>.</p>
+    </div>
+
+    <!-- GET /fleet -->
+    <div id="fleet" class="doc-section">
+      <h2>GET /api/partner/fleet</h2>
+      <p>Returns all vehicles scored in the last 24 hours, sorted by <code>riskProbability</code> descending — highest risk first. Useful for building a fleet-wide risk dashboard.</p>
+
+      <table class="param-table">
+        <thead><tr><th>Query param</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><span class="param-name">limit</span></td><td><span class="param-type">integer</span></td><td>100</td><td class="param-desc">Max vehicles to return. Maximum 500.</td></tr>
+          <tr><td><span class="param-name">minRisk</span></td><td><span class="param-type">number</span></td><td>0</td><td class="param-desc">Filter to vehicles with riskProbability ≥ this value. Use <code>0.35</code> to see only at-risk vehicles.</td></tr>
+        </tbody>
+      </table>
+
+      <div class="code-block">
+        <div class="code-block__label">Response</div>
+<pre><span class="dim">{</span>
+  <span class="prop">"success"</span>: <span class="kw">true</span>,
+  <span class="prop">"partner"</span>: <span class="str">"motive"</span>,
+  <span class="prop">"asOf"</span>: <span class="str">"2026-06-06T10:00:00Z"</span>,
+  <span class="prop">"summary"</span>: <span class="dim">{</span> <span class="prop">"critical"</span>: <span class="num">3</span>, <span class="prop">"warning"</span>: <span class="num">8</span>, <span class="prop">"healthy"</span>: <span class="num">142</span>, <span class="prop">"total"</span>: <span class="num">153</span> <span class="dim">},</span>
+  <span class="prop">"vehicles"</span>: <span class="dim">[</span>
+    <span class="dim">{</span>
+      <span class="prop">"vehicleId"</span>:       <span class="str">"truck-2701"</span>,
+      <span class="prop">"riskProbability"</span>: <span class="num">0.82</span>,
+      <span class="prop">"confidence"</span>:      <span class="num">0.94</span>,
+      <span class="prop">"prediction"</span>:      <span class="str">"breakdown_risk"</span>,
+      <span class="prop">"advisoryText"</span>:    <span class="str">"Cooling system showing progressive degradation."</span>,
+      <span class="prop">"stage2Confirmed"</span>: <span class="kw">true</span>,
+      <span class="prop">"topSignal"</span>:       <span class="str">"coolantTemp"</span>,
+      <span class="prop">"lastSeenAt"</span>:      <span class="str">"2026-06-06T09:45:00Z"</span>
+    <span class="dim">}</span>
+  <span class="dim">]</span>
+<span class="dim">}</span></pre>
+      </div>
+    </div>
+
+    <!-- GET /status -->
+    <div id="status" class="doc-section">
+      <h2>GET /api/partner/status</h2>
+      <p>Check whether the ML service has sufficient data for a vehicle before sending a prediction request. Useful to surface a "Not enough data yet" state in your UI rather than a low-confidence result.</p>
+
+      <div class="code-block">
+        <div class="code-block__label">Request</div>
+<pre>GET /api/partner/status?vehicleId=truck-2701</pre>
+      </div>
+
+      <div class="code-block">
+        <div class="code-block__label">Response</div>
+<pre><span class="dim">{</span>
+  <span class="prop">"success"</span>: <span class="kw">true</span>,
+  <span class="prop">"vehicleId"</span>: <span class="str">"truck-2701"</span>,
+  <span class="prop">"status"</span>: <span class="dim">{</span>
+    <span class="prop">"mlServiceAvailable"</span>: <span class="kw">true</span>,
+    <span class="prop">"modelLoaded"</span>: <span class="kw">true</span>,
+    <span class="prop">"sampleCount"</span>: <span class="num">420</span>,
+    <span class="prop">"baselineEstablished"</span>: <span class="kw">true</span>
+  <span class="dim">}</span>
+<span class="dim">}</span></pre>
+      </div>
+    </div>
+
+    <!-- GET /vehicles/:vehicleId/history -->
+    <div id="history" class="doc-section">
+      <h2>GET /api/partner/vehicles/:vehicleId/history</h2>
+      <p>Risk score trend for a vehicle over the last N days. Returns a time-series of risk probabilities with trend analysis (improving / stable / deteriorating).</p>
+
+      <table class="param-table">
+        <thead><tr><th>Query param</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><span class="param-name">days</span></td><td><span class="param-type">integer</span></td><td>30</td><td class="param-desc">History window in days. Maximum 90.</td></tr>
+        </tbody>
+      </table>
+
+      <div class="code-block">
+        <div class="code-block__label">Response</div>
+<pre><span class="dim">{</span>
+  <span class="prop">"vehicleId"</span>: <span class="str">"truck-2701"</span>,
+  <span class="prop">"days"</span>: <span class="num">30</span>,
+  <span class="prop">"trend"</span>: <span class="str">"deteriorating"</span>,     <span class="cmt">// improving | stable | deteriorating | insufficient_data</span>
+  <span class="prop">"averageRisk7d"</span>: <span class="num">0.7412</span>,
+  <span class="prop">"dataPoints"</span>: <span class="num">84</span>,
+  <span class="prop">"history"</span>: <span class="dim">[</span>
+    <span class="dim">{</span> <span class="prop">"ts"</span>: <span class="str">"2026-05-07T10:00:00Z"</span>, <span class="prop">"riskProbability"</span>: <span class="num">0.31</span>, <span class="prop">"prediction"</span>: <span class="str">"normal"</span> <span class="dim">},</span>
+    <span class="dim">{</span> <span class="prop">"ts"</span>: <span class="str">"2026-06-06T10:00:00Z"</span>, <span class="prop">"riskProbability"</span>: <span class="num">0.82</span>, <span class="prop">"prediction"</span>: <span class="str">"breakdown_risk"</span> <span class="dim">}</span>
+  <span class="dim">]</span>
+<span class="dim">}</span></pre>
+      </div>
+    </div>
+
+    <!-- GET /vehicles/:vehicleId/rul -->
+    <div id="rul" class="doc-section">
+      <h2>GET /api/partner/vehicles/:vehicleId/rul</h2>
+      <p>Remaining Useful Life estimate. Uses linear regression over the last 14 days of risk history to compute a degradation rate and project how many days until the vehicle reaches the service threshold. Requires at least 3 prior prediction data points.</p>
+
+      <div class="code-block">
+        <div class="code-block__label">Response</div>
+<pre><span class="dim">{</span>
+  <span class="prop">"vehicleId"</span>:              <span class="str">"truck-2701"</span>,
+  <span class="prop">"available"</span>:              <span class="kw">true</span>,
+  <span class="prop">"urgency"</span>:                <span class="str">"high"</span>,     <span class="cmt">// critical | high | moderate | stable | improving</span>
+  <span class="prop">"estimatedDaysToService"</span>: <span class="num">4</span>,
+  <span class="prop">"confidenceInterval"</span>: <span class="dim">{</span> <span class="prop">"low"</span>: <span class="num">2</span>, <span class="prop">"high"</span>: <span class="num">5</span> <span class="dim">},</span>
+  <span class="prop">"currentRisk"</span>:            <span class="num">0.82</span>,
+  <span class="prop">"degradationRate"</span>:        <span class="num">0.042</span>,   <span class="cmt">// risk increase per day</span>
+  <span class="prop">"drivenBySignal"</span>:         <span class="str">"coolantTemp"</span>,
+  <span class="prop">"subsystem"</span>:              <span class="str">"cooling_system"</span>,
+  <span class="prop">"recommendation"</span>:         <span class="str">"Schedule cooling_system inspection within 4 days. Monitor closely on every run."</span>
+<span class="dim">}</span></pre>
+      </div>
+    </div>
+
+    <!-- POST /vehicles/:vehicleId/maintenance -->
+    <div id="maintenance" class="doc-section">
+      <h2>POST /api/partner/vehicles/:vehicleId/maintenance</h2>
+      <p>Notify Fleet AI that maintenance was performed on a vehicle. This resets the ML baseline for the affected subsystem so the model recalibrates from the vehicle's post-service state rather than continuing to flag a resolved issue.</p>
+
+      <div class="alert alert-green"><strong>Important:</strong> Always call this endpoint after maintenance. Without it, the model may continue showing elevated risk for a vehicle that has already been repaired.</div>
+
+      <div class="code-block">
+        <div class="code-block__label">Request</div>
+<pre><span class="dim">{</span>
+  <span class="prop">"maintenanceType"</span>: <span class="str">"cooling_system"</span>,    <span class="cmt">// cooling, battery, oil, brake, dpf, fuel, transmission, tire</span>
+  <span class="prop">"description"</span>:    <span class="str">"Replaced thermostat and coolant flush"</span>,
+  <span class="prop">"mileage"</span>:        <span class="num">142000</span>,
+  <span class="prop">"performedAt"</span>:    <span class="str">"2026-06-05T14:00:00Z"</span>,
+  <span class="prop">"parts"</span>:          <span class="dim">[</span><span class="str">"thermostat"</span>, <span class="str">"coolant"</span><span class="dim">]</span>
+<span class="dim">}</span></pre>
+      </div>
+
+      <div class="code-block">
+        <div class="code-block__label">Response</div>
+<pre><span class="dim">{</span>
+  <span class="prop">"success"</span>:         <span class="kw">true</span>,
+  <span class="prop">"vehicleId"</span>:       <span class="str">"truck-2701"</span>,
+  <span class="prop">"resetSignals"</span>:    <span class="dim">[</span><span class="str">"engine_temp"</span>, <span class="str">"coolant_temp_oscillation"</span>, <span class="str">"engine_temp_delta_30d"</span><span class="dim">],</span>
+  <span class="prop">"note"</span>:            <span class="str">"Vehicle baseline will recalibrate over the next 50 telemetry observations."</span>
+<span class="dim">}</span></pre>
+      </div>
+    </div>
+
+    <!-- WEBHOOKS -->
+    <div id="webhooks-register" class="doc-section">
+      <h2>POST /api/partner/webhooks</h2>
+      <p>Register an HTTPS endpoint to receive real-time fleet events. Fleet AI will POST to your URL when a vehicle crosses your configured risk threshold or a DTC fault is detected.</p>
+
+      <table class="param-table">
+        <thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><span class="param-name">url</span><span class="param-req">required</span></td><td><span class="param-type">string</span></td><td class="param-desc">HTTPS URL that will receive POST requests. Must be publicly reachable.</td></tr>
+          <tr><td><span class="param-name">events</span><span class="param-opt">optional</span></td><td><span class="param-type">string[]</span></td><td class="param-desc">Event types to subscribe to. Defaults to <code>["risk_threshold_crossed", "stage2_confirmed"]</code>. Pass <code>["*"]</code> for all events.</td></tr>
+          <tr><td><span class="param-name">threshold</span><span class="param-opt">optional</span></td><td><span class="param-type">number</span></td><td class="param-desc">Risk probability threshold that triggers <code>risk_threshold_crossed</code>. Default <code>0.35</code>. Set to <code>0.75</code> for critical-only alerts.</td></tr>
+          <tr><td><span class="param-name">secret</span><span class="param-opt">optional</span></td><td><span class="param-type">string</span></td><td class="param-desc">Your own signing secret, or omit to have one generated. Used to compute <code>X-FleetAI-Signature</code>.</td></tr>
+        </tbody>
+      </table>
+
+      <div class="code-block">
+        <div class="code-block__label">Response</div>
+<pre><span class="dim">{</span>
+  <span class="prop">"success"</span>: <span class="kw">true</span>,
+  <span class="prop">"webhook"</span>: <span class="dim">{</span>
+    <span class="prop">"id"</span>:        <span class="str">"wh_clx9a2..."</span>,
+    <span class="prop">"url"</span>:       <span class="str">"https://hooks.your-platform.com/fleetai"</span>,
+    <span class="prop">"events"</span>:   <span class="dim">[</span><span class="str">"risk_threshold_crossed"</span>, <span class="str">"stage2_confirmed"</span><span class="dim">],</span>
+    <span class="prop">"threshold"</span>:<span class="num">0.75</span>,
+    <span class="prop">"secret"</span>:   <span class="str">"a3f9c2d8e14b..."</span>,   <span class="cmt">// shown once — save immediately</span>
+    <span class="prop">"active"</span>:   <span class="kw">true</span>
+  <span class="dim">},</span>
+  <span class="prop">"note"</span>: <span class="str">"Save the secret — it will not be shown again."</span>
+<span class="dim">}</span></pre>
+      </div>
+    </div>
+
+    <div id="webhooks-list" class="doc-section">
+      <h2>GET /api/partner/webhooks</h2>
+      <p>List all webhooks registered under your API key. The <code>secret</code> field is never returned after initial creation.</p>
+    </div>
+
+    <div id="webhooks-delete" class="doc-section">
+      <h2>DELETE /api/partner/webhooks/:id</h2>
+      <p>Remove a webhook by its ID. Fleet AI will stop delivering events to that URL immediately.</p>
+    </div>
+
+    <!-- WEBHOOK EVENTS -->
+    <div id="webhook-events" class="doc-section">
+      <h2>Webhook event payloads</h2>
+      <p>All events POST to your registered URL with <code>Content-Type: application/json</code>. The top-level structure is consistent across event types.</p>
+
+      <h3>risk_threshold_crossed</h3>
+      <p>Fires when a vehicle's <code>riskProbability</code> crosses the threshold configured on the webhook (default 0.35).</p>
+
+      <div class="code-block">
+        <div class="code-block__label">Payload</div>
+<pre><span class="dim">{</span>
+  <span class="prop">"event"</span>:     <span class="str">"risk_threshold_crossed"</span>,
+  <span class="prop">"vehicleId"</span>: <span class="str">"truck-2701"</span>,
+  <span class="prop">"partner"</span>:   <span class="str">"motive"</span>,
+  <span class="prop">"riskProbability"</span>: <span class="num">0.82</span>,
+  <span class="prop">"prediction"</span>:     <span class="str">"breakdown_risk"</span>,
+  <span class="prop">"advisoryText"</span>:   <span class="str">"Cooling system showing progressive degradation."</span>,
+  <span class="prop">"diagnosis"</span>:     <span class="dim">{</span> <span class="prop">"primarySubsystem"</span>: <span class="str">"cooling_system"</span>, <span class="cmt">/* ... */</span> <span class="dim">},</span>
+  <span class="prop">"timestamp"</span>:     <span class="str">"2026-06-06T10:22:00Z"</span>
+<span class="dim">}</span></pre>
+      </div>
+
+      <h3>stage2_confirmed</h3>
+      <p>Fires when a second independent model confirms the risk. This is the highest-confidence signal Fleet AI produces — treat it as a definitive service recommendation.</p>
+
+      <h3>dtc_critical</h3>
+      <p>Fires when a DTC code associated with high-risk system failure is detected (e.g. P0217 — engine overtemp, P0087 — fuel pressure low).</p>
+    </div>
+
+    <!-- WEBHOOK VERIFY -->
+    <div id="webhook-verify" class="doc-section">
+      <h2>Signature verification</h2>
+      <p>Every webhook request includes an <code>X-FleetAI-Signature</code> header. Verify it before processing the payload to ensure the request came from Fleet AI and was not tampered with.</p>
+
+      <div class="code-block">
+        <div class="code-block__label">Node.js verification</div>
+<pre><span class="kw">const</span> crypto = <span class="fn">require</span>(<span class="str">'crypto'</span>);
+
+<span class="kw">function</span> <span class="fn">verifyFleetAI</span>(req, secret) {
+  <span class="kw">const</span> signature = req.headers[<span class="str">'x-fleetai-signature'</span>];
+  <span class="kw">const</span> body      = JSON.<span class="fn">stringify</span>(req.body);
+  <span class="kw">const</span> expected  = <span class="str">'sha256='</span> + crypto
+    .<span class="fn">createHmac</span>(<span class="str">'sha256'</span>, secret)
+    .<span class="fn">update</span>(body)
+    .<span class="fn">digest</span>(<span class="str">'hex'</span>);
+  <span class="kw">return</span> crypto.<span class="fn">timingSafeEqual</span>(
+    Buffer.<span class="fn">from</span>(signature),
+    Buffer.<span class="fn">from</span>(expected)
+  );
+}
+
+<span class="cmt">// In your Express route:</span>
+app.<span class="fn">post</span>(<span class="str">'/hooks/fleetai'</span>, (req, res) => {
+  <span class="kw">if</span> (!<span class="fn">verifyFleetAI</span>(req, process.env.<span class="prop">FLEETAI_WEBHOOK_SECRET</span>)) {
+    <span class="kw">return</span> res.<span class="fn">status</span>(<span class="num">401</span>).<span class="fn">send</span>(<span class="str">'Invalid signature'</span>);
+  }
+  <span class="kw">const</span> { event, vehicleId, riskProbability } = req.body;
+  <span class="cmt">// handle event...</span>
+  res.<span class="fn">status</span>(<span class="num">200</span>).<span class="fn">send</span>(<span class="str">'ok'</span>);
+});</pre>
+      </div>
+
+      <div class="alert alert-warn">Use <code>crypto.timingSafeEqual</code>, not <code>===</code>. String comparison is vulnerable to timing attacks.</div>
+
+      <p>Fleet AI retries failed deliveries up to 3 times with exponential backoff (1s, 2s). Return <code>HTTP 200</code> to acknowledge receipt. Any non-2xx status triggers a retry.</p>
+    </div>
+
+    <!-- DATA TYPES -->
+    <div id="data-types" class="doc-section">
+      <h2>Data types</h2>
+
+      <h3>prediction values</h3>
+      <div class="value-grid">
+        <div class="value-item"><code>breakdown_risk</code><p>Model detected developing fault pattern. Action required.</p></div>
+        <div class="value-item"><code>normal</code><p>No anomalies detected against vehicle baseline.</p></div>
+        <div class="value-item"><code>insufficient_data</code><p>Fewer than 10 samples sent. Result is low confidence.</p></div>
+      </div>
+
+      <h3>riskProbability thresholds</h3>
+      <table class="param-table">
+        <thead><tr><th>Range</th><th>Label</th><th>Recommended action</th></tr></thead>
+        <tbody>
+          <tr><td><code>0.75 – 1.00</code></td><td style="color:#DC2626;font-weight:600">Critical</td><td class="param-desc">Do not dispatch. Schedule inspection immediately.</td></tr>
+          <tr><td><code>0.35 – 0.74</code></td><td style="color:#D97706;font-weight:600">Warning</td><td class="param-desc">Flag for maintenance within service window.</td></tr>
+          <tr><td><code>0.00 – 0.34</code></td><td style="color:#059669;font-weight:600">Healthy</td><td class="param-desc">No action required. Continue monitoring.</td></tr>
+        </tbody>
+      </table>
+
+      <h3>urgency values (RUL endpoint)</h3>
+      <div class="value-grid">
+        <div class="value-item"><code>critical</code><p>Risk already at or above critical threshold. Service immediately.</p></div>
+        <div class="value-item"><code>high</code><p>Will reach critical within 7 days at current rate.</p></div>
+        <div class="value-item"><code>moderate</code><p>Will reach warning threshold within 21 days.</p></div>
+        <div class="value-item"><code>stable</code><p>No significant degradation trend detected.</p></div>
+        <div class="value-item"><code>improving</code><p>Risk decreasing, likely post-maintenance recovery.</p></div>
+      </div>
+    </div>
+
+    <!-- ERRORS -->
+    <div id="errors" class="doc-section">
+      <h2>Error codes</h2>
+      <p>All errors return a consistent JSON envelope:</p>
+      <div class="code-block">
+        <div class="code-block__label">Error envelope</div>
+<pre><span class="dim">{</span>
+  <span class="prop">"success"</span>: <span class="kw">false</span>,
+  <span class="prop">"error"</span>: <span class="dim">{</span>
+    <span class="prop">"code"</span>:    <span class="str">"MISSING_VEHICLE_ID"</span>,
+    <span class="prop">"message"</span>: <span class="str">"vehicleId is required."</span>
+  <span class="dim">}</span>
+<span class="dim">}</span></pre>
+      </div>
+
+      <table class="error-table">
+        <thead><tr><th>HTTP</th><th>Code</th><th>Meaning</th></tr></thead>
+        <tbody>
+          <tr><td>401</td><td><code>API_KEY_MISSING</code></td><td>No <code>X-API-Key</code> header sent.</td></tr>
+          <tr><td>403</td><td><code>API_KEY_INVALID</code></td><td>Key does not exist or has been revoked.</td></tr>
+          <tr><td>403</td><td><code>INSUFFICIENT_TIER</code></td><td>Key tier does not allow this endpoint. Contact Fleet AI to upgrade.</td></tr>
+          <tr><td>400</td><td><code>MISSING_VEHICLE_ID</code></td><td>Required field <code>vehicleId</code> not provided.</td></tr>
+          <tr><td>400</td><td><code>NO_SAMPLES</code></td><td>The <code>samples</code> array was empty.</td></tr>
+          <tr><td>400</td><td><code>NO_VALID_METRICS</code></td><td>Samples contained no recognized metric field names.</td></tr>
+          <tr><td>400</td><td><code>BATCH_TOO_LARGE</code></td><td>Batch request exceeded 200 vehicles.</td></tr>
+          <tr><td>400</td><td><code>MISSING_URL</code></td><td>Webhook registration missing <code>url</code> field.</td></tr>
+          <tr><td>400</td><td><code>INVALID_URL</code></td><td>Webhook URL is not a valid HTTPS URL.</td></tr>
+          <tr><td>500</td><td><code>SERVER_ERROR</code></td><td>Internal error. Retry after a short delay. Contact support if persistent.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- RATE LIMITS -->
+    <div id="rate-limits" class="doc-section">
+      <h2>Rate limits</h2>
+      <p>Rate limits are applied per API key. Current limits for <code>partner_ml</code> tier:</p>
+      <table class="param-table">
+        <thead><tr><th>Endpoint</th><th>Limit</th><th>Window</th></tr></thead>
+        <tbody>
+          <tr><td><code>POST /predict</code></td><td>600 requests</td><td>Per minute</td></tr>
+          <tr><td><code>POST /predict/batch</code></td><td>60 requests</td><td>Per minute</td></tr>
+          <tr><td><code>GET /fleet</code></td><td>120 requests</td><td>Per minute</td></tr>
+          <tr><td><code>All other endpoints</code></td><td>300 requests</td><td>Per minute</td></tr>
+        </tbody>
+      </table>
+      <p>Rate limit headers are not currently sent in responses. If you hit a limit, you will receive <code>HTTP 429</code>. Implement exponential backoff starting at 1 second.</p>
+    </div>
+
+    <!-- CHANGELOG -->
+    <div id="changelog" class="doc-section">
+      <h2>Changelog</h2>
+      <table class="param-table">
+        <thead><tr><th>Date</th><th>Change</th></tr></thead>
+        <tbody>
+          <tr><td><code>2026-06-01</code></td><td class="param-desc">Initial partner API release. Endpoints: predict, predict/batch, fleet, status, webhooks, history, rul, maintenance.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+  </main>
+</div>
+
+<script>
+  // Highlight active sidebar link based on scroll position
+  const sections = document.querySelectorAll('.doc-section[id]');
+  const links    = document.querySelectorAll('.sidebar a[href^="#"]');
+
+  function updateActive() {
+    let current = '';
+    sections.forEach(s => {
+      if (s.getBoundingClientRect().top <= 80) current = s.id;
+    });
+    links.forEach(a => {
+      a.classList.toggle('active', a.getAttribute('href') === '#' + current);
+    });
+  }
+
+  document.querySelector('.main').addEventListener('scroll', updateActive);
+  updateActive();
+</script>
+</body>
+</html>

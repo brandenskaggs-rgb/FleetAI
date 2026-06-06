@@ -56,7 +56,7 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
     private val ema = mutableMapOf<String, Double>()
     private val history = mutableMapOf<String, MutableList<Double>>()
     private val lastGood = mutableMapOf<String, Pair<Double, Long>>()
-    private val valueTtlMs = 10_000L
+    private val valueTtlMs = 30_000L
     private var lastReadError: String? = null
 
     init {
@@ -275,7 +275,7 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
                     backoffMs = 0L
                     delay(800)
                 } else {
-                    backoffMs = if (backoffMs == 0L) 400L else (backoffMs * 2).coerceAtMost(4000L)
+                    backoffMs = if (backoffMs == 0L) 400L else (backoffMs * 2).coerceAtMost(2000L)
                     delay(backoffMs)
                 }
             }
@@ -346,14 +346,13 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
     ): SensorReading {
         val smoothed = raw?.let { smooth(pid, it) }
         val status = when {
-            raw == null -> SensorStatus.UNSUPPORTED
+            raw == null -> SensorStatus.STALE
             System.currentTimeMillis() - ts > 3000 -> SensorStatus.STALE
             else -> SensorStatus.LIVE
         }
         val trend = trend(pid, smoothed ?: raw)
         val valueStr = when {
-            status == SensorStatus.UNSUPPORTED -> "Unsupported"
-            (smoothed ?: raw) == null -> "N/A"
+            (smoothed ?: raw) == null -> "—"
             else -> "%.${decimals}f".format(smoothed ?: raw)
         }
         return SensorReading(
@@ -370,7 +369,7 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
     }
 
     private fun smooth(pid: String, value: Double): Double {
-        val alpha = 0.35
+        val alpha = 0.15  // 15% new / 85% history — low enough to suppress BT noise
         val prev = ema[pid]
         val next = if (prev == null) value else alpha * value + (1 - alpha) * prev
         ema[pid] = next

@@ -84,13 +84,13 @@ function getJson(path) {
   });
 }
 
-async function predict({ orgId, vehicleId, vehicleMeta, samples, alertMode = "launch_default" }) {
+async function predict({ orgId, vehicleId, vehicleMeta, samples, dtcCodes }) {
   return postJson("/predict", {
     orgId: orgId || null,
     vehicleId,
     vehicleMeta: vehicleMeta || {},
     samples: Array.isArray(samples) ? samples : [],
-    alertMode
+    dtcCodes: Array.isArray(dtcCodes) ? dtcCodes : []
   });
 }
 

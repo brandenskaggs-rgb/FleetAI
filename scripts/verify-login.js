@@ -2,7 +2,7 @@
 const fetch = (...args) => import("node-fetch").then(({ default: fetch }) => fetch(...args));
 
 async function main() {
-  const email = process.env.EMAIL || "brandenskaggs01@gmail.com";
+  const email = process.env.EMAIL || "customer@fleetai.local";
   const base = process.env.BASE || "http://localhost:3000";
   console.log("Verifying login pipeline for", email, "against", base);
   // Attempt login expecting PASSWORD_SETUP_REQUIRED or OK

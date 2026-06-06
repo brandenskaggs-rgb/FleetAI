@@ -16,7 +16,7 @@
 ## B) Dev Seed Logic (Deterministic)
 - [x] Create `server/seed-dev.js`
 - [x] Seed when `DEV_SETUP=true` and store empty:
-  - [x] SUPER_ADMIN employee: `brandenwooley07@icloud.com`
+  - [x] SUPER_ADMIN employee: `superadmin@fleetai.local`
   - [x] Internal admin: `admin@fleetai.local`
   - [x] 1 customer org + user
 - [x] Passwords are bcrypt-hashed

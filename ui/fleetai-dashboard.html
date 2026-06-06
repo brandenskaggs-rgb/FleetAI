@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" onerror="this.href='https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css'">
   <style>
     :root{
       --bg:#F5F7FA; --surface2:#E9EEF5; --panel:#FFFFFF; --panel2:#F1F5F9;
@@ -151,7 +151,7 @@
       <button data-route="pairing" data-view="pairing"></button><button data-route="addons" data-view="addons"></button><button data-route="settings" data-view="settings"></button>
     </div>
     <aside class="sidebar" aria-label="Fleet AI navigation">
-      <div class="brand"><div class="logo"><img src="/assets/brand/fleet-ai-mark.svg" alt=""></div><div><h1>Fleet AI</h1><p>Reliability command</p></div></div>
+      <div class="brand"><div class="logo"><img src="/assets/brand/fleet-ai-mark.svg" alt=""></div><div><h1>Fleet AI</h1><p>Fleet AI workspace</p></div></div>
       <nav class="nav" id="sideNav"></nav>
       <div class="note">Workspace focus: Fleet AI prioritizes uptime, maintenance visibility, and service planning. GPS and camera surfaces add operational context when they are enabled.</div>
       <div class="note">Signal status: Live data appears only when a paired device is connected and actively streaming. Use device pairing to bring telemetry and alerts online.</div>
@@ -174,13 +174,13 @@
         </div>
       </header>
       <div class="subHeader" id="topTabs" aria-label="Fleet AI dashboard tabs"></div>
-      <div class="viewHeader"><h2 id="viewTitle">Operations Center</h2><p id="viewSub">Fleet health, open risks, and priority actions at a glance</p></div>
+      <div class="viewHeader"><h2 id="viewTitle">Command Center</h2><p id="viewSub">Fleet health, open risks, and priority actions at a glance</p></div>
 
       <section id="view-dashboard" class="section">
         <div class="overviewHero">
           <div class="heroPanel">
             <h3>Turn live vehicle signals into the next best maintenance decision.</h3>
-            <p>Fleet AI watches sensor drift, fault codes, inspections, service work, and dispatch context so operators know which units to pull, when to schedule work, and why the model raised the risk.</p>
+            <p>Fleet AI watches sensor drift, fault codes, inspections, service work, and dispatch context so operators know which units to pull, when to schedule work, and why each vehicle was flagged.</p>
             <div class="sectionActions">
               <button class="btn primary" data-route="health-risk" type="button">Review Risk Queue</button>
               <button class="btn" data-route="maintenance" type="button">Plan Service</button>
@@ -195,14 +195,14 @@
           </div>
         </div>
         <div class="commandStrip">
-          <div class="commandMetric"><div class="commandMetric__label">Reliability Index</div><div class="commandMetric__value good" id="kpiUptime">--</div><div class="commandMetric__sub">Weighted ML health score</div></div>
-          <div class="commandMetric"><div class="commandMetric__label">Risk Exceptions</div><div class="commandMetric__value warn" id="kpiActions">--</div><div class="commandMetric__sub">Units needing review</div></div>
+          <div class="commandMetric"><div class="commandMetric__label">Reliability Index</div><div class="commandMetric__value good" id="kpiUptime">--</div><div class="commandMetric__sub">Fleet health score</div></div>
+          <div class="commandMetric"><div class="commandMetric__label">Risk Exceptions</div><div class="commandMetric__value warn" id="kpiActions">--</div><div class="commandMetric__sub">Vehicles needing review</div></div>
           <div class="commandMetric"><div class="commandMetric__label">Service Windows</div><div class="commandMetric__value" id="kpiAvoided">--</div><div class="commandMetric__sub">Work ready to schedule</div></div>
-          <div class="commandMetric"><div class="commandMetric__label">Signal Coverage</div><div class="commandMetric__value" id="kpiROI">--</div><div class="commandMetric__sub">Units streaming now</div></div>
+          <div class="commandMetric"><div class="commandMetric__label">Signal Coverage</div><div class="commandMetric__value" id="kpiROI">--</div><div class="commandMetric__sub">Vehicles streaming live</div></div>
         </div>
         <div class="opsPanel"><div class="opsPanel__head"><div><h3 class="opsPanel__title">Risk Queue</h3><div class="opsPanel__meta">Vehicles sorted by urgency, drift, and service impact</div></div><button class="btn" data-route="health-risk">Open Reliability Monitor</button></div><div class="opsPanel__body tableWrap"><table class="table"><thead><tr><th>Unit</th><th>System</th><th>Risk</th><th>Window</th><th>Recommended action</th></tr></thead><tbody id="riskQueueBody"><tr><td colspan="5"><div class="skeleton"></div></td></tr></tbody></table></div></div>
         <div class="grid2" style="margin-top:14px">
-          <div class="card"><div class="cardHead"><div><h3>Evidence Trail</h3><div class="cardMeta">Signals behind the current model decision</div></div></div><div class="cardBody" id="driftPanel"></div></div>
+          <div class="card"><div class="cardHead"><div><h3>Sensor Drift</h3><div class="cardMeta">30-day trend per signal — red lines are drifting outside baseline</div></div></div><div class="cardBody" id="driftPanel"></div></div>
           <div class="card"><div class="cardHead"><div><h3>Service Plan</h3><div class="cardMeta">Next work windows generated from active risks</div></div></div><div class="cardBody"><div class="scheduleList" id="scheduleList"></div></div></div>
         </div>
       </section>
@@ -262,7 +262,7 @@
     <button class="btn primary" id="btnAdvisorToggle" type="button">AI Advisor</button>
   </div>
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" onerror="var s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js';document.head.appendChild(s)"></script>
   <script>
   (() => {
     "use strict";
@@ -276,11 +276,11 @@
       ["Command",[["dashboard","Command Center","Home"],["alerts","Risk Inbox","alertCount"]]],
       ["Signals",[["telemetry","Live Telemetry","Live"],["telemetry-history","Signal History",""],["health-risk","Health Index",""],["dtc-history","Fault Library",""]]],
       ["Assets",[["vehicles","Fleet Directory",""],["gps","Map Control","Map"],["cameras","Camera Review",""]]],
-      ["Operations",[["drivers","Drivers",""],["driver-scores","Scorecards",""],["safety","Coaching",""],["compliance","HOS Watch","HOS"],["dispatch","Load Board","New"],["messages","Driver Messages","New"]]],
-      ["Compliance",[["dvir","Inspection Center","New"],["dot-compliance","DOT Readiness","New"]]],
-      ["Service",[["maintenance","Maintenance Board",""],["maintenance-logs","Service Records",""],["parts-inventory","Parts Inventory","New"],["recalls","Recall Watch","New"],["predictive-scheduler","Predictive Planner","New"]]],
-      ["Finance",[["fuel-events","Fuel Events",""],["cost-analytics","Spend Analytics",""],["reports","Reports Studio",""],["compliance-report","Audit Center","New"]]],
-      ["Intelligence",[["advisor","AI Advisor","AI"],["alert-subscriptions","Notification Rules","New"],["webhooks","API & Webhooks","New"]]],
+      ["Operations",[["drivers","Drivers",""],["driver-scores","Scorecards",""],["safety","Coaching",""],["compliance","HOS Watch","HOS"],["dispatch","Load Board",""],["messages","Driver Messages",""]]],
+      ["Compliance",[["dvir","Inspection Center",""],["dot-compliance","DOT Readiness",""]]],
+      ["Service",[["maintenance","Maintenance Board",""],["maintenance-logs","Service Records",""],["parts-inventory","Parts Inventory",""],["recalls","Recall Watch",""],["predictive-scheduler","Predictive Planner",""]]],
+      ["Finance",[["fuel-events","Fuel Events",""],["cost-analytics","Spend Analytics",""],["reports","Reports Studio",""],["compliance-report","Audit Center",""]]],
+      ["Intelligence",[["advisor","AI Advisor","AI"],["alert-subscriptions","Notification Rules",""],["webhooks","API & Webhooks",""]]],
       ["Workspace",[["pairing","Device Setup",""],["addons","Marketplace",""],["settings","Admin Settings",""]]]
     ];
     const flatRoutes = routes.flatMap(g => g[1]);
@@ -402,7 +402,38 @@
       $("kpiActions").textContent = health.filter(h=>Number(h.healthScore||100)<75 || String(h.risk||"").toLowerCase()==="high").length;
       $("kpiAvoided").textContent = state.cache.maintenance?.length || "--"; $("kpiROI").textContent = state.vehicles.length ? `${Math.min(state.vehicles.length, health.length || 0)}/${state.vehicles.length}` : "--";
       $("riskQueueBody").innerHTML = health.slice(0,8).map(h=>`<tr><td>${esc(h.vehicleName||h.vehicleId)}</td><td>${esc(h.component||"Powertrain")}</td><td>${riskPill(h.risk||scoreRisk(h.healthScore))}</td><td>${esc(h.window||"24-72 hrs")}</td><td>${esc(h.action||"Schedule inspection")}</td></tr>`).join("") || rowsEmpty(5,"No active predictive risks.");
-      $("driftPanel").innerHTML = `<div class="scheduleList">${["Coolant variance","Battery voltage sag","Fuel rate drift","Tire pressure spread"].map((x,i)=>`<div class="scheduleItem"><div><b>${x}</b><div class="muted">Signal delta ${i+1}.${i+8}x above baseline</div></div><div style="width:35%"><div class="bar"><span style="width:${76-i*12}%"></span></div></div></div>`).join("")}</div>`;
+      const driftSignals = [
+        {label:"Coolant temperature", pts:[72,72,73,74,75,76,78,77,80,83], warn:true},
+        {label:"Battery voltage",     pts:[12.6,12.5,12.6,12.5,12.4,12.3,12.4,12.2,12.1,12.0], warn:true},
+        {label:"Fuel consumption",    pts:[8.2,8.1,8.3,8.2,8.2,8.1,8.2,8.3,8.2,8.2], warn:false},
+        {label:"Oil pressure",        pts:[65,66,65,65,64,65,66,65,65,65], warn:false},
+      ];
+      $("driftPanel").innerHTML = driftSignals.map(({label,pts,warn})=>{
+        const W=240,H=52,pad=4;
+        const lo=Math.min(...pts),hi=Math.max(...pts),span=hi-lo||1;
+        const ys=pts.map(p=>pad+(1-(p-lo)/span)*(H-pad*2));
+        const xs=pts.map((_,i)=>pad+i/(pts.length-1)*(W-pad*2));
+        const line=xs.map((x,i)=>i===0?`M${x},${ys[i]}`:`C${(x+xs[i-1])/2},${ys[i-1]} ${(x+xs[i-1])/2},${ys[i]} ${x},${ys[i]}`).join(" ");
+        const area=`${line} L${xs[xs.length-1]},${H} L${xs[0]},${H} Z`;
+        const col=warn?"#DC2626":"#2563EB";
+        const uid=label.replace(/\s+/g,"");
+        return `<div style="padding:14px 0;border-bottom:1px solid var(--divider)">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <span style="font-size:13px;font-weight:700">${label}</span>
+            <span style="font-size:11px;font-weight:800;color:${col}">${warn?"▲ Drifting":"● Stable"}</span>
+          </div>
+          <svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" role="img" aria-label="${label} signal trend" style="display:block;overflow:visible">
+            <defs>
+              <linearGradient id="g${uid}" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="${col}" stop-opacity="0.18"/>
+                <stop offset="100%" stop-color="${col}" stop-opacity="0"/>
+              </linearGradient>
+            </defs>
+            <path d="${area}" fill="url(#g${uid})"/>
+            <path d="${line}" fill="none" stroke="${col}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>`;
+      }).join("");
       $("scheduleList").innerHTML = ["Cooling inspection","Battery load test","PM service","Tire pressure audit"].map((x,i)=>`<div class="scheduleItem"><div><b>${x}</b><div class="muted">Assigned to service queue</div></div><div class="scheduleDate">${i+1}d</div></div>`).join("");
     }
     window.loadDashboard = loadDashboard;
@@ -428,7 +459,7 @@
     }
     async function refreshGps(){ try{ const data=unwrap(await apiGet("/api/gps/live")); state.mapMarkers.forEach(m=>m.remove()); state.mapMarkers=[]; $("gpsRows").innerHTML=data.map(p=>{ const marker=L.marker([p.lat,p.lon]).addTo(state.leafletMap).on("click",()=>{$("hudSelected").textContent=p.vehicleName||p.vehicleId;}); state.mapMarkers.push(marker); return `<tr><td>${esc(p.vehicleName||p.vehicleId)}</td><td>${num(p.lat)}</td><td>${num(p.lon)}</td><td>${num(p.speed)} mph</td></tr>`; }).join("") || rowsEmpty(4,"No vehicle positions available."); }catch(_){ $("gpsRows").innerHTML=rowsEmpty(4,"GPS positions are unavailable."); } }
     function stopGpsPolling(){ if(state.gpsTimer){ clearInterval(state.gpsTimer); state.gpsTimer=null; } }
-    function renderCameraChannels(){ genericPanel("cameras","Camera Channels","Road-facing, driver-facing, and rear views when connected",`<div class="cameraGrid">${["Front","Driver","Rear"].map((x,i)=>`<div class="cameraTile"><div><div style="font-size:30px">▣</div><h3>${x}</h3><p class="muted">${i===0?"Live":"Offline"} camera channel</p><button class="btn">Review Clips</button></div></div>`).join("")}</div><div id="clipList" style="margin-top:14px"></div>`); }
+    function renderCameraChannels(){ genericPanel("cameras","Camera Channels","Road-facing, driver-facing, and rear views when connected",`<div class="cameraGrid">${["Front","Driver","Rear"].map((x,i)=>`<div class="cameraTile"><div><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:10px;opacity:.35" aria-hidden="true"><rect x="2" y="6" width="16" height="12" rx="2"/><path d="m18 9 4-2v10l-4-2"/></svg><h3>${x}</h3><p class="muted">${i===0?"Live":"Offline"} camera channel</p><button class="btn">Review Clips</button></div></div>`).join("")}</div><div id="clipList" style="margin-top:14px"></div>`); }
     function renderClipList(){ const el=$("clipList"); if(el) el.innerHTML=`<div class="scheduleList">${["Hard brake","Speeding event","Manual bookmark"].map(x=>`<div class="scheduleItem"><b>${x}</b><span class="chip">clip tagged</span></div>`).join("")}</div>`; }
     function renderQuickPrompts(){ genericPanel("advisor","Fleet Advisor","Ask operational questions grounded in fleet data",`<div class="sectionActions">${["Which vehicles need service first?","Summarize compliance risk","Find cost outliers","Explain coolant drift"].map(q=>`<button class="btn" data-prompt="${esc(q)}">${esc(q)}</button>`).join("")}</div><div class="advisorThread" id="advisorPageThread"><div class="msg">Choose a prompt or ask Fleet Advisor from the dock.</div></div>`); }
     async function aiAdvisorCheckStatus(){ return true; }

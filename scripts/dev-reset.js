@@ -16,8 +16,8 @@ function generatePassword() {
 async function seedUsers(data) {
   const usersToSeed = [
     { email: "admin@fleetai.local", role: "EMPLOYEE", kind: "employee", envKey: "ADMIN_PASSWORD" },
-    { email: "brandenwooley07@icloud.com", role: "SUPER_ADMIN", kind: "employee", envKey: "EMPLOYEE_PASSWORD" },
-    { email: "brandenskaggs01@gmail.com", role: "CUSTOMER", kind: "customer", orgId: "ORG_DEFAULT", envKey: "CUSTOMER_PASSWORD" }
+    { email: "superadmin@fleetai.local", role: "SUPER_ADMIN", kind: "employee", envKey: "EMPLOYEE_PASSWORD" },
+    { email: "customer@fleetai.local", role: "CUSTOMER", kind: "customer", orgId: "ORG_DEFAULT", envKey: "CUSTOMER_PASSWORD" }
   ];
 
   const generated = {};

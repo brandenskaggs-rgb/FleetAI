@@ -1,0 +1,127 @@
+{
+  "modelVersion": "stage2-v1.0.0",
+  "trainRows": 130479,
+  "testRows": 32620,
+  "features": [
+    "stage1_score",
+    "pretrained_score",
+    "if_score",
+    "welford_score",
+    "threshold_score",
+    "dtc_score",
+    "w_pretrained",
+    "w_if",
+    "w_welford",
+    "w_threshold",
+    "w_dtc",
+    "signal_agreement",
+    "fleet_percentile",
+    "mv_stress_max",
+    "sample_count",
+    "welford_confidence",
+    "pretrained_decayed",
+    "has_cooling_dtc",
+    "has_fuel_dtc",
+    "has_electrical_dtc",
+    "has_emissions_dtc",
+    "has_engine_dtc",
+    "diagnosis_urgency",
+    "vehicle_class_code",
+    "ambient_temp",
+    "idle_heat_soak",
+    "coolant_temp_oscillation",
+    "battery_voltage",
+    "engine_temp_delta_30d"
+  ],
+  "featureCount": 29,
+  "metrics": {
+    "accuracy": 0.999908,
+    "precision": 1.0,
+    "recall": 0.984456,
+    "f1": 0.992167,
+    "roc_auc": 0.999735
+  },
+  "featureImportance": [
+    {
+      "feature": "dtc_score",
+      "importance": 439.0
+    },
+    {
+      "feature": "engine_temp_delta_30d",
+      "importance": 381.0
+    },
+    {
+      "feature": "ambient_temp",
+      "importance": 361.0
+    },
+    {
+      "feature": "battery_voltage",
+      "importance": 282.0
+    },
+    {
+      "feature": "coolant_temp_oscillation",
+      "importance": 260.0
+    },
+    {
+      "feature": "signal_agreement",
+      "importance": 197.0
+    },
+    {
+      "feature": "diagnosis_urgency",
+      "importance": 192.0
+    },
+    {
+      "feature": "idle_heat_soak",
+      "importance": 143.0
+    },
+    {
+      "feature": "pretrained_score",
+      "importance": 103.0
+    },
+    {
+      "feature": "sample_count",
+      "importance": 87.0
+    },
+    {
+      "feature": "stage1_score",
+      "importance": 86.0
+    },
+    {
+      "feature": "if_score",
+      "importance": 86.0
+    },
+    {
+      "feature": "mv_stress_max",
+      "importance": 62.0
+    },
+    {
+      "feature": "threshold_score",
+      "importance": 61.0
+    },
+    {
+      "feature": "welford_score",
+      "importance": 52.0
+    },
+    {
+      "feature": "has_cooling_dtc",
+      "importance": 41.0
+    },
+    {
+      "feature": "vehicle_class_code",
+      "importance": 13.0
+    },
+    {
+      "feature": "fleet_percentile",
+      "importance": 8.0
+    },
+    {
+      "feature": "w_welford",
+      "importance": 7.0
+    },
+    {
+      "feature": "w_pretrained",
+      "importance": 5.0
+    }
+  ],
+  "notes": "Stage 2 confirmatory LightGBM. Trained on synthetic false-positive archetypes at natural 0.4% failure rate."
+}

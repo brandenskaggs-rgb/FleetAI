@@ -33,9 +33,13 @@ def evaluate_model() -> None:
     else:
         loaded = {"model": loaded, "model_type": "single", "threshold": 0.5}
 
+    # Use the feature list stored in the bundle to support old (34) and new (49) models
+    features_to_use = loaded.get("features", FEATURE_COLUMNS) if isinstance(loaded, dict) else FEATURE_COLUMNS
+
     # New seed to simulate out-of-sample behavior.
     eval_df = generate_heavy_duty_data(seed=777)
-    X_eval = eval_df[FEATURE_COLUMNS]
+    available = [f for f in features_to_use if f in eval_df.columns]
+    X_eval = eval_df[available]
     y_true = eval_df["failure"].to_numpy()
 
     if model_type == "ensemble":
