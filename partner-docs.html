@@ -763,6 +763,7 @@ app.<span class="fn">post</span>(<span class="str">'/hooks/fleetai'</span>, (req
       <table class="param-table">
         <thead><tr><th>Date</th><th>Change</th></tr></thead>
         <tbody>
+          <tr><td><code>2026-06-06</code></td><td class="param-desc">Bug fixes: per-webhook threshold field now respected (webhooks below a partner's configured threshold are suppressed); fleet view now returns advisoryText and stageSystem data; webhook retry backoff corrected to 1s, 2s, 4s.</td></tr>
           <tr><td><code>2026-06-01</code></td><td class="param-desc">Initial partner API release. Endpoints: predict, predict/batch, fleet, status, webhooks, history, rul, maintenance.</td></tr>
         </tbody>
       </table>

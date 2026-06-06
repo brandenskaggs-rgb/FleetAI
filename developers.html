@@ -268,20 +268,20 @@
           <span class="term__title">fleet-ai-quickstart.sh</span>
         </div>
         <div class="term__body">
-<span class="cmt"># Pull real-time health for any vehicle</span>
-<span class="t-prompt">$ </span><span class="kw">curl</span> https://api.fleetai.io/<span class="prop">v1</span>/vehicles/<span class="str">VH-2701</span>/health \
-  -H <span class="str">"Authorization: Bearer $FLEET_AI_API_KEY"</span>
+<span class="cmt"># Predict breakdown risk for any vehicle</span>
+<span class="t-prompt">$ </span><span class="kw">curl</span> -X POST https://your-app.railway.app/api/partner/predict \
+  -H <span class="str">"X-API-Key: $FLEET_AI_API_KEY"</span> \
+  -H <span class="str">"Content-Type: application/json"</span> \
+  -d <span class="str">'{"vehicleId":"VH-2701","samples":[{"rpm":1850,"coolantTemp":97,"batteryVoltage":13.1}]}'</span>
 
 <span class="cmt"># Response — structured, actionable, ready to act on</span>
 <span class="dim">{</span>
-  <span class="prop">"vehicle_id"</span>: <span class="str">"VH-2701"</span>,
-  <span class="prop">"health_score"</span>: <span class="num">43</span>,
-  <span class="prop">"risk"</span>: <span class="str">"high"</span>,
-  <span class="prop">"component"</span>: <span class="str">"cooling_system"</span>,
-  <span class="prop">"flags"</span>: [<span class="str">"coolant_temp_drift"</span>, <span class="str">"thermostat_delay"</span>],
-  <span class="prop">"window"</span>: <span class="str">"24–48 hours"</span>,
-  <span class="prop">"action"</span>: <span class="str">"Schedule cooling inspection"</span>,
-  <span class="prop">"confidence"</span>: <span class="num">0.94</span>
+  <span class="prop">"vehicleId"</span>: <span class="str">"VH-2701"</span>,
+  <span class="prop">"riskProbability"</span>: <span class="num">0.82</span>,
+  <span class="prop">"prediction"</span>: <span class="str">"breakdown"</span>,
+  <span class="prop">"confidence"</span>: <span class="num">0.94</span>,
+  <span class="prop">"advisoryText"</span>: <span class="str">"Cooling system showing thermal drift. Schedule inspection within 48h."</span>,
+  <span class="prop">"diagnosis"</span>: <span class="dim">{</span> <span class="prop">"primarySubsystem"</span>: <span class="str">"cooling"</span> <span class="dim">}</span>
 <span class="dim">}</span>
         </div>
       </div>
@@ -410,72 +410,58 @@
             </div>
           </div>
           <div class="code-panel active" id="tab-curl">
-<pre><span class="cmt"># Get the fleet risk queue</span>
-<span class="kw">curl</span> https://api.fleetai.io/<span class="prop">v1</span>/fleet/risk-queue \
-  -H <span class="str">"Authorization: Bearer $FLEET_AI_API_KEY"</span>
+<pre><span class="cmt"># Get risk-ranked fleet summary</span>
+<span class="kw">curl</span> https://your-app.railway.app/api/partner/fleet?minRisk=0.35 \
+  -H <span class="str">"X-API-Key: $FLEET_AI_API_KEY"</span>
 
-<span class="cmt"># Create a work order from a risk event</span>
-<span class="kw">curl</span> -X POST https://api.fleetai.io/<span class="prop">v1</span>/work-orders \
-  -H <span class="str">"Authorization: Bearer $FLEET_AI_API_KEY"</span> \
+<span class="cmt"># Run a breakdown prediction</span>
+<span class="kw">curl</span> -X POST https://your-app.railway.app/api/partner/predict \
+  -H <span class="str">"X-API-Key: $FLEET_AI_API_KEY"</span> \
   -H <span class="str">"Content-Type: application/json"</span> \
   -d <span class="str">'{
-    "vehicle_id": "VH-2701",
-    "type": "inspection",
-    "component": "cooling_system",
-    "priority": "urgent",
-    "source": "risk_queue"
+    "vehicleId": "VH-2701",
+    "samples": [{ "rpm": 1850, "coolantTemp": 97, "engineLoad": 78 }]
   }'</span>
 
 <span class="cmt"># Response</span>
-<span class="dim">{</span> <span class="prop">"id"</span>: <span class="str">"wo_2bYq9a"</span>, <span class="prop">"status"</span>: <span class="str">"created"</span> <span class="dim">}</span></pre>
+<span class="dim">{</span> <span class="prop">"riskProbability"</span>: <span class="num">0.82</span>, <span class="prop">"prediction"</span>: <span class="str">"breakdown"</span>, <span class="prop">"confidence"</span>: <span class="num">0.94</span> <span class="dim">}</span></pre>
           </div>
           <div class="code-panel" id="tab-node">
-<pre><span class="kw">import</span> FleetAI <span class="kw">from</span> <span class="str">'@fleetai/node'</span>;
+<pre><span class="cmt">// Get risk-ranked fleet and act on critical vehicles</span>
+<span class="kw">const</span> fleet = <span class="kw">await</span> <span class="fn">fetch</span>(<span class="str">'https://your-app.railway.app/api/partner/fleet?minRisk=0.75'</span>, {
+  headers: { <span class="str">'X-API-Key'</span>: process.env.<span class="prop">FLEET_AI_API_KEY</span> },
+}).<span class="fn">then</span>(r => r.<span class="fn">json</span>());
 
-<span class="kw">const</span> client = <span class="kw">new</span> <span class="fn">FleetAI</span>({
-  apiKey: process.env.<span class="prop">FLEET_AI_API_KEY</span>,
-});
+<span class="kw">for</span> (<span class="kw">const</span> vehicle <span class="kw">of</span> fleet.vehicles) {
+  <span class="cmt">// riskProbability 0–1; ≥0.75 = critical</span>
+  <span class="kw">const</span> pred = <span class="kw">await</span> <span class="fn">fetch</span>(<span class="str">'https://your-app.railway.app/api/partner/predict'</span>, {
+    method: <span class="str">'POST'</span>,
+    headers: { <span class="str">'X-API-Key'</span>: process.env.<span class="prop">FLEET_AI_API_KEY</span>, <span class="str">'Content-Type'</span>: <span class="str">'application/json'</span> },
+    body: <span class="prop">JSON</span>.<span class="fn">stringify</span>({ vehicleId: vehicle.vehicleId, samples: vehicle.latestSamples }),
+  }).<span class="fn">then</span>(r => r.<span class="fn">json</span>());
 
-<span class="cmt">// Get the prioritized risk queue</span>
-<span class="kw">const</span> queue = <span class="kw">await</span> client.fleet.<span class="fn">getRiskQueue</span>();
-
-<span class="cmt">// Auto-create work orders for every high-risk vehicle</span>
-<span class="kw">const</span> urgent = queue.<span class="fn">filter</span>(v => v.risk === <span class="str">'high'</span>);
-
-<span class="kw">for</span> (<span class="kw">const</span> vehicle <span class="kw">of</span> urgent) {
-  <span class="kw">const</span> order = <span class="kw">await</span> client.workOrders.<span class="fn">create</span>({
-    vehicleId:  vehicle.id,
-    type:       <span class="str">'inspection'</span>,
-    component:  vehicle.component,
-    priority:   <span class="str">'urgent'</span>,
-    source:     <span class="str">'risk_queue'</span>,
-  });
-
-  console.<span class="fn">log</span>(`Created ${order.id} for ${vehicle.name}`);
+  <span class="kw">if</span> (pred.riskProbability >= <span class="num">0.75</span>) {
+    <span class="kw">await</span> <span class="fn">createWorkOrder</span>({ vehicleId: vehicle.vehicleId, advisoryText: pred.advisoryText });
+  }
 }</pre>
           </div>
           <div class="code-panel" id="tab-python">
-<pre><span class="kw">import</span> fleetai, os
+<pre><span class="kw">import</span> os, requests
 
-client = fleetai.<span class="fn">Client</span>(
-    api_key=os.environ[<span class="str">"FLEET_AI_API_KEY"</span>]
-)
+BASE = <span class="str">"https://your-app.railway.app/api/partner"</span>
+HEADERS = {<span class="str">"X-API-Key"</span>: os.environ[<span class="str">"FLEET_AI_API_KEY"</span>]}
 
-<span class="cmt"># Get the prioritized risk queue</span>
-queue = client.fleet.<span class="fn">get_risk_queue</span>()
+<span class="cmt"># Get critical vehicles (riskProbability ≥ 0.75)</span>
+fleet = requests.<span class="fn">get</span>(f<span class="str">"{BASE}/fleet?minRisk=0.75"</span>, headers=HEADERS).<span class="fn">json</span>()
 
-<span class="cmt"># Auto-create work orders for high-risk vehicles</span>
-urgent = [v <span class="kw">for</span> v <span class="kw">in</span> queue <span class="kw">if</span> v.risk == <span class="str">"high"</span>]
+<span class="kw">for</span> vehicle <span class="kw">in</span> fleet[<span class="str">"vehicles"</span>]:
+    pred = requests.<span class="fn">post</span>(f<span class="str">"{BASE}/predict"</span>, headers=HEADERS, json={
+        <span class="str">"vehicleId"</span>: vehicle[<span class="str">"vehicleId"</span>],
+        <span class="str">"samples"</span>: vehicle[<span class="str">"latestSamples"</span>],
+    }).<span class="fn">json</span>()
 
-<span class="kw">for</span> vehicle <span class="kw">in</span> urgent:
-    order = client.work_orders.<span class="fn">create</span>(
-        vehicle_id=vehicle.id,
-        type=<span class="str">"inspection"</span>,
-        component=vehicle.component,
-        priority=<span class="str">"urgent"</span>,
-        source=<span class="str">"risk_queue"</span>,
-    )
-    <span class="fn">print</span>(f<span class="str">f"Created {order.id} for {vehicle.name}"</span>)</pre>
+    <span class="kw">if</span> pred[<span class="str">"riskProbability"</span>] >= <span class="num">0.75</span>:
+        <span class="fn">create_work_order</span>(vehicle_id=vehicle[<span class="str">"vehicleId"</span>], advisory=pred[<span class="str">"advisoryText"</span>])</pre>
           </div>
         </div>
       </div>
@@ -494,28 +480,23 @@ urgent = [v <span class="kw">for</span> v <span class="kw">in</span> queue <span
       <div class="event-list">
         <div class="event-item">
           <span class="event-dot"></span>
-          <span class="event-name">vehicle.risk_escalated</span>
-          <span class="event-desc">Score drops below threshold</span>
+          <span class="event-name">risk_threshold_crossed</span>
+          <span class="event-desc">Risk score crosses 0.35</span>
         </div>
         <div class="event-item">
           <span class="event-dot"></span>
-          <span class="event-name">vehicle.fault_detected</span>
-          <span class="event-desc">DTC code captured</span>
+          <span class="event-name">stage2_confirmed</span>
+          <span class="event-desc">Two-stage ML confirms breakdown</span>
         </div>
         <div class="event-item">
           <span class="event-dot"></span>
-          <span class="event-name">vehicle.telemetry.anomaly</span>
-          <span class="event-desc">Signal outside baseline</span>
+          <span class="event-name">dtc_critical</span>
+          <span class="event-desc">High-risk fault code detected</span>
         </div>
         <div class="event-item">
           <span class="event-dot"></span>
-          <span class="event-name">maintenance.work_order_created</span>
-          <span class="event-desc">Auto-generated work order</span>
-        </div>
-        <div class="event-item">
-          <span class="event-dot"></span>
-          <span class="event-name">fleet.health_report</span>
-          <span class="event-desc">Scheduled fleet summary</span>
+          <span class="event-name">model_ready</span>
+          <span class="event-desc">Predictions available for vehicle</span>
         </div>
       </div>
     </div>
@@ -530,24 +511,14 @@ urgent = [v <span class="kw">for</span> v <span class="kw">in</span> queue <span
         </div>
         <div class="term__body" style="font-size:12.5px">
 <span class="dim">{</span>
-  <span class="prop">"event"</span>: <span class="str">"vehicle.risk_escalated"</span>,
-  <span class="prop">"api_version"</span>: <span class="str">"2026-06-01"</span>,
-  <span class="prop">"data"</span>: <span class="dim">{</span>
-    <span class="prop">"vehicle_id"</span>: <span class="str">"VH-2701"</span>,
-    <span class="prop">"vehicle_name"</span>: <span class="str">"Truck 2701"</span>,
-    <span class="prop">"health_score"</span>: <span class="num">43</span>,
-    <span class="prop">"previous_score"</span>: <span class="num">71</span>,
-    <span class="prop">"risk"</span>: <span class="str">"high"</span>,
-    <span class="prop">"component"</span>: <span class="str">"cooling_system"</span>,
-    <span class="prop">"flags"</span>: [
-      <span class="str">"coolant_temp_drift"</span>,
-      <span class="str">"thermostat_response_delay"</span>
-    ],
-    <span class="prop">"window"</span>: <span class="str">"24–48 hours"</span>,
-    <span class="prop">"action"</span>: <span class="str">"Schedule cooling inspection"</span>,
-    <span class="prop">"confidence"</span>: <span class="num">0.94</span>
-  <span class="dim">},</span>
-  <span class="prop">"timestamp"</span>: <span class="str">"2026-06-04T14:22:00Z"</span>
+  <span class="prop">"event"</span>: <span class="str">"risk_threshold_crossed"</span>,
+  <span class="prop">"deliveredAt"</span>: <span class="str">"2026-06-06T14:22:00Z"</span>,
+  <span class="prop">"partner"</span>: <span class="str">"your-partner-name"</span>,
+  <span class="prop">"vehicleId"</span>: <span class="str">"VH-2701"</span>,
+  <span class="prop">"riskProbability"</span>: <span class="num">0.82</span>,
+  <span class="prop">"prediction"</span>: <span class="str">"breakdown"</span>,
+  <span class="prop">"threshold"</span>: <span class="num">0.35</span>,
+  <span class="prop">"advisoryText"</span>: <span class="str">"Cooling system showing thermal drift. Schedule inspection within 48h."</span>
 <span class="dim">}</span>
         </div>
       </div>
@@ -630,32 +601,32 @@ urgent = [v <span class="kw">for</span> v <span class="kw">in</span> queue <span
     <div class="access-grid">
       <div class="access-cell">
         <h3>Authentication</h3>
-        <p>Bearer token auth with scoped API keys. Separate read-only and write keys for different integration layers.</p>
+        <p><code style="font-size:11px;font-family:ui-monospace,monospace">X-API-Key</code> header with SHA-256 hashed keys. Raw key shown once at provisioning — never stored in plaintext.</p>
         <ul>
           <li>Per-key rate limits</li>
-          <li>Key rotation via dashboard</li>
-          <li>IP allowlist support</li>
-          <li>Full audit log per key</li>
+          <li>Key rotation on request</li>
+          <li>Tier-scoped access control</li>
+          <li>Usage tracked per key for billing</li>
         </ul>
       </div>
       <div class="access-cell">
         <h3>Response format</h3>
-        <p>All endpoints return JSON with a consistent envelope structure. Errors follow RFC 7807 problem detail format.</p>
+        <p>All endpoints return JSON with a consistent envelope. Errors include a machine-readable <code style="font-size:11px;font-family:ui-monospace,monospace">code</code> field alongside the message.</p>
         <ul>
-          <li>Versioned paths (<code style="font-size:11px;font-family:ui-monospace,monospace">/v1/</code>)</li>
+          <li>Predictable <code style="font-size:11px;font-family:ui-monospace,monospace">/api/partner/</code> paths</li>
           <li>ISO 8601 timestamps throughout</li>
-          <li>Cursor-based pagination</li>
-          <li>Idempotency keys on POST</li>
+          <li>Batch endpoint for up to 200 vehicles</li>
+          <li>HMAC-SHA256 signed webhooks</li>
         </ul>
       </div>
       <div class="access-cell">
         <h3>Reliability</h3>
-        <p>The API runs on the same infrastructure as the Fleet AI platform. Health scores refresh every 15 minutes; telemetry is real-time.</p>
+        <p>The API runs on the same infrastructure as the Fleet AI platform. Predictions are available within seconds of telemetry submission.</p>
         <ul>
-          <li>99.9% uptime SLA</li>
-          <li>Webhook retry with backoff</li>
-          <li>Status page at status.fleetai.io</li>
-          <li>Dedicated support for API accounts</li>
+          <li>Webhook retry with exponential backoff</li>
+          <li>Node.js fallback when ML service is busy</li>
+          <li>Dedicated Slack channel for API partners</li>
+          <li>Direct engineering support during integration</li>
         </ul>
       </div>
     </div>
