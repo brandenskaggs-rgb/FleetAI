@@ -81,7 +81,7 @@ function registerMotiveOAuthRoutes(app, { requireSuperAdmin, sessionStore, getSe
 
       if (error) {
         console.warn("[MOTIVE-OAUTH] callback error from Motive:", error, error_description);
-        return res.redirect(`/admin/employee-console.html?motive_error=${encodeURIComponent(error)}`);
+        return res.redirect(`/ui/fleetai-dashboard.html?motive_error=${encodeURIComponent(error)}`);
       }
 
       if (!code) {
@@ -105,10 +105,10 @@ function registerMotiveOAuthRoutes(app, { requireSuperAdmin, sessionStore, getSe
       motiveClient.setAccessToken(tokens.access_token);
 
       console.log("[MOTIVE-OAUTH] connected, access token stored, expires", tokens.expires_at);
-      res.redirect("/admin/employee-console.html?motive_connected=1");
+      res.redirect("/ui/fleetai-dashboard.html?motive_connected=1");
     })().catch((err) => {
       console.error("[MOTIVE-OAUTH] callback exception:", err.message);
-      res.redirect(`/admin/employee-console.html?motive_error=${encodeURIComponent(err.message)}`);
+      res.redirect(`/ui/fleetai-dashboard.html?motive_error=${encodeURIComponent(err.message)}`);
     });
   });
 
