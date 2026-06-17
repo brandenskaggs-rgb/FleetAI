@@ -128,8 +128,13 @@ function registerAdminRoutes(app, deps) {
     try {
       let hasSuperAdmin = false;
       if (prismaAuthAdapter) {
-        const authData = await prismaAuthAdapter.loadData();
-        hasSuperAdmin = (authData.users || []).some((u) => u.role === "SUPER_ADMIN");
+        try {
+          const authData = await prismaAuthAdapter.loadData();
+          hasSuperAdmin = (authData.users || []).some((u) => u.role === "SUPER_ADMIN");
+        } catch (_) {
+          const data = await readData();
+          hasSuperAdmin = hasSuperAdminCached(data);
+        }
       } else {
         const data = await readData();
         hasSuperAdmin = hasSuperAdminCached(data);
