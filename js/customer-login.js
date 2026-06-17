@@ -142,13 +142,16 @@ async function submitCustomerLogin() {
     if (!res.ok || data.ok === false) {
       const code = data.code || data.error;
       if (res.status === 409 && code === "PASSWORD_SETUP_REQUIRED" && data.setupToken) {
+        // Setup token stays in sessionStorage only — never in the URL (history/referrer leak).
         try {
           sessionStorage.setItem("fleetai_first_login_token", data.setupToken);
           sessionStorage.setItem("fleetai_first_login_email", email);
           sessionStorage.setItem("fleetai_first_login_role", "customer");
-        } catch (e) {}
-        const hash = `#token=${encodeURIComponent(data.setupToken)}&email=${encodeURIComponent(email)}&role=customer`;
-        window.location.href = `/set-password.html${hash}`;
+        } catch (e) {
+          showCustomerLoginMessage("Cannot complete setup: sessionStorage is unavailable.", false);
+          return;
+        }
+        window.location.href = "/set-password.html";
         return;
       }
       if (code === "USER_NOT_FOUND") {

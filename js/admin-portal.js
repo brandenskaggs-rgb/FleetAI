@@ -472,6 +472,15 @@ function viewTemplate() {
                   </div>
                 </div>
               </div>
+              <div class="panelCard" style="margin-top:12px;" id="orgFleetPanel">
+                <div class="panelHeader">
+                  <h3>Fleet <span id="orgFleetCount" class="panelMeta" style="margin-left:6px;"></span></h3>
+                  <button class="btn ghost" id="orgFleetRefreshBtn" type="button" style="font-size:11px;">Refresh</button>
+                </div>
+                <div id="orgFleetBody">
+                  <div class="emptyState" style="border-radius:0 0 10px 10px;">Select an organization to view its fleet.</div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -1273,6 +1282,7 @@ function selectOrg(orgId) {
     if (saveBtn) saveBtn.disabled = true;
     if (createBtn) createBtn.disabled = true;
     if (resetBtn) resetBtn.disabled = true;
+    loadOrgFleet(null);
     return;
   }
   if (note) note.textContent = roleAllowsOrgEdit() ? "Changes apply immediately." : "Read-only access.";
@@ -1282,20 +1292,83 @@ function selectOrg(orgId) {
   if (saveBtn) saveBtn.disabled = !roleAllowsOrgEdit();
   if (createBtn) createBtn.disabled = !roleAllowsOrgEdit();
   if (resetBtn) resetBtn.disabled = !roleAllowsOrgEdit();
+  loadOrgFleet(org.orgId || org.id);
+}
+
+async function loadOrgFleet(orgId) {
+  const body = $("orgFleetBody");
+  const count = $("orgFleetCount");
+  if (!body) return;
+  if (!orgId) {
+    body.innerHTML = `<div class="emptyState" style="border-radius:0 0 10px 10px;">Select an organization to view its fleet.</div>`;
+    if (count) count.textContent = "";
+    return;
+  }
+  body.innerHTML = `<div class="emptyState" style="border-radius:0 0 10px 10px;">Loading fleet…</div>`;
+  try {
+    const data = await apiJson(`/api/orgs/${encodeURIComponent(orgId)}/vehicles`);
+    const vehicles = (data && data.data) ? data.data : (Array.isArray(data) ? data : []);
+    if (count) count.textContent = vehicles.length ? `— ${vehicles.length} vehicle${vehicles.length !== 1 ? "s" : ""}` : "";
+    renderOrgFleet(vehicles);
+  } catch (err) {
+    body.innerHTML = `<div class="emptyState" style="border-radius:0 0 10px 10px;">Could not load fleet: ${err.message || "unknown error"}</div>`;
+    if (count) count.textContent = "";
+  }
+}
+
+function renderOrgFleet(vehicles) {
+  const body = $("orgFleetBody");
+  if (!body) return;
+  if (!vehicles.length) {
+    body.innerHTML = `<div class="emptyState" style="border-radius:0 0 10px 10px;">No vehicles added to this organization yet.</div>`;
+    return;
+  }
+  const rows = vehicles.map((v) => {
+    const name = v.unitName || v.number || "--";
+    const vin = v.vin ? v.vin.slice(-8) : "--";
+    const type = v.type || "--";
+    const ymm = [v.year, v.make, v.model].filter(Boolean).join(" ") || "--";
+    const active = v.isActive !== false;
+    const gatewayDot = v.motiveGatewayConnected === false
+      ? `<span title="Gateway disconnected" style="color:#ef4444;">●</span> `
+      : (v.motiveId ? `<span title="Motive connected" style="color:#22c55e;">●</span> ` : "");
+    return `<tr>
+      <td><strong>${gatewayDot}${name}</strong></td>
+      <td class="muted" title="${v.vin || ""}">…${vin}</td>
+      <td>${type}</td>
+      <td class="muted">${ymm}</td>
+      <td><span class="statusBadge status-${active ? "active" : "paused"}">${active ? "Active" : "Off"}</span></td>
+    </tr>`;
+  }).join("");
+  body.innerHTML = `
+    <div class="tableWrap" style="max-height:260px; overflow:auto; border-radius:0 0 10px 10px; border:0;">
+      <table class="dataTable" style="min-width:340px;">
+        <thead>
+          <tr>
+            <th>Unit</th>
+            <th>VIN (last 8)</th>
+            <th>Type</th>
+            <th>Year/Make/Model</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
 }
 
 function fillOrgForm(org) {
-  $("orgDetailNameInput").value = org?.name || "";
-  $("orgDetailStatusSelect").value = org?.status || "LEAD";
-  $("orgDetailContactName").value = org?.primaryContactName || "";
-  $("orgDetailContactEmail").value = org?.primaryContactEmail || "";
-  $("orgDetailPhone").value = org?.phone || "";
-  $("orgDetailFleetSize").value = org?.fleetSizeEstimate ?? "";
-  $("orgDetailActiveVehicles").value = org?.activeVehicles ?? "";
-  $("orgDetailPlanSelect").value = org?.billingPlan || "PILOT_CORE";
-  $("orgDetailNotesInput").value = org?.notes || "";
-  const customerEmail = $("orgCustomerEmail");
-  if (customerEmail) customerEmail.value = org?.primaryContactEmail || "";
+  const set = (id, val) => { const el = $(id); if (el) el.value = val; };
+  set("orgDetailNameInput", org?.name || "");
+  set("orgDetailStatusSelect", org?.status || "LEAD");
+  set("orgDetailContactName", org?.primaryContactName || "");
+  set("orgDetailContactEmail", org?.primaryContactEmail || "");
+  set("orgDetailPhone", org?.phone || "");
+  set("orgDetailFleetSize", org?.fleetSizeEstimate ?? "");
+  set("orgDetailActiveVehicles", org?.activeVehicles ?? "");
+  set("orgDetailPlanSelect", org?.billingPlan || "PILOT_CORE");
+  set("orgDetailNotesInput", org?.notes || "");
+  set("orgCustomerEmail", org?.primaryContactEmail || "");
 }
 
 function setOrgFormEnabled(enabled) {
@@ -1959,6 +2032,9 @@ function bindView(route) {
     $("orgSaveBtn")?.addEventListener("click", saveOrg);
     $("orgCreateCustomerBtn")?.addEventListener("click", createCustomerLogin);
     $("orgResetCustomerBtn")?.addEventListener("click", resetCustomerPassword);
+    $("orgFleetRefreshBtn")?.addEventListener("click", () => {
+      if (adminState.selectedOrgId) loadOrgFleet(adminState.selectedOrgId);
+    });
     const showDeleted = $("orgShowDeleted");
     if (showDeleted) {
       showDeleted.checked = adminState.showDeletedOrgs;

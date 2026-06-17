@@ -134,13 +134,16 @@
       }
 
       if (res.status === 409 && data && data.code === "PASSWORD_SETUP_REQUIRED" && data.setupToken) {
+        // Setup token stays in sessionStorage only — never in the URL (history/referrer leak).
         try {
           sessionStorage.setItem("fleetai_first_login_token", data.setupToken);
           sessionStorage.setItem("fleetai_first_login_email", payload.email);
           sessionStorage.setItem("fleetai_first_login_role", "employee");
-        } catch (err) {}
-        const hash = `#token=${encodeURIComponent(data.setupToken)}&email=${encodeURIComponent(payload.email)}&role=employee`;
-        window.location.href = `/set-password.html${hash}`;
+        } catch (err) {
+          setError("Cannot complete setup: sessionStorage is unavailable. Enable storage and try again.");
+          return;
+        }
+        window.location.href = "/set-password.html";
         return;
       }
       if (!res.ok || (data && data.ok === false)) {

@@ -72,8 +72,7 @@ function getHashParam(name) {
 }
 
 function getStoredFirstLoginToken() {
-  const hashToken = getHashParam("token");
-  if (hashToken) return hashToken;
+  // Setup tokens come from sessionStorage only — never URL hash (avoids history/referrer leaks).
   try {
     return sessionStorage.getItem("fleetai_first_login_token") || document.getElementById("setPasswordToken")?.value || "";
   } catch (e) {

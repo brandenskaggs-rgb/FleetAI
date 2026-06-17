@@ -254,6 +254,12 @@ function registerAuthRoutes(app, deps) {
         ? await prisma.user.findUnique({ where: { id: session.userId } })
         : null;
       const resolvedOrgId = session.orgId || user?.orgId || null;
+      let orgName = "";
+      try {
+        const data = await readData();
+        const org = (data.orgs || []).find((o) => o.id === resolvedOrgId || o.orgId === resolvedOrgId);
+        orgName = org?.name || "";
+      } catch (_) {}
       res.json({
         ok: true,
         user: {
@@ -261,10 +267,13 @@ function registerAuthRoutes(app, deps) {
           email: session.email,
           role: session.role,
           orgId: resolvedOrgId,
+          orgName,
           displayName: session.displayName || user?.displayName || "",
           passwordLastSetAt: user?.passwordLastSetAt?.toISOString() || user?.lastPasswordChangeAt?.toISOString() || null,
           mustSetPassword: Boolean(user?.mustSetPassword || user?.isTemporaryPassword)
         },
+        orgId: resolvedOrgId,
+        orgName,
         resetRequired: Boolean(session.resetRequired),
         requirePasswordReset: Boolean(session.resetRequired),
         mustResetPassword: Boolean(session.resetRequired),

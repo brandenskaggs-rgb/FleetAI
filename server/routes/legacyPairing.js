@@ -1,4 +1,9 @@
 const crypto = require("crypto");
+const { createRateLimiter } = require("../middleware/rateLimiter");
+
+// Tight limiter on pairing-code claim — defends against brute force of 6-digit codes.
+// 10 attempts / minute / IP. Generation endpoints are still gated by employee auth.
+const pairingClaimLimiter = createRateLimiter({ windowMs: 60000, max: 10, keyPrefix: "pair-claim" });
 
 function registerLegacyPairingRoutes(app, deps) {
   const {
@@ -21,6 +26,14 @@ function registerLegacyPairingRoutes(app, deps) {
     pairingRouterDeps,
     log = console.log
   } = deps;
+
+  // Local helpers — defensive array access for in-memory store.
+  const getVehicles = (data) => (Array.isArray(data?.vehicles) ? data.vehicles : []);
+  const getDrivers = (data) => (Array.isArray(data?.drivers) ? data.drivers : []);
+  const getPairings = (data) => {
+    if (!Array.isArray(data?.pairings)) data.pairings = [];
+    return data.pairings;
+  };
 
   function findPairConflict(data, vehicleId, driverId) {
     const pairings = Array.isArray(data.pairings) ? data.pairings : [];
@@ -162,13 +175,13 @@ function registerLegacyPairingRoutes(app, deps) {
     }
     try {
       const data = await readData();
-      const vehicle = data.vehicles.find((v) => v.vehicleId === vehicleId);
-      const driver = data.drivers.find((d) => d.driverId === driverId);
+      const vehicle = getVehicles(data).find((v) => v.vehicleId === vehicleId);
+      const driver = getDrivers(data).find((d) => d.driverId === driverId);
       if (!vehicle || !driver) {
         return res.status(404).json({ ok: false, error: "vehicle_or_driver_not_found" });
       }
       const now = nowIso();
-      const pairings = data.pairings || [];
+      const pairings = getPairings(data);
       const samePairings = pairings.filter(
         (p) => (p.vehicleId === vehicleId && p.driverId === driverId) && (p.status === "pending" || p.status === "active")
       );
@@ -203,7 +216,7 @@ function registerLegacyPairingRoutes(app, deps) {
       });
       pairing.pairingCode = pairingCode;
       pairing.pairCode = pairingCode;
-      data.pairings.push(pairing);
+      getPairings(data).push(pairing);
       await writeData(data);
       const payload = {
         ok: true,
@@ -263,9 +276,9 @@ function registerLegacyPairingRoutes(app, deps) {
     }
     try {
       const data = await readData();
-      const vehicle = data.vehicles.find((v) => v.vehicleId === vehicleId);
-      const driver = data.drivers.find((d) => d.driverId === driverId);
-      (data.pairings || []).forEach((p) => {
+      const vehicle = getVehicles(data).find((v) => v.vehicleId === vehicleId);
+      const driver = getDrivers(data).find((d) => d.driverId === driverId);
+      getPairings(data).forEach((p) => {
         if ((p.vehicleId === vehicleId || p.driverId === driverId) && p.status !== "expired") {
           p.status = "replaced";
           p.expiresAt = nowIso();
@@ -279,7 +292,7 @@ function registerLegacyPairingRoutes(app, deps) {
         vehicleName: vehicle?.unitName || vehicle?.name || vehicleId,
         driverName: `${driver?.firstName || ""} ${driver?.lastName || ""}`.trim()
       });
-      data.pairings.push(pairing);
+      getPairings(data).push(pairing);
       await writeData(data);
       res.json({
         ok: true,
@@ -353,8 +366,18 @@ function registerLegacyPairingRoutes(app, deps) {
         pushPairingDebug(pairingDebug.claims, { time: nowIso(), pairingCode: pairing.pairingCode, deviceId: input.deviceId, status: "expired" });
         return res.status(410).json({ ok: false, error: "PAIRING_CODE_INVALID_OR_EXPIRED", message: "Pairing code expired", legacyError: "Expired code", ...(debugMode ? { debug: { normalized: input } } : {}) });
       }
-      if (input.driverPin && pairing.driverPin && input.driverPin !== pairing.driverPin) {
-        log("[PAIR] claim pin mismatch (ignored for compatibility)", { pairingId: pairing.id, pairingCode: pairing.pairingCode, deviceId: input.deviceId });
+      // PIN check — required when the pairing has a PIN. Driver app must supply it.
+      if (pairing.driverPin) {
+        if (!input.driverPin) {
+          log("[PAIR-CLAIM] pin_required", { pairingCode: pairing.pairingCode, deviceId: input.deviceId });
+          pushPairingDebug(pairingDebug.claims, { time: nowIso(), pairingCode: pairing.pairingCode, deviceId: input.deviceId, status: "pin_required" });
+          return res.status(401).json({ ok: false, error: "PIN_REQUIRED", message: "Driver PIN required to claim this pairing.", ...(debugMode ? { debug: { normalized: input } } : {}) });
+        }
+        if (input.driverPin !== pairing.driverPin) {
+          log("[PAIR-CLAIM] pin_mismatch", { pairingCode: pairing.pairingCode, deviceId: input.deviceId });
+          pushPairingDebug(pairingDebug.claims, { time: nowIso(), pairingCode: pairing.pairingCode, deviceId: input.deviceId, status: "pin_mismatch" });
+          return res.status(401).json({ ok: false, error: "PIN_INVALID", message: "Driver PIN does not match.", ...(debugMode ? { debug: { normalized: input } } : {}) });
+        }
       }
       pairing.status = "active";
       pairing.deviceId = input.deviceId;
@@ -448,18 +471,18 @@ function registerLegacyPairingRoutes(app, deps) {
   app.post("/api/pair-code/:pairId/expire", requireEmployeeOrCustomerApi, handlePairCodeExpire);
   app.post("/api/pair-code/expire-and-generate", requireEmployeeOrCustomerApi, handlePairCodeReplace);
 
-  app.post("/pairings/claim", handlePairingClaim);
-  app.post("/api/pairings/claim", handlePairingClaim);
-  app.post("/api/pairing/claim", handlePairingClaim);
-  app.post("/pairing/claim", handlePairingClaim);
-  app.post("/api/pairings/claim-device", handlePairingClaim);
-  app.post("/api/pairing/claim-device", handlePairingClaim);
-  app.post("/pairing/claim-device", handlePairingClaim);
+  app.post("/pairings/claim", pairingClaimLimiter, handlePairingClaim);
+  app.post("/api/pairings/claim", pairingClaimLimiter, handlePairingClaim);
+  app.post("/api/pairing/claim", pairingClaimLimiter, handlePairingClaim);
+  app.post("/pairing/claim", pairingClaimLimiter, handlePairingClaim);
+  app.post("/api/pairings/claim-device", pairingClaimLimiter, handlePairingClaim);
+  app.post("/api/pairing/claim-device", pairingClaimLimiter, handlePairingClaim);
+  app.post("/pairing/claim-device", pairingClaimLimiter, handlePairingClaim);
 
   app.get("/pairings/active", handlePairingsActive);
   app.get("/api/pairings/active", handlePairingsActive);
 
-  app.post("/auth/driverLogin", async (req, res, next) => {
+  app.post("/auth/driverLogin", pairingClaimLimiter, async (req, res, next) => {
     const { companyCode, driverPin } = req.body || {};
     const normalizedCompanyCode = normalizeCompanyCode(companyCode);
     const normalizedDriverPin = sanitizeString(driverPin || "", 20).replace(/\D+/g, "").slice(0, 6);
@@ -523,11 +546,11 @@ function registerLegacyPairingRoutes(app, deps) {
     if (!vehicleId || !driverId) return res.status(400).json({ error: "vehicleId and driverId required" });
     try {
       const data = await readData();
-      const vehicle = data.vehicles.find((v) => v.vehicleId === vehicleId);
-      const driver = data.drivers.find((d) => d.driverId === driverId);
+      const vehicle = getVehicles(data).find((v) => v.vehicleId === vehicleId);
+      const driver = getDrivers(data).find((d) => d.driverId === driverId);
       if (!vehicle || !driver) return res.status(404).json({ error: "Vehicle or driver not found" });
       const pairing = createPairingRecord({ vehicleId, driverId, orgId: req.body?.orgId, vehicleName: vehicle.unitName || vehicle.name || vehicle.vehicleId, driverName: `${driver.firstName || ""} ${driver.lastName || ""}`.trim() });
-      data.pairings.push(pairing);
+      getPairings(data).push(pairing);
       await writeData(data);
       res.json({ ok: true, pairingId: pairing.id, pairingCode: pairing.pairingCode, driverPin: pairing.driverPin, expiresAt: pairing.expiresAt });
     } catch (err) {

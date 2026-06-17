@@ -5,7 +5,12 @@ import android.content.Context
 object ServerPrefs {
     const val PREFS_NAME = "fleetai_driver"
     const val KEY_BASE_URL = "base_url"
-    const val DEFAULT_BASE_URL = "http://172.20.10.8:3000"
+
+    // Build-time default. Set FLEETAI_BASE_URL in gradle.properties (or via -P at build time)
+    // to point at the Railway deployment. Drivers can still override at runtime via the
+    // connect screen.
+    val DEFAULT_BASE_URL: String
+        get() = BuildConfig.BASE_URL
 
     fun getBaseUrl(context: Context): String? {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)

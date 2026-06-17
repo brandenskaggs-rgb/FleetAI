@@ -15,7 +15,9 @@ android {
         versionCode 1
         versionName "1.0"
 
-        def baseUrl = project.findProperty("FLEETAI_BASE_URL") ?: "http://example.invalid/"
+        // Set FLEETAI_BASE_URL in gradle.properties or via -PFLEETAI_BASE_URL=https://...
+        // to point the driver app at your Fleet AI server (e.g. the Railway deployment).
+        def baseUrl = project.findProperty("FLEETAI_BASE_URL") ?: "https://your-fleet-ai.up.railway.app"
         buildConfigField "String", "BASE_URL", "\"${baseUrl}\""
     }
 

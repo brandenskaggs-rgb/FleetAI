@@ -90,6 +90,23 @@ function defaultFeatures(orgId) {
   };
 }
 
+// Roles an existing super admin is allowed to assign when creating users.
+// Anything outside this set is rejected — prevents typos like "superadmin" or made-up roles.
+const ASSIGNABLE_ROLES = new Set([
+  "SUPER_ADMIN",
+  "EMPLOYEE",
+  "ORG_ADMIN",
+  "CUSTOMER",
+  "CUSTOMER_ADMIN",
+  "CUSTOMER_USER",
+  "CUSTOMER_VIEWER"
+]);
+
+function normalizeRole(role) {
+  const upper = String(role || "").trim().toUpperCase();
+  return ASSIGNABLE_ROLES.has(upper) ? upper : null;
+}
+
 // ── Route registration ─────────────────────────────────────────────────────
 
 function registerAdminRoutes(app, deps) {
@@ -210,13 +227,22 @@ function registerAdminRoutes(app, deps) {
       const activePilots = orgs.filter((o) => o.status === "PILOT").length;
       const activeVehicles = (data.vehicles || []).length;
       const mrr = Object.values(billing).reduce((sum, b) => sum + (b.mrrEstimate || 0), 0);
+      const closedStages = new Set(["CONVERTED", "CLOSED", "LOST"]);
+      const openLeads = leads.filter((l) => !closedStages.has((l.stage || l.status || "").toUpperCase())).length;
       const leadsByStage = leads.reduce((acc, l) => {
-        acc[l.stage] = (acc[l.stage] || 0) + 1;
+        const key = l.stage || l.status || "UNKNOWN";
+        acc[key] = (acc[key] || 0) + 1;
         return acc;
       }, {});
+      const recentAlerts = (data.notifications || []).slice(0, 6).map((n) => ({
+        type: n.title || n.type || "Alert",
+        vehicleId: n.vehicle_id || "",
+        explanation: n.body || "",
+        ts: n.created_at || n.ts || null
+      }));
       res.json({
         ok: true,
-        data: { totalOrgs: orgs.length, activeOrgs, activePilots, activeVehicles, totalUsers: users.length, mrrEstimate: mrr, leadsByStage }
+        data: { totalOrgs: orgs.length, activeOrgs, activePilots, activeVehicles, totalUsers: users.length, mrrEstimate: mrr, openLeads, leadsByStage, recentAlerts }
       });
     } catch (err) {
       next(err);
@@ -327,25 +353,88 @@ function registerAdminRoutes(app, deps) {
   adminRouter.post("/users", async (req, res, next) => {
     const { email, role, orgId, password } = req.body || {};
     if (!email || !role) return res.status(400).json({ error: "email and role required" });
+    const normalizedEmail = String(email).toLowerCase().trim();
+    if (!/^[^@]+@[^@]+\.[^@]+$/.test(normalizedEmail)) {
+      return res.status(400).json({ error: "Email must be a valid address." });
+    }
+    const normalizedRole = normalizeRole(role);
+    if (!normalizedRole) {
+      return res.status(400).json({ error: `Invalid role. Allowed: ${Array.from(ASSIGNABLE_ROLES).join(", ")}` });
+    }
+    if (password && password.length < 10) {
+      return res.status(400).json({ error: "Password must be at least 10 characters." });
+    }
     try {
       const data = await readData();
-      const exists = (data.users || []).some((u) => u.email === email.toLowerCase());
+      data.users = data.users || [];
+      const exists = data.users.some((u) => u.email === normalizedEmail);
       if (exists) return res.status(409).json({ error: "User already exists" });
       const passwordHash = password ? await bcrypt.hash(password, 12) : "";
       const user = {
         id: makeId("USR"),
-        email: email.toLowerCase(),
-        role,
+        email: normalizedEmail,
+        role: normalizedRole,
         orgId: orgId || null,
         isActive: true,
         createdAt: nowIso(),
         lastLoginAt: null,
-        passwordHash
+        passwordHash,
+        mustSetPassword: !password,
+        requirePasswordReset: !password
       };
       data.users.push(user);
-      addAudit(data, "USER_CREATED", `${user.id}:${user.email}`);
+      addAudit(data, "USER_CREATED", `${user.id}:${user.email}:${user.role}`);
       await writeData(data);
       res.json({ ok: true, data: user });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // Create another super admin. Requires existing super admin session.
+  // Issues a 15-min setup token; admin shares the returned setup URL with the new user.
+  adminRouter.post("/super-admins", async (req, res, next) => {
+    const { email } = req.body || {};
+    if (!email) return res.status(400).json({ error: "email required" });
+    const normalizedEmail = String(email).toLowerCase().trim();
+    if (!/^[^@]+@[^@]+\.[^@]+$/.test(normalizedEmail)) {
+      return res.status(400).json({ error: "Email must be a valid address." });
+    }
+    try {
+      const data = await readData();
+      data.users = data.users || [];
+      if (data.users.some((u) => String(u.email || "").toLowerCase() === normalizedEmail)) {
+        return res.status(409).json({ error: "User already exists." });
+      }
+      const setupToken = crypto.randomBytes(24).toString("hex");
+      const setupTokenHash = crypto.createHash("sha256").update(setupToken).digest("hex");
+      const setupTokenExpiresAt = Date.now() + 15 * 60 * 1000;
+      const user = {
+        id: makeId("EMP"),
+        email: normalizedEmail,
+        role: "SUPER_ADMIN",
+        orgId: null,
+        isActive: true,
+        verified: true,
+        createdAt: nowIso(),
+        lastLoginAt: null,
+        passwordHash: "",
+        mustSetPassword: true,
+        requirePasswordReset: true,
+        setupTokenHash,
+        setupTokenExpiresAt
+      };
+      data.users.push(user);
+      addAudit(data, "SUPER_ADMIN_INVITED", `${user.id}:${user.email}:by=${req.employee?.email || "unknown"}`);
+      await writeData(data);
+      console.log(`[admin] super admin invite created for ${user.email} by ${req.employee?.email || "unknown"}`);
+      res.status(201).json({
+        ok: true,
+        data: { id: user.id, email: user.email, role: user.role },
+        setupToken,
+        setupTokenExpiresAt: new Date(setupTokenExpiresAt).toISOString(),
+        setupPath: "/set-password.html"
+      });
     } catch (err) {
       next(err);
     }
@@ -371,12 +460,16 @@ function registerAdminRoutes(app, deps) {
   adminRouter.put("/users/:id/role", async (req, res, next) => {
     const { role } = req.body || {};
     if (!role) return res.status(400).json({ error: "role required" });
+    const normalizedRole = normalizeRole(role);
+    if (!normalizedRole) {
+      return res.status(400).json({ error: `Invalid role. Allowed: ${Array.from(ASSIGNABLE_ROLES).join(", ")}` });
+    }
     try {
       const data = await readData();
       const user = (data.users || []).find((u) => u.id === req.params.id);
       if (!user) return res.status(404).json({ error: "User not found" });
-      user.role = role;
-      addAudit(data, "USER_ROLE_UPDATED", user.id);
+      user.role = normalizedRole;
+      addAudit(data, "USER_ROLE_UPDATED", `${user.id}:${normalizedRole}:by=${req.employee?.email || "unknown"}`);
       await writeData(data);
       res.json({ ok: true, data: user });
     } catch (err) {

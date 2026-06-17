@@ -678,8 +678,26 @@ body.density-compact .panelHeader{
 }
 .employeeConsoleV2 .orgLayout,
 .employeeConsoleV2 .leadLayout{
-  grid-template-columns:minmax(0,1.55fr) minmax(320px,.75fr);
+  grid-template-columns:minmax(0,1.55fr) minmax(0,360px);
   gap:12px;
+  align-items:start;
+}
+#orgDetailPanel{
+  min-width:0;
+  overflow:hidden;
+}
+#orgDetailPanel .detailForm input,
+#orgDetailPanel .detailForm select,
+#orgDetailPanel .detailForm textarea,
+#orgDetailPanel .panelBody input,
+#orgDetailPanel .panelBody select{
+  width:100%;
+  box-sizing:border-box;
+  min-width:0;
+}
+#orgFleetPanel{
+  min-width:0;
+  overflow:hidden;
 }
 .employeeConsoleV2 .billingLayout{
   grid-template-columns:minmax(0,1.45fr) minmax(280px,.7fr);

@@ -492,13 +492,78 @@
     function initReports(){ genericPanel("reports","Fleet Reports","Generate operational exports by date range",`<div class="form-grid"><div class="form-group"><label class="form-label" for="reportType">Report Type</label><select class="form-select" id="reportType"><option>Fleet Summary</option><option>Maintenance</option><option>Driver Activity</option><option>Fuel Usage</option></select></div><div class="form-group"><label class="form-label" for="reportStart">Start</label><input class="form-input" id="reportStart" type="date"></div><div class="form-group"><label class="form-label" for="reportEnd">End</label><input class="form-input" id="reportEnd" type="date"></div><button class="btn primary">Generate Report</button></div>`); }
     function loadSettings(){ genericPanel("settings","Workspace Settings","Company, theme, notifications, password, and session controls",`<div class="form-grid"><div class="form-group"><label class="form-label" for="companySetting">Company Name</label><input class="form-input" id="companySetting" value="${esc($("headerCompanyName").textContent)}"></div><div class="form-group"><label class="form-label" for="timezoneSetting">Timezone</label><select class="form-select" id="timezoneSetting"><option>America/Chicago</option><option>America/New_York</option><option>America/Denver</option><option>America/Los_Angeles</option></select></div><div class="form-group"><label class="form-label" for="themeSetting">Theme</label><select class="form-select" id="themeSetting"><option value="light">Cream</option><option value="dark">Dark</option></select></div><button class="btn primary">Save Settings</button></div><div class="note">Notification preferences and password changes are managed through secure account settings.</div>`); $("themeSetting").value=document.documentElement.dataset.theme||"light"; $("themeSetting").onchange=()=>{document.documentElement.dataset.theme=$("themeSetting").value;localStorage.setItem("fleetai.theme",$("themeSetting").value);}; }
     function renderFleetTables(){
-      const vehicleRows = state.vehicles.map(v=>`<tr><td>${esc(v.vehicleId||v.id)}</td><td>${esc([v.make,v.model,v.year].filter(Boolean).join(" ")||v.type||"--")}</td><td>${esc(v.assignedDriver||"--")}</td><td>${riskPill(v.deviceId?"Paired":"Unpaired")}</td><td>${esc(v.lastSeen||"--")}</td></tr>`).join("") || rowsEmpty(5,"No vehicles registered.");
-      const driverRows = state.drivers.map(d=>`<tr><td>${esc([d.firstName,d.lastName].filter(Boolean).join(" ")||d.name||d.email)}</td><td>${esc(d.licenseNumber||d.license||"--")}</td><td>${esc(d.assignedVehicle||"--")}</td><td>${riskPill(d.pairingStatus||"Ready")}</td></tr>`).join("") || rowsEmpty(4,"No drivers registered.");
-      if($("view-vehicles") && state.activeRoute==="vehicles") genericPanel("vehicles","Vehicle Registry","Fleet units and device status",`<div class="tableWrap"><table class="table"><thead><tr><th>Unit</th><th>Make/Model/Year</th><th>Driver</th><th>Device</th><th>Last Seen</th></tr></thead><tbody>${vehicleRows}</tbody></table></div>`);
-      if($("view-drivers") && state.activeRoute==="drivers") genericPanel("drivers","Driver Roster","Active drivers and assignments",`<div class="tableWrap"><table class="table"><thead><tr><th>Name</th><th>License</th><th>Vehicle</th><th>Pairing</th></tr></thead><tbody>${driverRows}</tbody></table></div>`);
+      const addVehicleBtn = `<button class="btn primary" id="btnAddVehicle" style="margin-left:auto">+ Add Vehicle</button>`;
+      const addDriverBtn = `<button class="btn primary" id="btnAddDriver" style="margin-left:auto">+ Add Driver</button>`;
+      const vehicleRows = state.vehicles.map(v=>`<tr><td><strong>${esc(v.unitName||v.vehicleId||v.id)}</strong><div class="muted" style="font-size:11px">${esc(v.vehicleId||"")}</div></td><td>${esc([v.year,v.make,v.model].filter(Boolean).join(" ")||v.type||"--")}</td><td>${esc(v.type||"--")}</td><td>${riskPill(v.deviceId?"Paired":"Unpaired")}</td><td>${esc(v.lastSeen||"--")}</td></tr>`).join("") || rowsEmpty(5,"No vehicles registered. Add your first vehicle above.");
+      const driverRows = state.drivers.map(d=>`<tr><td>${esc([d.firstName,d.lastName].filter(Boolean).join(" ")||d.name||d.email)}</td><td>${esc(d.licenseNumber||d.license||"--")}</td><td>${esc(d.assignedVehicle||"--")}</td><td>${riskPill(d.pairingStatus||"Ready")}</td></tr>`).join("") || rowsEmpty(4,"No drivers registered. Add your first driver above.");
+      if($("view-vehicles") && state.activeRoute==="vehicles") genericPanel("vehicles","Vehicle Registry","Fleet units and device status",`<div class="cardHead" style="display:flex;align-items:center;gap:8px;padding:0 0 10px">${addVehicleBtn}</div><div class="tableWrap"><table class="table"><thead><tr><th>Unit Name / ID</th><th>Year/Make/Model</th><th>Type</th><th>Device</th><th>Last Seen</th></tr></thead><tbody>${vehicleRows}</tbody></table></div><div id="addVehicleFormWrap" style="display:none;margin-top:14px"></div>`);
+      if($("view-drivers") && state.activeRoute==="drivers") genericPanel("drivers","Driver Roster","Active drivers and assignments",`<div class="cardHead" style="display:flex;align-items:center;gap:8px;padding:0 0 10px">${addDriverBtn}</div><div class="tableWrap"><table class="table"><thead><tr><th>Name</th><th>License</th><th>Vehicle</th><th>Pairing</th></tr></thead><tbody>${driverRows}</tbody></table></div><div id="addDriverFormWrap" style="display:none;margin-top:14px"></div>`);
+      if($("view-vehicles")) $("btnAddVehicle")?.addEventListener("click", showAddVehicleForm);
+      if($("view-drivers")) $("btnAddDriver")?.addEventListener("click", showAddDriverForm);
       if($("view-pairing") && state.activeRoute==="pairing") renderPairing();
     }
-    function renderPairing(){ genericPanel("pairing","Device Pairing","Generate codes and manage telematics devices",`<div class="form-grid"><div class="form-group"><label class="form-label" for="pairVehicleSelect">Vehicle</label><select class="form-select" id="pairVehicleSelect"></select></div><div class="form-group"><label class="form-label" for="pairDriverSelect">Driver</label><select class="form-select" id="pairDriverSelect"></select></div><button class="btn primary" id="btnGeneratePairCode">Generate Code</button><div class="chip mono" id="pairPing">Ready</div></div><div class="note">Pairing endpoint: <span id="pairingDebugEndpoint">/api/pairing/generate</span><br>Status: <span id="pairingDebugStatus">idle</span><br>Error: <span id="pairingDebugError">none</span><br>Response: <span id="pairingDebugResponse">waiting</span></div>`); renderPairingSelects(); $("btnGeneratePairCode").onclick=async()=>{try{ $("pairingDebugStatus").textContent="working"; const r=await apiPost(["/api/pairing/generate","/api/pair-code/generate"],{vehicleId:$("pairVehicleSelect").value,driverId:$("pairDriverSelect").value}); $("pairPing").textContent=r.code||r.pairCode||r.data?.code||"Generated"; $("pairingDebugStatus").textContent="ok"; $("pairingDebugResponse").textContent=JSON.stringify(r).slice(0,180);}catch(e){$("pairingDebugStatus").textContent="failed";$("pairingDebugError").textContent=e.message;}}; }
+    function showAddVehicleForm(){
+      const wrap = $("addVehicleFormWrap"); if(!wrap) return;
+      wrap.style.display = "block";
+      wrap.innerHTML = `<div class="card"><div class="cardHead"><div><h3>Register Vehicle</h3><div class="cardMeta">Add a new unit to your fleet</div></div></div><div class="cardBody"><div class="form-grid"><div class="form-group"><label class="form-label">Unit ID <span class="muted">(unique, e.g. TRUCK-01)</span></label><input class="form-input" id="newVehId" placeholder="TRUCK-01"></div><div class="form-group"><label class="form-label">Unit Name</label><input class="form-input" id="newVehName" placeholder="Peterbilt 389"></div><div class="form-group"><label class="form-label">VIN</label><input class="form-input" id="newVehVin" placeholder="1XPBD49X1XD..." maxlength="17"></div><div class="form-group"><label class="form-label">Type</label><select class="form-select" id="newVehType"><option value="semi-truck">Semi Truck</option><option value="box-truck">Box Truck</option><option value="van">Van</option><option value="pickup">Pickup</option><option value="trailer">Trailer</option><option value="other">Other</option></select></div><div class="form-group"><label class="form-label">Year</label><input class="form-input" id="newVehYear" type="number" placeholder="2021" min="1980" max="2030"></div><div class="form-group"><label class="form-label">Make</label><input class="form-input" id="newVehMake" placeholder="Peterbilt"></div><div class="form-group"><label class="form-label">Model</label><input class="form-input" id="newVehModel" placeholder="389"></div></div><div style="display:flex;gap:8px;margin-top:12px"><button class="btn primary" id="btnSaveVehicle">Save Vehicle</button><button class="btn" id="btnCancelVehicle">Cancel</button></div><div id="addVehicleError" style="margin-top:8px;color:var(--bad);font-size:12px"></div></div></div>`;
+      $("btnCancelVehicle").onclick = () => { wrap.style.display="none"; };
+      $("btnSaveVehicle").onclick = async () => {
+        const vehicleId = $("newVehId").value.trim();
+        const unitName = $("newVehName").value.trim();
+        const vin = $("newVehVin").value.trim();
+        const type = $("newVehType").value;
+        if(!vehicleId||!unitName||!vin){$("addVehicleError").textContent="Unit ID, name, and VIN are required.";return;}
+        $("btnSaveVehicle").disabled=true; $("addVehicleError").textContent="";
+        try{
+          await apiPost("/api/vehicles",{vehicleId,unitName,vin,type,year:$("newVehYear").value||null,make:$("newVehMake").value.trim(),model:$("newVehModel").value.trim()});
+          wrap.style.display="none";
+          await loadFleetManagement();
+        }catch(e){$("addVehicleError").textContent=e.message||"Failed to save vehicle.";}
+        finally{if($("btnSaveVehicle"))$("btnSaveVehicle").disabled=false;}
+      };
+    }
+    function showAddDriverForm(){
+      const wrap = $("addDriverFormWrap"); if(!wrap) return;
+      wrap.style.display = "block";
+      wrap.innerHTML = `<div class="card"><div class="cardHead"><div><h3>Register Driver</h3><div class="cardMeta">Add a driver to your roster</div></div></div><div class="cardBody"><div class="form-grid"><div class="form-group"><label class="form-label">First Name</label><input class="form-input" id="newDrvFirst" placeholder="John"></div><div class="form-group"><label class="form-label">Last Name</label><input class="form-input" id="newDrvLast" placeholder="Smith"></div><div class="form-group"><label class="form-label">Phone</label><input class="form-input" id="newDrvPhone" placeholder="+1 555 0100" type="tel"></div></div><div style="display:flex;gap:8px;margin-top:12px"><button class="btn primary" id="btnSaveDriver">Save Driver</button><button class="btn" id="btnCancelDriver">Cancel</button></div><div id="addDriverError" style="margin-top:8px;color:var(--bad);font-size:12px"></div></div></div>`;
+      $("btnCancelDriver").onclick = () => { wrap.style.display="none"; };
+      $("btnSaveDriver").onclick = async () => {
+        const firstName = $("newDrvFirst").value.trim();
+        const lastName = $("newDrvLast").value.trim();
+        const phone = $("newDrvPhone").value.trim();
+        if(!firstName||!lastName||!phone){$("addDriverError").textContent="First name, last name, and phone are required.";return;}
+        $("btnSaveDriver").disabled=true; $("addDriverError").textContent="";
+        try{
+          await apiPost("/api/drivers",{firstName,lastName,phone});
+          wrap.style.display="none";
+          await loadFleetManagement();
+        }catch(e){$("addDriverError").textContent=e.message||"Failed to save driver.";}
+        finally{if($("btnSaveDriver"))$("btnSaveDriver").disabled=false;}
+      };
+    }
+    function renderPairing(){
+      const noVehicles = !state.vehicles.length;
+      const noDrivers = !state.drivers.length;
+      const warning = (noVehicles || noDrivers) ? `<div class="note" style="border-color:var(--warn);color:var(--text)"><strong>Setup needed:</strong> ${noVehicles?"Register a vehicle on the Fleet Directory tab. ":""}${noDrivers?"Register a driver on the Drivers tab.":""}</div>` : "";
+      genericPanel("pairing","Device Pairing","Generate codes and manage telematics devices",`${warning}<div class="form-grid"><div class="form-group"><label class="form-label" for="pairVehicleSelect">Vehicle</label><select class="form-select" id="pairVehicleSelect">${noVehicles?`<option value="">-- No vehicles registered --`:""}${state.vehicles.map(v=>`<option value="${esc(v.vehicleId||v.id)}">${esc(v.unitName||v.vehicleId||v.id)}</option>`).join("")}</select></div><div class="form-group"><label class="form-label" for="pairDriverSelect">Driver</label><select class="form-select" id="pairDriverSelect">${noDrivers?`<option value="">-- No drivers registered --`:""}${state.drivers.map(d=>`<option value="${esc(d.driverId||d.id)}">${esc([d.firstName,d.lastName].filter(Boolean).join(" ")||d.name||d.driverId||d.id)}</option>`).join("")}</select></div><button class="btn primary" id="btnGeneratePairCode" ${(noVehicles||noDrivers)?"disabled":""}>Generate Code</button><div class="chip mono" id="pairPing">Ready</div></div><div class="note">Endpoint: <span id="pairingDebugEndpoint">/api/pairing/generate</span> &nbsp;|&nbsp; Status: <span id="pairingDebugStatus">idle</span> &nbsp;|&nbsp; Error: <span id="pairingDebugError">none</span><br>Code: <span id="pairingDebugResponse" style="font-family:var(--mono);font-size:15px;font-weight:800"></span></div>`);
+      $("btnGeneratePairCode")?.addEventListener("click", async()=>{
+        const vehicleId = $("pairVehicleSelect")?.value;
+        const driverId = $("pairDriverSelect")?.value;
+        if(!vehicleId||!driverId){$("pairingDebugError").textContent="Select a vehicle and driver first.";return;}
+        try{
+          $("pairingDebugStatus").textContent="generating…";
+          $("pairingDebugError").textContent="none";
+          const r=await apiPost(["/api/pairing/generate","/api/pair-code/generate"],{vehicleId,driverId});
+          const code=r.code||r.pairCode||r.data?.code||r.data?.pairingCode||"";
+          $("pairPing").textContent=code||"Generated";
+          $("pairingDebugStatus").textContent="ok";
+          $("pairingDebugResponse").textContent=code ? `Pairing code: ${code}` : JSON.stringify(r).slice(0,120);
+        }catch(e){
+          $("pairingDebugStatus").textContent="failed";
+          $("pairingDebugError").textContent=e.message;
+        }
+      });
+    }
     async function loadAddonsState(){ genericPanel("addons","Workspace Add-ons","Optional modules for Fleet AI workspaces",`<div class="grid4">${["AI Advisor","Camera Integration","Compliance Module","Advanced Analytics"].map((x,i)=>`<div class="card"><div class="cardBody"><h3>${x}</h3><p class="muted">Expansion capability for connected fleet operations.</p><span class="pill ${i===0?"good":"warn"}">${i===0?"Active":"Available"}</span></div></div>`).join("")}</div>`); }
     function telemetryStreamConnect(){ if(state.telemetrySse) return; try{ state.telemetrySse=new EventSource("/api/telemetry/stream"); $("telemetryStatus").textContent="Connected"; $("telemetryStatus").className="pill good"; state.telemetrySse.onmessage=(e)=>{ const d=JSON.parse(e.data); addTelemetryRow(d); }; state.telemetrySse.onerror=()=>{$("telemetryStatus").textContent="Waiting";$("telemetryStatus").className="pill warn";}; }catch(e){err("telemetryError",e.message);} }
     window.telemetryStreamConnect = telemetryStreamConnect;
