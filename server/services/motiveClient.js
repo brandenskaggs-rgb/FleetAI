@@ -112,6 +112,54 @@ async function fetchVehicles(params = {}) {
   return items.map((item) => item.vehicle || item);
 }
 
+async function createVehicle(body = {}) {
+  const data = await motiveRequest("/v1/vehicles", { method: "POST", body });
+  return data.vehicle || data;
+}
+
+async function updateVehicle(motiveVehicleId, body = {}) {
+  const data = await motiveRequest(`/v1/vehicles/${motiveVehicleId}`, { method: "PUT", body });
+  return data.vehicle || data;
+}
+
+async function lookupVehicleByNumber(number) {
+  const data = await motiveRequest("/v1/vehicles/lookup", { params: { number } });
+  return data.vehicle || data;
+}
+
+// ── Fuel Purchases ────────────────────────────────────────────────────────────
+
+async function getFuelPurchases(params = {}) {
+  const items = await _fetchAllPages("/v1/fuel_purchases", "fuel_purchases", params);
+  return items.map((item) => item.fuel_purchase || item);
+}
+
+async function getFuelPurchaseById(id) {
+  const data = await motiveRequest(`/v1/fuel_purchases/${id}`);
+  return data.fuel_purchase || data;
+}
+
+async function createFuelPurchase(body = {}) {
+  const data = await motiveRequest("/v1/fuel_purchases", { method: "POST", body });
+  return data.fuel_purchase || data;
+}
+
+async function updateFuelPurchase(id, body = {}) {
+  const data = await motiveRequest(`/v1/fuel_purchases/${id}`, { method: "PUT", body });
+  return data.fuel_purchase || data;
+}
+
+async function deleteFuelPurchase(id) {
+  return motiveRequest(`/v1/fuel_purchases/${id}`, { method: "DELETE" });
+}
+
+// ── Idle Events ───────────────────────────────────────────────────────────────
+
+async function getIdleEvents(params = {}) {
+  const items = await _fetchAllPages("/v1/idle_events", "idle_events", params);
+  return items.map((item) => item.idle_event || item);
+}
+
 function isConfigured() {
   return Boolean(
     _inMemoryToken ||
@@ -120,4 +168,26 @@ function isConfigured() {
   );
 }
 
-module.exports = { motiveRequest, fetchEldDevices, fetchVehicleFaultCodes, fetchOpenFaultCodes, fetchVehicles, isConfigured, setAccessToken };
+module.exports = {
+  motiveRequest,
+  setAccessToken,
+  isConfigured,
+  // ELD devices
+  fetchEldDevices,
+  // Fault codes
+  fetchVehicleFaultCodes,
+  fetchOpenFaultCodes,
+  // Vehicles
+  fetchVehicles,
+  createVehicle,
+  updateVehicle,
+  lookupVehicleByNumber,
+  // Fuel purchases
+  getFuelPurchases,
+  getFuelPurchaseById,
+  createFuelPurchase,
+  updateFuelPurchase,
+  deleteFuelPurchase,
+  // Idle events
+  getIdleEvents
+};

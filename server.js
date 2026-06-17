@@ -31,6 +31,7 @@ const { registerPartnerRoutes } = require("./server/routes/partnerRoutes");
 const { registerFeedbackRoutes } = require("./server/routes/feedbackRoutes");
 const { registerMotiveWebhookRoutes } = require("./server/routes/motiveWebhookReceiver");
 const { registerMotiveOAuthRoutes } = require("./server/routes/motiveOAuthRoutes");
+const { registerMotiveDataRoutes } = require("./server/routes/motiveDataRoutes");
 const motiveOAuth = require("./server/services/motiveOAuth");
 const { registerAdminRoutes, normalizeOrgStatus, normalizeLeadStatus, defaultBilling, defaultBillingSettings, defaultPaymentMethod, defaultFeatures } = require("./server/routes/adminRoutes");
 const { registerOrgManagementRoutes } = require("./server/routes/orgManagementRoutes");
@@ -1018,6 +1019,12 @@ registerMotiveOAuthRoutes(app, {
   requireSuperAdmin: (req, res, next) => requireSuperAdmin(req, res, next),
   sessionStore,
   getSession
+});
+
+registerMotiveDataRoutes(app, {
+  requireEmployeeOrCustomerApi: (req, res, next) => requireEmployeeOrCustomerApi(req, res, next),
+  readData,
+  sanitizeString
 });
 
 app.post("/api/telemetry/snapshot", validateBody(schemas.telemetrySnapshot), (req, res) => {
