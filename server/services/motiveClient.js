@@ -11,7 +11,15 @@ const https = require("https");
 const MOTIVE_HOST = "api.gomotive.com";
 const MOTIVE_AGENT = new https.Agent({ keepAlive: true, maxSockets: 5 });
 
+// In-memory token set by OAuth flow (takes precedence over env vars)
+let _inMemoryToken = null;
+
+function setAccessToken(token) {
+  _inMemoryToken = (token || "").trim() || null;
+}
+
 function _authHeader() {
+  if (_inMemoryToken) return { Authorization: `Bearer ${_inMemoryToken}` };
   const bearer = (process.env.MOTIVE_ACCESS_TOKEN || "").trim();
   if (bearer) return { Authorization: `Bearer ${bearer}` };
   const apiKey = (process.env.MOTIVE_API_KEY || "").trim();
@@ -106,9 +114,10 @@ async function fetchVehicles(params = {}) {
 
 function isConfigured() {
   return Boolean(
+    _inMemoryToken ||
     (process.env.MOTIVE_ACCESS_TOKEN || "").trim() ||
     (process.env.MOTIVE_API_KEY || "").trim()
   );
 }
 
-module.exports = { motiveRequest, fetchEldDevices, fetchVehicleFaultCodes, fetchOpenFaultCodes, fetchVehicles, isConfigured };
+module.exports = { motiveRequest, fetchEldDevices, fetchVehicleFaultCodes, fetchOpenFaultCodes, fetchVehicles, isConfigured, setAccessToken };

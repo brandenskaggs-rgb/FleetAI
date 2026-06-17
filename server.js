@@ -30,6 +30,8 @@ const { registerMlRoutes } = require("./server/routes/mlRoutes");
 const { registerPartnerRoutes } = require("./server/routes/partnerRoutes");
 const { registerFeedbackRoutes } = require("./server/routes/feedbackRoutes");
 const { registerMotiveWebhookRoutes } = require("./server/routes/motiveWebhookReceiver");
+const { registerMotiveOAuthRoutes } = require("./server/routes/motiveOAuthRoutes");
+const motiveOAuth = require("./server/services/motiveOAuth");
 const { registerAdminRoutes, normalizeOrgStatus, normalizeLeadStatus, defaultBilling, defaultBillingSettings, defaultPaymentMethod, defaultFeatures } = require("./server/routes/adminRoutes");
 const { registerOrgManagementRoutes } = require("./server/routes/orgManagementRoutes");
 const { startWatchdog } = require("./tools/watchdog");
@@ -1010,6 +1012,12 @@ registerMotiveWebhookRoutes(app, {
   makeId,
   nowIso,
   requireSuperAdmin: (req, res, next) => requireSuperAdmin(req, res, next)
+});
+
+registerMotiveOAuthRoutes(app, {
+  requireSuperAdmin: (req, res, next) => requireSuperAdmin(req, res, next),
+  sessionStore,
+  getSession
 });
 
 app.post("/api/telemetry/snapshot", validateBody(schemas.telemetrySnapshot), (req, res) => {
@@ -3677,6 +3685,11 @@ async function startServer() {
     "POST /pairings/claim",
     "POST /pairing/claim"
   ].forEach((route) => console.log(`  ${route}`));
+
+  // Restore Motive OAuth tokens from Postgres so API calls work immediately
+  motiveOAuth.tryRestoreToken().catch((err) => {
+    console.warn("[MOTIVE-OAUTH] startup restore failed:", err.message);
+  });
   });
 
   // Graceful shutdown — Railway sends SIGTERM before killing the container.
