@@ -24,7 +24,7 @@ function registerFeedbackRoutes(app, deps) {
       return res.status(400).json({ error: `outcome must be one of: ${VALID_OUTCOMES.join(", ")}` });
     }
 
-    const orgId = req.user?.orgId ?? null;
+    const orgId = req.employee?.orgId ?? req.customer?.orgId ?? null;
 
     try {
       const prisma = getPrisma();
@@ -39,7 +39,7 @@ function registerFeedbackRoutes(app, deps) {
           stage2Score: stage2Score != null ? parseFloat(stage2Score) : null,
           signalAgreement: signalAgreement != null ? parseFloat(signalAgreement) : null,
           features: features && typeof features === "object" ? features : {},
-          reviewedBy: reviewedBy ? String(reviewedBy).slice(0, 100) : (req.user?.email ?? null),
+          reviewedBy: reviewedBy ? String(reviewedBy).slice(0, 100) : (req.employee?.email ?? req.customer?.email ?? null),
         },
       });
 
@@ -60,7 +60,7 @@ function registerFeedbackRoutes(app, deps) {
   app.get("/api/telemetry/feedback", requireAuth, async (req, res) => {
     const { vehicleId, outcome, limit: rawLimit } = req.query;
     const limit = Math.min(parseInt(rawLimit) || 50, 200);
-    const orgId = req.user?.orgId ?? null;
+    const orgId = req.employee?.orgId ?? req.customer?.orgId ?? null;
 
     try {
       const prisma = getPrisma();

@@ -3,8 +3,12 @@ const https = require("https");
 
 const DEFAULT_URL = "http://127.0.0.1:8010";
 const ML_SERVICE_URL = (process.env.FLEETAI_ML_SERVICE_URL || DEFAULT_URL).replace(/\/+$/, "");
-const ML_SERVICE_TIMEOUT_MS = Number(process.env.FLEETAI_ML_SERVICE_TIMEOUT_MS || 2500);
+const ML_SERVICE_TIMEOUT_MS = Number(process.env.FLEETAI_ML_SERVICE_TIMEOUT_MS || 4000);
 const PYTHON_ML_ENABLED = (process.env.FLEETAI_PYTHON_ML_ENABLED || "true").toLowerCase() !== "false";
+
+// Persistent connection pool — avoids TCP handshake overhead on every prediction
+const ML_AGENT       = new http.Agent({ keepAlive: true, maxSockets: 10 });
+const ML_AGENT_HTTPS = new https.Agent({ keepAlive: true, maxSockets: 10 });
 
 function postJson(path, payload) {
   if (!PYTHON_ML_ENABLED) {
@@ -24,7 +28,8 @@ function postJson(path, payload) {
           "Content-Type": "application/json",
           "Content-Length": Buffer.byteLength(body)
         },
-        timeout: ML_SERVICE_TIMEOUT_MS
+        timeout: ML_SERVICE_TIMEOUT_MS,
+        agent: target.protocol === "https:" ? ML_AGENT_HTTPS : ML_AGENT,
       },
       (res) => {
         let raw = "";
@@ -61,7 +66,8 @@ function getJson(path) {
         hostname: target.hostname,
         port: target.port || (target.protocol === "https:" ? 443 : 80),
         path: `${target.pathname}${target.search}`,
-        timeout: ML_SERVICE_TIMEOUT_MS
+        timeout: ML_SERVICE_TIMEOUT_MS,
+        agent: target.protocol === "https:" ? ML_AGENT_HTTPS : ML_AGENT,
       },
       (res) => {
         let raw = "";

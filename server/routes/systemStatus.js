@@ -49,7 +49,7 @@ function registerSystemStatusRoutes(app, deps) {
     });
   });
 
-  app.get("/whoami", (req, res) => {
+  app.get("/whoami", requireSuperAdmin, (req, res) => {
     res.status(200).json({
       ip: req.ip,
       ips: req.ips,

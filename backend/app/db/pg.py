@@ -36,8 +36,8 @@ async def init_pool() -> None:
     try:
         _pool = await asyncpg.create_pool(
             dsn=_parse_database_url(url),
-            min_size=1,
-            max_size=5,
+            min_size=2,
+            max_size=10,
             command_timeout=10,
             statement_cache_size=0,  # Railway PgBouncer compatibility
         )

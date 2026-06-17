@@ -160,14 +160,19 @@ async function generateReport(prediction, vehicleMeta = {}) {
     narrative = buildFallbackNarrative(prediction);
   }
 
-  const reportId = await db.insertAiReport({
-    orgId: prediction.orgId || null,
-    vehicleId: prediction.vehicleId,
-    narrative,
-    predictionSnapshot: prediction,
-    modelUsed: OPENAI_MODEL,
-    createdAt: new Date().toISOString()
-  });
+  let reportId = null;
+  try {
+    reportId = await db.insertAiReport({
+      orgId: prediction.orgId || null,
+      vehicleId: prediction.vehicleId,
+      narrative,
+      predictionSnapshot: prediction,
+      modelUsed: OPENAI_MODEL,
+      createdAt: new Date().toISOString()
+    });
+  } catch (err) {
+    console.warn("[AI-REPORT] DB insert failed — returning narrative without persisting:", err.message);
+  }
 
   return {
     id: reportId,

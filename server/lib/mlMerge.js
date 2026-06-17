@@ -18,6 +18,7 @@ function deriveSensorRisksFromPython(py) {
   }
   (py?.topFeatures || []).forEach((feature) => {
     const z = Number(feature.zScore || 0);
+    // z * 18 maps a 3σ outlier → 54 (warning), 5σ → 90 (critical), 6σ → 100 (max)
     risks[feature.metric] = Math.max(risks[feature.metric] || 0, Math.round(Math.min(100, z * 18)));
   });
   // Map new topMetrics format

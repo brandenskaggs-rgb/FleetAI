@@ -166,7 +166,7 @@ function registerAdminRoutes(app, deps) {
       }
       const passwordHash = await bcrypt.hash(password, 12);
       const user = {
-        id: `EMP_${Date.now()}`,
+        id: makeId("EMP"),
         email: email.toLowerCase(),
         role: "SUPER_ADMIN",
         orgId: null,

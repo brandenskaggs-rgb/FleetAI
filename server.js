@@ -29,6 +29,7 @@ const { registerInternalMlApiRoutes } = require("./server/routes/internalMlApiRo
 const { registerMlRoutes } = require("./server/routes/mlRoutes");
 const { registerPartnerRoutes } = require("./server/routes/partnerRoutes");
 const { registerFeedbackRoutes } = require("./server/routes/feedbackRoutes");
+const { registerMotiveWebhookRoutes } = require("./server/routes/motiveWebhookReceiver");
 const { registerAdminRoutes, normalizeOrgStatus, normalizeLeadStatus, defaultBilling, defaultBillingSettings, defaultPaymentMethod, defaultFeatures } = require("./server/routes/adminRoutes");
 const { registerOrgManagementRoutes } = require("./server/routes/orgManagementRoutes");
 const { startWatchdog } = require("./tools/watchdog");
@@ -257,6 +258,21 @@ function validateRuntimeConfig() {
     }
   }
 
+  if (!process.env.DATABASE_URL) {
+    if (IS_PROD) {
+      errors.push("DATABASE_URL is required in production.");
+    } else {
+      warnings.push("DATABASE_URL is not set — database features will be unavailable.");
+    }
+  }
+
+  if (!process.env.MOTIVE_WEBHOOK_SECRET) {
+    warnings.push("MOTIVE_WEBHOOK_SECRET is not set — Motive webhook signature verification is disabled.");
+  }
+  if (!process.env.MOTIVE_ACCESS_TOKEN && !process.env.MOTIVE_API_KEY) {
+    warnings.push("MOTIVE_ACCESS_TOKEN not set — Motive fleet sync and API polling will be unavailable.");
+  }
+
   return { errors, warnings };
 }
 
@@ -311,6 +327,14 @@ async function seedDevAuthStoreIfNeeded() {
 }
 
 function verifyAuthStoreOrExit() {
+  // When DATABASE_URL is set, Prisma is the auth source of truth.
+  // Users live in Postgres, not the JSON file — skip the file check entirely.
+  // The JSON store still handles vehicles/orgs config and gets auto-created on
+  // the first readData() call via createStorage.ensureFile().
+  if (process.env.DATABASE_URL) {
+    console.log("[AUTH] DATABASE_URL configured — Prisma is auth source of truth, skipping JSON auth-store check");
+    return;
+  }
   try {
     loadAuthStore({ allowEmpty: false, allowMissing: false });
   } catch (err) {
@@ -977,6 +1001,17 @@ registerFeedbackRoutes(app, {
   requireAuth: requireEmployeeOrCustomerApi,
 });
 
+registerMotiveWebhookRoutes(app, {
+  readData,
+  writeData,
+  ml,
+  pythonMlClient,
+  sqliteDb,
+  makeId,
+  nowIso,
+  requireSuperAdmin: (req, res, next) => requireSuperAdmin(req, res, next)
+});
+
 app.post("/api/telemetry/snapshot", validateBody(schemas.telemetrySnapshot), (req, res) => {
   (async () => {
     const payload = req.body || {};
@@ -1302,7 +1337,7 @@ async function writeData(data) {
     alerts: data.alerts || []
   });
   if (!Array.isArray(payload.users) || payload.users.length === 0) {
-    const existing = await storage.loadData();
+    const existing = await dataStore.loadData();
     if (Array.isArray(existing.users) && existing.users.length > 0) {
       payload.users = existing.users;
       console.warn("[AUTH] preserved users during write to avoid auth store loss");
@@ -3550,7 +3585,7 @@ async function startServer() {
   }
   await seedDevAuthStoreIfNeeded();
   verifyAuthStoreOrExit();
-  app.listen(PORT, HOST, () => {
+  const httpServer = app.listen(PORT, HOST, () => {
   const keyLen = SETUP_KEY.length;
   const keyMasked = keyLen >= 6
     ? `${SETUP_KEY.slice(0, 3)}***${SETUP_KEY.slice(-3)}`
@@ -3642,6 +3677,21 @@ async function startServer() {
     "POST /pairings/claim",
     "POST /pairing/claim"
   ].forEach((route) => console.log(`  ${route}`));
+  });
+
+  // Graceful shutdown — Railway sends SIGTERM before killing the container.
+  // Stop accepting new connections, let in-flight requests finish, then exit.
+  process.on("SIGTERM", () => {
+    console.log("[server] SIGTERM received — shutting down gracefully");
+    httpServer.close(() => {
+      console.log("[server] HTTP server closed");
+      process.exit(0);
+    });
+    // Force-exit if in-flight requests don't drain within 10 s
+    setTimeout(() => {
+      console.error("[server] Forced exit after 10s shutdown timeout");
+      process.exit(1);
+    }, 10000).unref();
   });
 }
 

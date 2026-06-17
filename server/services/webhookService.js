@@ -136,31 +136,33 @@ async function notifyPrediction(partner, apiKeyId, vehicleId, prediction) {
 
   const base = { vehicleId, riskProbability, prediction: prediction.prediction };
 
-  // Always fire risk_threshold_crossed when Stage 1 trips
-  await fireWebhooks(partner, apiKeyId, WEBHOOK_EVENTS.RISK_THRESHOLD_CROSSED, {
-    ...base,
-    threshold,
-    advisoryText: prediction.advisoryText,
-  }, riskProbability);
+  // Build all applicable webhook tasks and fire them in parallel
+  const tasks = [
+    fireWebhooks(partner, apiKeyId, WEBHOOK_EVENTS.RISK_THRESHOLD_CROSSED, {
+      ...base,
+      threshold,
+      advisoryText: prediction.advisoryText,
+    }, riskProbability),
+  ];
 
-  // Fire stage2_confirmed only when Stage 2 says it's real
   if (stageSystem?.confirmed) {
-    await fireWebhooks(partner, apiKeyId, WEBHOOK_EVENTS.STAGE2_CONFIRMED, {
+    tasks.push(fireWebhooks(partner, apiKeyId, WEBHOOK_EVENTS.STAGE2_CONFIRMED, {
       ...base,
-      stage2Score:          stageSystem.stage2Score,
-      signalAgreement:      stageSystem.signalAgreement,
-      confirmationReason:   stageSystem.confirmationReason,
-    }, riskProbability);
+      stage2Score:        stageSystem.stage2Score,
+      signalAgreement:    stageSystem.signalAgreement,
+      confirmationReason: stageSystem.confirmationReason,
+    }, riskProbability));
   }
 
-  // Fire dtc_critical when there are high-risk fault codes
   if (activeFaults?.riskScore >= 0.7) {
-    await fireWebhooks(partner, apiKeyId, WEBHOOK_EVENTS.DTC_CRITICAL, {
+    tasks.push(fireWebhooks(partner, apiKeyId, WEBHOOK_EVENTS.DTC_CRITICAL, {
       ...base,
-      codes:          activeFaults.codes,
+      codes:           activeFaults.codes,
       systemsAffected: activeFaults.systemsAffected,
-    }, riskProbability);
+    }, riskProbability));
   }
+
+  await Promise.all(tasks);
 }
 
 module.exports = { fireWebhooks, notifyPrediction, WEBHOOK_EVENTS };

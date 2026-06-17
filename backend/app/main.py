@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 from math import sqrt
 from typing import Dict, List, Optional
+import json
 import logging
 import os
 import random
@@ -17,7 +18,7 @@ from pathlib import Path
 from app.services.ai_explain import explain_alert
 from app.routes.insights import router as insights_router
 from app.routes.predict import router as predict_router
-from app.storage import store
+from app.storage import store, SNAPSHOT_PATH
 from app.db import pg as pg_db
 from app.ml.pretrained import load_pretrained
 from app.ml.stage2 import load_stage2, retrain_stage2_from_feedback
@@ -25,6 +26,103 @@ from app.ml.stage2 import load_stage2, retrain_stage2_from_feedback
 load_dotenv()
 
 logger = logging.getLogger(__name__)
+
+
+def _save_store() -> None:
+    """Persist baselines, activations, and alerts to disk so restarts don't lose learned state."""
+    try:
+        snapshot = {
+            "alert_counter": store["alert_counter"],
+            "vehicle_activation": {
+                vid: {
+                    "vehicle_id": a.vehicle_id,
+                    "activated_at": a.activated_at,
+                    "learning_days": a.learning_days,
+                }
+                for vid, a in store["vehicle_activation"].items()
+            },
+            "baseline_models": {
+                vid: {
+                    metric: {"count": s.count, "mean": s.mean, "m2": s.m2}
+                    for metric, s in metrics.items()
+                }
+                for vid, metrics in store["baseline_models"].items()
+            },
+            "alerts": {
+                vid: [
+                    {
+                        "alert_id": a.alert_id,
+                        "vehicle_id": a.vehicle_id,
+                        "timestamp": a.timestamp,
+                        "severity": a.severity,
+                        "confidence": a.confidence,
+                        "title": a.title,
+                        "details": a.details,
+                        "recommended_action": a.recommended_action,
+                        "learning_mode_flag": a.learning_mode_flag,
+                        "explanation": a.explanation,
+                    }
+                    for a in alert_list
+                ]
+                for vid, alert_list in store["alerts"].items()
+            },
+        }
+        SNAPSHOT_PATH.write_text(json.dumps(snapshot, default=str), encoding="utf-8")
+        logger.info(
+            "[store] Snapshot saved — %d vehicles, counter=%d",
+            len(store["vehicle_activation"]), store["alert_counter"],
+        )
+    except Exception as exc:
+        logger.warning("[store] Snapshot save failed: %s", exc)
+
+
+def _load_store() -> None:
+    """Restore persisted state on startup and rebuild the alert index."""
+    if not SNAPSHOT_PATH.exists():
+        logger.info("[store] No snapshot found — starting fresh")
+        return
+    try:
+        data = json.loads(SNAPSHOT_PATH.read_text(encoding="utf-8"))
+
+        store["alert_counter"] = int(data.get("alert_counter", 0))
+
+        for vid, act in data.get("vehicle_activation", {}).items():
+            try:
+                store["vehicle_activation"][vid] = VehicleActivation(**act)
+            except Exception:
+                pass
+
+        for vid, metrics in data.get("baseline_models", {}).items():
+            store["baseline_models"][vid] = {}
+            for metric, s in metrics.items():
+                try:
+                    store["baseline_models"][vid][metric] = BaselineStats(
+                        count=int(s.get("count", 0)),
+                        mean=float(s.get("mean", 0.0)),
+                        m2=float(s.get("m2", 0.0)),
+                    )
+                except Exception:
+                    pass
+
+        for vid, alert_list in data.get("alerts", {}).items():
+            restored = []
+            for a in alert_list:
+                try:
+                    alert = AlertRecord(**a)
+                    restored.append(alert)
+                    store["alert_index"][alert.alert_id] = alert
+                except Exception:
+                    pass
+            if restored:
+                store["alerts"][vid] = restored
+
+        logger.info(
+            "[store] Snapshot loaded — %d vehicles, %d alerts",
+            len(store["vehicle_activation"]),
+            sum(len(v) for v in store["alerts"].values()),
+        )
+    except Exception as exc:
+        logger.warning("[store] Snapshot load failed (starting fresh): %s", exc)
 
 
 async def _stage2_retrain_loop() -> None:
@@ -43,10 +141,12 @@ async def _stage2_retrain_loop() -> None:
 async def lifespan(app: FastAPI):
     import asyncio
     await pg_db.init_pool()
+    _load_store()       # restore baselines/alerts from disk before serving
     load_pretrained()   # non-blocking; logs warning if model file absent
     load_stage2()       # non-blocking; no-op if stage2_model.pkl absent
     asyncio.create_task(_stage2_retrain_loop())
     yield
+    _save_store()       # persist learned state before shutdown
     await pg_db.close_pool()
 
 
@@ -500,6 +600,7 @@ def create_alert(
     alerts = store["alerts"].setdefault(vehicle_id, [])
     alerts.insert(0, alert)
     store["alerts"][vehicle_id] = alerts[:50]
+    store["alert_index"][alert.alert_id] = alert   # O(1) lookup index
     return alert
 
 
@@ -786,18 +887,17 @@ async def list_alerts(vehicle_id: str, limit: int = 20):
 
 @app.get("/api/alerts/{alert_id}/explain")
 async def explain_alert_endpoint(alert_id: str):
-    for vehicle_alerts in store["alerts"].values():
-        for alert in vehicle_alerts:
-            if alert.alert_id == alert_id:
-                activation = ensure_activation(alert.vehicle_id)
-                learning_mode = learning_status(activation)["mode"] == "learning"
-                if should_call_ai(alert.vehicle_id):
-                    alert.explanation = explain_alert(alert, learning_mode)
-                    mark_ai_call(alert.vehicle_id)
-                else:
-                    alert.explanation = explanation_template(alert, learning_mode)
-                return {"alert_id": alert.alert_id, "explanation": alert.explanation}
-    raise HTTPException(status_code=404, detail="Alert not found")
+    alert = store["alert_index"].get(alert_id)
+    if not alert:
+        raise HTTPException(status_code=404, detail="Alert not found")
+    activation = ensure_activation(alert.vehicle_id)
+    learning_mode = learning_status(activation)["mode"] == "learning"
+    if should_call_ai(alert.vehicle_id):
+        alert.explanation = explain_alert(alert, learning_mode)
+        mark_ai_call(alert.vehicle_id)
+    else:
+        alert.explanation = explanation_template(alert, learning_mode)
+    return {"alert_id": alert.alert_id, "explanation": alert.explanation}
 
 
 @app.get("/api/settings/vehicles")
