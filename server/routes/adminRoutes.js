@@ -185,46 +185,55 @@ function registerAdminRoutes(app, deps) {
       return res.status(400).json({ error: "Password must be at least 10 characters." });
     }
     try {
+      const normalizedEmail = email.toLowerCase();
       const passwordHash = await bcrypt.hash(password, 12);
-      const user = {
-        id: makeId("EMP"),
-        email: email.toLowerCase(),
-        role: "SUPER_ADMIN",
-        kind: "employee",
-        orgId: null,
-        isActive: true,
-        active: true,
-        verified: true,
-        passwordHash,
-        createdAt: new Date().toISOString(),
-        lastLoginAt: null
-      };
 
-      if (prismaAuthAdapter) {
-        // Production: check Postgres and write to Postgres
-        const authData = await prismaAuthAdapter.loadData();
-        const alreadyAdmin = (authData.users || []).some((u) => u.role === "SUPER_ADMIN");
-        if (alreadyAdmin) return res.status(409).json({ error: "Setup already completed" });
-        const exists = (authData.users || []).some((u) => u.email === user.email);
-        if (exists) return res.status(409).json({ error: "User already exists." });
-        await prismaAuthAdapter.saveData({ users: [user], orgs: [] });
+      // Try Prisma first (production with DATABASE_URL)
+      let prisma = null;
+      try { prisma = getPrisma(); } catch (_) {}
+
+      if (prisma) {
+        const existing = await prisma.user.findFirst({ where: { role: "SUPER_ADMIN" } });
+        if (existing) return res.status(409).json({ error: "Setup already completed" });
+        const emailExists = await prisma.user.findUnique({ where: { email: normalizedEmail } });
+        if (emailExists) return res.status(409).json({ error: "User already exists." });
+        await prisma.user.create({
+          data: {
+            email: normalizedEmail,
+            role: "SUPER_ADMIN",
+            kind: "employee",
+            passwordHash,
+            isActive: true,
+            active: true,
+            verified: true
+          }
+        });
       } else {
         // Dev fallback: write to JSON store
         const data = await readData();
         if (hasSuperAdminCached(data)) return res.status(409).json({ error: "Setup already completed" });
-        const exists = (data.users || []).some((u) => u.email === user.email);
+        const exists = (data.users || []).some((u) => u.email === normalizedEmail);
         if (exists) return res.status(409).json({ error: "User already exists." });
         data.users = data.users || [];
         data.audit = data.audit || [];
-        data.users.push(user);
-        data.audit.push({ event: "SUPER_ADMIN_CREATED", email: user.email, ts: new Date().toISOString() });
+        data.users.push({
+          id: makeId("EMP"),
+          email: normalizedEmail,
+          role: "SUPER_ADMIN",
+          kind: "employee",
+          isActive: true,
+          passwordHash,
+          createdAt: new Date().toISOString()
+        });
+        data.audit.push({ event: "SUPER_ADMIN_CREATED", email: normalizedEmail, ts: new Date().toISOString() });
         await writeData(data);
       }
 
-      console.log(`[admin-setup] super admin created for ${user.email}`);
+      console.log(`[admin-setup] super admin created for ${normalizedEmail}`);
       res.status(201).json({ ok: true });
     } catch (err) {
-      next(err);
+      console.error("[admin-setup] error:", err.message, err.stack);
+      res.status(500).json({ error: err.message || "Setup failed" });
     }
   }
 
