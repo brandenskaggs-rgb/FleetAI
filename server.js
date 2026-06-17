@@ -3333,7 +3333,8 @@ registerAdminRoutes(app, {
   getRateState,
   SETUP_KEY,
   SETUP_ALLOWED,
-  DEFAULT_SETTINGS: DEFAULT_DATA.settings
+  DEFAULT_SETTINGS: DEFAULT_DATA.settings,
+  prismaAuthAdapter
 });
 
 // ── Org management, leads, billing, invites routes — see server/routes/orgManagementRoutes.js ──

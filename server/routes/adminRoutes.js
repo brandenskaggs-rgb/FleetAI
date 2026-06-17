@@ -118,15 +118,22 @@ function registerAdminRoutes(app, deps) {
     getRateState,
     SETUP_KEY,
     SETUP_ALLOWED,
-    DEFAULT_SETTINGS
+    DEFAULT_SETTINGS,
+    prismaAuthAdapter
   } = deps;
 
   // ── Bootstrap setup endpoints ────────────────────────────────────────────
 
   app.get("/api/admin/setup/status", async (req, res, next) => {
     try {
-      const data = await readData();
-      const hasSuperAdmin = hasSuperAdminCached(data);
+      let hasSuperAdmin = false;
+      if (prismaAuthAdapter) {
+        const authData = await prismaAuthAdapter.loadData();
+        hasSuperAdmin = (authData.users || []).some((u) => u.role === "SUPER_ADMIN");
+      } else {
+        const data = await readData();
+        hasSuperAdmin = hasSuperAdminCached(data);
+      }
       const enabled = SETUP_ALLOWED && !hasSuperAdmin && Boolean(SETUP_KEY);
       const reason = hasSuperAdmin
         ? "Setup already completed"
@@ -173,30 +180,42 @@ function registerAdminRoutes(app, deps) {
       return res.status(400).json({ error: "Password must be at least 10 characters." });
     }
     try {
-      const data = await readData();
-      if (hasSuperAdminCached(data)) {
-        return res.status(409).json({ error: "Setup already completed" });
-      }
-      const exists = (data.users || []).some((u) => u.email === email.toLowerCase());
-      if (exists) {
-        return res.status(409).json({ error: "User already exists." });
-      }
       const passwordHash = await bcrypt.hash(password, 12);
       const user = {
         id: makeId("EMP"),
         email: email.toLowerCase(),
         role: "SUPER_ADMIN",
+        kind: "employee",
         orgId: null,
         isActive: true,
+        active: true,
+        verified: true,
         passwordHash,
         createdAt: new Date().toISOString(),
         lastLoginAt: null
       };
-      data.users = data.users || [];
-      data.audit = data.audit || [];
-      data.users.push(user);
-      data.audit.push({ event: "SUPER_ADMIN_CREATED", email: user.email, ts: new Date().toISOString() });
-      await writeData(data);
+
+      if (prismaAuthAdapter) {
+        // Production: check Postgres and write to Postgres
+        const authData = await prismaAuthAdapter.loadData();
+        const alreadyAdmin = (authData.users || []).some((u) => u.role === "SUPER_ADMIN");
+        if (alreadyAdmin) return res.status(409).json({ error: "Setup already completed" });
+        const exists = (authData.users || []).some((u) => u.email === user.email);
+        if (exists) return res.status(409).json({ error: "User already exists." });
+        await prismaAuthAdapter.saveData({ users: [user], orgs: [] });
+      } else {
+        // Dev fallback: write to JSON store
+        const data = await readData();
+        if (hasSuperAdminCached(data)) return res.status(409).json({ error: "Setup already completed" });
+        const exists = (data.users || []).some((u) => u.email === user.email);
+        if (exists) return res.status(409).json({ error: "User already exists." });
+        data.users = data.users || [];
+        data.audit = data.audit || [];
+        data.users.push(user);
+        data.audit.push({ event: "SUPER_ADMIN_CREATED", email: user.email, ts: new Date().toISOString() });
+        await writeData(data);
+      }
+
       console.log(`[admin-setup] super admin created for ${user.email}`);
       res.status(201).json({ ok: true });
     } catch (err) {
