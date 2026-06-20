@@ -139,14 +139,12 @@ function registerAdminRoutes(app, deps) {
         const data = await readData();
         hasSuperAdmin = hasSuperAdminCached(data);
       }
-      const enabled = SETUP_ALLOWED && !hasSuperAdmin && Boolean(SETUP_KEY);
+      const enabled = SETUP_ALLOWED && !hasSuperAdmin;
       const reason = hasSuperAdmin
         ? "Setup already completed"
         : !SETUP_ALLOWED
           ? "Setup disabled in production"
-          : SETUP_KEY
-            ? "Setup available"
-            : "Setup key not configured on server";
+          : "Setup available";
       res.json({ enabled, hasSuperAdmin, reason });
     } catch (err) {
       next(err);
