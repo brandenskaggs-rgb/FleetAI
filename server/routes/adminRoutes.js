@@ -164,13 +164,14 @@ function registerAdminRoutes(app, deps) {
     if (!rate.allowed) {
       return res.status(429).json({ error: "Too many attempts. Try again later." });
     }
-    const { setupKey, email, password } = req.body || {};
-    console.log(`[admin-setup] attempt for ${email || "unknown"}`);
+    const { setupKey: rawSetupKey, email, password } = req.body || {};
+    const setupKey = (rawSetupKey || "").trim();
+    console.log(`[admin-setup] attempt for ${email || "unknown"} keyLen=${setupKey.length}`);
     if (!SETUP_KEY) {
       return res.status(503).json({ error: "Setup key not configured on server" });
     }
     if (!setupKey || setupKey !== SETUP_KEY) {
-      console.warn(`[admin-setup] invalid setup key for ${email || "unknown"}`);
+      console.warn(`[admin-setup] invalid setup key for ${email || "unknown"} submittedLen=${setupKey.length} expectedLen=${SETUP_KEY.length}`);
       return res.status(401).json({ error: "Invalid setup key" });
     }
     if (!SETUP_ALLOWED) {
