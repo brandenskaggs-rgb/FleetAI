@@ -166,12 +166,10 @@ function registerAdminRoutes(app, deps) {
     }
     const { setupKey: rawSetupKey, email, password } = req.body || {};
     const setupKey = (rawSetupKey || "").trim();
-    console.log(`[admin-setup] attempt for ${email || "unknown"} keyLen=${setupKey.length}`);
-    if (!SETUP_KEY) {
-      return res.status(503).json({ error: "Setup key not configured on server" });
-    }
-    if (!setupKey || setupKey !== SETUP_KEY) {
-      console.warn(`[admin-setup] invalid setup key for ${email || "unknown"} submittedLen=${setupKey.length} expectedLen=${SETUP_KEY.length}`);
+    console.log(`[admin-setup] attempt for ${email || "unknown"}`);
+    // Setup key check: if SETUP_KEY is configured, validate it; otherwise allow (SETUP_ALLOWED already gates this)
+    if (SETUP_KEY && setupKey !== SETUP_KEY) {
+      console.warn(`[admin-setup] invalid setup key for ${email || "unknown"}`);
       return res.status(401).json({ error: "Invalid setup key" });
     }
     if (!SETUP_ALLOWED) {
