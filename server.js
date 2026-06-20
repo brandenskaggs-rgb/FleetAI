@@ -1012,6 +1012,7 @@ registerMotiveWebhookRoutes(app, {
   sqliteDb,
   makeId,
   nowIso,
+  telemetryLatest,
   requireSuperAdmin: (req, res, next) => requireSuperAdmin(req, res, next)
 });
 

@@ -15,6 +15,11 @@
  *   driver_performance_event_created / _updated
  *   speeding_event_created / _updated
  *   vehicle_gateway_disconnected / vehicle_gateway_disconnect_ended
+ *   vehicle_location_updated / vehicle_location_received  — live GPS map
+ *   user_upserted                                         — driver sync
+ *   hos_violation_upserted                               — HOS compliance
+ *   vehicle_geofence_event                               — geofence alerts
+ *   user_duty_status_updated                             — driver duty status
  *
  * Admin endpoints (requires SUPER_ADMIN session):
  *   POST /api/admin/motive/sync   — trigger fleet sync + fault code backfill
@@ -52,7 +57,7 @@ function _verifySignature(rawBody, signatureHeader) {
 }
 
 function registerMotiveWebhookRoutes(app, deps) {
-  const { readData, writeData, ml, pythonMlClient, sqliteDb, makeId, nowIso, requireSuperAdmin } = deps;
+  const { readData, writeData, ml, pythonMlClient, sqliteDb, makeId, nowIso, requireSuperAdmin, telemetryLatest } = deps;
 
   // ── Incoming Motive webhook ────────────────────────────────────────────────
   app.post("/api/webhooks/motive", async (req, res) => {
@@ -71,7 +76,7 @@ function registerMotiveWebhookRoutes(app, deps) {
 
     setImmediate(async () => {
       try {
-        await _routeEvent(action, event, { readData, writeData, ml, pythonMlClient, sqliteDb, makeId, nowIso });
+        await _routeEvent(action, event, { readData, writeData, ml, pythonMlClient, sqliteDb, makeId, nowIso, telemetryLatest });
       } catch (err) {
         console.error(`[MOTIVE-WEBHOOK] handler error action=${action}: ${err.message}`);
       }
@@ -144,6 +149,17 @@ async function _routeEvent(action, event, deps) {
       return _onGatewayDisconnected(event, deps);
     case "vehicle_gateway_disconnect_ended":
       return _onGatewayReconnected(event, deps);
+    case "vehicle_location_updated":
+    case "vehicle_location_received":
+      return _onVehicleLocation(event, deps);
+    case "user_upserted":
+      return _onUserUpserted(event, deps);
+    case "hos_violation_upserted":
+      return _onHosViolation(event, deps);
+    case "vehicle_geofence_event":
+      return _onGeofenceEvent(event, deps);
+    case "user_duty_status_updated":
+      return _onDutyStatusUpdated(event, deps);
     default:
       console.log(`[MOTIVE-WEBHOOK] no handler for action=${action}`);
   }
@@ -405,6 +421,173 @@ async function _onGatewayReconnected(event, { readData, writeData, nowIso }) {
     await writeData(data);
   }
   console.log(`[MOTIVE-WEBHOOK] gateway_reconnected vehicle=${vehicleId}`);
+}
+
+// ── vehicle_location_updated / vehicle_location_received ─────────────────────
+
+async function _onVehicleLocation(event, { readData, nowIso, telemetryLatest }) {
+  const motiveId = event.vehicle?.id || event.vehicle_id;
+  const location = event.location || {};
+  const lat = location.lat ?? null;
+  const lon = location.lon ?? location.lng ?? null;
+
+  if (!motiveId || lat === null || lon === null) return;
+
+  const data = await readData();
+  const vehicleId = resolveVehicleId(data.vehicles, motiveId, "");
+  if (!vehicleId) {
+    console.log(`[MOTIVE-WEBHOOK] vehicle_location: unknown motiveId=${motiveId} — run sync first`);
+    return;
+  }
+
+  const ts = event.reported_at || event.timestamp || nowIso();
+  const speedKph = location.speed ?? null;
+  const heading = location.heading ?? null;
+  const description = location.description || location.address || null;
+
+  if (telemetryLatest) {
+    const existing = telemetryLatest.get(vehicleId) || {};
+    telemetryLatest.set(vehicleId, Object.assign({}, existing, {
+      vehicleId,
+      ts,
+      lat,
+      lon,
+      speedKph,
+      heading,
+      locationDescription: description,
+      source: "motive_location"
+    }));
+  }
+
+  console.log(`[MOTIVE-WEBHOOK] vehicle_location vehicle=${vehicleId} lat=${lat} lon=${lon} speed=${speedKph}`);
+}
+
+// ── user_upserted (Motive driver sync) ───────────────────────────────────────
+
+async function _onUserUpserted(event, { readData, writeData, makeId, nowIso }) {
+  const motiveUserId = String(event.id || "");
+  if (!motiveUserId) return;
+
+  const firstName = (event.first_name || "").trim();
+  const lastName = (event.last_name || "").trim();
+  const email = (event.email || "").trim().toLowerCase();
+  const phone = (event.phone || "").trim();
+  const role = (event.role || "").toLowerCase();
+
+  // Only sync driver-role users
+  if (role && !["driver", "user", ""].includes(role)) {
+    console.log(`[MOTIVE-WEBHOOK] user_upserted: skipping role=${role} id=${motiveUserId}`);
+    return;
+  }
+
+  const data = await readData();
+  if (!Array.isArray(data.drivers)) data.drivers = [];
+
+  let driver = data.drivers.find((d) => d.motiveUserId === motiveUserId);
+  if (!driver) {
+    driver = {
+      driverId: makeId("DRV"),
+      orgId: (process.env.MOTIVE_ORG_ID || "ORG_DEFAULT").trim(),
+      source: "motive",
+      createdAt: nowIso()
+    };
+    data.drivers.push(driver);
+  }
+
+  Object.assign(driver, {
+    motiveUserId,
+    firstName: firstName || driver.firstName || "",
+    lastName: lastName || driver.lastName || "",
+    email: email || driver.email || "",
+    phone: phone || driver.phone || "",
+    status: "active",
+    updatedAt: nowIso()
+  });
+
+  await writeData(data);
+  console.log(`[MOTIVE-WEBHOOK] user_upserted motiveUserId=${motiveUserId} name="${firstName} ${lastName}"`);
+}
+
+// ── hos_violation_upserted ────────────────────────────────────────────────────
+
+async function _onHosViolation(event, { readData, writeData, makeId, nowIso }) {
+  const driver = event.driver || {};
+  const motiveId = event.vehicle?.id || null;
+  const violationType = event.violation_type || event.type || "HOS_VIOLATION";
+  const description = event.description || violationType;
+  const driverName = driver.first_name
+    ? `${driver.first_name || ""} ${driver.last_name || ""}`.trim()
+    : `Driver #${driver.id || "unknown"}`;
+
+  const data = await readData();
+  const vehicleId = motiveId ? resolveVehicleId(data.vehicles, motiveId, "") : null;
+  const vehicle = vehicleId ? data.vehicles.find((v) => v.vehicleId === vehicleId) : null;
+
+  console.log(`[MOTIVE-WEBHOOK] hos_violation driver="${driverName}" type=${violationType}`);
+
+  await _pushNotification(data, {
+    vehicleId: vehicleId || "unknown",
+    orgId: vehicle?.orgId || (process.env.MOTIVE_ORG_ID || "ORG_DEFAULT"),
+    severity: "warning",
+    title: `HOS Violation: ${driverName}`,
+    body: description,
+    source: "motive_hos",
+    makeId,
+    nowIso
+  });
+  await writeData(data);
+}
+
+// ── vehicle_geofence_event ────────────────────────────────────────────────────
+
+async function _onGeofenceEvent(event, { readData, writeData, makeId, nowIso }) {
+  const motiveId = event.vehicle?.id || event.vehicle_id;
+  const geofenceName = event.geofence?.name || event.geofence?.id || "Unknown";
+  const eventType = (event.event_type || "").toLowerCase(); // "entry" | "exit"
+
+  const data = await readData();
+  const vehicleId = resolveVehicleId(data.vehicles, motiveId, "");
+  if (!vehicleId) return;
+
+  const vehicle = data.vehicles.find((v) => v.vehicleId === vehicleId) || {};
+  const direction = eventType === "entry" ? "entered" : eventType === "exit" ? "exited" : "triggered";
+
+  console.log(`[MOTIVE-WEBHOOK] geofence_event vehicle=${vehicleId} geofence="${geofenceName}" type=${eventType}`);
+
+  await _pushNotification(data, {
+    vehicleId,
+    orgId: vehicle.orgId || null,
+    severity: "info",
+    title: `Geofence: ${geofenceName}`,
+    body: `Vehicle ${vehicle.number || vehicleId} ${direction} geofence "${geofenceName}".`,
+    source: "motive_geofence",
+    makeId,
+    nowIso
+  });
+  await writeData(data);
+}
+
+// ── user_duty_status_updated ──────────────────────────────────────────────────
+
+async function _onDutyStatusUpdated(event, { readData, writeData, nowIso }) {
+  const driver = event.driver || {};
+  const motiveUserId = String(driver.id || "");
+  const currentStatus = event.current_status || event.status || "";
+  if (!motiveUserId) return;
+
+  const data = await readData();
+  if (!Array.isArray(data.drivers)) return;
+
+  const driverRecord = data.drivers.find((d) => d.motiveUserId === motiveUserId);
+  if (!driverRecord) {
+    console.log(`[MOTIVE-WEBHOOK] duty_status: unknown motiveUserId=${motiveUserId}`);
+    return;
+  }
+
+  driverRecord.dutyStatus = currentStatus;
+  driverRecord.dutyStatusUpdatedAt = event.updated_at || nowIso();
+  await writeData(data);
+  console.log(`[MOTIVE-WEBHOOK] duty_status_updated motiveUserId=${motiveUserId} status=${currentStatus}`);
 }
 
 // ── Shared helper ─────────────────────────────────────────────────────────────
