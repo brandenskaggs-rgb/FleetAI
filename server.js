@@ -583,7 +583,9 @@ const corsOptions = {
     if (isOriginAllowed(origin)) {
       return callback(null, true);
     }
-    return callback(new Error("CORS origin denied"));
+    // Don't call next(err) — just omit CORS headers.
+    // requireTrustedBrowserOrigin (below) handles actual blocking for non-API-key POST requests.
+    return callback(null, false);
   },
   credentials: true,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
