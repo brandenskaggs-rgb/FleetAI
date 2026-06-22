@@ -1,36 +1,36 @@
-// AI Report Service — GPT-4o-mini writes narrative ONLY.
+// AI Report Service — LLaMA 3.3 70B (via Groq) writes narrative ONLY.
 // The ML engine computes all numbers via computeFullPrediction().
-// This service receives those computed values and asks GPT to narrate them.
-// Never passes raw telemetry or asks GPT to calculate anything.
+// This service receives those computed values and asks the LLM to narrate them.
+// Never passes raw telemetry or asks the LLM to calculate anything.
 
 const https = require("https");
 const db = require("../db");
 const { makeId } = require("../db");
 
-const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
+const AI_MODEL = process.env.AI_MODEL || "llama-3.3-70b-versatile";
+const GROQ_API_KEY = process.env.GROQ_API_KEY || "";
 const AI_ENABLED = (process.env.AI_ENABLED || "").toLowerCase() === "true";
 
 // Cooldown: don't regenerate a report within this many minutes
 const REPORT_COOLDOWN_MINUTES = Number(process.env.REPORT_COOLDOWN_MINUTES || 60);
 
-function callOpenAI(prompt) {
+function callGroq(prompt) {
   return new Promise((resolve, reject) => {
-    if (!OPENAI_API_KEY) return reject(new Error("OPENAI_API_KEY not configured"));
+    if (!GROQ_API_KEY) return reject(new Error("GROQ_API_KEY not configured"));
     const body = JSON.stringify({
-      model: OPENAI_MODEL,
+      model: AI_MODEL,
       messages: [{ role: "user", content: prompt }],
       max_tokens: 600,
       temperature: 0.3
     });
     const req = https.request(
       {
-        hostname: "api.openai.com",
-        path: "/v1/chat/completions",
+        hostname: "api.groq.com",
+        path: "/openai/v1/chat/completions",
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${OPENAI_API_KEY}`,
+          Authorization: `Bearer ${GROQ_API_KEY}`,
           "Content-Length": Buffer.byteLength(body)
         }
       },
@@ -49,7 +49,7 @@ function callOpenAI(prompt) {
       }
     );
     req.on("error", reject);
-    req.setTimeout(15000, () => { req.destroy(); reject(new Error("OpenAI timeout")); });
+    req.setTimeout(15000, () => { req.destroy(); reject(new Error("Groq timeout")); });
     req.write(body);
     req.end();
   });
@@ -138,7 +138,7 @@ async function generateReport(prediction, vehicleMeta = {}) {
   if (!AI_ENABLED) {
     return { narrative: buildFallbackNarrative(prediction), source: "deterministic" };
   }
-  if (!OPENAI_API_KEY) {
+  if (!GROQ_API_KEY) {
     return { narrative: buildFallbackNarrative(prediction), source: "deterministic" };
   }
 
@@ -154,9 +154,9 @@ async function generateReport(prediction, vehicleMeta = {}) {
   const prompt = buildPrompt(prediction, vehicleMeta);
   let narrative;
   try {
-    narrative = await callOpenAI(prompt);
+    narrative = await callGroq(prompt);
   } catch (err) {
-    console.warn("[AI-REPORT] OpenAI call failed, using deterministic fallback:", err.message);
+    console.warn("[AI-REPORT] Groq call failed, using deterministic fallback:", err.message);
     narrative = buildFallbackNarrative(prediction);
   }
 
@@ -167,7 +167,7 @@ async function generateReport(prediction, vehicleMeta = {}) {
       vehicleId: prediction.vehicleId,
       narrative,
       predictionSnapshot: prediction,
-      modelUsed: OPENAI_MODEL,
+      modelUsed: AI_MODEL,
       createdAt: new Date().toISOString()
     });
   } catch (err) {
@@ -179,8 +179,8 @@ async function generateReport(prediction, vehicleMeta = {}) {
     vehicleId: prediction.vehicleId,
     narrative,
     createdAt: new Date().toISOString(),
-    modelUsed: OPENAI_MODEL,
-    source: "gpt"
+    modelUsed: AI_MODEL,
+    source: "groq"
   };
 }
 
