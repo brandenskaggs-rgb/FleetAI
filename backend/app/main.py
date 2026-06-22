@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field
 from dotenv import load_dotenv
 from pathlib import Path
 
-from app.services.ai_explain import explain_alert
+from app.ai_explain import explain_alert
 from app.routes.insights import router as insights_router
 from app.routes.predict import router as predict_router
 from app.storage import store, SNAPSHOT_PATH
