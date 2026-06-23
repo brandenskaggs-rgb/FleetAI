@@ -959,6 +959,72 @@ function viewTemplateExtended() {
           </div>
         </div>
       </section>
+    `,
+    "api-keys": `
+      <section class="viewSection">
+        <div class="sectionHeaderRow">
+          <div>
+            <h2>Partner API Keys</h2>
+            <p class="muted">Issue and revoke partner_ml API keys. The raw key is shown only once at creation — save it immediately.</p>
+          </div>
+        </div>
+        <div class="panelCard">
+          <div class="panelHeader">
+            <h3>Create API Key</h3>
+            <span class="panelMeta">Super Admin only</span>
+          </div>
+          <div class="panelBody">
+            <div class="formGrid twoCol">
+              <label class="fieldGroup">
+                <span>Partner name <span style="color:#e53e3e">*</span></span>
+                <input type="text" id="apiKeyPartner" placeholder="e.g. sentinelx or geotab" maxlength="80" />
+              </label>
+              <label class="fieldGroup">
+                <span>Tier</span>
+                <select id="apiKeyTier">
+                  <option value="partner_ml">partner_ml — full prediction + stream + widget</option>
+                  <option value="standard">standard — basic access</option>
+                </select>
+              </label>
+              <label class="fieldGroup">
+                <span>Org ID (optional)</span>
+                <input type="text" id="apiKeyOrgId" placeholder="ORG_DEFAULT (leave blank if not tied to an org)" maxlength="80" />
+              </label>
+              <button class="btn primary" id="apiKeyCreateBtn" type="button">Generate API Key</button>
+            </div>
+            <div id="apiKeyResult" style="display:none;margin-top:16px;padding:14px 16px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px">
+              <div style="font-size:12px;font-weight:600;color:#166534;margin-bottom:6px">API Key generated — copy it now, it won't be shown again</div>
+              <code id="apiKeyRawValue" style="font-family:ui-monospace,monospace;font-size:13px;word-break:break-all;color:#166534"></code>
+              <button class="btn ghost" id="apiKeyCopyBtn" type="button" style="margin-top:10px;font-size:12px">Copy to clipboard</button>
+            </div>
+          </div>
+        </div>
+        <div class="panelCard">
+          <div class="panelHeader">
+            <h3>Active Keys</h3>
+            <span class="panelMeta" id="apiKeyCount">Loading...</span>
+          </div>
+          <div class="panelBody">
+            <div class="tableWrap">
+              <table class="dataTable">
+                <thead>
+                  <tr>
+                    <th>Partner</th>
+                    <th>Tier</th>
+                    <th>Org</th>
+                    <th>Last Used</th>
+                    <th>Created</th>
+                    <th>Status</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="apiKeyTable"></tbody>
+              </table>
+            </div>
+            <div class="emptyState" id="apiKeyEmpty" style="display:none">No API keys yet.</div>
+          </div>
+        </div>
+      </section>
     `
   };
 }
@@ -988,7 +1054,8 @@ function setActiveRoute(route) {
     "system-health": ["System Health", "Diagnostics and service checks."],
     "audit-log": ["Audit Log", "Recent administrative events."],
     users: ["Employees", "Internal employee access and role assignment."],
-    settings: ["Settings", "Portal preferences only."]
+    settings: ["Settings", "Portal preferences only."],
+    "api-keys": ["Partner API Keys", "Issue and revoke partner_ml keys for external companies using the Fleet AI API."]
   };
   if (titles[route]) {
     setViewTitle(titles[route][0], titles[route][1]);
@@ -2075,8 +2142,107 @@ function bindView(route) {
     loadUsers();
   } else if (route === "settings") {
     bindSettings();
+  } else if (route === "api-keys") {
+    bindApiKeys();
+    loadApiKeys();
   }
   applyRoleState();
+}
+
+// ── Partner API Keys ─────────────────────────────────────────────────────────
+
+function bindApiKeys() {
+  const createBtn = $("apiKeyCreateBtn");
+  if (createBtn && createBtn.dataset.bound !== "true") {
+    createBtn.dataset.bound = "true";
+    createBtn.addEventListener("click", createApiKey);
+  }
+  const copyBtn = $("apiKeyCopyBtn");
+  if (copyBtn && copyBtn.dataset.bound !== "true") {
+    copyBtn.dataset.bound = "true";
+    copyBtn.addEventListener("click", () => {
+      const val = $("apiKeyRawValue")?.textContent || "";
+      navigator.clipboard.writeText(val).then(() => {
+        copyBtn.textContent = "Copied!";
+        setTimeout(() => { copyBtn.textContent = "Copy to clipboard"; }, 2000);
+      }).catch(() => {});
+    });
+  }
+}
+
+async function loadApiKeys() {
+  try {
+    const data = await apiJson("/api/admin/api-keys");
+    const keys = data?.data || [];
+    const tbody = $("apiKeyTable");
+    const empty = $("apiKeyEmpty");
+    const count = $("apiKeyCount");
+    if (count) count.textContent = `${keys.length} key${keys.length !== 1 ? "s" : ""}`;
+    if (!tbody) return;
+    if (!keys.length) {
+      tbody.innerHTML = "";
+      if (empty) empty.style.display = "";
+      return;
+    }
+    if (empty) empty.style.display = "none";
+    tbody.innerHTML = keys.map((k) => `
+      <tr>
+        <td><strong>${k.partnerName || "--"}</strong></td>
+        <td><span style="font-family:ui-monospace,monospace;font-size:11px;background:#EFF6FF;padding:2px 7px;border-radius:4px;color:#1D4ED8">${k.tier || "--"}</span></td>
+        <td style="font-size:12px;color:#6B7280">${k.orgId || "--"}</td>
+        <td style="font-size:12px;color:#6B7280">${k.lastUsedAt ? new Date(k.lastUsedAt).toLocaleDateString() : "Never"}</td>
+        <td style="font-size:12px;color:#6B7280">${k.createdAt ? new Date(k.createdAt).toLocaleDateString() : "--"}</td>
+        <td><span style="font-size:11px;font-weight:600;color:${k.enabled ? "#166534" : "#991b1b"}">${k.enabled ? "Active" : "Revoked"}</span></td>
+        <td>${k.enabled ? `<button class="btn ghost" data-revoke-id="${k.id}" type="button" style="font-size:12px;color:#e53e3e">Revoke</button>` : ""}</td>
+      </tr>
+    `).join("");
+    tbody.querySelectorAll("[data-revoke-id]").forEach((btn) => {
+      btn.addEventListener("click", () => revokeApiKey(btn.getAttribute("data-revoke-id")));
+    });
+  } catch (err) {
+    const count = $("apiKeyCount");
+    if (count) count.textContent = "Failed to load";
+  }
+}
+
+async function createApiKey() {
+  const partner = ($("apiKeyPartner")?.value || "").trim();
+  const tier    = $("apiKeyTier")?.value || "partner_ml";
+  const orgId   = ($("apiKeyOrgId")?.value || "").trim() || null;
+  if (!partner) { alert("Partner name is required."); return; }
+  const btn = $("apiKeyCreateBtn");
+  if (btn) { btn.disabled = true; btn.textContent = "Generating..."; }
+  try {
+    const result = await apiJson("/api/admin/api-keys", {
+      method: "POST",
+      body: JSON.stringify({ partnerName: partner, tier, orgId })
+    });
+    if (result?.success && result.data?.apiKey) {
+      const raw = result.data.apiKey;
+      const resultEl = $("apiKeyResult");
+      const valEl = $("apiKeyRawValue");
+      if (valEl) valEl.textContent = raw;
+      if (resultEl) resultEl.style.display = "";
+      if ($("apiKeyPartner")) $("apiKeyPartner").value = "";
+      await loadApiKeys();
+    } else {
+      alert(result?.error || "Failed to create API key.");
+    }
+  } catch (err) {
+    alert(err?.message || "Failed to create API key.");
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = "Generate API Key"; }
+  }
+}
+
+async function revokeApiKey(id) {
+  if (!confirm("Revoke this API key? The partner will lose access immediately.")) return;
+  try {
+    await apiJson(`/api/admin/api-keys/${id}`, { method: "DELETE" });
+    await loadApiKeys();
+  } catch (err) {
+    alert(err?.message || "Failed to revoke key.");
+  }
 }
 
 function bindNav() {
