@@ -3347,7 +3347,8 @@ registerOrgManagementRoutes(app, {
   requireEmployeeApi: (req, res, next) => requireEmployeeApi(req, res, next),
   requireCustomerApi: (req, res, next) => requireCustomerApi(req, res, next),
   requireRole: (roles) => requireRole(roles),
-  getRateState
+  getRateState,
+  prismaAuthAdapter
 });
 
 const AUTH_ROUTE_MANIFEST = [

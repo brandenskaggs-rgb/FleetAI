@@ -11,7 +11,7 @@ const {
 const { validateBody, schemas } = require('../middleware/validate');
 
 function registerOrgManagementRoutes(app, deps) {
-  const { readData, writeData, requireEmployeeApi, requireCustomerApi, requireRole, getRateState } = deps;
+  const { readData, writeData, requireEmployeeApi, requireCustomerApi, requireRole, getRateState, prismaAuthAdapter } = deps;
   app.get("/api/leads/public-status", (req, res) => {
     res.json({ ok: true });
   });
@@ -449,6 +449,7 @@ function registerOrgManagementRoutes(app, deps) {
       data.users.push(user);
       addAudit(data, "CUSTOMER_LOGIN_CREATED", `${user.id}:${user.email}`);
       await writeData(data);
+      if (prismaAuthAdapter) await prismaAuthAdapter.saveData({ users: [user], orgs: [] });
       res.status(201).json({ ok: true, data: { email: user.email, tempPassword } });
     } catch (err) {
       next(err);
@@ -488,6 +489,7 @@ function registerOrgManagementRoutes(app, deps) {
       user.lastLoginAt = null;
       addAudit(data, "CUSTOMER_PASSWORD_RESET", `${user.id}:${user.email}`);
       await writeData(data);
+      if (prismaAuthAdapter) await prismaAuthAdapter.saveData({ users: [user], orgs: [] });
       res.json({ ok: true, data: { email: user.email, tempPassword } });
     } catch (err) {
       next(err);
