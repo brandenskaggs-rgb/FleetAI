@@ -14,10 +14,11 @@ function generateApiKey(prefix = "fai") {
 }
 
 // Express middleware: validates X-API-Key header against the ApiKey table.
+// Also accepts ?apiKey= query param for browser EventSource (no custom header support).
 // On success, attaches req.apiKey = { id, orgId, partner, scopes }.
 // Calls next() on success, 401/403 on failure.
 async function requireApiKey(req, res, next) {
-  const raw = req.headers["x-api-key"];
+  const raw = req.headers["x-api-key"] || (typeof req.query?.apiKey === "string" ? req.query.apiKey : "");
   if (!raw) {
     return res.status(401).json({
       success: false,

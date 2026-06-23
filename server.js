@@ -98,6 +98,7 @@ const DRIVER_DIR = path.resolve(__dirname, "driver_app");
 const CSS_DIR = path.resolve(__dirname, "css");
 const JS_DIR = path.resolve(__dirname, "js");
 const ASSETS_DIR = path.resolve(__dirname, "assets");
+const EMBED_DIR = path.resolve(__dirname, "embed");
 const DATA_PATH = resolveAuthStorePath();
 const DATA_SCHEMA_VERSION = 2;
 const SETUP_KEY = (process.env.FLEETAI_SETUP_KEY || "").trim();
@@ -3421,6 +3422,7 @@ app.use("/driver_app", (req, res) => {
 app.use("/css", express.static(CSS_DIR));
 app.use("/js", express.static(JS_DIR));
 app.use("/assets", express.static(ASSETS_DIR));
+app.use("/embed", express.static(EMBED_DIR));
 
 function collectRoutes() {
   const routes = [];

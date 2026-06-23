@@ -31,6 +31,23 @@ function registerPartnerRoutes(app, deps) {
 
   const MAX_SAMPLES = 5000;
 
+  // In-memory live snapshot store: "partner:vehicleId" -> latest prediction
+  const partnerLiveData = new Map();
+  // SSE subscribers: "partner:vehicleId" or "partner:*" -> Set of res objects
+  const partnerSseClients = new Map();
+
+  function _pushToSse(partner, vehicleId, payload) {
+    const data = `data: ${JSON.stringify(payload)}\n\n`;
+    const keys = [`${partner}:${vehicleId}`, `${partner}:*`];
+    for (const key of keys) {
+      const subs = partnerSseClients.get(key);
+      if (!subs) continue;
+      for (const sub of subs) {
+        try { sub.write(data); } catch (_) {}
+      }
+    }
+  }
+
   // ── Auth guard: key must exist AND be partner_ml tier ─────────────────────
   function requirePartnerKey(req, res, next) {
     requireApiKey(req, res, () => {
@@ -275,6 +292,11 @@ function registerPartnerRoutes(app, deps) {
 
     // Log usage for billing
     await logUsage({ partnerName: partner, apiKeyId, vehicleId, riskProbability, confidence, prediction, latencyMs, fullResponse: response });
+
+    // Store latest snapshot for live endpoint + SSE
+    const liveSnapshot = { ...response, receivedAt: nowIso() };
+    partnerLiveData.set(`${partner}:${vehicleId}`, liveSnapshot);
+    _pushToSse(partner, vehicleId, liveSnapshot);
 
     // Fire webhooks async (non-blocking)
     notifyPrediction(partner, apiKeyId, vehicleId, response).catch(() => {});
@@ -795,6 +817,88 @@ function registerPartnerRoutes(app, deps) {
         status: { mlServiceAvailable: false, note: "ML service unavailable. Predictions will use Node.js fallback." }
       });
     }
+  });
+
+  // ── GET /api/partner/vehicles/:vehicleId/live ─────────────────────────────
+  /**
+   * Returns the latest prediction snapshot for a vehicle including full
+   * component-level diagnosis, sensor risks, and breakdown timeline.
+   * Updated every time the partner calls POST /api/partner/predict.
+   */
+  app.get("/api/partner/vehicles/:vehicleId/live", requirePartnerKey, (req, res) => {
+    const partner = req.apiKey.partner;
+    const vehicleId = sanitizeString(req.params.vehicleId || "", 120);
+    if (!vehicleId) return res.status(400).json({ success: false, error: { code: "MISSING_VEHICLE_ID", message: "vehicleId required." } });
+
+    const snapshot = partnerLiveData.get(`${partner}:${vehicleId}`);
+    if (!snapshot) {
+      return res.status(404).json({
+        success: false,
+        error: { code: "NO_DATA", message: "No data received for this vehicle yet. Submit telemetry via POST /api/partner/predict first." }
+      });
+    }
+    return res.json({ success: true, live: true, ...snapshot });
+  });
+
+  // ── GET /api/partner/stream ────────────────────────────────────────────────
+  /**
+   * Server-Sent Events stream. Pushes a JSON event every time a vehicle's
+   * prediction is updated. Partners embed this to power live dashboards.
+   *
+   * Query params:
+   *   vehicleId=TRUCK-001   (optional — omit to receive all vehicles)
+   *
+   * Event format:
+   *   data: { vehicleId, riskProbability, prediction, diagnosis, sensorRisks, receivedAt, ... }
+   *
+   * Embed example (partner frontend):
+   *   const es = new EventSource('https://api.fleetaiops.com/api/partner/stream?vehicleId=TRUCK-001', {
+   *     headers: { 'X-API-Key': 'YOUR_KEY' }
+   *   });
+   *   es.onmessage = (e) => renderDashboard(JSON.parse(e.data));
+   */
+  app.get("/api/partner/stream", requirePartnerKey, (req, res) => {
+    const partner = req.apiKey.partner;
+    const vehicleId = sanitizeString(req.query.vehicleId || "", 120) || "*";
+
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    res.setHeader("X-Accel-Buffering", "no");
+    res.flushHeaders();
+
+    // Initial connection confirmation
+    res.write(`event: connected\ndata: ${JSON.stringify({ partner, vehicleId, ts: nowIso() })}\n\n`);
+
+    // Send current snapshot immediately if available
+    if (vehicleId !== "*") {
+      const snap = partnerLiveData.get(`${partner}:${vehicleId}`);
+      if (snap) res.write(`event: snapshot\ndata: ${JSON.stringify(snap)}\n\n`);
+    } else {
+      // Send all current snapshots for this partner
+      for (const [key, snap] of partnerLiveData.entries()) {
+        if (key.startsWith(`${partner}:`)) res.write(`event: snapshot\ndata: ${JSON.stringify(snap)}\n\n`);
+      }
+    }
+
+    // Register subscriber
+    const subKey = `${partner}:${vehicleId}`;
+    if (!partnerSseClients.has(subKey)) partnerSseClients.set(subKey, new Set());
+    partnerSseClients.get(subKey).add(res);
+
+    // Heartbeat every 25s to keep connection alive through proxies
+    const heartbeat = setInterval(() => {
+      try { res.write(`: heartbeat\n\n`); } catch (_) {}
+    }, 25000);
+
+    req.on("close", () => {
+      clearInterval(heartbeat);
+      const subs = partnerSseClients.get(subKey);
+      if (subs) {
+        subs.delete(res);
+        if (!subs.size) partnerSseClients.delete(subKey);
+      }
+    });
   });
 
   // ── GET /api/partner/usage ────────────────────────────────────────────────
