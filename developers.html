@@ -256,6 +256,8 @@
         <span class="dev-badge"><span class="dev-badge-dot"></span>Node.js SDK</span>
         <span class="dev-badge"><span class="dev-badge-dot"></span>Python SDK</span>
         <span class="dev-badge"><span class="dev-badge-dot"></span>HMAC-signed payloads</span>
+        <span class="dev-badge"><span class="dev-badge-dot"></span>SSE live stream</span>
+        <span class="dev-badge"><span class="dev-badge-dot"></span>Drop-in widget</span>
       </div>
     </div>
 
@@ -324,6 +326,28 @@
         </div>
         <h3>Fleet Risk Queue API</h3>
         <p>The same prioritized ranking your fleet operators use — vehicles sorted by urgency, component affected, service window, and confidence score — as a structured JSON response.</p>
+      </div>
+    </div>
+    <div class="api-caps" style="margin-top:16px">
+      <div class="api-cap" style="grid-column:span 2;border-color:#BFDBFE;background:linear-gradient(135deg,#EFF6FF,#fff)">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+          <div class="api-cap__icon" style="margin-bottom:0">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><circle cx="12" cy="20" r="1"/></svg>
+          </div>
+          <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#2563EB;background:#DBEAFE;padding:3px 10px;border-radius:20px">New</span>
+        </div>
+        <h3>Live Stream &amp; SSE</h3>
+        <p>Subscribe to <code style="font-size:11px;background:#DBEAFE;padding:1px 6px;border-radius:3px;color:#1D4ED8;font-family:ui-monospace,monospace">GET /api/partner/stream</code> with an <code style="font-size:11px;background:#DBEAFE;padding:1px 6px;border-radius:3px;color:#1D4ED8;font-family:ui-monospace,monospace">EventSource</code> and your dashboard updates the instant new telemetry is scored — no polling, no latency, no infrastructure to run.</p>
+      </div>
+      <div class="api-cap" style="grid-column:span 2;border-color:#BFDBFE;background:linear-gradient(135deg,#EFF6FF,#fff)">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+          <div class="api-cap__icon" style="margin-bottom:0">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>
+          </div>
+          <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#2563EB;background:#DBEAFE;padding:3px 10px;border-radius:20px">New</span>
+        </div>
+        <h3>Drop-in Embed Widget</h3>
+        <p>One <code style="font-size:11px;background:#DBEAFE;padding:1px 6px;border-radius:3px;color:#1D4ED8;font-family:ui-monospace,monospace">&lt;script&gt;</code> tag drops a live vehicle health card into any page. Shows risk score, component diagnosis (injectors, bearings, cooling), sensor health bars, and days-to-service — all updating in real time from the SSE stream.</p>
       </div>
     </div>
   </div>
@@ -395,6 +419,20 @@
           <div>
             <div class="endpoint__path">/v1/webhooks</div>
             <div class="endpoint__desc">Register an HTTPS endpoint to receive real-time fleet events signed with HMAC-SHA256.</div>
+          </div>
+        </div>
+        <div class="endpoint" style="border-color:#BFDBFE;background:#EFF6FF">
+          <span class="method method-get">GET</span>
+          <div>
+            <div class="endpoint__path">/api/partner/vehicles/{id}/live</div>
+            <div class="endpoint__desc">Latest scored snapshot — risk probability, component diagnosis, sensor risks, and breakdown timeline. Refreshes on every <code style="font-size:11px;background:#DBEAFE;padding:1px 5px;border-radius:3px;color:#1D4ED8">POST /predict</code> call.</div>
+          </div>
+        </div>
+        <div class="endpoint" style="border-color:#BFDBFE;background:#EFF6FF">
+          <span class="method method-get">GET</span>
+          <div>
+            <div class="endpoint__path">/api/partner/stream?vehicleId={id}</div>
+            <div class="endpoint__desc">Server-Sent Events stream. Connect once and receive real-time prediction updates as telemetry arrives. No polling needed.</div>
           </div>
         </div>
       </div>
@@ -521,6 +559,98 @@ fleet = requests.<span class="fn">get</span>(f<span class="str">"{BASE}/fleet?mi
   <span class="prop">"advisoryText"</span>: <span class="str">"Cooling system showing thermal drift. Schedule inspection within 48h."</span>
 <span class="dim">}</span>
         </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- LIVE WIDGET -->
+<section style="padding:96px 0;background:var(--bg);border-top:1px solid var(--line)">
+  <div class="container">
+    <div style="display:grid;grid-template-columns:1fr 1.35fr;gap:64px;align-items:start">
+      <div>
+        <span class="section-label">Drop-in Embed</span>
+        <h2 style="font-family:var(--display);font-size:clamp(24px,3vw,36px);font-weight:700;letter-spacing:-.6px;margin-bottom:16px">Live vehicle health in two lines of HTML.</h2>
+        <p style="font-size:16px;color:var(--muted);line-height:1.75;margin-bottom:24px">Add a <code style="font-size:13px;background:var(--blue-lt);padding:2px 7px;border-radius:4px;color:var(--blue);font-family:ui-monospace,monospace">&lt;div&gt;</code> and a <code style="font-size:13px;background:var(--blue-lt);padding:2px 7px;border-radius:4px;color:var(--blue);font-family:ui-monospace,monospace">&lt;script&gt;</code> tag to any page and get a live-updating vehicle health card. No build step. No framework. Works in any HTML page or web view.</p>
+        <div style="display:grid;gap:12px">
+          <div style="display:flex;gap:12px;padding:14px 16px;background:var(--white);border:1px solid var(--line);border-radius:10px">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="2" style="flex-shrink:0;margin-top:2px"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <div>
+              <div style="font-size:13px;font-weight:600;margin-bottom:3px">Real-time updates</div>
+              <div style="font-size:12px;color:var(--muted)">Connects to the SSE stream automatically — no polling, no refresh.</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:12px;padding:14px 16px;background:var(--white);border:1px solid var(--line);border-radius:10px">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="2" style="flex-shrink:0;margin-top:2px"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            <div>
+              <div style="font-size:13px;font-weight:600;margin-bottom:3px">Component-level diagnosis</div>
+              <div style="font-size:12px;color:var(--muted)">Shows which part is failing — injectors, bearings, cooling — with mechanic action and part cost.</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:12px;padding:14px 16px;background:var(--white);border:1px solid var(--line);border-radius:10px">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="2" style="flex-shrink:0;margin-top:2px"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+            <div>
+              <div style="font-size:13px;font-weight:600;margin-bottom:3px">Breakdown timeline</div>
+              <div style="font-size:12px;color:var(--muted)">Displays days-to-service estimate from risk degradation slope — not just a score.</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:12px;padding:14px 16px;background:var(--white);border:1px solid var(--line);border-radius:10px">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="2" style="flex-shrink:0;margin-top:2px"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            <div>
+              <div style="font-size:13px;font-weight:600;margin-bottom:3px">Sensor health bars</div>
+              <div style="font-size:12px;color:var(--muted)">Top 6 sensor risk scores shown visually — coolant, battery, DPF, turbo, oil, RPM.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="code-block">
+          <div class="code-block__bar">
+            <div class="code-tabs" role="tablist" aria-label="Widget examples">
+              <button class="code-tab active" role="tab" data-tab="widget-html" aria-selected="true">HTML</button>
+              <button class="code-tab" role="tab" data-tab="widget-sse" aria-selected="false">SSE (JS)</button>
+            </div>
+          </div>
+          <div class="code-panel active" id="tab-widget-html">
+<pre><span class="cmt">&lt;!-- 1. Container: set data-vehicle to your truck ID --&gt;</span>
+<span class="kw">&lt;div</span> <span class="prop">id</span>=<span class="str">"fleetai-widget"</span>
+     <span class="prop">data-vehicle</span>=<span class="str">"TRUCK-001"</span><span class="kw">&gt;&lt;/div&gt;</span>
+
+<span class="cmt">&lt;!-- 2. Drop-in script — that's it --&gt;</span>
+<span class="kw">&lt;script</span>
+  <span class="prop">src</span>=<span class="str">"https://fleetaiops.com/embed/fleet-widget.js"</span>
+  <span class="prop">data-api-key</span>=<span class="str">"YOUR_PARTNER_KEY"</span>
+  <span class="prop">data-base-url</span>=<span class="str">"https://fleetaiops.com"</span><span class="kw">&gt;
+&lt;/script&gt;</span>
+
+<span class="cmt">&lt;!-- Multiple vehicles on the same page --&gt;</span>
+<span class="kw">&lt;div</span> <span class="prop">data-fleetai-vehicle</span>=<span class="str">"TRUCK-001"</span><span class="kw">&gt;&lt;/div&gt;</span>
+<span class="kw">&lt;div</span> <span class="prop">data-fleetai-vehicle</span>=<span class="str">"TRUCK-002"</span><span class="kw">&gt;&lt;/div&gt;</span>
+<span class="kw">&lt;div</span> <span class="prop">data-fleetai-vehicle</span>=<span class="str">"TRUCK-003"</span><span class="kw">&gt;&lt;/div&gt;</span></pre>
+          </div>
+          <div class="code-panel" id="tab-widget-sse">
+<pre><span class="cmt">// Raw SSE — build your own UI on top of the stream</span>
+<span class="kw">const</span> es = <span class="kw">new</span> <span class="fn">EventSource</span>(
+  <span class="str">`https://fleetaiops.com/api/partner/stream`</span> +
+  <span class="str">`?vehicleId=TRUCK-001&amp;apiKey=${</span>YOUR_KEY<span class="str">}`</span>
+);
+
+es.<span class="fn">addEventListener</span>(<span class="str">"snapshot"</span>, (e) =&gt; {
+  <span class="kw">const</span> data = <span class="prop">JSON</span>.<span class="fn">parse</span>(e.data);
+  <span class="cmt">// data.riskProbability   → 0–1 risk score</span>
+  <span class="cmt">// data.prediction        → "failure_imminent" | "healthy" | ...</span>
+  <span class="cmt">// data.diagnosis         → { components: [{ component, confidence, mechanic_action }] }</span>
+  <span class="cmt">// data.sensorRisks       → { coolantTemp: 87, batteryVoltage: 12, ... }</span>
+  <span class="cmt">// data.advisoryText      → plain-English summary</span>
+  <span class="fn">renderDashboard</span>(data);
+});
+
+<span class="cmt">// Auto-reconnect on drop</span>
+es.onerror = () =&gt; { es.<span class="fn">close</span>(); <span class="fn">reconnect</span>(); };</pre>
+          </div>
+        </div>
+        <p style="font-size:12px;color:var(--muted);margin-top:12px;padding:0 4px">The widget is served from <code style="font-size:11px;background:var(--bg);padding:1px 6px;border-radius:3px;font-family:ui-monospace,monospace">/embed/fleet-widget.js</code> — a single self-contained file with no dependencies. The SSE stream also accepts <code style="font-size:11px;background:var(--bg);padding:1px 6px;border-radius:3px;font-family:ui-monospace,monospace">?vehicleId=*</code> to receive updates for all your vehicles at once.</p>
       </div>
     </div>
   </div>
@@ -692,14 +822,17 @@ fleet = requests.<span class="fn">get</span>(f<span class="str">"{BASE}/fleet?mi
 </footer>
 
 <script>
-  document.querySelectorAll('.code-tab').forEach(tab => {
-    tab.addEventListener('click', () => {
-      const target = tab.dataset.tab;
-      document.querySelectorAll('.code-tab').forEach(t => { t.classList.remove('active'); t.setAttribute('aria-selected','false'); });
-      document.querySelectorAll('.code-panel').forEach(p => p.classList.remove('active'));
-      tab.classList.add('active');
-      tab.setAttribute('aria-selected','true');
-      document.getElementById('tab-' + target).classList.add('active');
+  document.querySelectorAll('.code-tabs').forEach(tabGroup => {
+    tabGroup.querySelectorAll('.code-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        const target = tab.dataset.tab;
+        tabGroup.querySelectorAll('.code-tab').forEach(t => { t.classList.remove('active'); t.setAttribute('aria-selected','false'); });
+        tab.classList.add('active');
+        tab.setAttribute('aria-selected','true');
+        const block = tabGroup.closest('.code-block');
+        block.querySelectorAll('.code-panel').forEach(p => p.classList.remove('active'));
+        document.getElementById('tab-' + target).classList.add('active');
+      });
     });
   });
 
