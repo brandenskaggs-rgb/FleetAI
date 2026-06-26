@@ -305,6 +305,80 @@ async def get_baseline_profile(profile_key: str) -> Optional[dict]:
         return None
 
 
+async def get_all_baselines() -> dict:
+    """Return all Welford baseline stats grouped by vehicleId and metricKey."""
+    if not is_available():
+        return {}
+    try:
+        async with _pool.acquire() as conn:
+            rows = await conn.fetch(
+                'SELECT "vehicleId","metricKey","mean","stdDev","sampleCount" FROM "Baseline"'
+            )
+        result: dict = {}
+        for r in rows:
+            vid = r["vehicleId"]
+            metric = r["metricKey"]
+            count = int(r["sampleCount"])
+            mean = float(r["mean"]) if r["mean"] is not None else 0.0
+            std_dev = float(r["stdDev"]) if r["stdDev"] is not None else 0.0
+            # Reconstruct Welford M2 from std_dev and count
+            m2 = (std_dev ** 2) * (count - 1) if count > 1 else 0.0
+            result.setdefault(vid, {})[metric] = {"count": count, "mean": mean, "m2": m2}
+        return result
+    except Exception as exc:
+        logger.debug(f"[pg] get_all_baselines error: {exc}")
+        return {}
+
+
+async def upsert_vehicle_activation(vehicle_id: str, org_id: Optional[str], activated_at: str, learning_days: int) -> None:
+    """Persist vehicle activation state in ModelState._activation JSONB."""
+    if not is_available():
+        return
+    try:
+        patch = json.dumps({"_activation": {"activated_at": activated_at, "learning_days": learning_days}})
+        async with _pool.acquire() as conn:
+            await conn.execute(
+                """
+                INSERT INTO "ModelState" ("vehicleId","orgId","state","updatedAt")
+                VALUES ($1,$2,$3::jsonb,now())
+                ON CONFLICT ("vehicleId") DO UPDATE SET
+                    "orgId"=EXCLUDED."orgId",
+                    "state"="ModelState"."state" || $3::jsonb,
+                    "updatedAt"=now()
+                """,
+                vehicle_id, org_id, patch,
+            )
+    except Exception as exc:
+        logger.debug(f"[pg] upsert_vehicle_activation error: {exc}")
+
+
+async def get_all_vehicle_activations() -> dict:
+    """Load vehicle activations from ModelState._activation."""
+    if not is_available():
+        return {}
+    try:
+        async with _pool.acquire() as conn:
+            rows = await conn.fetch(
+                """SELECT "vehicleId","state" FROM "ModelState" WHERE "state" ? '_activation'"""
+            )
+        result: dict = {}
+        for r in rows:
+            state = r["state"]
+            if isinstance(state, str):
+                state = json.loads(state)
+            act = (state or {}).get("_activation", {})
+            if act and act.get("activated_at"):
+                result[r["vehicleId"]] = {
+                    "vehicle_id": r["vehicleId"],
+                    "activated_at": act["activated_at"],
+                    "learning_days": act.get("learning_days", 14),
+                }
+        return result
+    except Exception as exc:
+        logger.debug(f"[pg] get_all_vehicle_activations error: {exc}")
+        return {}
+
+
 async def get_feedback_for_training(limit: int = 10000) -> list[dict]:
     """Return FeedbackLog rows with features for Stage 2 retraining."""
     if not is_available():

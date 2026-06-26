@@ -125,6 +125,38 @@ def _load_store() -> None:
         logger.warning("[store] Snapshot load failed (starting fresh): %s", exc)
 
 
+async def _restore_from_db() -> None:
+    """After disk load, backfill baselines and vehicle activations from PostgreSQL."""
+    try:
+        all_baselines = await pg_db.get_all_baselines()
+        restored_vids = 0
+        for vid, metrics in all_baselines.items():
+            if vid not in store["baseline_models"]:
+                store["baseline_models"][vid] = {}
+                restored_vids += 1
+            for metric, s in metrics.items():
+                if metric not in store["baseline_models"][vid]:
+                    store["baseline_models"][vid][metric] = BaselineStats(
+                        count=s["count"], mean=s["mean"], m2=s["m2"]
+                    )
+
+        all_activations = await pg_db.get_all_vehicle_activations()
+        for vid, act in all_activations.items():
+            if vid not in store["vehicle_activation"]:
+                store["vehicle_activation"][vid] = VehicleActivation(
+                    vehicle_id=vid,
+                    activated_at=act["activated_at"],
+                    learning_days=act["learning_days"],
+                )
+
+        logger.info(
+            "[store] DB restore: %d new baseline vehicles, %d activations",
+            restored_vids, len(all_activations),
+        )
+    except Exception as exc:
+        logger.warning("[store] DB restore failed: %s", exc)
+
+
 async def _stage2_retrain_loop() -> None:
     """Retrain Stage 2 from operator feedback every 7 days."""
     import asyncio
@@ -141,12 +173,13 @@ async def _stage2_retrain_loop() -> None:
 async def lifespan(app: FastAPI):
     import asyncio
     await pg_db.init_pool()
-    _load_store()       # restore baselines/alerts from disk before serving
-    load_pretrained()   # non-blocking; logs warning if model file absent
-    load_stage2()       # non-blocking; no-op if stage2_model.pkl absent
+    _load_store()                    # restore from disk (may be empty on Railway)
+    await _restore_from_db()         # backfill from PostgreSQL for anything missing
+    load_pretrained()                # non-blocking; logs warning if model file absent
+    load_stage2()                    # non-blocking; no-op if stage2_model.pkl absent
     asyncio.create_task(_stage2_retrain_loop())
     yield
-    _save_store()       # persist learned state before shutdown
+    _save_store()
     await pg_db.close_pool()
 
 
@@ -507,7 +540,7 @@ def get_ai_learning_days() -> int:
         return 90
 
 
-def ensure_activation(vehicle_id: str) -> VehicleActivation:
+def ensure_activation(vehicle_id: str, org_id: Optional[str] = None) -> VehicleActivation:
     activation = store["vehicle_activation"].get(vehicle_id)
     if activation:
         return activation
@@ -517,6 +550,15 @@ def ensure_activation(vehicle_id: str) -> VehicleActivation:
         learning_days=get_ai_learning_days(),
     )
     store["vehicle_activation"][vehicle_id] = activation
+    import asyncio
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            loop.create_task(pg_db.upsert_vehicle_activation(
+                vehicle_id, org_id, activation.activated_at, activation.learning_days
+            ))
+    except Exception:
+        pass
     return activation
 
 
@@ -856,6 +898,7 @@ async def activate_vehicle(vehicle_id: str, payload: ActivationRequest = Activat
         learning_days=learning_days,
     )
     store["vehicle_activation"][vehicle_id] = activation
+    await pg_db.upsert_vehicle_activation(vehicle_id, None, activation.activated_at, activation.learning_days)
     status = learning_status(activation)
     return {
         "vehicle_id": activation.vehicle_id,

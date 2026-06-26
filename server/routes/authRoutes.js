@@ -1,5 +1,6 @@
 const { getPrisma } = require("../db");
 const { validateBody, schemas } = require("../middleware/validate");
+const pgSessionStore = require("../pgSessionStore");
 
 function registerAuthRoutes(app, deps) {
   const {
@@ -375,6 +376,7 @@ function registerAuthRoutes(app, deps) {
     const session = getCustomerSession(req);
     if (session) {
       customerSessionStore.delete(session.id);
+      pgSessionStore.deleteSession(session.id).catch(() => {});
       if (typeof persistSessionStoresSoon === "function") {
         persistSessionStoresSoon();
       }
@@ -393,6 +395,7 @@ function registerAuthRoutes(app, deps) {
     const session = getSession(req);
     if (session) {
       sessionStore.delete(session.id);
+      pgSessionStore.deleteSession(session.id).catch(() => {});
       if (typeof persistSessionStoresSoon === "function") {
         persistSessionStoresSoon();
       }

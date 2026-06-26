@@ -1,48 +1,62 @@
-// In-memory sliding window rate limiter.
-// No external dep required; replace with express-rate-limit + Redis for multi-instance prod.
-// Window: 60s, default limit: 100 requests per API key or IP.
+const rateLimit = require("express-rate-limit");
+const { RedisStore } = require("rate-limit-redis");
+const { createClient } = require("redis");
 
-const windows = new Map();
+let _redisClient = null;
+let _redisReady = false;
 
-function cleanup() {
-  const now = Date.now();
-  for (const [key, { resetAt }] of windows) {
-    if (now > resetAt) windows.delete(key);
+async function initRedis() {
+  const url = process.env.REDIS_URL || process.env.REDIS_PRIVATE_URL;
+  if (!url) return;
+  try {
+    _redisClient = createClient({ url });
+    _redisClient.on("error", (err) => {
+      if (_redisReady) console.warn("[redis] rate-limit client error:", err.message);
+    });
+    await _redisClient.connect();
+    _redisReady = true;
+    console.log("[redis] rate-limit store connected");
+  } catch (err) {
+    console.warn("[redis] rate-limit store unavailable, falling back to in-memory:", err.message);
+    _redisClient = null;
+    _redisReady = false;
   }
 }
 
-setInterval(cleanup, 60000).unref();
+// Exported so startServer() can await it before accepting traffic
+const redisReady = initRedis().catch(() => {});
 
 function createRateLimiter({ windowMs = 60000, max = 100, keyPrefix = "rl" } = {}) {
-  return function rateLimiter(req, res, next) {
-    const apiKey = req.headers["x-api-key"];
-    const identity = apiKey ? `${keyPrefix}:key:${apiKey}` : `${keyPrefix}:ip:${req.ip}`;
-    const now = Date.now();
-    const entry = windows.get(identity);
+  // Outer fn so the limiter is created after Redis has had a chance to connect
+  let _limiter = null;
 
-    if (!entry || now > entry.resetAt) {
-      windows.set(identity, { count: 1, resetAt: now + windowMs });
-      return next();
-    }
+  function getLimiter() {
+    if (_limiter) return _limiter;
+    const store = (_redisReady && _redisClient)
+      ? new RedisStore({ sendCommand: (...args) => _redisClient.sendCommand(args), prefix: keyPrefix })
+      : undefined; // express-rate-limit built-in in-memory fallback
+    _limiter = rateLimit({
+      windowMs,
+      max,
+      standardHeaders: true,
+      legacyHeaders: false,
+      keyGenerator: (req) => `${keyPrefix}:${req.headers["x-api-key"] || req.ip}`,
+      store,
+      handler: (req, res) => {
+        res.status(429).json({
+          success: false,
+          error: { code: "RATE_LIMITED", message: "Too many requests. Please slow down." },
+          timestamp: new Date().toISOString()
+        });
+      }
+    });
+    return _limiter;
+  }
 
-    entry.count += 1;
-    if (entry.count > max) {
-      const retryAfter = Math.ceil((entry.resetAt - now) / 1000);
-      res.set("Retry-After", String(retryAfter));
-      return res.status(429).json({
-        success: false,
-        error: { code: "RATE_LIMITED", message: "Too many requests. Please slow down." },
-        timestamp: new Date().toISOString()
-      });
-    }
-    return next();
-  };
+  return (req, res, next) => getLimiter()(req, res, next);
 }
 
-// Default limiter for general API endpoints
 const defaultLimiter = createRateLimiter({ windowMs: 60000, max: 100, keyPrefix: "api" });
+const predictionLimiter = createRateLimiter({ windowMs: 60000, max: 30, keyPrefix: "pred" });
 
-// Tighter limiter for prediction endpoints (external partner usage)
-const predictionLimiter = createRateLimiter({ windowMs: 60000, max: 100, keyPrefix: "pred" });
-
-module.exports = { createRateLimiter, defaultLimiter, predictionLimiter };
+module.exports = { createRateLimiter, defaultLimiter, predictionLimiter, redisReady };

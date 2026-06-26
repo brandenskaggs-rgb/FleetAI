@@ -44,10 +44,11 @@ const { applyAuthStoreRepair } = require("./server/auth/repairAuthStore");
 const { resolveAuthStorePath } = require("./server/config/authStorePath");
 const { errorHandler } = require("./server/middleware/errorHandler");
 const { requestLogger } = require("./server/middleware/requestLogger");
-const { predictionLimiter, defaultLimiter } = require("./server/middleware/rateLimiter");
+const { predictionLimiter, defaultLimiter, redisReady } = require("./server/middleware/rateLimiter");
 const { requireApiKey, generateApiKey } = require("./server/middleware/apiKeyAuth");
 const { mergePythonAndNodePrediction, deriveSensorRisksFromPython } = require("./server/lib/mlMerge");
 const { validateBody, schemas } = require("./server/middleware/validate");
+const pgSessionStore = require("./server/pgSessionStore");
 
 /**
  * Fleet AI server entry and routing map (Step 0 audit)
@@ -223,8 +224,12 @@ function applySecurityHeaders(req, res, next) {
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("X-Frame-Options", "DENY");
   res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
-  res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()" );
+  res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
   res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
+  res.setHeader(
+    "Content-Security-Policy",
+    "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https:; font-src 'self' data:; frame-ancestors 'none'; object-src 'none'; base-uri 'self';"
+  );
   if (IS_PROD) {
     res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
   }
@@ -252,7 +257,10 @@ function validateRuntimeConfig() {
       warnings.push("FLEETAI_ALLOW_SETUP is enabled in production. Disable it after initial bootstrap.");
     }
     if (!CORS_ALLOWED_ORIGINS.length) {
-      warnings.push("CORS_ALLOWED_ORIGINS is empty in production; cross-origin browser access will be denied until explicitly configured.");
+      errors.push("CORS_ALLOWED_ORIGINS must be set in production. Set it to your public hostname (e.g. https://fleet.example.com).");
+    }
+    if (!process.env.FLEETAI_ML_SERVICE_URL || process.env.FLEETAI_ML_SERVICE_URL === "http://127.0.0.1:8010") {
+      warnings.push("FLEETAI_ML_SERVICE_URL is using the localhost default — the Python ML service will be unreachable on Railway unless this is set to the internal service hostname.");
     }
     if (COOKIE_SAMESITE.toLowerCase() === "none" && !COOKIE_SECURE) {
       errors.push("COOKIE_SECURE must be true when COOKIE_SAMESITE=None.");
@@ -1542,6 +1550,7 @@ function getSession(req) {
   if (session.expiresAt <= Date.now()) {
     sessionStore.delete(sessionId);
     persistSessionStoresSoon();
+    pgSessionStore.deleteSession(sessionId).catch(() => {});
     return null;
   }
   return session;
@@ -1572,6 +1581,9 @@ function issueSession(scope, user) {
     sessionStore.set(sessionId, session);
   }
   persistSessionStoresSoon();
+  pgSessionStore.upsertSession(session).catch((err) =>
+    console.warn("[AUTH] session DB write failed:", err.message)
+  );
   return session;
 }
 
@@ -1602,6 +1614,7 @@ function getCustomerSession(req) {
   if (session.expiresAt <= Date.now()) {
     customerSessionStore.delete(sessionId);
     persistSessionStoresSoon();
+    pgSessionStore.deleteSession(sessionId).catch(() => {});
     return null;
   }
   return session;
@@ -3598,6 +3611,26 @@ app.use(errorHandler);
 validateJsonFile();
 startTelemetryScheduler();
 
+async function loadSessionsFromDb() {
+  try {
+    const sessions = await pgSessionStore.loadActiveSessions();
+    let employee = 0, customer = 0;
+    for (const s of sessions) {
+      if (s.loginRole === "customer") {
+        if (!customerSessionStore.has(s.id)) { customerSessionStore.set(s.id, s); customer++; }
+      } else {
+        if (!sessionStore.has(s.id)) { sessionStore.set(s.id, s); employee++; }
+      }
+    }
+    if (employee + customer > 0) {
+      console.log(`[AUTH] restored sessions from PostgreSQL employee=${employee} customer=${customer}`);
+    }
+    pgSessionStore.pruneExpiredSessions().catch(() => {});
+  } catch (err) {
+    console.warn(`[AUTH] could not restore sessions from PostgreSQL: ${err.message}`);
+  }
+}
+
 async function startServer() {
   const runtimeConfig = validateRuntimeConfig();
   runtimeConfig.warnings.forEach((warning) => console.warn(`[config] ${warning}`));
@@ -3605,8 +3638,10 @@ async function startServer() {
     runtimeConfig.errors.forEach((error) => console.error(`[config] ${error}`));
     throw new Error("Refusing to start with unsafe production configuration.");
   }
+  await redisReady;
   await seedDevAuthStoreIfNeeded();
   verifyAuthStoreOrExit();
+  await loadSessionsFromDb();
   const httpServer = app.listen(PORT, HOST, () => {
   const keyLen = SETUP_KEY.length;
   const keyMasked = keyLen >= 6
