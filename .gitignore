@@ -19,7 +19,6 @@ server/state/
 # Python artifacts and local model binaries
 **/__pycache__/
 *.pyc
-fleet_ai/models/*.pkl
 fleet_ai/models/*.joblib
 fleet_ai/models/*.csv
 
