@@ -25,7 +25,7 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
-_MODEL_DIR = Path(__file__).resolve().parents[3] / "fleet_ai" / "models"
+_MODEL_DIR = Path(__file__).resolve().parents[2] / "fleet_ai" / "models"
 _STAGE2_MODEL_PATH = _MODEL_DIR / "stage2_model.pkl"
 
 # ── Stage 1 screening threshold (default 0.35) ────────────────────────────────

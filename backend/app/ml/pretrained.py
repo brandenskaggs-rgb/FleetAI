@@ -21,7 +21,7 @@ import pandas as pd
 
 logger = logging.getLogger(__name__)
 
-_MODEL_PATH = Path(__file__).resolve().parents[3] / "fleet_ai" / "models" / "fleet_ai_model.pkl"
+_MODEL_PATH = Path(__file__).resolve().parents[2] / "fleet_ai" / "models" / "fleet_ai_model.pkl"
 
 # Default feature list — overridden by bundle["features"] at runtime.
 PRETRAINED_FEATURE_COLUMNS = [
