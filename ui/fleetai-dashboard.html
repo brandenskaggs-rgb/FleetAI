@@ -361,6 +361,7 @@
     async function fetchJson(url, opts={}){
       const res = await fetch(url,{credentials:"include",headers:{"Content-Type":"application/json",...(opts.headers||{})},...opts});
       const text = await res.text(); let json = null; try{ json = text ? JSON.parse(text) : null; }catch(_){}
+      if(res.status === 401){ location.href = "/customer-login.html"; return null; }
       if(!res.ok) throw new Error(json?.error || json?.message || `HTTP ${res.status}`);
       return json;
     }
