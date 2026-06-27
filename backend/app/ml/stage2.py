@@ -25,7 +25,21 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
-_MODEL_DIR = Path(__file__).resolve().parents[2] / "fleet_ai" / "models"
+def _find_model_file(filename: str) -> Path:
+    _here = Path(__file__).resolve()
+    candidates = [
+        Path(os.getenv("FLEETAI_MODEL_DIR", "")) / filename if os.getenv("FLEETAI_MODEL_DIR") else None,
+        _here.parents[2] / "fleet_ai" / "models" / filename,
+        _here.parents[3] / "fleet_ai" / "models" / filename if len(_here.parents) > 3 else None,
+        Path("/app/fleet_ai/models") / filename,
+        Path("/app/backend/fleet_ai/models") / filename,
+    ]
+    for p in candidates:
+        if p and p.exists():
+            return p
+    return _here.parents[2] / "fleet_ai" / "models" / filename
+
+_MODEL_DIR = _find_model_file("stage2_model.pkl").parent
 _STAGE2_MODEL_PATH = _MODEL_DIR / "stage2_model.pkl"
 
 # ── Stage 1 screening threshold (default 0.35) ────────────────────────────────

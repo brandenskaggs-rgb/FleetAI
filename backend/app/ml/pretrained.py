@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import logging
 import math
+import os
 import threading
 from pathlib import Path
 from typing import Optional
@@ -21,7 +22,29 @@ import pandas as pd
 
 logger = logging.getLogger(__name__)
 
-_MODEL_PATH = Path(__file__).resolve().parents[2] / "fleet_ai" / "models" / "fleet_ai_model.pkl"
+
+def _find_model_file(filename: str) -> Path:
+    """Locate a model file across common Railway deployment layouts."""
+    _here = Path(__file__).resolve()
+    candidates = [
+        # Explicit override (set FLEETAI_MODEL_DIR in Railway env vars)
+        Path(os.getenv("FLEETAI_MODEL_DIR", "")) / filename if os.getenv("FLEETAI_MODEL_DIR") else None,
+        # backend/ is service root → /app/fleet_ai/models/
+        _here.parents[2] / "fleet_ai" / "models" / filename,
+        # Full repo deployed → /app/backend/fleet_ai/models/
+        _here.parents[3] / "fleet_ai" / "models" / filename if len(_here.parents) > 3 else None,
+        # Railway absolute fallbacks
+        Path("/app/fleet_ai/models") / filename,
+        Path("/app/backend/fleet_ai/models") / filename,
+    ]
+    for p in candidates:
+        if p and p.exists():
+            return p
+    # Default: backend-relative path (correct once Railway deploys the file)
+    return _here.parents[2] / "fleet_ai" / "models" / filename
+
+
+_MODEL_PATH = _find_model_file("fleet_ai_model.pkl")
 
 # Default feature list — overridden by bundle["features"] at runtime.
 PRETRAINED_FEATURE_COLUMNS = [
@@ -250,7 +273,8 @@ class PretrainedScorer:
                 return True
             except Exception as exc:
                 self._load_error = str(exc)
-                logger.warning(f"[pretrained] Could not load model from {_MODEL_PATH}: {exc}")
+                level = logging.INFO if "No such file" in str(exc) else logging.WARNING
+                logger.log(level, f"[pretrained] Could not load model from {_MODEL_PATH}: {exc}")
                 return False
 
     @property
