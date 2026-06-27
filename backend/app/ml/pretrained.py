@@ -260,11 +260,15 @@ class PretrainedScorer:
         with self._lock:
             if self._bundle is not None:
                 return True
+            if not _MODEL_PATH.exists():
+                logger.info("[pretrained] Model file not present — running without pretrained scorer (fallback active)")
+                return False
             try:
                 import joblib
                 bundle = joblib.load(_MODEL_PATH)
                 if not isinstance(bundle, dict) or bundle.get("model_type") != "ensemble":
                     self._load_error = f"Unexpected bundle format at {_MODEL_PATH}"
+                    logger.warning(f"[pretrained] Unexpected bundle format at {_MODEL_PATH}")
                     return False
                 self._bundle = bundle
                 ver = bundle.get("model_version", "?")
@@ -273,8 +277,7 @@ class PretrainedScorer:
                 return True
             except Exception as exc:
                 self._load_error = str(exc)
-                level = logging.INFO if "No such file" in str(exc) else logging.WARNING
-                logger.log(level, f"[pretrained] Could not load model from {_MODEL_PATH}: {exc}")
+                logger.warning(f"[pretrained] Failed to load model from {_MODEL_PATH}: {exc}")
                 return False
 
     @property
