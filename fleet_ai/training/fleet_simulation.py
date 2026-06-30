@@ -76,34 +76,34 @@ _PHYS = {
     # class_key: (mass_kg, frontal_m2, cd, tire_circ_m, crr_base,
     #             engine_kw, bsfc_min, rpm_bsfc_opt, load_bsfc_opt,
     #             therm_mass_kj_c, batt_ah, alt_kw, bearing_C_kn, dpf_cap_g,
-    #             rpm_idle, turbo_pr_max, stoich_afr, oil_cap_l)
+    #             rpm_idle, turbo_pr_max, stoich_afr, oil_cap_l, displacement_l)
     "heavy_duty_j1939":  (36000,  9.4, 0.60, 3.20, 0.0065,
                            450,  195, 1700, 0.72,
                            95.0, 200, 3.5,  380,  7000,
-                           650,  3.2, 14.5, 38.0),
+                           650,  3.2, 14.5, 38.0, 15.0),
     "medium_duty":       (12000,  6.8, 0.65, 2.90, 0.0070,
                            200,  210, 1600, 0.70,
                            55.0, 110, 2.2,  180,  3500,
-                           700,  2.8, 14.5, 15.0),
+                           700,  2.8, 14.5, 15.0,  6.7),
     "light_duty_truck":  ( 3800,  3.3, 0.45, 2.20, 0.0080,
                            290,  260, 2200, 0.65,
                            22.0,  70, 1.4,   50,     0,
-                           750,  1.5, 14.7,  6.0),
+                           750,  1.5, 14.7,  6.0,  5.0),
     "cargo_van":         ( 4500,  4.2, 0.52, 2.30, 0.0078,
                            220,  270, 2000, 0.62,
                            24.0,  75, 1.6,   55,     0,
-                           750,  1.6, 14.7,  6.0),
+                           750,  1.6, 14.7,  6.0,  3.6),
     "passenger_car":     ( 1600,  2.2, 0.30, 1.95, 0.0085,
                            130,  290, 2400, 0.55,
                            12.0,  55, 1.0,   25,     0,
-                           800,  1.3, 14.7,  4.0),
+                           800,  1.3, 14.7,  4.0,  2.5),
 }
 _P_IDX = {
     "mass_kg": 0, "frontal_m2": 1, "cd": 2, "tire_circ_m": 3, "crr_base": 4,
     "engine_kw": 5, "bsfc_min": 6, "rpm_bsfc_opt": 7, "load_bsfc_opt": 8,
     "therm_mass_kj_c": 9, "batt_ah": 10, "alt_kw": 11, "bearing_C_kn": 12,
     "dpf_cap_g": 13, "rpm_idle": 14, "turbo_pr_max": 15, "stoich_afr": 16,
-    "oil_cap_l": 17,
+    "oil_cap_l": 17, "displacement_l": 18,
 }
 
 def _phys(vehicle_class: np.ndarray, key: str) -> np.ndarray:
@@ -273,20 +273,49 @@ def _fuel_rate_lph(power_kw: np.ndarray, bsfc: np.ndarray,
 def _lambda(fuel_rate_lph: np.ndarray, rho: np.ndarray,
             speed_kph: np.ndarray, engine_kw: np.ndarray,
             stoich: np.ndarray, vol_eff: np.ndarray,
-            diesel: np.ndarray) -> np.ndarray:
+            diesel: np.ndarray,
+            engine_load_pct: np.ndarray,
+            turbo_pr: np.ndarray) -> np.ndarray:
     """
-    Air/fuel lambda.  Approximates mass air flow from displacement × vol_eff × rho.
-    Lambda < 1 = rich (high load, altitude, fault); > 1 = lean.
+    Normalized combustion richness index (0.70 = rich/overloaded, 1.80 = lean/light-load).
+
+    Physical diesel lambda is 1.5-10+ (always lean excess-air), which would saturate
+    the [0.70, 1.80] clip and carry no signal.  This index instead models the deviation
+    from a load-appropriate target, providing three independent signals:
+
+      1. load_f: higher injection load → less excess air → lower index
+      2. altitude/boost: lower air density → lower index; turbo compensates
+      3. fuel_rate deviation: excess fuel vs expected at this load → lower index
+
+    None of these three factors cancel with each other.
     """
-    # Approximate intake air mass flow ∝ power demand × vol_eff × rho factor
-    load_fraction = np.clip(engine_kw / np.maximum(engine_kw, 1.0), 0.05, 1.0)
-    air_factor = vol_eff * np.clip(rho / 1.204, 0.5, 1.05)
-    # Stoichiometric fuel flow that would match this air
-    fuel_density = np.where(diesel, 840.0, 750.0)
-    fuel_mass_rate = fuel_rate_lph * fuel_density / 3600.0   # g/s
-    air_mass_equiv = fuel_mass_rate * stoich * air_factor
-    actual_air     = fuel_mass_rate * stoich
-    return np.clip(air_mass_equiv / np.maximum(actual_air, 0.001), 0.70, 1.80)
+    fuel_density = np.where(diesel, 840.0, 750.0)   # g/L
+    fuel_mass_gs = np.maximum(fuel_rate_lph * fuel_density / 3600.0, 0.01)   # g/s
+
+    load_f = np.clip(engine_load_pct / 100.0, 0.05, 1.0)
+
+    # (1) Load-based target: diesel excess-air reduces at high load (smoke limit)
+    lambda_diesel = np.clip(1.75 - 0.80 * load_f, 1.05, 1.75)
+    # Gasoline EFI: near-stoich; WOT enrichment below 1.0
+    wot = load_f > 0.80
+    lambda_gas = np.where(wot,
+        np.clip(1.02 - 0.30 * (load_f - 0.80), 0.88, 1.02),
+        np.clip(1.01 - 0.04 * load_f, 0.96, 1.02))
+    lambda_base = np.where(diesel, lambda_diesel, lambda_gas)
+
+    # (2) Altitude + boost correction (air supply vs sea-level reference)
+    boost_comp = np.clip((turbo_pr - 1.0) * 0.35, 0.0, 0.45)
+    air_fraction = np.clip(vol_eff + boost_comp, 0.50, 1.10)
+    altitude_factor = np.clip(air_fraction, 0.55, 1.05)
+
+    # (3) Fuel rate deviation: excess fuel relative to expected at this load
+    # Expected fuel: engine_kw × nominal_rate_per_kW × load_f
+    nominal_rate = np.where(diesel, 0.185, 0.200)   # L/h per kW at peak
+    ref_fuel = np.maximum(engine_kw * nominal_rate * load_f, 0.2)
+    fuel_ratio = np.clip(fuel_rate_lph / ref_fuel, 0.50, 2.50)
+    fuel_factor = np.clip(fuel_ratio ** -0.25, 0.75, 1.10)
+
+    return np.clip(lambda_base * altitude_factor * fuel_factor, 0.70, 1.80)
 
 
 def _egt(rpm: np.ndarray, load_pct: np.ndarray,
@@ -406,10 +435,14 @@ def _oil_film_ratio(viscosity_cst: np.ndarray, rpm: np.ndarray,
                     load_pct: np.ndarray, wear_index: np.ndarray) -> np.ndarray:
     """
     Stribeck number proxy → oil film health ratio (1=full EHD film, 0=boundary).
-    Film thickness ∝ (eta * N / P)^0.7.  Worn bearings have larger clearance.
+    Stribeck parameter S = (eta_kinematic [m²/s] × N [rps]) / P [dimensionless load].
+    Film thickness ∝ S^0.7.  Worn bearings degrade the effective load term.
+    Note: eta is kinematic viscosity (m²/s), not dynamic viscosity (Pa·s).
+    Using kinematic viscosity as an empirical proxy is valid here because oil
+    density variation over the operating temperature range is small (<5%).
     """
-    eta = viscosity_cst * 1e-6       # cSt → m²/s (approx mPa·s)
-    N   = np.clip(rpm, 100, 6000)
+    eta = viscosity_cst * 1e-6       # cSt → m²/s (kinematic viscosity)
+    N   = np.clip(rpm, 100, 6000) / 60.0  # RPM → rps (revolutions per second)
     P   = np.clip(load_pct / 100.0, 0.05, 1.0) * (1.0 + wear_index * 0.5)
     stribeck = (eta * N / P) ** 0.7
     return np.clip(stribeck / (stribeck + 0.08), 0.0, 1.0)
@@ -775,7 +808,16 @@ def generate_mixed_fleet_data(
     aero_kw_v  = _aero_kw(speed_kph, rho, cd, frontal_m2)
     roll_kw_v  = _rolling_kw(speed_kph, mass_kg, crr_base * (1.0 + maintenance_neglect * 0.3))
     grade_kw_v = _grade_kw(speed_kph, mass_kg, road_grade_pct)
-    road_load_kw = np.clip(aero_kw_v + roll_kw_v + grade_kw_v, 0, engine_kw * 0.95)
+    # Raw required road power — preserve overload states before any cap
+    road_load_kw_raw = aero_kw_v + roll_kw_v + grade_kw_v
+    # Overload flag: required wheel power exceeds rated engine output.
+    # In this scenario the simulated truck cannot maintain the sampled speed;
+    # a real truck would decelerate. We retain the flag as a diagnostic feature
+    # rather than silently removing the overload by clipping.
+    power_overload = (road_load_kw_raw > engine_kw).astype(float)
+    # Clamp to engine limit for downstream fuel/thermal calculations (engine
+    # cannot produce more than rated power; excess demand causes speed loss).
+    road_load_kw = np.clip(road_load_kw_raw, 0, engine_kw * 0.95)
     engine_load_pct = np.clip(road_load_kw / np.maximum(engine_kw, 1.0) * 100.0
                               + rng.normal(0, 4, rows), 5, 98)
 
@@ -803,7 +845,8 @@ def generate_mixed_fleet_data(
     fuel_pressure = np.clip(fuel_pressure, 8, 85)
 
     # ── Lambda / EGT / SCR chain ──────────────────────────────────────────────
-    lambda_afr = _lambda(fuel_rate, rho, speed_kph, engine_kw, stoich, vol_eff, diesel)
+    lambda_afr = _lambda(fuel_rate, rho, speed_kph, engine_kw, stoich, vol_eff, diesel,
+                         engine_load_pct, turbo_pr)
     egt_c      = _egt(rpm, engine_load_pct, lambda_afr, diesel)
     # During active regen, EGT spikes to 560-580°C
     scr_inlet  = _scr_inlet(egt_c, ambient_temp_c, speed_kph)

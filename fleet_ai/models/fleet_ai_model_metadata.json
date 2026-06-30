@@ -130,7 +130,7 @@
     "f1": 0.971295,
     "roc_auc": 0.998415,
     "brier_score": 0.019827,
-    "note": "heavy_duty seed=777 out-of-sample holdout"
+    "note": "heavy_duty seed=777 synthetic out-of-sample holdout (not real-world validation)"
   },
   "featureImportance": [
     {
@@ -237,5 +237,5 @@
   "brier_score": 0.011142,
   "physics_engine": "v4.1 \u2014 ISA/aero/BSFC/thermal/Walther/L10/DPF/Peukert/sensor-drift + isotonic calibration",
   "calibrated": true,
-  "notes": "Physics-informed synthetic priors v4.1. Natural-balance training (8.5% real failure rate) + Platt isotonic calibration. Output probabilities match real-world fleet base rate. Bearing life from field-calibrated L10; DPF from sawtooth regen state machine; battery from Peukert + Arrhenius aging; oil from Walther viscosity equation."
+  "notes": "Physics-informed synthetic priors v4.1. Natural-balance training (8.5% synthetic failure rate) + isotonic regression calibration (sklearn IsotonicRegression). Output probabilities are calibrated to the synthetic training base rate; real-world fleet base rate calibration requires labelled field data. Bearing life from field-calibrated L10; DPF from sawtooth regen state machine; battery from Peukert + Arrhenius aging; oil from Walther viscosity equation."
 }

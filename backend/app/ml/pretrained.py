@@ -101,13 +101,14 @@ _MAKE_CODES: dict[str, int] = {
     "kenworth": 4, "peterbilt": 5, "ram": 6, "toyota": 7, "volvo": 8,
 }
 
-# Per-class physics specs (mass_kg, frontal_m2, Cd, Crr, engine_kw, alt_kw)
+# Per-class physics specs — kept in sync with fleet_simulation.py _PHYS table.
+# (mass_kg, frontal_m2, Cd, Crr, engine_kw, alt_kw, dpf)
 _PHYS_SPECS = {
-    0: {"mass": 15000, "A": 9.0,  "Cd": 0.68, "Crr": 0.006, "eng_kw": 340, "alt_kw": 4.5, "dpf": True},
-    1: {"mass":  8000, "A": 7.0,  "Cd": 0.65, "Crr": 0.007, "eng_kw": 200, "alt_kw": 3.0, "dpf": True},
-    2: {"mass":  3500, "A": 3.2,  "Cd": 0.45, "Crr": 0.010, "eng_kw": 150, "alt_kw": 1.8, "dpf": False},
-    3: {"mass":  3200, "A": 4.0,  "Cd": 0.55, "Crr": 0.009, "eng_kw": 130, "alt_kw": 1.6, "dpf": False},
-    4: {"mass":  1800, "A": 2.2,  "Cd": 0.30, "Crr": 0.011, "eng_kw":  85, "alt_kw": 1.2, "dpf": False},
+    0: {"mass": 36000, "A": 9.4,  "Cd": 0.60, "Crr": 0.0065, "eng_kw": 450, "alt_kw": 3.5, "dpf": True},
+    1: {"mass": 12000, "A": 6.8,  "Cd": 0.65, "Crr": 0.0070, "eng_kw": 200, "alt_kw": 2.2, "dpf": True},
+    2: {"mass":  3800, "A": 3.3,  "Cd": 0.45, "Crr": 0.0080, "eng_kw": 290, "alt_kw": 1.4, "dpf": False},
+    3: {"mass":  4500, "A": 4.2,  "Cd": 0.52, "Crr": 0.0078, "eng_kw": 220, "alt_kw": 1.6, "dpf": False},
+    4: {"mass":  1600, "A": 2.2,  "Cd": 0.30, "Crr": 0.0085, "eng_kw": 130, "alt_kw": 1.0, "dpf": False},
 }
 
 # Fleet-average defaults for features not derivable from live telemetry
@@ -159,7 +160,7 @@ def _oil_film_ratio(viscosity_cst: float, rpm: float, engine_load_pct: float) ->
     Stribeck-curve film thickness ratio (1.0 = full hydrodynamic, 0 = boundary).
     hm ∝ (η·N/P)^0.7; normalised to healthy operating point.
     """
-    eta = viscosity_cst * 1e-6  # m²/s → roughly Pa·s at unit density
+    eta = viscosity_cst * 1e-6  # kinematic viscosity in m²/s (cSt × 1e-6)
     N = max(1.0, rpm) / 60.0    # rps
     P = max(0.01, engine_load_pct / 100.0)
     raw = (eta * N / P) ** 0.7
@@ -390,10 +391,24 @@ class PretrainedScorer:
         bsfc_base  = 195.0 if is_diesel else 270.0
         bsfc_g_kwh = bsfc_base * math.exp(0.5 * (rpm_ratio ** 2 + load_ratio ** 2))
         bsfc_g_kwh = min(600.0, max(140.0, bsfc_g_kwh))
-        # Lambda AFR (altitude correction makes engine run rich at high altitude)
-        target_afr = 14.7 if not is_diesel else 35.0
-        actual_afr = target_afr * (air_density / rho_sl)
-        lambda_afr = actual_afr / target_afr
+        # Lambda AFR — three independent signals, none cancel algebraically.
+        # Mirrors the three-factor formula in fleet_simulation.py _lambda().
+        _load_f = min(1.0, max(0.05, engine_load_pct / 100.0))
+        if is_diesel:
+            _lambda_base = min(1.75, max(1.05, 1.75 - 0.80 * _load_f))
+        elif _load_f > 0.80:
+            _lambda_base = min(1.02, max(0.88, 1.02 - 0.30 * (_load_f - 0.80)))
+        else:
+            _lambda_base = min(1.02, max(0.96, 1.01 - 0.04 * _load_f))
+        _pr = max(1.0, 1.0 + turbo_boost_kpa / 101.325)
+        _boost_comp = min(0.45, max(0.0, (_pr - 1.0) * 0.35))
+        _vol_eff_frac = vol_eff_pct / 100.0
+        _altitude_factor = min(1.05, max(0.55, min(1.10, max(0.50, _vol_eff_frac + _boost_comp))))
+        _nominal_rate = 0.185 if is_diesel else 0.200
+        _ref_fuel = max(0.2, specs["eng_kw"] * _nominal_rate * _load_f)
+        _fuel_ratio = min(2.50, max(0.50, fuel_rate / _ref_fuel))
+        _fuel_factor = min(1.10, max(0.75, _fuel_ratio ** -0.25))
+        lambda_afr = min(1.80, max(0.70, _lambda_base * _altitude_factor * _fuel_factor))
         # EGT estimate from load and RPM (if sensor not available)
         egt_c_live = _cm("egt", -1.0)
         if egt_c_live < 0:
