@@ -100,18 +100,18 @@
     ],
     "featureCount": 93,
     "rows": 450000,
-    "failure_rate": 0.085667,
-    "accuracy": 0.991141,
-    "precision": 0.948984,
-    "recall": 0.94753,
-    "f1": 0.948257,
-    "roc_auc": 0.998892,
-    "threshold": 0.49,
+    "failure_rate": 0.086291,
+    "accuracy": 0.990895,
+    "precision": 0.95953,
+    "recall": 0.933184,
+    "f1": 0.946174,
+    "roc_auc": 0.998637,
+    "threshold": 0.48,
     "thresholds": {
-      "balanced": 0.49,
+      "balanced": 0.48,
       "high_precision": 0.55,
       "high_recall": 0.18,
-      "launch_default": 0.49
+      "launch_default": 0.48
     },
     "rf_weight": 0.05,
     "hgb_weight": 0.95,
@@ -125,273 +125,273 @@
     ],
     "holdout": {
       "rows": 5840,
-      "accuracy": 0.978253,
-      "precision": 0.982044,
-      "recall": 0.964316,
-      "f1": 0.973099,
-      "roc_auc": 0.998102,
-      "brier_score": 0.015468,
+      "accuracy": 0.977568,
+      "precision": 0.984503,
+      "recall": 0.960118,
+      "f1": 0.972157,
+      "roc_auc": 0.998173,
+      "brier_score": 0.015834,
       "note": "heavy_duty seed=777 out-of-sample holdout"
     },
     "featureImportance": [
       {
         "feature": "rpm",
-        "importance": 0.073049
+        "importance": 0.074726
       },
       {
         "feature": "battery_voltage",
-        "importance": 0.068119
+        "importance": 0.070359
       },
       {
         "feature": "hub_temp_fl_c",
-        "importance": 0.066626
-      },
-      {
-        "feature": "drive_cycle_phase_code",
-        "importance": 0.058604
-      },
-      {
-        "feature": "maf_throttle_ratio",
-        "importance": 0.056977
+        "importance": 0.069392
       },
       {
         "feature": "hub_temp_fr_c",
-        "importance": 0.053403
+        "importance": 0.05829
       },
       {
-        "feature": "hub_temp_rr_c",
-        "importance": 0.049171
+        "feature": "drive_cycle_phase_code",
+        "importance": 0.052297
       },
       {
         "feature": "hub_temp_rl_c",
-        "importance": 0.041772
+        "importance": 0.048604
+      },
+      {
+        "feature": "maf_throttle_ratio",
+        "importance": 0.045759
+      },
+      {
+        "feature": "hub_temp_rr_c",
+        "importance": 0.042362
       },
       {
         "feature": "idle_hours_day",
-        "importance": 0.035705
+        "importance": 0.038373
       },
       {
         "feature": "bearing_wear_index",
-        "importance": 0.030425
+        "importance": 0.033119
       },
       {
         "feature": "battery_soc_pct",
-        "importance": 0.028145
-      },
-      {
-        "feature": "battery_voltage_delta_30d",
-        "importance": 0.025477
-      },
-      {
-        "feature": "bsfc_g_per_kwh",
-        "importance": 0.025292
+        "importance": 0.02575
       },
       {
         "feature": "aero_drag_kw",
-        "importance": 0.024957
+        "importance": 0.025139
       },
       {
-        "feature": "tire_pressure",
-        "importance": 0.023516
+        "feature": "battery_voltage_delta_30d",
+        "importance": 0.024322
+      },
+      {
+        "feature": "bsfc_g_per_kwh",
+        "importance": 0.022897
       },
       {
         "feature": "idle_heat_soak",
-        "importance": 0.022823
-      },
-      {
-        "feature": "bearingFreqScore_accel_h24",
-        "importance": 0.018509
+        "importance": 0.019631
       },
       {
         "feature": "alternator_deficit_w",
-        "importance": 0.017499
+        "importance": 0.019406
       },
       {
         "feature": "hubTempFR_accel_h24",
-        "importance": 0.01667
+        "importance": 0.018016
       },
       {
-        "feature": "rolling_resistance_kw",
-        "importance": 0.014913
+        "feature": "tire_pressure",
+        "importance": 0.016755
+      },
+      {
+        "feature": "bearingFreqScore_accel_h24",
+        "importance": 0.016478
       },
       {
         "feature": "hubTempRL_accel_h24",
-        "importance": 0.013876
-      },
-      {
-        "feature": "hubTempFL_accel_h24",
-        "importance": 0.012764
-      },
-      {
-        "feature": "vehicle_class_code",
-        "importance": 0.011683
+        "importance": 0.014979
       },
       {
         "feature": "hubTempRR_accel_h24",
-        "importance": 0.010609
+        "importance": 0.013806
       },
       {
-        "feature": "fuel_rate",
-        "importance": 0.008873
+        "feature": "hubTempFL_accel_h24",
+        "importance": 0.013617
+      },
+      {
+        "feature": "scr_inlet_temp_c",
+        "importance": 0.012762
+      },
+      {
+        "feature": "rolling_resistance_kw",
+        "importance": 0.012602
+      },
+      {
+        "feature": "egt_c",
+        "importance": 0.010539
       }
     ],
-    "brier_score": 0.006537,
+    "brier_score": 0.006612,
     "physics_engine": "v4.1 \u2014 ISA/aero/BSFC/thermal/Walther/L10/DPF/Peukert/sensor-drift + isotonic calibration",
     "calibrated": true,
     "notes": "Physics-informed synthetic priors v4.1. Natural-balance training (8.5% real failure rate) + Platt isotonic calibration. Output probabilities match real-world fleet base rate. Bearing life from field-calibrated L10; DPF from sawtooth regen state machine; battery from Peukert + Arrhenius aging; oil from Walther viscosity equation."
   },
   "holdout": {
     "rows": 5840,
-    "accuracy": 0.978253,
-    "precision": 0.982044,
-    "recall": 0.964316,
-    "f1": 0.973099,
-    "roc_auc": 0.998102,
-    "brier_score": 0.015468,
+    "accuracy": 0.977568,
+    "precision": 0.984503,
+    "recall": 0.960118,
+    "f1": 0.972157,
+    "roc_auc": 0.998173,
+    "brier_score": 0.015834,
     "note": "heavy_duty seed=777 out-of-sample holdout"
   },
   "byVehicleClass": {
     "heavy_duty_j1939": {
-      "rows": 31075,
-      "precision": 0.970001,
-      "recall": 0.967206,
-      "f1": 0.968602,
-      "failureRate": 0.234529,
-      "brier_score": 0.011165
+      "rows": 30996,
+      "precision": 0.975709,
+      "recall": 0.954009,
+      "f1": 0.964737,
+      "failureRate": 0.234998,
+      "brier_score": 0.011824
     },
     "medium_duty": {
-      "rows": 12401,
-      "precision": 0.878261,
-      "recall": 0.821138,
-      "f1": 0.848739,
-      "failureRate": 0.019837,
-      "brier_score": 0.004572
+      "rows": 12407,
+      "precision": 0.898917,
+      "recall": 0.821782,
+      "f1": 0.858621,
+      "failureRate": 0.024422,
+      "brier_score": 0.004651
     },
     "light_duty_truck": {
-      "rows": 24566,
-      "precision": 0.811847,
-      "recall": 0.756494,
-      "f1": 0.783193,
-      "failureRate": 0.012538,
-      "brier_score": 0.003809
+      "rows": 24487,
+      "precision": 0.869565,
+      "recall": 0.696864,
+      "f1": 0.773694,
+      "failureRate": 0.011721,
+      "brier_score": 0.003414
     },
     "cargo_van": {
-      "rows": 18471,
-      "precision": 0.732432,
-      "recall": 0.891447,
-      "f1": 0.804154,
-      "failureRate": 0.016458,
-      "brier_score": 0.004868
+      "rows": 18424,
+      "precision": 0.776836,
+      "recall": 0.901639,
+      "f1": 0.834598,
+      "failureRate": 0.016554,
+      "brier_score": 0.004488
     },
     "passenger_car": {
-      "rows": 12487,
-      "precision": 0.894904,
-      "recall": 0.838806,
-      "f1": 0.865948,
-      "failureRate": 0.026828,
-      "brier_score": 0.004812
+      "rows": 12639,
+      "precision": 0.911111,
+      "recall": 0.801303,
+      "f1": 0.852686,
+      "failureRate": 0.02429,
+      "brier_score": 0.005049
     }
   },
   "featureImportance": [
     {
       "feature": "rpm",
-      "importance": 0.073049
+      "importance": 0.074726
     },
     {
       "feature": "battery_voltage",
-      "importance": 0.068119
+      "importance": 0.070359
     },
     {
       "feature": "hub_temp_fl_c",
-      "importance": 0.066626
-    },
-    {
-      "feature": "drive_cycle_phase_code",
-      "importance": 0.058604
-    },
-    {
-      "feature": "maf_throttle_ratio",
-      "importance": 0.056977
+      "importance": 0.069392
     },
     {
       "feature": "hub_temp_fr_c",
-      "importance": 0.053403
+      "importance": 0.05829
     },
     {
-      "feature": "hub_temp_rr_c",
-      "importance": 0.049171
+      "feature": "drive_cycle_phase_code",
+      "importance": 0.052297
     },
     {
       "feature": "hub_temp_rl_c",
-      "importance": 0.041772
+      "importance": 0.048604
+    },
+    {
+      "feature": "maf_throttle_ratio",
+      "importance": 0.045759
+    },
+    {
+      "feature": "hub_temp_rr_c",
+      "importance": 0.042362
     },
     {
       "feature": "idle_hours_day",
-      "importance": 0.035705
+      "importance": 0.038373
     },
     {
       "feature": "bearing_wear_index",
-      "importance": 0.030425
+      "importance": 0.033119
     },
     {
       "feature": "battery_soc_pct",
-      "importance": 0.028145
-    },
-    {
-      "feature": "battery_voltage_delta_30d",
-      "importance": 0.025477
-    },
-    {
-      "feature": "bsfc_g_per_kwh",
-      "importance": 0.025292
+      "importance": 0.02575
     },
     {
       "feature": "aero_drag_kw",
-      "importance": 0.024957
+      "importance": 0.025139
     },
     {
-      "feature": "tire_pressure",
-      "importance": 0.023516
+      "feature": "battery_voltage_delta_30d",
+      "importance": 0.024322
+    },
+    {
+      "feature": "bsfc_g_per_kwh",
+      "importance": 0.022897
     },
     {
       "feature": "idle_heat_soak",
-      "importance": 0.022823
-    },
-    {
-      "feature": "bearingFreqScore_accel_h24",
-      "importance": 0.018509
+      "importance": 0.019631
     },
     {
       "feature": "alternator_deficit_w",
-      "importance": 0.017499
+      "importance": 0.019406
     },
     {
       "feature": "hubTempFR_accel_h24",
-      "importance": 0.01667
+      "importance": 0.018016
     },
     {
-      "feature": "rolling_resistance_kw",
-      "importance": 0.014913
+      "feature": "tire_pressure",
+      "importance": 0.016755
+    },
+    {
+      "feature": "bearingFreqScore_accel_h24",
+      "importance": 0.016478
     },
     {
       "feature": "hubTempRL_accel_h24",
-      "importance": 0.013876
-    },
-    {
-      "feature": "hubTempFL_accel_h24",
-      "importance": 0.012764
-    },
-    {
-      "feature": "vehicle_class_code",
-      "importance": 0.011683
+      "importance": 0.014979
     },
     {
       "feature": "hubTempRR_accel_h24",
-      "importance": 0.010609
+      "importance": 0.013806
     },
     {
-      "feature": "fuel_rate",
-      "importance": 0.008873
+      "feature": "hubTempFL_accel_h24",
+      "importance": 0.013617
+    },
+    {
+      "feature": "scr_inlet_temp_c",
+      "importance": 0.012762
+    },
+    {
+      "feature": "rolling_resistance_kw",
+      "importance": 0.012602
+    },
+    {
+      "feature": "egt_c",
+      "importance": 0.010539
     }
   ]
 }

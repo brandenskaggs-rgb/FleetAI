@@ -101,13 +101,14 @@ _MAKE_CODES: dict[str, int] = {
     "kenworth": 4, "peterbilt": 5, "ram": 6, "toyota": 7, "volvo": 8,
 }
 
-# Per-class physics specs (mass_kg, frontal_m2, Cd, Crr, engine_kw, alt_kw)
+# Per-class physics specs (mass_kg, frontal_m2, Cd, Crr, engine_kw, alt_kw, tire_circ_m)
+# tire_circ_m = tire circumference in metres (NOT radius). omega = (v_mps / circ_m) * 2π
 _PHYS_SPECS = {
-    0: {"mass": 15000, "A": 9.0,  "Cd": 0.68, "Crr": 0.006, "eng_kw": 340, "alt_kw": 4.5, "dpf": True},
-    1: {"mass":  8000, "A": 7.0,  "Cd": 0.65, "Crr": 0.007, "eng_kw": 200, "alt_kw": 3.0, "dpf": True},
-    2: {"mass":  3500, "A": 3.2,  "Cd": 0.45, "Crr": 0.010, "eng_kw": 150, "alt_kw": 1.8, "dpf": False},
-    3: {"mass":  3200, "A": 4.0,  "Cd": 0.55, "Crr": 0.009, "eng_kw": 130, "alt_kw": 1.6, "dpf": False},
-    4: {"mass":  1800, "A": 2.2,  "Cd": 0.30, "Crr": 0.011, "eng_kw":  85, "alt_kw": 1.2, "dpf": False},
+    0: {"mass": 15000, "A": 9.0,  "Cd": 0.68, "Crr": 0.006, "eng_kw": 340, "alt_kw": 4.5, "dpf": True,  "tire_circ_m": 3.20},
+    1: {"mass":  8000, "A": 7.0,  "Cd": 0.65, "Crr": 0.007, "eng_kw": 200, "alt_kw": 3.0, "dpf": True,  "tire_circ_m": 2.90},
+    2: {"mass":  3500, "A": 3.2,  "Cd": 0.45, "Crr": 0.010, "eng_kw": 150, "alt_kw": 1.8, "dpf": False, "tire_circ_m": 2.20},
+    3: {"mass":  3200, "A": 4.0,  "Cd": 0.55, "Crr": 0.009, "eng_kw": 130, "alt_kw": 1.6, "dpf": False, "tire_circ_m": 2.30},
+    4: {"mass":  1800, "A": 2.2,  "Cd": 0.30, "Crr": 0.011, "eng_kw":  85, "alt_kw": 1.2, "dpf": False, "tire_circ_m": 1.95},
 }
 
 # Fleet-average defaults for features not derivable from live telemetry
@@ -429,9 +430,10 @@ class PretrainedScorer:
         rolling_res_kw = specs["Crr"] * specs["mass"] * 9.81 * v_ms / 1000.0
         grade_pct = float(meta.get("roadGradePct", _DEFAULTS["road_grade_pct"]))
         grade_force_kw = specs["mass"] * 9.81 * math.sin(math.atan(grade_pct / 100.0)) * v_ms / 1000.0
-        road_load_kw = max(0.0, aero_drag_kw + rolling_res_kw + grade_force_kw)
+        road_load_kw = max(-specs["eng_kw"] * 0.30, min(specs["eng_kw"] * 0.95,
+                          aero_drag_kw + rolling_res_kw + grade_force_kw))
         # Volumetric efficiency: lower at altitude (less dense air)
-        rho_sl = 1.225  # sea-level density
+        rho_sl = 1.204  # ISA sea-level density — must match _RHO_SL in fleet_simulation.py
         vol_eff_pct = min(100.0, max(30.0, air_density / rho_sl * 100.0))
 
         # ── v4 Physics: combustion & exhaust ─────────────────────────────────
@@ -442,10 +444,8 @@ class PretrainedScorer:
         bsfc_base  = 195.0 if is_diesel else 270.0
         bsfc_g_kwh = bsfc_base * math.exp(0.5 * (rpm_ratio ** 2 + load_ratio ** 2))
         bsfc_g_kwh = min(600.0, max(140.0, bsfc_g_kwh))
-        # Lambda AFR (altitude correction makes engine run rich at high altitude)
-        target_afr = 14.7 if not is_diesel else 35.0
-        actual_afr = target_afr * (air_density / rho_sl)
-        lambda_afr = actual_afr / target_afr
+        # Lambda proxy = air density ratio; stoich cancels → ρ/ρ_SL matches training
+        lambda_afr = min(1.05, max(0.70, air_density / rho_sl))
         # EGT estimate from load and RPM (if sensor not available)
         egt_c_live = _cm("egt", -1.0)
         if egt_c_live < 0:
@@ -497,7 +497,7 @@ class PretrainedScorer:
             # Estimate from physics: Q_gen = mu × F × omega × r / (h_conv × A)
             mu_est = 0.0015 + wear_index * 0.003
             h_conv = 8.0 + 0.22 * min(vehicle_speed_kph, 130.0)
-            omega  = max(0.1, vehicle_speed_kph / 3.6 / 0.32) * (2 * math.pi)
+            omega  = max(0.1, vehicle_speed_kph / 3.6 / specs["tire_circ_m"]) * (2 * math.pi)
             load_n = specs["mass"] * max(0.10, 0.14 + payload_ratio * 0.06)
             Q_w    = mu_est * load_n * omega * 0.065
             hub_est = min(200.0, ambient + Q_w / max(0.1, h_conv * 0.04))

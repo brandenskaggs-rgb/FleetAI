@@ -34,9 +34,9 @@ from sklearn.isotonic import IsotonicRegression
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import (accuracy_score, brier_score_loss, f1_score,
                              precision_score, recall_score, roc_auc_score)
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import GroupShuffleSplit, train_test_split
 
-MODEL_VERSION = "physics-v4.1.0"
+MODEL_VERSION = "physics-v4.2.0"
 TRAINING_SOURCE = "physics_calibrated_v4"
 
 # ── Identity codes ─────────────────────────────────────────────────────────────
@@ -218,9 +218,13 @@ def _isa_density(altitude_ft: np.ndarray, temp_c: np.ndarray) -> np.ndarray:
     return P_pa / (287.058 * T_k)
 
 
-def _volumetric_efficiency(rho: np.ndarray) -> np.ndarray:
-    """Fraction of sea-level air density (drives boost demand, charge density)."""
-    return np.clip(rho / 1.204, 0.50, 1.05)
+def _charge_density_ratio(rho: np.ndarray) -> np.ndarray:
+    """
+    Dimensionless air-charge density relative to ISA sea level (ρ / ρ_SL).
+    Stored as volumetric_efficiency_pct (× 100) to match column name; represents
+    air density available for combustion, NOT engine volumetric efficiency (η_v).
+    """
+    return np.clip(rho / _RHO_SL, 0.50, 1.05)
 
 
 # ── Aerodynamics & road loads ──────────────────────────────────────────────────
@@ -271,23 +275,16 @@ def _fuel_rate_lph(power_kw: np.ndarray, bsfc: np.ndarray,
     return np.clip(power_kw * bsfc / fuel_density, 0.3, 130.0)
 
 
-def _lambda(fuel_rate_lph: np.ndarray, rho: np.ndarray,
-            speed_kph: np.ndarray, engine_kw: np.ndarray,
-            stoich: np.ndarray, vol_eff: np.ndarray,
-            diesel: np.ndarray) -> np.ndarray:
+_RHO_SL = 1.204  # kg/m³ sea-level ISA density (used in training and must match inference)
+
+def _lambda(rho: np.ndarray) -> np.ndarray:
     """
-    Air/fuel lambda.  Approximates mass air flow from displacement × vol_eff × rho.
-    Lambda < 1 = rich (high load, altitude, fault); > 1 = lean.
+    Air-density ratio as lambda proxy: λ ≈ ρ / ρ_SL.
+    λ < 1 at altitude (less air → effectively rich); λ > 1 not physically meaningful
+    but capped at 1.05 to suppress ISA rounding.
+    Previously fuel_mass_rate * stoich cancelled → (ρ/1.204)² (wrong). Now linear.
     """
-    # Approximate intake air mass flow ∝ power demand × vol_eff × rho factor
-    load_fraction = np.clip(engine_kw / np.maximum(engine_kw, 1.0), 0.05, 1.0)
-    air_factor = vol_eff * np.clip(rho / 1.204, 0.5, 1.05)
-    # Stoichiometric fuel flow that would match this air
-    fuel_density = np.where(diesel, 840.0, 750.0)
-    fuel_mass_rate = fuel_rate_lph * fuel_density / 3600.0   # g/s
-    air_mass_equiv = fuel_mass_rate * stoich * air_factor
-    actual_air     = fuel_mass_rate * stoich
-    return np.clip(air_mass_equiv / np.maximum(actual_air, 0.001), 0.70, 1.80)
+    return np.clip(rho / _RHO_SL, 0.70, 1.05)
 
 
 def _egt(rpm: np.ndarray, load_pct: np.ndarray,
@@ -491,7 +488,8 @@ def _spall_stage(wear_index: np.ndarray) -> np.ndarray:
 
 def _hub_temps(ambient_c: np.ndarray, speed_kph: np.ndarray,
                load_kn_per_bearing: np.ndarray, wear_index: np.ndarray,
-               rng: np.random.Generator, rows: int) -> tuple:
+               rng: np.random.Generator, rows: int,
+               tire_circ_m: np.ndarray = None) -> tuple:
     """
     Hub bearing temperatures per corner (FL, FR, RL, RR).
     Q_gen = friction_coeff × F_radial × omega × r_bearing
@@ -502,7 +500,9 @@ def _hub_temps(ambient_c: np.ndarray, speed_kph: np.ndarray,
     A_surface = 0.04           # m², heat dissipation area
     # Convective heat transfer coefficient rises with vehicle speed
     h_conv    = 8.0 + 0.22 * np.clip(speed_kph, 0, 130)
-    omega     = np.clip(speed_kph / 3.6 / 3.2, 0.1, 20.0) * (2 * np.pi)  # rad/s approx
+    # tire_circ_m is circumference (NOT radius); omega = (v_mps / circ_m) * 2π
+    circ_m    = tire_circ_m if tire_circ_m is not None else np.full(rows, 3.20)
+    omega     = np.clip(speed_kph / 3.6 / np.maximum(circ_m, 0.5), 0.1, 20.0) * (2 * np.pi)
     # Friction coefficient: healthy ≈ 0.0015, worn ≈ 0.004-0.008, failing ≈ 0.008-0.012
     # Real tapered roller bearing range: 0.001-0.012 depending on condition
     mu_base   = 0.0015 + wear_index * 0.003
@@ -728,7 +728,7 @@ def generate_mixed_fleet_data(
 
     # ISA air density
     rho            = _isa_density(elevation_ft, ambient_temp_c)
-    vol_eff        = _volumetric_efficiency(rho)
+    vol_eff        = _charge_density_ratio(rho)
     air_density_kg = rho
 
     # ── Operational profile ──────────────────────────────────────────────────
@@ -802,7 +802,8 @@ def generate_mixed_fleet_data(
     aero_kw_v  = _aero_kw(speed_kph, rho, cd, frontal_m2)
     roll_kw_v  = _rolling_kw(speed_kph, mass_kg, crr_base * (1.0 + maintenance_neglect * 0.3))
     grade_kw_v = _grade_kw(speed_kph, mass_kg, road_grade_pct)
-    road_load_kw = np.clip(aero_kw_v + roll_kw_v + grade_kw_v, 0, engine_kw * 0.95)
+    # Lower bound is negative engine braking limit, not 0 — downhill grades are valid
+    road_load_kw = np.clip(aero_kw_v + roll_kw_v + grade_kw_v, -engine_kw * 0.30, engine_kw * 0.95)
     engine_load_pct = np.clip(road_load_kw / np.maximum(engine_kw, 1.0) * 100.0
                               + rng.normal(0, 4, rows), 5, 98)
 
@@ -830,7 +831,7 @@ def generate_mixed_fleet_data(
     fuel_pressure = np.clip(fuel_pressure, 8, 85)
 
     # ── Lambda / EGT / SCR chain ──────────────────────────────────────────────
-    lambda_afr = _lambda(fuel_rate, rho, speed_kph, engine_kw, stoich, vol_eff, diesel)
+    lambda_afr = _lambda(rho)
     egt_c      = _egt(rpm, engine_load_pct, lambda_afr, diesel)
     # During active regen, EGT spikes to 560-580°C
     scr_inlet  = _scr_inlet(egt_c, ambient_temp_c, speed_kph)
@@ -914,7 +915,8 @@ def generate_mixed_fleet_data(
     load_per_bearing = mass_kg * np.clip(0.14 + payload_ratio * 0.06, 0.10, 0.30) / 1000  # kN
 
     hub_fl, hub_fr, hub_rl, hub_rr = _hub_temps(
-        ambient_temp_c, speed_kph, load_per_bearing, wear_index, rng, rows)
+        ambient_temp_c, speed_kph, load_per_bearing, wear_index, rng, rows,
+        tire_circ_m=_phys(vehicle_class, "tire_circ_m"))
 
     # ── DPF state ─────────────────────────────────────────────────────────────
     # Use per-vehicle-class ash capacity for accuracy
@@ -1330,12 +1332,25 @@ def _train_from_df(df: pd.DataFrame, seed: int = 42, calibrate: bool = False) ->
     X = df[available_features]
     y = df["failure"]
 
-    # With natural balance the validation set must be large enough to fit calibration
+    # Grouped split by vehicle_id prevents same-truck rows leaking across train/test.
+    # Falls back to stratified random split when vehicle_id is absent.
     val_frac = 0.25 if calibrate else 0.20
-    X_dev, X_test, y_dev, y_test = train_test_split(
-        X, y, test_size=0.22, random_state=seed, stratify=y)
-    X_train, X_val, y_train, y_val = train_test_split(
-        X_dev, y_dev, test_size=val_frac, random_state=seed, stratify=y_dev)
+    if "vehicle_id" in df.columns:
+        groups = df["vehicle_id"].values
+        gss_test = GroupShuffleSplit(n_splits=1, test_size=0.22, random_state=seed)
+        dev_idx, test_idx = next(gss_test.split(X, y, groups=groups))
+        X_dev, X_test = X.iloc[dev_idx], X.iloc[test_idx]
+        y_dev, y_test = y.iloc[dev_idx], y.iloc[test_idx]
+        groups_dev = groups[dev_idx]
+        gss_val = GroupShuffleSplit(n_splits=1, test_size=val_frac, random_state=seed)
+        tr_idx, val_idx = next(gss_val.split(X_dev, y_dev, groups=groups_dev))
+        X_train, X_val = X_dev.iloc[tr_idx], X_dev.iloc[val_idx]
+        y_train, y_val = y_dev.iloc[tr_idx], y_dev.iloc[val_idx]
+    else:
+        X_dev, X_test, y_dev, y_test = train_test_split(
+            X, y, test_size=0.22, random_state=seed, stratify=y)
+        X_train, X_val, y_train, y_val = train_test_split(
+            X_dev, y_dev, test_size=val_frac, random_state=seed, stratify=y_dev)
 
     # Compute balanced sample weights for both RF and HGB.
     # Per-class amplifiers additionally boost cargo_van and medium_duty failures,
@@ -1575,12 +1590,15 @@ def _train_from_df(df: pd.DataFrame, seed: int = 42, calibrate: bool = False) ->
         "holdout":         holdout_metrics,
         "featureImportance": feature_importance,
         "brier_score":     brier,
-        "physics_engine":  "v4.1 — ISA/aero/BSFC/thermal/Walther/L10/DPF/Peukert/sensor-drift + isotonic calibration",
+        "physics_engine":  "v4.2 — ISA/aero/BSFC/thermal/Walther/L10/DPF/Peukert/sensor-drift + isotonic calibration + audit fixes",
         "calibrated":      calibrate,
         "notes": (
-            "Physics-informed synthetic priors v4.1. "
+            "Physics-informed synthetic priors v4.2. "
+            "Audit fixes: (1) omega uses class-specific tire circumference (not hardcoded 0.32 m radius); "
+            "(2) lambda fixed from (rho/1.204)² to linear rho/1.204, rho_sl unified to 1.204 in train+infer; "
+            "(3) road_load_kw lower bound relaxed to -0.30×engine_kw for downhill grade recovery; "
+            "(4) grouped vehicle-level train/test splits (GroupShuffleSplit on vehicle_id). "
             "Natural-balance training (8.5% real failure rate) + Platt isotonic calibration. "
-            "Output probabilities match real-world fleet base rate. "
             "Bearing life from field-calibrated L10; DPF from sawtooth regen state machine; "
             "battery from Peukert + Arrhenius aging; oil from Walther viscosity equation."
         ),
@@ -1695,6 +1713,8 @@ def run_calibrated_training(
               end="", flush=True)
         df  = generate_mixed_fleet_data(fleet_size=fleet_size, days=45, seed=seed)
         nat_rate = df["failure"].mean()
+        # Make vehicle_id globally unique across seeds so grouped splits work correctly
+        df["vehicle_id"] = f"S{seed}_" + df["vehicle_id"].astype(str)
         # Proportional sample — preserves natural class ratio
         n_sample = min(len(df), sample_per_seed)
         rng = np.random.default_rng(seed + 77777)
