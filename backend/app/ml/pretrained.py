@@ -159,7 +159,7 @@ def _oil_film_ratio(viscosity_cst: float, rpm: float, engine_load_pct: float) ->
     Stribeck-curve film thickness ratio (1.0 = full hydrodynamic, 0 = boundary).
     hm ∝ (η·N/P)^0.7; normalised to healthy operating point.
     """
-    eta = viscosity_cst * 1e-6  # m²/s → roughly Pa·s at unit density
+    eta = viscosity_cst * 1e-6  # kinematic viscosity in m²/s
     N = max(1.0, rpm) / 60.0    # rps
     P = max(0.01, engine_load_pct / 100.0)
     raw = (eta * N / P) ** 0.7
@@ -442,7 +442,7 @@ class PretrainedScorer:
             # Estimate from physics: Q_gen = mu × F × omega × r / (h_conv × A)
             mu_est = 0.0015 + wear_index * 0.003
             h_conv = 8.0 + 0.22 * min(vehicle_speed_kph, 130.0)
-            omega  = max(0.1, vehicle_speed_kph / 3.6 / 3.2) * (2 * math.pi)
+            omega  = max(0.1, vehicle_speed_kph / 3.6 / 0.32) * (2 * math.pi)
             load_n = specs["mass"] * max(0.10, 0.14 + payload_ratio * 0.06)
             Q_w    = mu_est * load_n * omega * 0.065
             hub_est = min(200.0, ambient + Q_w / max(0.1, h_conv * 0.04))
