@@ -402,17 +402,43 @@ def _walther_viscosity(oil_temp_c: np.ndarray) -> np.ndarray:
     return np.clip(nu, 1.0, 2000.0)
 
 
-def _oil_film_ratio(viscosity_cst: np.ndarray, rpm: np.ndarray,
-                    load_pct: np.ndarray, wear_index: np.ndarray) -> np.ndarray:
+def _oil_density_arr(oil_temp_c: np.ndarray) -> np.ndarray:
+    """SAE 15W-40 mineral density [kg/m³]: ρ(T) = 875 − 0.65·(T−15), clamped [750, 950]."""
+    return np.clip(875.0 - 0.65 * (oil_temp_c - 15.0), 750.0, 950.0)
+
+
+def _oil_film_ratio(
+    viscosity_cst: np.ndarray,
+    oil_temp_c: np.ndarray,
+    rpm: np.ndarray,
+    load_pct: np.ndarray,
+    wear_index: np.ndarray,
+) -> np.ndarray:
     """
-    Stribeck number proxy → oil film health ratio (1=full EHD film, 0=boundary).
-    Film thickness ∝ (eta * N / P)^0.7.  Worn bearings have larger clearance.
+    Empirical lubrication-health score (Stribeck/Hersey number proxy).
+    Returns 1.0 = full hydrodynamic film, 0.0 = boundary lubrication.
+
+    NOT a physical film-thickness calculation — a normalized dimensionless
+    health indicator for SAE 15W-40 engine oil in a journal bearing.
+
+    H = (η · N / P)^0.7  where
+        ν  [m²/s]  = viscosity_cst × 1e-6      (kinematic viscosity)
+        η  [Pa·s]  = ρ_oil × ν                 (dynamic viscosity)
+        N  [rps]   = rpm / 60                   (rotational speed)
+        P  [-]     = (load_pct/100) × (1 + wear_index×0.5)
+
+    Oil density: ρ(T) = 875 − 0.65·(T−15) kg/m³ (SAE 15W-40, 0–150 °C, ±15 kg/m³)
+    Normalization: H / (H + 0.50)
+    Calibration: ≈ 0.656 at 15 cSt / 80 °C / 1800 rpm / 40% load / 0 wear.
+    Must match _oil_film_ratio in backend/app/ml/pretrained.py exactly.
     """
-    eta = viscosity_cst * 1e-6       # cSt → m²/s (approx mPa·s)
-    N   = np.clip(rpm, 100, 6000)
-    P   = np.clip(load_pct / 100.0, 0.05, 1.0) * (1.0 + wear_index * 0.5)
-    stribeck = (eta * N / P) ** 0.7
-    return np.clip(stribeck / (stribeck + 0.08), 0.0, 1.0)
+    nu      = np.clip(viscosity_cst, 0.1, None) * 1e-6           # kinematic [m²/s]
+    rho_oil = _oil_density_arr(oil_temp_c)                        # density [kg/m³]
+    eta     = rho_oil * nu                                        # dynamic [Pa·s]
+    N       = np.clip(rpm, 1.0, None) / 60.0                     # rotational speed [rps]
+    P       = np.clip(load_pct / 100.0, 0.05, 1.0) * (1.0 + np.clip(wear_index, 0, None) * 0.5)
+    H       = (eta * N / P) ** 0.7                               # Stribeck proxy
+    return np.clip(H / (H + 0.50), 0.0, 1.0)
 
 
 def _oil_tbn(engine_hours: np.ndarray, oil_temp_c: np.ndarray,
@@ -856,7 +882,7 @@ def generate_mixed_fleet_data(
 
     # ── Oil physics ───────────────────────────────────────────────────────────
     oil_viscosity  = _walther_viscosity(oil_temp)
-    oil_film_ratio = _oil_film_ratio(oil_viscosity, rpm, engine_load_pct,
+    oil_film_ratio = _oil_film_ratio(oil_viscosity, oil_temp, rpm, engine_load_pct,
                                       np.clip(engine_hours / 50000, 0, 2))
     oil_tbn_val    = _oil_tbn(engine_hours, oil_temp, maintenance_neglect)
 

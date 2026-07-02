@@ -154,17 +154,69 @@ def _walther_viscosity(oil_temp_c: float) -> float:
     return max(1.0, min(2000.0, nu))
 
 
-def _oil_film_ratio(viscosity_cst: float, rpm: float, engine_load_pct: float) -> float:
+def _oil_density(oil_temp_c: float) -> float:
     """
-    Stribeck-curve film thickness ratio (1.0 = full hydrodynamic, 0 = boundary).
-    hm ∝ (η·N/P)^0.7; normalised to healthy operating point.
+    SAE 15W-40 mineral oil density [kg/m³], linear ASTM D4052 fit.
+    ρ(T) = 875 − 0.65·(T − 15)  [kg/m³],  valid 0–150 °C, ±15 kg/m³.
+    Clamped to [750, 950] to avoid unphysical values at extreme temperatures.
     """
-    eta = viscosity_cst * 1e-6  # kinematic viscosity in m²/s
-    N = max(1.0, rpm) / 60.0    # rps
-    P = max(0.01, engine_load_pct / 100.0)
-    raw = (eta * N / P) ** 0.7
-    nominal = (8e-6 * 25.0 / 0.6) ** 0.7
-    return min(1.0, max(0.0, raw / nominal))
+    return max(750.0, min(950.0, 875.0 - 0.65 * (oil_temp_c - 15.0)))
+
+
+def _oil_film_ratio(
+    viscosity_cst: float,
+    oil_temp_c: float,
+    rpm: float,
+    engine_load_pct: float,
+    wear_proxy: float = 0.0,
+) -> float:
+    """
+    Empirical lubrication-health score based on the Stribeck/Hersey number proxy.
+    Returns 1.0 = full hydrodynamic film, 0.0 = boundary lubrication.
+
+    This is NOT a physical film-thickness calculation.  It is a normalized
+    dimensionless health indicator calibrated for SAE 15W-40 journal bearings.
+    Named 'oil_film_thickness_ratio' in the feature set for historical reasons.
+
+    Parameters
+    ----------
+    viscosity_cst  : kinematic viscosity [cSt], from Walther equation
+    oil_temp_c     : oil temperature [°C]  (density model valid 0–150 °C)
+    rpm            : engine speed [RPM]
+    engine_load_pct: engine load [%] 0–100, used as a dimensionless bearing-
+                     pressure proxy (not a physical bearing pressure in Pa)
+    wear_proxy     : bearing wear index [0–2]; increases effective load on
+                     bearing surfaces (matches training feature engine_hours/50000)
+
+    Stribeck proxy: H = (η · N / P)^0.7  where
+        ν  [m²/s]  = viscosity_cst × 1e-6              (kinematic viscosity)
+        η  [Pa·s]  = ρ_oil [kg/m³] × ν                 (dynamic viscosity)
+        N  [rps]   = rpm / 60                           (rotational speed)
+        P  [-]     = (load_pct/100) × (1 + wear×0.5)   (dimensionless load proxy)
+
+    Normalization: H / (H + K_NOM) with K_NOM = 0.50
+        Calibration point: η=0.01249 Pa·s (15 cSt, 80 °C), N=30 rps, P=0.40
+        → returns ≈ 0.656 (healthy oil at moderate speed and load)
+
+    Negative or physically impossible inputs are sanitized with a warning.
+    """
+    if viscosity_cst < 0:
+        logger.warning("[oil_film] viscosity_cst=%.3f < 0 — clamped to 0.1 cSt", viscosity_cst)
+        viscosity_cst = 0.1
+    if rpm < 0:
+        logger.warning("[oil_film] rpm=%.1f < 0 — clamped to 0", rpm)
+        rpm = 0.0
+    if engine_load_pct < 0:
+        logger.warning("[oil_film] engine_load_pct=%.1f < 0 — clamped to 0", engine_load_pct)
+        engine_load_pct = 0.0
+
+    nu = max(1e-9, viscosity_cst) * 1e-6           # kinematic viscosity [m²/s]
+    rho_oil = _oil_density(oil_temp_c)              # density [kg/m³]
+    eta = rho_oil * nu                              # dynamic viscosity [Pa·s]
+    N = max(1.0, rpm) / 60.0                        # rotational speed [rps]
+    P = max(0.05, engine_load_pct / 100.0) * (1.0 + max(0.0, wear_proxy) * 0.5)
+    H = (eta * N / P) ** 0.7                        # Stribeck number proxy [Pa·s · rps]
+    return min(1.0, max(0.0, H / (H + 0.50)))
 
 
 def _oil_tbn_estimate(engine_hours: float, oil_temp_c: float,
@@ -426,7 +478,10 @@ class PretrainedScorer:
 
         # ── v4 Physics: oil / lubrication ────────────────────────────────────
         oil_viscosity = _walther_viscosity(oil_temp)
-        oil_film_ratio = _oil_film_ratio(oil_viscosity, rpm, engine_load_pct)
+        # Wear proxy matches training: engine_hours/50000, clamped to [0, 2]
+        _wear_proxy = min(2.0, max(0.0, engine_hours / 50_000.0))
+        oil_film_ratio = _oil_film_ratio(oil_viscosity, oil_temp, rpm,
+                                         engine_load_pct, _wear_proxy)
         oil_tbn = _oil_tbn_estimate(engine_hours, oil_temp, maintenance_neglect)
 
         # ── v4 Physics: bearing & hub ────────────────────────────────────────
