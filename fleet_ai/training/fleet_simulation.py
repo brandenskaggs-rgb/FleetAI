@@ -31,6 +31,7 @@ import numpy as np
 import pandas as pd
 from sklearn.ensemble import HistGradientBoostingClassifier, RandomForestClassifier
 from sklearn.isotonic import IsotonicRegression
+from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import (accuracy_score, brier_score_loss, f1_score,
                              precision_score, recall_score, roc_auc_score)
 from sklearn.model_selection import train_test_split
@@ -1365,60 +1366,121 @@ def _train_from_df(df: pd.DataFrame, seed: int = 42, calibrate: bool = False) ->
     rf_model.fit(X_train, y_train, sample_weight=sample_w)
     hgb_model.fit(X_train, y_train, sample_weight=sample_w)
 
-    # Isotonic calibration: fit a monotone mapping from raw score → calibrated probability.
-    # Uses the validation set (held out from training) so there is no data leakage.
-    # Stored in the bundle; scorer applies them at inference time.
-    rf_calibrator  = None
-    hgb_calibrator = None
+    # ── Step 1: Per-model isotonic calibrators on first half of val ──────────
+    # Fitting on a subset of val prevents the calibrators from overfitting the
+    # same data used for ensemble-weight search and ensemble calibration below.
+    rf_val_raw   = rf_model.predict_proba(X_val)[:, 1]
+    hgb_val_raw  = hgb_model.predict_proba(X_val)[:, 1]
+    y_val_arr    = y_val.to_numpy()
+    n_half       = len(y_val_arr) // 2
+
+    rf_calibrator = hgb_calibrator = None
     if calibrate:
-        rf_raw  = rf_model.predict_proba(X_val)[:, 1]
-        hgb_raw = hgb_model.predict_proba(X_val)[:, 1]
-        rf_calibrator  = IsotonicRegression(out_of_bounds="clip").fit(rf_raw,  y_val)
-        hgb_calibrator = IsotonicRegression(out_of_bounds="clip").fit(hgb_raw, y_val)
-        print(f"  Calibrators fitted on {len(X_val):,} val rows "
-              f"(pos_rate={y_val.mean():.3%})")
+        rf_calibrator  = IsotonicRegression(out_of_bounds="clip").fit(
+            rf_val_raw[:n_half], y_val_arr[:n_half])
+        hgb_calibrator = IsotonicRegression(out_of_bounds="clip").fit(
+            hgb_val_raw[:n_half], y_val_arr[:n_half])
+        print(f"  Per-model calibrators: {n_half:,} val rows  (pos={y_val_arr[:n_half].mean():.3%})")
 
-    rf_val_prob  = rf_model.predict_proba(X_val)[:, 1]
-    hgb_val_prob = hgb_model.predict_proba(X_val)[:, 1]
+    # ── Step 2: Apply per-model calibration to full val set ──────────────────
+    if calibrate:
+        rf_val_cal  = rf_calibrator.predict(rf_val_raw)
+        hgb_val_cal = hgb_calibrator.predict(hgb_val_raw)
+    else:
+        rf_val_cal  = rf_val_raw
+        hgb_val_cal = hgb_val_raw
 
-    best       = None
-    best_tuple = (0.55, 0.32)
-    for rf_weight in np.arange(0.20, 0.86, 0.05):
-        val_prob = rf_weight * rf_val_prob + (1.0 - rf_weight) * hgb_val_prob
-        for threshold in np.arange(0.10, 0.81, 0.01):
-            val_pred  = (val_prob >= threshold).astype(int)
-            precision = precision_score(y_val, val_pred, zero_division=0)
-            recall    = recall_score(y_val, val_pred, zero_division=0)
-            f1        = f1_score(y_val, val_pred, zero_division=0)
-            if precision < 0.55 or recall < 0.45:
-                continue
-            score = (f1 + 0.18 * precision + 0.05 * recall, precision, recall)
-            if best is None or score > best:
-                best = score
-                best_tuple = (float(rf_weight), float(threshold))
-
-    if best is None:
-        for rf_weight in np.arange(0.20, 0.86, 0.05):
-            val_prob = rf_weight * rf_val_prob + (1.0 - rf_weight) * hgb_val_prob
-            for threshold in np.arange(0.10, 0.91, 0.01):
-                val_pred  = (val_prob >= threshold).astype(int)
-                precision = precision_score(y_val, val_pred, zero_division=0)
-                recall    = recall_score(y_val, val_pred, zero_division=0)
-                f1        = f1_score(y_val, val_pred, zero_division=0)
-                if recall < 0.25:
-                    continue
-                score = (f1 + 0.22 * precision, precision, recall)
-                if best is None or score > best:
-                    best = score
-                    best_tuple = (float(rf_weight), float(threshold))
-
-    rf_weight, threshold = best_tuple
+    # ── Step 3: Brier-optimal weight search on second half of val ────────────
+    # Weights are chosen to minimize Brier of the calibrated blend, subject to
+    # AUC not falling more than 0.001 below the equal-weight baseline.
+    rf_ws, hgb_ws, y_ws = rf_val_cal[n_half:], hgb_val_cal[n_half:], y_val_arr[n_half:]
+    _ref_blend   = 0.5 * rf_ws + 0.5 * hgb_ws
+    _ref_auc     = roc_auc_score(y_ws, _ref_blend) if len(np.unique(y_ws)) > 1 else 0.0
+    best_brier_w = float("inf")
+    best_rf_w    = 0.30
+    for cand_rf_w in np.linspace(0.05, 0.95, 91):
+        _blend = cand_rf_w * rf_ws + (1.0 - cand_rf_w) * hgb_ws
+        if len(np.unique(y_ws)) < 2:
+            continue
+        if roc_auc_score(y_ws, _blend) < _ref_auc - 0.001:
+            continue
+        _b = brier_score_loss(y_ws, _blend)
+        if _b < best_brier_w:
+            best_brier_w = _b
+            best_rf_w    = float(cand_rf_w)
+    rf_weight  = best_rf_w
     hgb_weight = 1.0 - rf_weight
+    print(f"  Brier-optimal weights:  rf={rf_weight:.2f}  hgb={hgb_weight:.2f}"
+          f"  (val-B raw Brier={best_brier_w:.5f})")
 
-    rf_test_prob  = rf_model.predict_proba(X_test)[:, 1]
-    hgb_test_prob = hgb_model.predict_proba(X_test)[:, 1]
-    test_prob     = rf_weight * rf_test_prob + hgb_weight * hgb_test_prob
-    predictions   = (test_prob >= threshold).astype(int)
+    # ── Step 4: Ensemble-level calibrator on full val blended output ─────────
+    # Calibrates the blended probability as a unit.  Tries both isotonic and
+    # Platt (logistic) scaling and keeps whichever scores lower Brier on val.
+    ensemble_calibrator      = None
+    ensemble_calibrator_type = "none"
+    if calibrate:
+        _blend_full = rf_weight * rf_val_cal + hgb_weight * hgb_val_cal
+        _iso   = IsotonicRegression(out_of_bounds="clip").fit(_blend_full, y_val_arr)
+        _platt = LogisticRegression(C=1e4, solver="lbfgs").fit(
+            _blend_full.reshape(-1, 1), y_val_arr)
+        _iso_b   = brier_score_loss(y_val_arr, _iso.predict(_blend_full))
+        _platt_b = brier_score_loss(
+            y_val_arr, _platt.predict_proba(_blend_full.reshape(-1, 1))[:, 1])
+        if _iso_b <= _platt_b:
+            ensemble_calibrator      = _iso
+            ensemble_calibrator_type = "isotonic"
+        else:
+            ensemble_calibrator      = _platt
+            ensemble_calibrator_type = "platt"
+        print(f"  Ensemble calibrator: {ensemble_calibrator_type}"
+              f"  (isotonic={_iso_b:.5f}  platt={_platt_b:.5f}  on val)")
+
+    # ── Step 5: Full inference pipeline helper ────────────────────────────────
+    def _pipeline(rf_raw_p: np.ndarray, hgb_raw_p: np.ndarray) -> np.ndarray:
+        """Applies the full production pipeline: per-model cal → blend → ensemble cal."""
+        _rf  = rf_calibrator.predict(rf_raw_p)   if rf_calibrator  is not None else rf_raw_p
+        _hgb = hgb_calibrator.predict(hgb_raw_p) if hgb_calibrator is not None else hgb_raw_p
+        _b   = rf_weight * _rf + hgb_weight * _hgb
+        if ensemble_calibrator is None:
+            return _b
+        if hasattr(ensemble_calibrator, "predict_proba"):
+            return ensemble_calibrator.predict_proba(_b.reshape(-1, 1))[:, 1]
+        return ensemble_calibrator.predict(_b)
+
+    # ── Step 6: Threshold search on full val through calibrated pipeline ──────
+    val_prob_final = _pipeline(rf_val_raw, hgb_val_raw)
+    best_thr = None
+    best_threshold = 0.32
+    for threshold in np.arange(0.10, 0.81, 0.01):
+        val_pred  = (val_prob_final >= threshold).astype(int)
+        _p  = precision_score(y_val, val_pred, zero_division=0)
+        _r  = recall_score(y_val, val_pred, zero_division=0)
+        _f1 = f1_score(y_val, val_pred, zero_division=0)
+        if _p < 0.55 or _r < 0.45:
+            continue
+        score = (_f1 + 0.18 * _p + 0.05 * _r, _p, _r)
+        if best_thr is None or score > best_thr:
+            best_thr = score
+            best_threshold = float(threshold)
+    if best_thr is None:
+        for threshold in np.arange(0.10, 0.91, 0.01):
+            val_pred  = (val_prob_final >= threshold).astype(int)
+            _p  = precision_score(y_val, val_pred, zero_division=0)
+            _r  = recall_score(y_val, val_pred, zero_division=0)
+            _f1 = f1_score(y_val, val_pred, zero_division=0)
+            if _r < 0.25:
+                continue
+            score = (_f1 + 0.22 * _p, _p, _r)
+            if best_thr is None or score > best_thr:
+                best_thr = score
+                best_threshold = float(threshold)
+    threshold = best_threshold
+
+    # ── Step 7: Test set through full pipeline ────────────────────────────────
+    rf_test_raw  = rf_model.predict_proba(X_test)[:, 1]
+    hgb_test_raw = hgb_model.predict_proba(X_test)[:, 1]
+    test_prob    = _pipeline(rf_test_raw, hgb_test_raw)
+    predictions  = (test_prob >= threshold).astype(int)
 
     thresholds = {
         "balanced":      float(threshold),
@@ -1431,6 +1493,8 @@ def _train_from_df(df: pd.DataFrame, seed: int = 42, calibrate: bool = False) ->
         "model_type": "ensemble",
         "models": {"random_forest": rf_model, "hist_gradient_boosting": hgb_model},
         "calibrators": {"random_forest": rf_calibrator, "hist_gradient_boosting": hgb_calibrator},
+        "ensemble_calibrator": ensemble_calibrator,
+        "ensemble_calibrator_type": ensemble_calibrator_type,
         "features": available_features,
         "threshold": float(threshold), "thresholds": thresholds,
         "rf_weight": float(rf_weight), "hgb_weight": float(hgb_weight),
@@ -1444,35 +1508,40 @@ def _train_from_df(df: pd.DataFrame, seed: int = 42, calibrate: bool = False) ->
 
     profiles = build_baseline_profiles(df)
 
+    # ── Per-class metrics + Brier breakdown ──────────────────────────────────
     class_report = {}
     eval_df = X_test.copy()
     eval_df["actual"]    = y_test.to_numpy()
     eval_df["predicted"] = predictions
+    eval_df["prob"]      = test_prob
     inverse_class = {v: k for k, v in VEHICLE_CLASS_CODES.items()}
     for class_code, group in eval_df.groupby("vehicle_class_code"):
         actual    = group["actual"]
         predicted = group["predicted"]
+        prob      = group["prob"]
         class_report[inverse_class[int(class_code)]] = {
-            "rows": int(len(group)),
-            "precision": round(float(precision_score(actual, predicted, zero_division=0)), 6),
-            "recall":    round(float(recall_score(actual, predicted, zero_division=0)), 6),
-            "f1":        round(float(f1_score(actual, predicted, zero_division=0)), 6),
+            "rows":        int(len(group)),
+            "precision":   round(float(precision_score(actual, predicted, zero_division=0)), 6),
+            "recall":      round(float(recall_score(actual, predicted, zero_division=0)), 6),
+            "f1":          round(float(f1_score(actual, predicted, zero_division=0)), 6),
             "failureRate": round(float(actual.mean()), 6),
+            "brier_score": round(float(brier_score_loss(actual, prob)), 6),
         }
 
+    # ── Holdout through full calibrated pipeline ──────────────────────────────
     holdout_df    = generate_heavy_duty_data(seed=777)
     holdout_feats = [c for c in available_features if c in holdout_df.columns]
-    ho_rf  = rf_model.predict_proba(holdout_df[holdout_feats])[:, 1]
-    ho_hgb = hgb_model.predict_proba(holdout_df[holdout_feats])[:, 1]
-    ho_prob = rf_weight * ho_rf + hgb_weight * ho_hgb
-    ho_pred = (ho_prob >= threshold).astype(int)
-    y_holdout = holdout_df["failure"].to_numpy()
+    ho_rf_raw  = rf_model.predict_proba(holdout_df[holdout_feats])[:, 1]
+    ho_hgb_raw = hgb_model.predict_proba(holdout_df[holdout_feats])[:, 1]
+    ho_prob    = _pipeline(ho_rf_raw, ho_hgb_raw)
+    ho_pred    = (ho_prob >= threshold).astype(int)
+    y_holdout  = holdout_df["failure"].to_numpy()
     holdout_metrics = {
-        "rows":     int(len(holdout_df)),
-        "accuracy": round(float(accuracy_score(y_holdout, ho_pred)), 6),
-        "precision": round(float(precision_score(y_holdout, ho_pred, zero_division=0)), 6),
-        "recall":   round(float(recall_score(y_holdout, ho_pred, zero_division=0)), 6),
-        "f1":       round(float(f1_score(y_holdout, ho_pred, zero_division=0)), 6),
+        "rows":        int(len(holdout_df)),
+        "accuracy":    round(float(accuracy_score(y_holdout, ho_pred)), 6),
+        "precision":   round(float(precision_score(y_holdout, ho_pred, zero_division=0)), 6),
+        "recall":      round(float(recall_score(y_holdout, ho_pred, zero_division=0)), 6),
+        "f1":          round(float(f1_score(y_holdout, ho_pred, zero_division=0)), 6),
         "roc_auc":     round(float(roc_auc_score(y_holdout, ho_prob)), 6),
         "brier_score": round(float(brier_score_loss(y_holdout, ho_prob)), 6),
         "note":        "heavy_duty seed=777 out-of-sample holdout",
@@ -1806,6 +1875,8 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--n-seeds",       type=int, default=20)
     p.add_argument("--sample-per-seed", type=int, default=10000)
     p.add_argument("--full",          action="store_true", help="200 seeds (2M rows)")
+    p.add_argument("--calibrated",    action="store_true",
+                   help="Natural-balance + isotonic calibration (30 seeds, recommended)")
     p.add_argument("--stage2-data",   action="store_true")
     p.add_argument("--stage2-n-seeds", type=int, default=50)
     p.add_argument("--stage2-sample-per-seed", type=int, default=5000)
@@ -1819,6 +1890,12 @@ if __name__ == "__main__":
             n_seeds=args.stage2_n_seeds,
             fleet_size=args.fleet_size,
             sample_per_seed=args.stage2_sample_per_seed,
+        )
+    elif args.calibrated:
+        run_calibrated_training(
+            n_seeds=args.n_seeds if args.n_seeds != 20 else 30,
+            fleet_size=args.fleet_size,
+            sample_per_seed=args.sample_per_seed if args.sample_per_seed != 10000 else 15000,
         )
     elif args.multi_seed or args.full:
         run_multi_seed_training(

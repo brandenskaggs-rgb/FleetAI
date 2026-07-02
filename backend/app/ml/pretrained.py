@@ -647,13 +647,24 @@ class PretrainedScorer:
             rf_raw  = models["random_forest"].predict_proba(X)[0, 1]
             hgb_raw = models["hist_gradient_boosting"].predict_proba(X)[0, 1]
 
-            # Apply isotonic calibration if available (v4.1+ models)
+            # Step 1: per-model isotonic calibration (v4.1+)
             rf_cal  = cals.get("random_forest")
             hgb_cal = cals.get("hist_gradient_boosting")
             rf_prob  = float(rf_cal.predict([rf_raw])[0])   if rf_cal  is not None else rf_raw
             hgb_prob = float(hgb_cal.predict([hgb_raw])[0]) if hgb_cal is not None else hgb_raw
 
-            return float(np.clip(rf_w * rf_prob + hgb_w * hgb_prob, 0.0, 1.0))
+            # Step 2: blend
+            blended = rf_w * rf_prob + hgb_w * hgb_prob
+
+            # Step 3: ensemble-level calibration (v4.2+ — calibrates the blended output)
+            ens_cal = bundle.get("ensemble_calibrator")
+            if ens_cal is not None:
+                if hasattr(ens_cal, "predict_proba"):
+                    blended = float(ens_cal.predict_proba([[blended]])[0, 1])
+                else:
+                    blended = float(ens_cal.predict([blended])[0])
+
+            return float(np.clip(blended, 0.0, 1.0))
         except Exception as exc:
             logger.debug(f"[pretrained] score error: {exc}")
             return None
