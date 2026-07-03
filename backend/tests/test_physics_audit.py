@@ -115,7 +115,7 @@ class TestOmegaTireCircumference:
         )
 
     def test_omega_zero_at_zero_speed(self):
-        """At zero speed, omega should be at its minimum clamp, not negative."""
+        """At zero speed, omega = 0 → no friction power → hub temp equals ambient."""
         sim = _import_sim()
         rng = np.random.default_rng(42)
         rows = 5
@@ -125,9 +125,13 @@ class TestOmegaTireCircumference:
             np.full(rows, 2.0), np.zeros(rows),
             rng, rows, tire_circ_m=np.full(rows, 3.20)
         )
+        ambient_val = 20.0
         for corner in result:
             assert np.all(np.isfinite(corner)), "Hub temps must be finite at zero speed"
-            assert np.all(corner >= 0), "Hub temps must be non-negative at zero speed"
+            # Zero rotation → zero friction power → hub temp must equal ambient
+            assert np.allclose(corner, ambient_val, atol=1e-6), (
+                f"At zero speed, hub temp should equal ambient ({ambient_val}°C), got {corner}"
+            )
 
     def test_omega_linear_in_speed(self):
         """Hub temperature should increase monotonically with speed (more friction power)."""
@@ -259,16 +263,18 @@ class TestRoadLoadLowerClip:
         )
 
     def test_training_road_load_can_be_negative(self):
-        """Generating data with a steep downhill grade should produce rows where
-        road_load_kw < 0 after the fix."""
+        """Generator now produces negative grades, so some rows must have road_load_kw < 0."""
         sim = _import_sim()
-        df = sim.generate_mixed_fleet_data(fleet_size=200, days=1, seed=55)
-        # Filter for steep downhill
-        steep = df[df["road_grade_pct"] < -4]
-        if len(steep) > 0:
-            assert (steep["road_load_kw"] < 0).any(), (
-                "Some rows with steep downhill grade should have road_load_kw < 0"
-            )
+        df = sim.generate_mixed_fleet_data(fleet_size=500, days=1, seed=55)
+        # Grade generator now uses normal(0.5, 2.0) clipped to [-5.5, 8.5]
+        assert (df["road_grade_pct"] < 0).any(), (
+            "Generator must produce downhill (negative) grades — none found"
+        )
+        steep = df[df["road_grade_pct"] < -3]
+        assert len(steep) > 0, "Expected some rows with grade < -3%"
+        assert (steep["road_load_kw"] < 0).any(), (
+            "Rows with steep downhill grade must have road_load_kw < 0"
+        )
 
     def test_road_load_never_exceeds_engine_limit(self):
         """road_load_kw must not exceed 95% of engine power in generated data.

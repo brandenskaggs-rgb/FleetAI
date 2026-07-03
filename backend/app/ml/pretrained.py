@@ -101,14 +101,16 @@ _MAKE_CODES: dict[str, int] = {
     "kenworth": 4, "peterbilt": 5, "ram": 6, "toyota": 7, "volvo": 8,
 }
 
-# Per-class physics specs (mass_kg, frontal_m2, Cd, Crr, engine_kw, alt_kw, tire_circ_m)
-# tire_circ_m = tire circumference in metres (NOT radius). omega = (v_mps / circ_m) * 2π
+# Per-class physics specs — MUST match fleet_simulation._PHYS exactly.
+# Source of truth is fleet_simulation.py; update both tables together.
+# Keys: mass [kg], A [m²], Cd [-], Crr [-], eng_kw [kW], alt_kw [kW], dpf, tire_circ_m [m]
 _PHYS_SPECS = {
-    0: {"mass": 15000, "A": 9.0,  "Cd": 0.68, "Crr": 0.006, "eng_kw": 340, "alt_kw": 4.5, "dpf": True,  "tire_circ_m": 3.20},
-    1: {"mass":  8000, "A": 7.0,  "Cd": 0.65, "Crr": 0.007, "eng_kw": 200, "alt_kw": 3.0, "dpf": True,  "tire_circ_m": 2.90},
-    2: {"mass":  3500, "A": 3.2,  "Cd": 0.45, "Crr": 0.010, "eng_kw": 150, "alt_kw": 1.8, "dpf": False, "tire_circ_m": 2.20},
-    3: {"mass":  3200, "A": 4.0,  "Cd": 0.55, "Crr": 0.009, "eng_kw": 130, "alt_kw": 1.6, "dpf": False, "tire_circ_m": 2.30},
-    4: {"mass":  1800, "A": 2.2,  "Cd": 0.30, "Crr": 0.011, "eng_kw":  85, "alt_kw": 1.2, "dpf": False, "tire_circ_m": 1.95},
+    # code: matches fleet_simulation._PHYS tuple order via _P_IDX
+    0: {"mass": 36000, "A": 9.4,  "Cd": 0.60, "Crr": 0.0065, "eng_kw": 450, "alt_kw": 3.5, "dpf": True,  "tire_circ_m": 3.20},  # heavy_duty_j1939
+    1: {"mass": 12000, "A": 6.8,  "Cd": 0.65, "Crr": 0.0070, "eng_kw": 200, "alt_kw": 2.2, "dpf": True,  "tire_circ_m": 2.90},  # medium_duty
+    2: {"mass":  3800, "A": 3.3,  "Cd": 0.45, "Crr": 0.0080, "eng_kw": 290, "alt_kw": 1.4, "dpf": False, "tire_circ_m": 2.20},  # light_duty_truck
+    3: {"mass":  4500, "A": 4.2,  "Cd": 0.52, "Crr": 0.0078, "eng_kw": 220, "alt_kw": 1.6, "dpf": False, "tire_circ_m": 2.30},  # cargo_van
+    4: {"mass":  1600, "A": 2.2,  "Cd": 0.30, "Crr": 0.0085, "eng_kw": 130, "alt_kw": 1.0, "dpf": False, "tire_circ_m": 1.95},  # passenger_car
 }
 
 # Fleet-average defaults for features not derivable from live telemetry
@@ -497,7 +499,7 @@ class PretrainedScorer:
             # Estimate from physics: Q_gen = mu × F × omega × r / (h_conv × A)
             mu_est = 0.0015 + wear_index * 0.003
             h_conv = 8.0 + 0.22 * min(vehicle_speed_kph, 130.0)
-            omega  = max(0.1, vehicle_speed_kph / 3.6 / specs["tire_circ_m"]) * (2 * math.pi)
+            omega  = max(0.0, vehicle_speed_kph / 3.6 / specs["tire_circ_m"]) * (2 * math.pi)
             load_n = specs["mass"] * max(0.10, 0.14 + payload_ratio * 0.06)
             Q_w    = mu_est * load_n * omega * 0.065
             hub_est = min(200.0, ambient + Q_w / max(0.1, h_conv * 0.04))

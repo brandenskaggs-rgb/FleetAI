@@ -36,7 +36,7 @@ from sklearn.metrics import (accuracy_score, brier_score_loss, f1_score,
                              precision_score, recall_score, roc_auc_score)
 from sklearn.model_selection import GroupShuffleSplit, train_test_split
 
-MODEL_VERSION = "physics-v4.2.0"
+MODEL_VERSION = "physics-v4.3.0"
 TRAINING_SOURCE = "physics_calibrated_v4"
 
 # ── Identity codes ─────────────────────────────────────────────────────────────
@@ -502,7 +502,8 @@ def _hub_temps(ambient_c: np.ndarray, speed_kph: np.ndarray,
     h_conv    = 8.0 + 0.22 * np.clip(speed_kph, 0, 130)
     # tire_circ_m is circumference (NOT radius); omega = (v_mps / circ_m) * 2π
     circ_m    = tire_circ_m if tire_circ_m is not None else np.full(rows, 3.20)
-    omega     = np.clip(speed_kph / 3.6 / np.maximum(circ_m, 0.5), 0.1, 20.0) * (2 * np.pi)
+    # No minimum clamp on rev/s — zero speed means zero rotation, zero friction heat.
+    omega     = np.clip(speed_kph / 3.6 / np.maximum(circ_m, 0.5), 0.0, 20.0) * (2 * np.pi)
     # Friction coefficient: healthy ≈ 0.0015, worn ≈ 0.004-0.008, failing ≈ 0.008-0.012
     # Real tapered roller bearing range: 0.001-0.012 depending on condition
     mu_base   = 0.0015 + wear_index * 0.003
@@ -747,8 +748,10 @@ def generate_mixed_fleet_data(
     towing_ratio   = np.clip(
         np.where(light, rng.beta(1.4, 7.0, rows),
         np.where(heavy | medium, rng.beta(2.2, 4.0, rows), 0)), 0, 1)
+    # Centred at 0.5% to give realistic downhill/uphill split (~25% downhill).
+    # Mountain regions shift distribution up; range -5.5% to +8.5%.
     road_grade_pct = np.clip(
-        rng.normal(1.0, 0.9, rows) + np.where(region == "mountain", 2.6, 0), 0, 8.5)
+        rng.normal(0.5, 2.0, rows) + np.where(region == "mountain", 2.0, 0), -5.5, 8.5)
     idle_hours_day = np.clip(
         rng.normal(1.0, 0.6, rows) + np.where(heavy, 0.7, 0)
         + np.where(region == "cold", 0.7, 0) + stop_go_ratio * 0.6, 0, 6)
@@ -1590,14 +1593,14 @@ def _train_from_df(df: pd.DataFrame, seed: int = 42, calibrate: bool = False) ->
         "holdout":         holdout_metrics,
         "featureImportance": feature_importance,
         "brier_score":     brier,
-        "physics_engine":  "v4.2 — ISA/aero/BSFC/thermal/Walther/L10/DPF/Peukert/sensor-drift + isotonic calibration + audit fixes",
+        "physics_engine":  "v4.3 — ISA/aero/BSFC/thermal/Walther/L10/DPF/Peukert/sensor-drift + isotonic calibration + audit fixes",
         "calibrated":      calibrate,
         "notes": (
-            "Physics-informed synthetic priors v4.2. "
-            "Audit fixes: (1) omega uses class-specific tire circumference (not hardcoded 0.32 m radius); "
-            "(2) lambda fixed from (rho/1.204)² to linear rho/1.204, rho_sl unified to 1.204 in train+infer; "
-            "(3) road_load_kw lower bound relaxed to -0.30×engine_kw for downhill grade recovery; "
-            "(4) grouped vehicle-level train/test splits (GroupShuffleSplit on vehicle_id). "
+            "Physics-informed synthetic priors v4.3. "
+            "v4.2 audit fixes retained. v4.3 adds: "
+            "(5) training/inference vehicle specs unified (mass, engine_kw, Cd, Crr, frontal_m2 now identical); "
+            "(6) grade generator produces realistic downhill grades normal(0.5,2.0) clipped to [-5.5,8.5]%; "
+            "(7) hub bearing omega floor removed — zero speed produces zero friction heat. "
             "Natural-balance training (8.5% real failure rate) + Platt isotonic calibration. "
             "Bearing life from field-calibrated L10; DPF from sawtooth regen state machine; "
             "battery from Peukert + Arrhenius aging; oil from Walther viscosity equation."
