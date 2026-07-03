@@ -32,11 +32,12 @@ import pandas as pd
 from sklearn.ensemble import HistGradientBoostingClassifier, RandomForestClassifier
 from sklearn.isotonic import IsotonicRegression
 from sklearn.linear_model import LogisticRegression
+from sklearn.calibration import calibration_curve
 from sklearn.metrics import (accuracy_score, brier_score_loss, f1_score,
                              precision_score, recall_score, roc_auc_score)
 from sklearn.model_selection import GroupShuffleSplit, train_test_split
 
-MODEL_VERSION = "physics-v4.3.0"
+MODEL_VERSION = "physics-v4.4.0"
 TRAINING_SOURCE = "physics_calibrated_v4"
 
 # ── Identity codes ─────────────────────────────────────────────────────────────
@@ -71,41 +72,19 @@ MAKE_MODEL_PROFILES = [
 ]
 MAKE_CODES = {make: idx for idx, make in enumerate(sorted({p[0] for p in MAKE_MODEL_PROFILES}))}
 
-# ── Per-class physical specifications ─────────────────────────────────────────
-# Used by every physics module.  All values are typical for the class.
-_PHYS = {
-    # class_key: (mass_kg, frontal_m2, cd, tire_circ_m, crr_base,
-    #             engine_kw, bsfc_min, rpm_bsfc_opt, load_bsfc_opt,
-    #             therm_mass_kj_c, batt_ah, alt_kw, bearing_C_kn, dpf_cap_g,
-    #             rpm_idle, turbo_pr_max, stoich_afr, oil_cap_l)
-    "heavy_duty_j1939":  (36000,  9.4, 0.60, 3.20, 0.0065,
-                           450,  195, 1700, 0.72,
-                           95.0, 200, 3.5,  380,  7000,
-                           650,  3.2, 14.5, 38.0),
-    "medium_duty":       (12000,  6.8, 0.65, 2.90, 0.0070,
-                           200,  210, 1600, 0.70,
-                           55.0, 110, 2.2,  180,  3500,
-                           700,  2.8, 14.5, 15.0),
-    "light_duty_truck":  ( 3800,  3.3, 0.45, 2.20, 0.0080,
-                           290,  260, 2200, 0.65,
-                           22.0,  70, 1.4,   50,     0,
-                           750,  1.5, 14.7,  6.0),
-    "cargo_van":         ( 4500,  4.2, 0.52, 2.30, 0.0078,
-                           220,  270, 2000, 0.62,
-                           24.0,  75, 1.6,   55,     0,
-                           750,  1.6, 14.7,  6.0),
-    "passenger_car":     ( 1600,  2.2, 0.30, 1.95, 0.0085,
-                           130,  290, 2400, 0.55,
-                           12.0,  55, 1.0,   25,     0,
-                           800,  1.3, 14.7,  4.0),
-}
-_P_IDX = {
-    "mass_kg": 0, "frontal_m2": 1, "cd": 2, "tire_circ_m": 3, "crr_base": 4,
-    "engine_kw": 5, "bsfc_min": 6, "rpm_bsfc_opt": 7, "load_bsfc_opt": 8,
-    "therm_mass_kj_c": 9, "batt_ah": 10, "alt_kw": 11, "bearing_C_kn": 12,
-    "dpf_cap_g": 13, "rpm_idle": 14, "turbo_pr_max": 15, "stoich_afr": 16,
-    "oil_cap_l": 17,
-}
+# ── Per-class physical specifications (imported from shared registry) ──────────
+import sys as _sys, pathlib as _pathlib
+_sys.path.insert(0, str(_pathlib.Path(__file__).parents[2]))
+from fleet_ai.physics.vehicle_physics import (
+    VEHICLE_SPECS as _VEHICLE_SPECS,
+    PHYS_KEY_ORDER as _PHYS_KEY_ORDER,
+    build_phys_tuple as _build_phys_tuple,
+)
+
+_PHYS = {name: _build_phys_tuple(name) for name in _VEHICLE_SPECS}
+_P_IDX = {k: i for i, k in enumerate(_PHYS_KEY_ORDER)}
+# Alias for backward compatibility with code that uses "therm_mass_kj_c"
+_P_IDX["therm_mass_kj_c"] = _P_IDX["therm_mass"]
 
 def _phys(vehicle_class: np.ndarray, key: str) -> np.ndarray:
     """Vectorized per-class physical parameter lookup."""
@@ -150,7 +129,7 @@ FEATURE_COLUMNS = [
     "volumetric_efficiency_pct",# charge density vs sea-level reference
     # v4 — combustion & exhaust
     "bsfc_g_per_kwh",           # brake-specific fuel consumption (2-D map)
-    "lambda_afr",               # air/fuel lambda (1.0=stoich, <1=rich)
+    "charge_density_ratio",     # ρ/ρ_SL air-density proxy (renamed from lambda_afr)
     "egt_c",                    # exhaust gas temperature
     "turbo_outlet_temp_c",      # compressor discharge temperature
     "scr_inlet_temp_c",         # SCR catalyst inlet (DEF efficiency)
@@ -1221,7 +1200,7 @@ def generate_mixed_fleet_data(
         "volumetric_efficiency_pct": np.round(vol_eff * 100, 2),
         # v4 combustion & exhaust
         "bsfc_g_per_kwh":        np.round(bsfc, 1),
-        "lambda_afr":            np.round(lambda_afr, 4),
+        "charge_density_ratio":  np.round(lambda_afr, 4),
         "egt_c":                 np.round(egt_c, 1),
         "turbo_outlet_temp_c":   np.round(turbo_outlet_temp, 1),
         "scr_inlet_temp_c":      np.round(scr_inlet, 1),
@@ -1554,15 +1533,55 @@ def _train_from_df(df: pd.DataFrame, seed: int = 42, calibrate: bool = False) ->
     ho_prob    = _pipeline(ho_rf_raw, ho_hgb_raw)
     ho_pred    = (ho_prob >= threshold).astype(int)
     y_holdout  = holdout_df["failure"].to_numpy()
+    ho_brier       = float(brier_score_loss(y_holdout, ho_prob))
+    ho_prevalence  = float(y_holdout.mean())
+    ho_brier_ref   = ho_prevalence * (1.0 - ho_prevalence)   # climatological reference
+    ho_bss         = round(1.0 - ho_brier / max(ho_brier_ref, 1e-9), 6)
+
+    # Reliability curve (calibration curve): 10 equal-width bins
+    frac_pos, mean_pred = calibration_curve(y_holdout, ho_prob, n_bins=10, strategy="uniform")
+    reliability = [{"mean_predicted": round(float(mp), 4), "fraction_positive": round(float(fp), 4)}
+                   for mp, fp in zip(mean_pred, frac_pos)]
+
+    # Calibration slope & intercept: logistic regression of actual on logit(predicted)
+    ho_prob_clipped = np.clip(ho_prob, 1e-6, 1 - 1e-6)
+    logit_pred = np.log(ho_prob_clipped / (1 - ho_prob_clipped)).reshape(-1, 1)
+    cal_lr = LogisticRegression(fit_intercept=True).fit(logit_pred, y_holdout)
+    cal_slope     = round(float(cal_lr.coef_[0][0]), 4)
+    cal_intercept = round(float(cal_lr.intercept_[0]), 4)
+
+    # Per-risk-band Brier (decile bins of predicted probability)
+    risk_bands = []
+    edges = np.linspace(0, 1, 11)
+    for lo, hi in zip(edges[:-1], edges[1:]):
+        mask = (ho_prob >= lo) & (ho_prob < hi)
+        if mask.sum() > 0:
+            risk_bands.append({
+                "band":        f"{lo:.1f}-{hi:.1f}",
+                "rows":        int(mask.sum()),
+                "brier":       round(float(brier_score_loss(y_holdout[mask], ho_prob[mask])), 6),
+                "mean_pred":   round(float(ho_prob[mask].mean()), 4),
+                "frac_actual": round(float(y_holdout[mask].mean()), 4),
+            })
+
     holdout_metrics = {
-        "rows":        int(len(holdout_df)),
-        "accuracy":    round(float(accuracy_score(y_holdout, ho_pred)), 6),
-        "precision":   round(float(precision_score(y_holdout, ho_pred, zero_division=0)), 6),
-        "recall":      round(float(recall_score(y_holdout, ho_pred, zero_division=0)), 6),
-        "f1":          round(float(f1_score(y_holdout, ho_pred, zero_division=0)), 6),
-        "roc_auc":     round(float(roc_auc_score(y_holdout, ho_prob)), 6),
-        "brier_score": round(float(brier_score_loss(y_holdout, ho_prob)), 6),
-        "note":        "heavy_duty seed=777 out-of-sample holdout",
+        "rows":              int(len(holdout_df)),
+        "accuracy":          round(float(accuracy_score(y_holdout, ho_pred)), 6),
+        "precision":         round(float(precision_score(y_holdout, ho_pred, zero_division=0)), 6),
+        "recall":            round(float(recall_score(y_holdout, ho_pred, zero_division=0)), 6),
+        "f1":                round(float(f1_score(y_holdout, ho_pred, zero_division=0)), 6),
+        "roc_auc":           round(float(roc_auc_score(y_holdout, ho_prob)), 6),
+        "brier_score":       round(ho_brier, 6),
+        "brier_skill_score": ho_bss,
+        "prevalence":        round(ho_prevalence, 6),
+        "calibration": {
+            "slope":         cal_slope,
+            "intercept":     cal_intercept,
+            "note":          "logistic regression of actual on logit(predicted); slope=1, intercept=0 is perfect",
+        },
+        "reliability_curve": reliability,
+        "risk_bands":        risk_bands,
+        "note":              "heavy_duty seed=777 out-of-sample holdout",
     }
 
     brier = round(float(brier_score_loss(y_test, test_prob)), 6)
@@ -1593,7 +1612,7 @@ def _train_from_df(df: pd.DataFrame, seed: int = 42, calibrate: bool = False) ->
         "holdout":         holdout_metrics,
         "featureImportance": feature_importance,
         "brier_score":     brier,
-        "physics_engine":  "v4.3 — ISA/aero/BSFC/thermal/Walther/L10/DPF/Peukert/sensor-drift + isotonic calibration + audit fixes",
+        "physics_engine":  "v4.4 — ISA/aero/BSFC/thermal/Walther/L10/DPF/Peukert/sensor-drift + isotonic calibration + shared registry",
         "calibrated":      calibrate,
         "notes": (
             "Physics-informed synthetic priors v4.3. "

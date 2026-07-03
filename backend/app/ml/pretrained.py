@@ -13,6 +13,7 @@ from __future__ import annotations
 import logging
 import math
 import os
+import sys
 import threading
 from pathlib import Path
 from typing import Optional
@@ -21,6 +22,19 @@ import numpy as np
 import pandas as pd
 
 logger = logging.getLogger(__name__)
+
+# Import shared vehicle physics registry. Works from repo root; falls back to
+# inline table only if fleet_ai package is unreachable (e.g. stripped deploys).
+try:
+    _REPO_ROOT = Path(__file__).parents[3]
+    if str(_REPO_ROOT) not in sys.path:
+        sys.path.insert(0, str(_REPO_ROOT))
+    from fleet_ai.physics.vehicle_physics import VEHICLE_SPECS as _VEHICLE_SPECS
+    from fleet_ai.physics.vehicle_physics import inference_specs as _inference_specs
+    _REGISTRY_LOADED = True
+except Exception:
+    _REGISTRY_LOADED = False
+    logger.warning("[pretrained] fleet_ai.physics registry not found — using inline fallback specs")
 
 
 def _find_model_file(filename: str) -> Path:
@@ -70,7 +84,7 @@ PRETRAINED_FEATURE_COLUMNS = [
     "air_density_kg_m3", "aero_drag_kw", "rolling_resistance_kw",
     "road_load_kw", "volumetric_efficiency_pct",
     # v4 — combustion & exhaust
-    "bsfc_g_per_kwh", "lambda_afr", "egt_c", "turbo_outlet_temp_c",
+    "bsfc_g_per_kwh", "charge_density_ratio", "egt_c", "turbo_outlet_temp_c",
     "scr_inlet_temp_c", "def_consumption_rate_pct",
     # v4 — thermal
     "thermal_lag", "heat_soak_delta_c", "egr_cooler_fouling",
@@ -85,6 +99,10 @@ PRETRAINED_FEATURE_COLUMNS = [
     "battery_soh_pct", "battery_soc_pct", "alternator_deficit_w", "cranking_voltage_v",
     # v4 — sensor drift
     "sensor_coolant_error_c", "sensor_maf_error_pct", "sensor_o2_lag_ms",
+    # v4 — accelerometer-derived 24-hour rolling features (0.0 when no IMU available)
+    "hubTempFL_accel_h24", "hubTempFR_accel_h24", "hubTempRL_accel_h24", "hubTempRR_accel_h24",
+    "coolantTemp_accel_h24", "oilTemp_accel_h24", "batteryVoltage_accel_h24",
+    "dpfSootLoad_accel_h24", "bearingFreqScore_accel_h24", "turboBearingTemp_accel_h24",
 ]
 
 _VEHICLE_CLASS_CODES: dict[str, int] = {
@@ -101,17 +119,20 @@ _MAKE_CODES: dict[str, int] = {
     "kenworth": 4, "peterbilt": 5, "ram": 6, "toyota": 7, "volvo": 8,
 }
 
-# Per-class physics specs — MUST match fleet_simulation._PHYS exactly.
-# Source of truth is fleet_simulation.py; update both tables together.
-# Keys: mass [kg], A [m²], Cd [-], Crr [-], eng_kw [kW], alt_kw [kW], dpf, tire_circ_m [m]
-_PHYS_SPECS = {
-    # code: matches fleet_simulation._PHYS tuple order via _P_IDX
-    0: {"mass": 36000, "A": 9.4,  "Cd": 0.60, "Crr": 0.0065, "eng_kw": 450, "alt_kw": 3.5, "dpf": True,  "tire_circ_m": 3.20},  # heavy_duty_j1939
-    1: {"mass": 12000, "A": 6.8,  "Cd": 0.65, "Crr": 0.0070, "eng_kw": 200, "alt_kw": 2.2, "dpf": True,  "tire_circ_m": 2.90},  # medium_duty
-    2: {"mass":  3800, "A": 3.3,  "Cd": 0.45, "Crr": 0.0080, "eng_kw": 290, "alt_kw": 1.4, "dpf": False, "tire_circ_m": 2.20},  # light_duty_truck
-    3: {"mass":  4500, "A": 4.2,  "Cd": 0.52, "Crr": 0.0078, "eng_kw": 220, "alt_kw": 1.6, "dpf": False, "tire_circ_m": 2.30},  # cargo_van
-    4: {"mass":  1600, "A": 2.2,  "Cd": 0.30, "Crr": 0.0085, "eng_kw": 130, "alt_kw": 1.0, "dpf": False, "tire_circ_m": 1.95},  # passenger_car
-}
+# Per-class physics specs — built from shared registry when available.
+_CLASS_NAMES = ["heavy_duty_j1939", "medium_duty", "light_duty_truck", "cargo_van", "passenger_car"]
+
+if _REGISTRY_LOADED:
+    _PHYS_SPECS = {code: _inference_specs(code) for code in range(len(_CLASS_NAMES))}
+else:
+    # Fallback inline table (kept in sync manually — check registry if values differ)
+    _PHYS_SPECS = {
+        0: {"mass": 36000, "A": 9.4,  "Cd": 0.60, "Crr": 0.0065, "eng_kw": 450, "alt_kw": 3.5, "dpf": True,  "tire_circ_m": 3.20},
+        1: {"mass": 12000, "A": 6.8,  "Cd": 0.65, "Crr": 0.0070, "eng_kw": 200, "alt_kw": 2.2, "dpf": True,  "tire_circ_m": 2.90},
+        2: {"mass":  3800, "A": 3.3,  "Cd": 0.45, "Crr": 0.0080, "eng_kw": 290, "alt_kw": 1.4, "dpf": False, "tire_circ_m": 2.20},
+        3: {"mass":  4500, "A": 4.2,  "Cd": 0.52, "Crr": 0.0078, "eng_kw": 220, "alt_kw": 1.6, "dpf": False, "tire_circ_m": 2.30},
+        4: {"mass":  1600, "A": 2.2,  "Cd": 0.30, "Crr": 0.0085, "eng_kw": 130, "alt_kw": 1.0, "dpf": False, "tire_circ_m": 1.95},
+    }
 
 # Fleet-average defaults for features not derivable from live telemetry
 _DEFAULTS: dict[str, float] = {
@@ -592,7 +613,8 @@ class PretrainedScorer:
             "volumetric_efficiency_pct": vol_eff_pct,
             # v4 combustion
             "bsfc_g_per_kwh":         bsfc_g_kwh,
-            "lambda_afr":             lambda_afr,
+            "charge_density_ratio":   lambda_afr,   # renamed from lambda_afr in v4.4
+            "lambda_afr":             lambda_afr,   # backward-compat: old model bundles use this name
             "egt_c":                  egt_c,
             "turbo_outlet_temp_c":    turbo_outlet_c,
             "scr_inlet_temp_c":       scr_inlet_c,

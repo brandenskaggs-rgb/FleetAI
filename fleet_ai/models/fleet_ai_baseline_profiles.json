@@ -1,5 +1,5 @@
 {
-  "modelVersion": "physics-v4.3.0",
+  "modelVersion": "physics-v4.4.0",
   "profiles": {
     "cargo_van:chevrolet:express": {
       "profileKey": "cargo_van:chevrolet:express",
@@ -9,7 +9,7 @@
       "protocol": "OBD2",
       "powertrain": "gasoline",
       "trainingSource": "physics_calibrated_v4",
-      "modelVersion": "physics-v4.3.0",
+      "modelVersion": "physics-v4.4.0",
       "sampleCount": 28204,
       "failureRate": 0.01514,
       "baselineMetrics": {
@@ -158,7 +158,7 @@
       "protocol": "OBD2",
       "powertrain": "gasoline",
       "trainingSource": "physics_calibrated_v4",
-      "modelVersion": "physics-v4.3.0",
+      "modelVersion": "physics-v4.4.0",
       "sampleCount": 28386,
       "failureRate": 0.01698,
       "baselineMetrics": {
@@ -307,7 +307,7 @@
       "protocol": "OBD2",
       "powertrain": "gasoline",
       "trainingSource": "physics_calibrated_v4",
-      "modelVersion": "physics-v4.3.0",
+      "modelVersion": "physics-v4.4.0",
       "sampleCount": 27780,
       "failureRate": 0.016667,
       "baselineMetrics": {
@@ -456,7 +456,7 @@
       "protocol": "J1939",
       "powertrain": "diesel",
       "trainingSource": "physics_calibrated_v4",
-      "modelVersion": "physics-v4.3.0",
+      "modelVersion": "physics-v4.4.0",
       "sampleCount": 27691,
       "failureRate": 0.18999,
       "baselineMetrics": {
@@ -607,7 +607,7 @@
       "protocol": "J1939",
       "powertrain": "diesel",
       "trainingSource": "physics_calibrated_v4",
-      "modelVersion": "physics-v4.3.0",
+      "modelVersion": "physics-v4.4.0",
       "sampleCount": 28275,
       "failureRate": 0.200672,
       "baselineMetrics": {
@@ -758,7 +758,7 @@
       "protocol": "J1939",
       "powertrain": "diesel",
       "trainingSource": "physics_calibrated_v4",
-      "modelVersion": "physics-v4.3.0",
+      "modelVersion": "physics-v4.4.0",
       "sampleCount": 28479,
       "failureRate": 0.194354,
       "baselineMetrics": {
@@ -909,7 +909,7 @@
       "protocol": "J1939",
       "powertrain": "diesel",
       "trainingSource": "physics_calibrated_v4",
-      "modelVersion": "physics-v4.3.0",
+      "modelVersion": "physics-v4.4.0",
       "sampleCount": 28116,
       "failureRate": 0.196045,
       "baselineMetrics": {
@@ -1060,7 +1060,7 @@
       "protocol": "J1939",
       "powertrain": "diesel",
       "trainingSource": "physics_calibrated_v4",
-      "modelVersion": "physics-v4.3.0",
+      "modelVersion": "physics-v4.4.0",
       "sampleCount": 28347,
       "failureRate": 0.191802,
       "baselineMetrics": {
@@ -1211,7 +1211,7 @@
       "protocol": "OBD2",
       "powertrain": "gasoline",
       "trainingSource": "physics_calibrated_v4",
-      "modelVersion": "physics-v4.3.0",
+      "modelVersion": "physics-v4.4.0",
       "sampleCount": 28163,
       "failureRate": 0.012818,
       "baselineMetrics": {
@@ -1360,7 +1360,7 @@
       "protocol": "OBD2",
       "powertrain": "gasoline",
       "trainingSource": "physics_calibrated_v4",
-      "modelVersion": "physics-v4.3.0",
+      "modelVersion": "physics-v4.4.0",
       "sampleCount": 27962,
       "failureRate": 0.012159,
       "baselineMetrics": {
@@ -1509,7 +1509,7 @@
       "protocol": "OBD2",
       "powertrain": "gasoline",
       "trainingSource": "physics_calibrated_v4",
-      "modelVersion": "physics-v4.3.0",
+      "modelVersion": "physics-v4.4.0",
       "sampleCount": 28112,
       "failureRate": 0.011739,
       "baselineMetrics": {
@@ -1658,7 +1658,7 @@
       "protocol": "OBD2",
       "powertrain": "gasoline",
       "trainingSource": "physics_calibrated_v4",
-      "modelVersion": "physics-v4.3.0",
+      "modelVersion": "physics-v4.4.0",
       "sampleCount": 27603,
       "failureRate": 0.011376,
       "baselineMetrics": {
@@ -1807,7 +1807,7 @@
       "protocol": "J1939",
       "powertrain": "diesel",
       "trainingSource": "physics_calibrated_v4",
-      "modelVersion": "physics-v4.3.0",
+      "modelVersion": "physics-v4.4.0",
       "sampleCount": 28332,
       "failureRate": 0.021954,
       "baselineMetrics": {
@@ -1958,7 +1958,7 @@
       "protocol": "J1939",
       "powertrain": "diesel",
       "trainingSource": "physics_calibrated_v4",
-      "modelVersion": "physics-v4.3.0",
+      "modelVersion": "physics-v4.4.0",
       "sampleCount": 28043,
       "failureRate": 0.021396,
       "baselineMetrics": {
@@ -2109,7 +2109,7 @@
       "protocol": "OBD2",
       "powertrain": "gasoline",
       "trainingSource": "physics_calibrated_v4",
-      "modelVersion": "physics-v4.3.0",
+      "modelVersion": "physics-v4.4.0",
       "sampleCount": 28358,
       "failureRate": 0.02606,
       "baselineMetrics": {
@@ -2258,7 +2258,7 @@
       "protocol": "OBD2",
       "powertrain": "hybrid",
       "trainingSource": "physics_calibrated_v4",
-      "modelVersion": "physics-v4.3.0",
+      "modelVersion": "physics-v4.4.0",
       "sampleCount": 28149,
       "failureRate": 0.024441,
       "baselineMetrics": {
