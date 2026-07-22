@@ -72,16 +72,17 @@ model Session {
 // ─────────────────────────────────────────────
 
 model Org {
-  id         String   @id @default(cuid())
-  name       String
-  status     String   @default("LEAD")
-  email      String?
-  phone      String?
-  address    String?
-  industry   String?
-  vehicleIds String[] @default([])
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id          String   @id @default(cuid())
+  name        String
+  status      String   @default("LEAD")
+  email       String?
+  phone       String?
+  address     String?
+  industry    String?
+  companyCode String?
+  vehicleIds  String[] @default([])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   users           User[]
   vehicles        Vehicle[]
@@ -161,19 +162,21 @@ model FleetAddon {
 // ─────────────────────────────────────────────
 
 model Vehicle {
-  id        String   @id @default(cuid())
-  vehicleId String   @unique
-  unitName  String
-  vin       String?
-  type      String?
-  orgId     String?
-  year      Int?
-  make      String?
-  model     String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id             String   @id @default(cuid())
+  vehicleId      String   @unique
+  unitName       String
+  vin            String?
+  type           String?
+  orgId          String?
+  year           Int?
+  make           String?
+  model          String?
+  motiveId       String?  @unique
+  motiveMetadata Json     @default("{}")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  org                Org?               @relation(fields: [orgId], references: [id])
+  org                Org?                @relation(fields: [orgId], references: [id])
   telemetrySamples   TelemetrySample[]
   telemetrySnapshots TelemetrySnapshot[]
   telemetryRecords   TelemetryRecord[]
@@ -196,18 +199,20 @@ model Vehicle {
 }
 
 model Driver {
-  id         String   @id @default(cuid())
-  driverId   String   @unique
-  firstName  String?
-  lastName   String?
-  email      String?
-  phone      String?
-  pin        String?
-  orgId      String?
-  status     String   @default("active")
-  licenseNum String?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id             String   @id @default(cuid())
+  driverId       String   @unique
+  firstName      String?
+  lastName       String?
+  email          String?
+  phone          String?
+  pin            String?
+  orgId          String?
+  status         String   @default("active")
+  licenseNum     String?
+  motiveId       String?  @unique
+  motiveMetadata Json     @default("{}")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   org      Org?      @relation(fields: [orgId], references: [id])
   pairings Pairing[]
@@ -216,18 +221,20 @@ model Driver {
 }
 
 model Pairing {
-  id        String    @id @default(cuid())
-  pairCode  String?
-  vehicleId String?
-  driverId  String?
-  deviceId  String?
-  orgId     String?
-  status    String    @default("pending")
-  expiresAt DateTime?
-  claimedAt DateTime?
-  revokedAt DateTime?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  id          String    @id @default(cuid())
+  pairCode    String?
+  vehicleId   String?
+  driverId    String?
+  deviceId    String?
+  deviceLabel String?
+  driverPin   String?
+  orgId       String?
+  status      String    @default("pending")
+  expiresAt   DateTime?
+  claimedAt   DateTime?
+  revokedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   vehicle Vehicle? @relation(fields: [vehicleId], references: [vehicleId])
   driver  Driver?  @relation(fields: [driverId], references: [driverId])

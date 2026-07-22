@@ -1,7 +1,6 @@
 const http = require("http");
 const https = require("https");
-const fs = require("fs");
-const path = require("path");
+const db = require("../server/db");
 
 function request(url, method, body) {
   return new Promise((resolve, reject) => {
@@ -31,21 +30,19 @@ function request(url, method, body) {
   });
 }
 
-function loadIds() {
-  const dataPath = path.resolve(__dirname, "..", "server", "data.json");
-  const raw = fs.readFileSync(dataPath, "utf8");
-  const data = JSON.parse(raw);
-  const vehicleId = data.vehicles?.[0]?.vehicleId;
-  const driverId = data.drivers?.[0]?.driverId;
+async function loadIds() {
+  const [vehicles, drivers] = await Promise.all([db.listVehicles(), db.listDrivers()]);
+  const vehicleId = vehicles[0]?.vehicleId;
+  const driverId = drivers[0]?.driverId;
   if (!vehicleId || !driverId) {
-    throw new Error("Missing vehicles/drivers in server/data.json");
+    throw new Error("No vehicles/drivers found in the database — create at least one of each first");
   }
   return { vehicleId, driverId };
 }
 
 (async () => {
   const base = process.env.FLEETAI_BASE_URL || "http://localhost:3000";
-  const { vehicleId, driverId } = loadIds();
+  const { vehicleId, driverId } = await loadIds();
 
   console.log("[SELFTEST] base", base);
   console.log("[SELFTEST] using", { vehicleId, driverId });

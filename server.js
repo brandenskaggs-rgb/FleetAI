@@ -19,7 +19,6 @@ const vinCapSvc = require("./server/services/vinCapabilityService");
 const aiReportSvc = require("./server/services/aiReportService");
 const pythonMlClient = require("./server/services/pythonMlClient");
 const { createDataStore } = require("./server/storage/dataStore");
-const { createPairingRouter } = require("./server/routes/pairing");
 const { registerSystemStatusRoutes } = require("./server/routes/systemStatus");
 const { registerLegacyPairingRoutes } = require("./server/routes/legacyPairing");
 const { registerAuthRoutes } = require("./server/routes/authRoutes");
@@ -923,27 +922,13 @@ const PAIRING_ROUTE_MANIFEST = [
 ];
 
 registerLegacyPairingRoutes(app, {
-  readData,
-  writeData,
   requireEmployeeOrCustomerApi: (req, res, next) => requireEmployeeOrCustomerApi(req, res, next),
   sanitizeString,
   nowIso,
-  makeId,
   generateDigits,
   generateDriverPin,
   isExpired,
-  normalizeMetrics,
-  storeNormalizedSnapshot,
-  triggerTelemetryPipeline,
-  resolveOrgIdForVehicle,
-  telemetryLatest,
   lastDataWriteAtRef: () => lastDataWriteAt,
-  createPairingRouter,
-  pairingRouterDeps: {
-    storage: { loadData: readData, saveData: writeData },
-    requireAuth: requireEmployeeOrCustomerApi,
-    log: (...args) => console.log(...args)
-  },
   log: (...args) => console.log(...args)
 });
 
@@ -965,15 +950,11 @@ const FLEET_OPS_ROUTE_MANIFEST = [
 
 registerFleetOpsRoutes(app, {
   readData,
-  writeData,
   sanitizeString,
   parseNumberField,
   nowIso,
-  makeId,
   generateDigits,
-  addAudit,
   requireEmployeeOrCustomerApi: (req, res, next) => requireEmployeeOrCustomerApi(req, res, next),
-  resolveOrgIdForVehicle,
   telemetryLatest,
   telemetrySubscribers,
   getTelemetryLastSeen: () => telemetryLastSeen,
@@ -1016,12 +997,9 @@ registerFeedbackRoutes(app, {
 });
 
 registerMotiveWebhookRoutes(app, {
-  readData,
-  writeData,
   ml,
   pythonMlClient,
   sqliteDb,
-  makeId,
   nowIso,
   telemetryLatest,
   requireSuperAdmin: (req, res, next) => requireSuperAdmin(req, res, next)

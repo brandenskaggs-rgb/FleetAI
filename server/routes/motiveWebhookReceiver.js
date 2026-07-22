@@ -24,11 +24,15 @@
  * Admin endpoints (requires SUPER_ADMIN session):
  *   POST /api/admin/motive/sync   — trigger fleet sync + fault code backfill
  *   GET  /api/admin/motive/status — check Motive credentials + last sync state
+ *
+ * Vehicles/drivers/notifications are Prisma-backed (server/db.js) — see
+ * server/services/motiveSync.js for the shared upsert-by-motiveId logic.
  */
 
 const crypto = require("crypto");
 const { syncFleet, backfillFaultCodes, resolveVehicleId } = require("../services/motiveSync");
 const motiveClient = require("../services/motiveClient");
+const db = require("../db");
 
 // Last sync timestamp for status endpoint
 let _lastSyncAt = null;
@@ -57,7 +61,7 @@ function _verifySignature(rawBody, signatureHeader) {
 }
 
 function registerMotiveWebhookRoutes(app, deps) {
-  const { readData, writeData, ml, pythonMlClient, sqliteDb, makeId, nowIso, requireSuperAdmin, telemetryLatest } = deps;
+  const { ml, pythonMlClient, sqliteDb, nowIso, requireSuperAdmin, telemetryLatest } = deps;
 
   // ── Incoming Motive webhook ────────────────────────────────────────────────
   app.post("/api/webhooks/motive", async (req, res) => {
@@ -76,7 +80,7 @@ function registerMotiveWebhookRoutes(app, deps) {
 
     setImmediate(async () => {
       try {
-        await _routeEvent(action, event, { readData, writeData, ml, pythonMlClient, sqliteDb, makeId, nowIso, telemetryLatest });
+        await _routeEvent(action, event, { ml, pythonMlClient, sqliteDb, nowIso, telemetryLatest });
       } catch (err) {
         console.error(`[MOTIVE-WEBHOOK] handler error action=${action}: ${err.message}`);
       }
@@ -89,7 +93,7 @@ function registerMotiveWebhookRoutes(app, deps) {
       return res.status(400).json({ ok: false, error: "Motive credentials not configured. Set MOTIVE_ACCESS_TOKEN." });
     }
     try {
-      const syncResult = await syncFleet({ readData, writeData, makeId, nowIso });
+      const syncResult = await syncFleet();
       if (!syncResult.ok) {
         return res.status(502).json({ ok: false, error: syncResult.error });
       }
@@ -97,8 +101,8 @@ function registerMotiveWebhookRoutes(app, deps) {
       // Backfill fault codes for vehicles that came from Motive
       let backfillResult = [];
       if (syncResult.created > 0 || req.body?.backfill) {
-        const data = await readData();
-        const motiveVehicles = (data.vehicles || []).filter((v) => v.motiveId);
+        const allVehicles = await db.listVehicles();
+        const motiveVehicles = allVehicles.filter((v) => v.motiveId);
         backfillResult = await backfillFaultCodes(motiveVehicles, { pythonMlClient, nowIso });
       }
 
@@ -117,8 +121,8 @@ function registerMotiveWebhookRoutes(app, deps) {
 
   // ── Admin: Motive integration status ──────────────────────────────────────
   app.get("/api/admin/motive/status", requireSuperAdmin, async (req, res) => {
-    const data = await readData();
-    const motiveVehicles = (data.vehicles || []).filter((v) => v.motiveId);
+    const allVehicles = await db.listVehicles();
+    const motiveVehicles = allVehicles.filter((v) => v.motiveId);
     return res.json({
       ok: true,
       configured: motiveClient.isConfigured(),
@@ -167,7 +171,7 @@ async function _routeEvent(action, event, deps) {
 
 // ── fault_code_opened ─────────────────────────────────────────────────────────
 
-async function _onFaultCodeOpened(event, { readData, writeData, pythonMlClient, sqliteDb, makeId, nowIso }) {
+async function _onFaultCodeOpened(event, { pythonMlClient, sqliteDb, nowIso }) {
   const motiveVehicleId = event.vehicle?.id;
   const vin = event.vehicle?.vin || "";
   const dtcCode = (event.code || "").trim();
@@ -176,14 +180,13 @@ async function _onFaultCodeOpened(event, { readData, writeData, pythonMlClient, 
 
   if (!dtcCode) return;
 
-  const data = await readData();
-  const vehicleId = resolveVehicleId(data.vehicles, motiveVehicleId, vin);
+  const vehicleId = await resolveVehicleId(motiveVehicleId, vin);
   if (!vehicleId) {
     console.warn(`[MOTIVE-WEBHOOK] fault_code_opened: unknown vehicle motiveId=${motiveVehicleId} vin=${vin} — run /api/admin/motive/sync first`);
     return;
   }
 
-  const vehicle = data.vehicles.find((v) => v.vehicleId === vehicleId) || {};
+  const vehicle = (await db.getVehicleByVehicleId(vehicleId)) || {};
   const vehicleMeta = {
     vehicleId,
     vin: vehicle.vin || vin,
@@ -243,25 +246,20 @@ async function _onFaultCodeOpened(event, { readData, writeData, pythonMlClient, 
   if (risk >= 0.35 || severity === "CRITICAL") {
     const notifSeverity = (severity === "CRITICAL" || risk >= 0.75) ? "critical" : "warning";
     const riskPct = risk ? ` — ${Math.round(risk * 100)}% breakdown risk` : "";
-    await _pushNotification(data, {
+    await db.createNotification({
       vehicleId,
       orgId: vehicle.orgId || null,
       severity: notifSeverity,
       title: `Fault Code: ${dtcCode}`,
       body: `${description || dtcCode} detected${riskPct}. ${prediction?.advisoryText || ""}`.trim(),
-      source: "motive_fault_code",
-      makeId,
-      nowIso
     });
-    await writeData(data);
   }
 }
 
 // ── fault_code_closed ─────────────────────────────────────────────────────────
 
-async function _onFaultCodeClosed(event, { readData, nowIso }) {
-  const data = await readData();
-  const vehicleId = resolveVehicleId(data.vehicles, event.vehicle?.id, event.vehicle?.vin);
+async function _onFaultCodeClosed(event) {
+  const vehicleId = await resolveVehicleId(event.vehicle?.id, event.vehicle?.vin);
   if (!vehicleId) return;
   console.log(`[MOTIVE-WEBHOOK] fault_code_closed vehicle=${vehicleId} code=${event.code}`);
   // Future: signal Python ML to recalibrate baseline for this vehicle
@@ -269,17 +267,16 @@ async function _onFaultCodeClosed(event, { readData, nowIso }) {
 
 // ── engine_toggle_event ───────────────────────────────────────────────────────
 
-async function _onEngineToggle(event, { readData, pythonMlClient, nowIso }) {
+async function _onEngineToggle(event, { pythonMlClient }) {
   const trigger = event.trigger; // "on" | "off"
-  const data = await readData();
-  const vehicleId = resolveVehicleId(data.vehicles, event.vehicle_id, event.vin);
+  const vehicleId = await resolveVehicleId(event.vehicle_id, event.vin);
   if (!vehicleId) return;
 
   console.log(`[MOTIVE-WEBHOOK] engine_toggle vehicle=${vehicleId} trigger=${trigger}`);
 
   if (trigger === "on") {
     // Trip start — run a baseline health check with whatever context we have
-    const vehicle = data.vehicles.find((v) => v.vehicleId === vehicleId) || {};
+    const vehicle = (await db.getVehicleByVehicleId(vehicleId)) || {};
     try {
       await pythonMlClient.predict({
         orgId: vehicle.orgId || null,
@@ -303,80 +300,56 @@ async function _onEngineToggle(event, { readData, pythonMlClient, nowIso }) {
 
 // ── vehicle_upserted ──────────────────────────────────────────────────────────
 
-async function _onVehicleUpserted(event, { readData, writeData, makeId, nowIso }) {
+async function _onVehicleUpserted(event) {
   const motiveId = String(event.id || "");
   if (!motiveId) return;
 
   const vin = (event.vin || "").trim().toUpperCase();
-  const data = await readData();
-  if (!Array.isArray(data.vehicles)) data.vehicles = [];
-
-  let vehicle = data.vehicles.find((v) => v.motiveId === motiveId)
-    || (vin ? data.vehicles.find((v) => (v.vin || "").toUpperCase() === vin) : null);
-
-  const patch = {
+  await db.upsertVehicleFromMotive({
     motiveId,
-    vin: vin || vehicle?.vin || null,
-    make: event.make || vehicle?.make || null,
-    model: event.model || vehicle?.model || null,
-    year: event.year ? String(event.year) : vehicle?.year || null,
-    number: event.number || vehicle?.number || null,
-    motiveDeviceId: event.eld_device?.id ? String(event.eld_device.id) : vehicle?.motiveDeviceId || null,
-    motiveDeviceIdentifier: event.eld_device?.identifier || vehicle?.motiveDeviceIdentifier || null,
-    updatedAt: nowIso()
-  };
+    vin: vin || null,
+    make: event.make || null,
+    model: event.model || null,
+    year: event.year || null,
+    unitName: event.number || null,
+    orgId: (process.env.MOTIVE_ORG_ID || "ORG_DEFAULT").trim(),
+    metadata: {
+      motiveDeviceId: event.eld_device?.id ? String(event.eld_device.id) : null,
+      motiveDeviceIdentifier: event.eld_device?.identifier || null
+    }
+  });
 
-  if (vehicle) {
-    Object.assign(vehicle, patch);
-  } else {
-    data.vehicles.push({
-      vehicleId: makeId("VEH"),
-      orgId: (process.env.MOTIVE_ORG_ID || "ORG_DEFAULT").trim(),
-      isActive: true,
-      source: "motive",
-      createdAt: nowIso(),
-      ...patch
-    });
-  }
-
-  await writeData(data);
   console.log(`[MOTIVE-WEBHOOK] vehicle_upserted motiveId=${motiveId} vin=${vin}`);
 }
 
 // ── inspection_report_upserted ────────────────────────────────────────────────
 
-async function _onInspectionReport(event, { readData, writeData, makeId, nowIso }) {
+async function _onInspectionReport(event) {
   const defects = Array.isArray(event.defects) ? event.defects : [];
   if (!defects.length) return;
 
-  const data = await readData();
-  const vehicleId = resolveVehicleId(data.vehicles, event.vehicle?.id, event.vehicle?.vin);
+  const vehicleId = await resolveVehicleId(event.vehicle?.id, event.vehicle?.vin);
   if (!vehicleId) return;
 
   const major = defects.filter((d) => d.severity === "major" || d.severity === "critical");
   console.log(`[MOTIVE-WEBHOOK] inspection_report vehicle=${vehicleId} defects=${defects.length} major=${major.length}`);
 
   if (major.length) {
-    const vehicle = data.vehicles.find((v) => v.vehicleId === vehicleId) || {};
-    await _pushNotification(data, {
+    const vehicle = (await db.getVehicleByVehicleId(vehicleId)) || {};
+    await db.createNotification({
       vehicleId,
       orgId: vehicle.orgId || null,
       severity: "warning",
       title: "DVIR: Major Defects Reported",
-      body: major.map((d) => `${d.area || "Unknown area"}: ${d.description || "defect"}`).join("; "),
-      source: "motive_dvir",
-      makeId,
-      nowIso
+      body: major.map((d) => `${d.area || "Unknown area"}: ${d.description || "defect"}`).join("; ")
     });
-    await writeData(data);
   }
 }
 
 // ── driver_performance_event ──────────────────────────────────────────────────
 
-async function _onDriverPerformance(event, { readData, nowIso }) {
-  const data = await readData();
-  const vehicleId = resolveVehicleId(data.vehicles, event.vehicle?.id, event.vehicle?.vin);
+async function _onDriverPerformance(event) {
+  const vehicleId = await resolveVehicleId(event.vehicle?.id, event.vehicle?.vin);
   if (!vehicleId) return;
   const eventType = event.event_type || event.type || "unknown";
   // Logged for future stress-signal aggregation; no immediate action
@@ -385,9 +358,8 @@ async function _onDriverPerformance(event, { readData, nowIso }) {
 
 // ── speeding_event ────────────────────────────────────────────────────────────
 
-async function _onSpeedingEvent(event, { readData, nowIso }) {
-  const data = await readData();
-  const vehicleId = resolveVehicleId(data.vehicles, event.vehicle?.id, event.vehicle?.vin);
+async function _onSpeedingEvent(event) {
+  const vehicleId = await resolveVehicleId(event.vehicle?.id, event.vehicle?.vin);
   if (!vehicleId) return;
   const maxKph = event.max_speed_kph || event.speed || null;
   console.log(`[MOTIVE-WEBHOOK] speeding_event vehicle=${vehicleId} max_kph=${maxKph}`);
@@ -395,37 +367,31 @@ async function _onSpeedingEvent(event, { readData, nowIso }) {
 
 // ── gateway connectivity ──────────────────────────────────────────────────────
 
-async function _onGatewayDisconnected(event, { readData, writeData, nowIso }) {
-  const data = await readData();
+async function _onGatewayDisconnected(event, { nowIso }) {
   const motiveId = event.vehicle?.id || event.vehicle_id;
-  const vehicleId = resolveVehicleId(data.vehicles, motiveId, "");
+  const vehicleId = await resolveVehicleId(motiveId, "");
   if (!vehicleId) return;
-  const vehicle = data.vehicles.find((v) => v.vehicleId === vehicleId);
-  if (vehicle) {
-    vehicle.motiveGatewayConnected = false;
-    vehicle.motiveGatewayDisconnectedAt = nowIso();
-    await writeData(data);
-  }
+  await db.updateVehicleMotiveMetadata(vehicleId, {
+    motiveGatewayConnected: false,
+    motiveGatewayDisconnectedAt: nowIso()
+  });
   console.log(`[MOTIVE-WEBHOOK] gateway_disconnected vehicle=${vehicleId}`);
 }
 
-async function _onGatewayReconnected(event, { readData, writeData, nowIso }) {
-  const data = await readData();
+async function _onGatewayReconnected(event) {
   const motiveId = event.vehicle?.id || event.vehicle_id;
-  const vehicleId = resolveVehicleId(data.vehicles, motiveId, "");
+  const vehicleId = await resolveVehicleId(motiveId, "");
   if (!vehicleId) return;
-  const vehicle = data.vehicles.find((v) => v.vehicleId === vehicleId);
-  if (vehicle) {
-    vehicle.motiveGatewayConnected = true;
-    vehicle.motiveGatewayDisconnectedAt = null;
-    await writeData(data);
-  }
+  await db.updateVehicleMotiveMetadata(vehicleId, {
+    motiveGatewayConnected: true,
+    motiveGatewayDisconnectedAt: null
+  });
   console.log(`[MOTIVE-WEBHOOK] gateway_reconnected vehicle=${vehicleId}`);
 }
 
 // ── vehicle_location_updated / vehicle_location_received ─────────────────────
 
-async function _onVehicleLocation(event, { readData, nowIso, telemetryLatest }) {
+async function _onVehicleLocation(event, { nowIso, telemetryLatest }) {
   const motiveId = event.vehicle?.id || event.vehicle_id;
   const location = event.location || {};
   const lat = location.lat ?? null;
@@ -433,8 +399,7 @@ async function _onVehicleLocation(event, { readData, nowIso, telemetryLatest }) 
 
   if (!motiveId || lat === null || lon === null) return;
 
-  const data = await readData();
-  const vehicleId = resolveVehicleId(data.vehicles, motiveId, "");
+  const vehicleId = await resolveVehicleId(motiveId, "");
   if (!vehicleId) {
     console.log(`[MOTIVE-WEBHOOK] vehicle_location: unknown motiveId=${motiveId} — run sync first`);
     return;
@@ -464,7 +429,7 @@ async function _onVehicleLocation(event, { readData, nowIso, telemetryLatest }) 
 
 // ── user_upserted (Motive driver sync) ───────────────────────────────────────
 
-async function _onUserUpserted(event, { readData, writeData, makeId, nowIso }) {
+async function _onUserUpserted(event) {
   const motiveUserId = String(event.id || "");
   if (!motiveUserId) return;
 
@@ -480,37 +445,21 @@ async function _onUserUpserted(event, { readData, writeData, makeId, nowIso }) {
     return;
   }
 
-  const data = await readData();
-  if (!Array.isArray(data.drivers)) data.drivers = [];
-
-  let driver = data.drivers.find((d) => d.motiveUserId === motiveUserId);
-  if (!driver) {
-    driver = {
-      driverId: makeId("DRV"),
-      orgId: (process.env.MOTIVE_ORG_ID || "ORG_DEFAULT").trim(),
-      source: "motive",
-      createdAt: nowIso()
-    };
-    data.drivers.push(driver);
-  }
-
-  Object.assign(driver, {
+  await db.upsertDriverFromMotive({
     motiveUserId,
-    firstName: firstName || driver.firstName || "",
-    lastName: lastName || driver.lastName || "",
-    email: email || driver.email || "",
-    phone: phone || driver.phone || "",
-    status: "active",
-    updatedAt: nowIso()
+    firstName,
+    lastName,
+    email,
+    phone,
+    orgId: (process.env.MOTIVE_ORG_ID || "ORG_DEFAULT").trim()
   });
 
-  await writeData(data);
   console.log(`[MOTIVE-WEBHOOK] user_upserted motiveUserId=${motiveUserId} name="${firstName} ${lastName}"`);
 }
 
 // ── hos_violation_upserted ────────────────────────────────────────────────────
 
-async function _onHosViolation(event, { readData, writeData, makeId, nowIso }) {
+async function _onHosViolation(event) {
   const driver = event.driver || {};
   const motiveId = event.vehicle?.id || null;
   const violationType = event.violation_type || event.type || "HOS_VIOLATION";
@@ -519,97 +468,63 @@ async function _onHosViolation(event, { readData, writeData, makeId, nowIso }) {
     ? `${driver.first_name || ""} ${driver.last_name || ""}`.trim()
     : `Driver #${driver.id || "unknown"}`;
 
-  const data = await readData();
-  const vehicleId = motiveId ? resolveVehicleId(data.vehicles, motiveId, "") : null;
-  const vehicle = vehicleId ? data.vehicles.find((v) => v.vehicleId === vehicleId) : null;
+  const vehicleId = motiveId ? await resolveVehicleId(motiveId, "") : null;
+  const vehicle = vehicleId ? await db.getVehicleByVehicleId(vehicleId) : null;
 
   console.log(`[MOTIVE-WEBHOOK] hos_violation driver="${driverName}" type=${violationType}`);
 
-  await _pushNotification(data, {
+  await db.createNotification({
     vehicleId: vehicleId || "unknown",
     orgId: vehicle?.orgId || (process.env.MOTIVE_ORG_ID || "ORG_DEFAULT"),
     severity: "warning",
     title: `HOS Violation: ${driverName}`,
-    body: description,
-    source: "motive_hos",
-    makeId,
-    nowIso
+    body: description
   });
-  await writeData(data);
 }
 
 // ── vehicle_geofence_event ────────────────────────────────────────────────────
 
-async function _onGeofenceEvent(event, { readData, writeData, makeId, nowIso }) {
+async function _onGeofenceEvent(event) {
   const motiveId = event.vehicle?.id || event.vehicle_id;
   const geofenceName = event.geofence?.name || event.geofence?.id || "Unknown";
   const eventType = (event.event_type || "").toLowerCase(); // "entry" | "exit"
 
-  const data = await readData();
-  const vehicleId = resolveVehicleId(data.vehicles, motiveId, "");
+  const vehicleId = await resolveVehicleId(motiveId, "");
   if (!vehicleId) return;
 
-  const vehicle = data.vehicles.find((v) => v.vehicleId === vehicleId) || {};
+  const vehicle = (await db.getVehicleByVehicleId(vehicleId)) || {};
   const direction = eventType === "entry" ? "entered" : eventType === "exit" ? "exited" : "triggered";
 
   console.log(`[MOTIVE-WEBHOOK] geofence_event vehicle=${vehicleId} geofence="${geofenceName}" type=${eventType}`);
 
-  await _pushNotification(data, {
+  await db.createNotification({
     vehicleId,
     orgId: vehicle.orgId || null,
     severity: "info",
     title: `Geofence: ${geofenceName}`,
-    body: `Vehicle ${vehicle.number || vehicleId} ${direction} geofence "${geofenceName}".`,
-    source: "motive_geofence",
-    makeId,
-    nowIso
+    body: `Vehicle ${vehicle.unitName || vehicleId} ${direction} geofence "${geofenceName}".`
   });
-  await writeData(data);
 }
 
 // ── user_duty_status_updated ──────────────────────────────────────────────────
 
-async function _onDutyStatusUpdated(event, { readData, writeData, nowIso }) {
+async function _onDutyStatusUpdated(event, { nowIso }) {
   const driver = event.driver || {};
   const motiveUserId = String(driver.id || "");
   const currentStatus = event.current_status || event.status || "";
   if (!motiveUserId) return;
 
-  const data = await readData();
-  if (!Array.isArray(data.drivers)) return;
-
-  const driverRecord = data.drivers.find((d) => d.motiveUserId === motiveUserId);
+  const driverRecord = await db.findDriverByMotiveUserId(motiveUserId);
   if (!driverRecord) {
     console.log(`[MOTIVE-WEBHOOK] duty_status: unknown motiveUserId=${motiveUserId}`);
     return;
   }
 
-  driverRecord.dutyStatus = currentStatus;
-  driverRecord.dutyStatusUpdatedAt = event.updated_at || nowIso();
-  await writeData(data);
-  console.log(`[MOTIVE-WEBHOOK] duty_status_updated motiveUserId=${motiveUserId} status=${currentStatus}`);
-}
-
-// ── Shared helper ─────────────────────────────────────────────────────────────
-
-async function _pushNotification(data, { vehicleId, orgId, severity, title, body, source, makeId, nowIso }) {
-  if (!Array.isArray(data.notifications)) data.notifications = [];
-  data.notifications.unshift({
-    id: makeId("NOTIF"),
-    org_id: orgId,
-    recipient_type: "fleet_manager",
-    recipient_id: orgId,
-    vehicle_id: vehicleId,
-    event_id: "",
-    title,
-    body,
-    severity,
-    status: "unread",
-    source,
-    created_at: nowIso()
+  await db.updateDriverMotiveMetadata(driverRecord.driverId, {
+    dutyStatus: currentStatus,
+    dutyStatusUpdatedAt: event.updated_at || nowIso()
   });
-  // Cap notification list
-  if (data.notifications.length > 500) data.notifications.length = 500;
+  console.log(`[MOTIVE-WEBHOOK] duty_status_updated motiveUserId=${motiveUserId} status=${currentStatus}`);
 }
 
 module.exports = { registerMotiveWebhookRoutes };

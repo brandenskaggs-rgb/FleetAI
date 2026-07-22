@@ -1,5 +1,6 @@
 const crypto = require("crypto");
 const { createRateLimiter } = require("../middleware/rateLimiter");
+const db = require("../db");
 
 // Tight limiter on pairing-code claim — defends against brute force of 6-digit codes.
 // 10 attempts / minute / IP. Generation endpoints are still gated by employee auth.
@@ -7,52 +8,15 @@ const pairingClaimLimiter = createRateLimiter({ windowMs: 60000, max: 10, keyPre
 
 function registerLegacyPairingRoutes(app, deps) {
   const {
-    readData,
-    writeData,
     requireEmployeeOrCustomerApi,
     sanitizeString,
     nowIso,
-    makeId,
     generateDigits,
     generateDriverPin,
     isExpired,
-    normalizeMetrics,
-    storeNormalizedSnapshot,
-    triggerTelemetryPipeline,
-    resolveOrgIdForVehicle,
-    telemetryLatest,
     lastDataWriteAtRef,
-    createPairingRouter,
-    pairingRouterDeps,
     log = console.log
   } = deps;
-
-  // Local helpers — defensive array access for in-memory store.
-  const getVehicles = (data) => (Array.isArray(data?.vehicles) ? data.vehicles : []);
-  const getDrivers = (data) => (Array.isArray(data?.drivers) ? data.drivers : []);
-  const getPairings = (data) => {
-    if (!Array.isArray(data?.pairings)) data.pairings = [];
-    return data.pairings;
-  };
-
-  function findPairConflict(data, vehicleId, driverId) {
-    const pairings = Array.isArray(data.pairings) ? data.pairings : [];
-    const now = Date.now();
-    pairings.forEach((p) => {
-      const expired = (p.expiresAt && new Date(p.expiresAt).getTime() <= now)
-        || (p.driverPinExpiresAt && new Date(p.driverPinExpiresAt).getTime() <= now);
-      if (expired && p.status !== "expired") p.status = "expired";
-    });
-    const activeVehicle = pairings.find((p) => p.vehicleId === vehicleId && p.status === "active");
-    if (activeVehicle) return { reason: "VEHICLE_ALREADY_ASSIGNED", pairing: activeVehicle };
-    const activeDriver = pairings.find((p) => p.driverId === driverId && p.status === "active");
-    if (activeDriver) return { reason: "DRIVER_ALREADY_ASSIGNED", pairing: activeDriver };
-    const pendingVehicle = pairings.find((p) => p.vehicleId === vehicleId && p.status === "pending" && !isExpired(p.expiresAt));
-    if (pendingVehicle) return { reason: "UNEXPIRED_CODE", pairing: pendingVehicle };
-    const pendingDriver = pairings.find((p) => p.driverId === driverId && p.status === "pending" && !isExpired(p.expiresAt));
-    if (pendingDriver) return { reason: "UNEXPIRED_CODE", pairing: pendingDriver };
-    return null;
-  }
 
   const pairingDebug = {
     generated: [],
@@ -119,105 +83,69 @@ function registerLegacyPairingRoutes(app, deps) {
       .replace(/[^A-Z0-9]/g, "");
   }
 
-  function buildCompanyCodeCandidates(data, pairing) {
-    const vehicleOrgId = pairing?.vehicleId ? resolveOrgIdForVehicle(data, pairing.vehicleId, "") : "";
-    const orgId = sanitizeString(pairing?.orgId || vehicleOrgId || "", 80);
-    const orgs = Array.isArray(data.orgs) ? data.orgs : [];
-    const org = orgs.find((entry) => {
-      const entryId = sanitizeString(entry?.orgId || entry?.id || "", 80);
-      return Boolean(entryId) && entryId === orgId;
-    }) || null;
-    const candidates = [
-      orgId,
-      org?.orgId,
-      org?.id,
-      org?.name,
-      org?.companyCode,
-      org?.company_code,
-      org?.tenantId,
-      org?.tenant_id,
-    ];
-    return Array.from(new Set(candidates.map(normalizeCompanyCode).filter(Boolean)));
-  }
-
   function createDriverAuthToken() {
     return `drv_${crypto.randomBytes(24).toString("hex")}`;
   }
 
-  function createPairingRecord({ vehicleId, driverId, orgId, vehicleName, driverName }) {
+  function driverDisplayName(driver) {
+    if (!driver) return "";
+    return `${driver.firstName || ""} ${driver.lastName || ""}`.trim();
+  }
+
+  // Builds the field set for a new pairing. pairingCode is a single
+  // generateDigits(6) call with no uniqueness check here — handlePairCodeGenerate
+  // overwrites it with a collision-checked code afterward; handlePairCodeReplace
+  // does not (this asymmetry matches the original implementation exactly).
+  function createPairingFields({ vehicleId, driverId, orgId }) {
     const pairingCode = generateDigits(6);
     const driverPin = generateDriverPin();
     const expiresAt = new Date(Date.now() + 24 * 60 * 60000).toISOString();
     return {
-      id: makeId("PAIR"),
       orgId: sanitizeString(orgId || "ORG_DEFAULT", 80),
       pairingCode,
-      pairCode: pairingCode,
       driverPin,
       vehicleId,
       driverId,
-      vehicleName: sanitizeString(vehicleName || "", 120),
-      driverName: sanitizeString(driverName || "", 120),
       status: "pending",
-      expiresAt,
-      driverPinExpiresAt: expiresAt,
-      createdAt: nowIso()
+      expiresAt
     };
   }
 
   async function handlePairCodeGenerate(req, res, next) {
     const { vehicleId, driverId } = req.body || {};
-    const requestId = process.env.DEBUG_PAIRING === "1" ? require("crypto").randomBytes(6).toString("hex") : null;
+    const requestId = process.env.DEBUG_PAIRING === "1" ? crypto.randomBytes(6).toString("hex") : null;
     const logPrefix = requestId ? `[PAIR ${requestId}]` : "[PAIR]";
     const localLog = (...args) => log(logPrefix, ...args);
     if (!vehicleId || !driverId) {
       return res.status(400).json({ ok: false, error: "missing_vehicle_or_driver" });
     }
     try {
-      const data = await readData();
-      const vehicle = getVehicles(data).find((v) => v.vehicleId === vehicleId);
-      const driver = getDrivers(data).find((d) => d.driverId === driverId);
+      const [vehicle, driver] = await Promise.all([
+        db.getVehicleByVehicleId(vehicleId),
+        db.getDriverByDriverId(driverId)
+      ]);
       if (!vehicle || !driver) {
         return res.status(404).json({ ok: false, error: "vehicle_or_driver_not_found" });
       }
       const now = nowIso();
-      const pairings = getPairings(data);
-      const samePairings = pairings.filter(
-        (p) => (p.vehicleId === vehicleId && p.driverId === driverId) && (p.status === "pending" || p.status === "active")
-      );
+      const samePairings = await db.findActivePairingsForPair(vehicleId, driverId);
       let replacedAssignmentId = null;
-      if (samePairings.length) {
-        samePairings.forEach((p) => {
-          p.status = "expired";
-          p.replacedAt = now;
-          p.expiresAt = now;
-          p.driverPinExpiresAt = now;
-          replacedAssignmentId = replacedAssignmentId || p.id;
-        });
+      for (const p of samePairings) {
+        await db.updatePairing(p.id, { status: "expired", expiresAt: now });
+        replacedAssignmentId = replacedAssignmentId || p.id;
       }
+
       let pairingCode;
       let attempts = 0;
       do {
         pairingCode = generateDigits(6);
         attempts += 1;
-      } while (
-        pairings.some((p) => {
-          const digitsStored = normalizePairingCodeDigits(p.pairingCode || p.code).digits;
-          const pending = p.status === "pending" || p.status === "active";
-          return pending && digitsStored === pairingCode && !isExpired(p.expiresAt);
-        }) && attempts < 5
-      );
-      const pairing = createPairingRecord({
-        vehicleId,
-        driverId,
-        orgId: req.body?.orgId,
-        vehicleName: vehicle.unitName || vehicle.name || vehicle.vehicleId,
-        driverName: `${driver.firstName || ""} ${driver.lastName || ""}`.trim()
-      });
-      pairing.pairingCode = pairingCode;
-      pairing.pairCode = pairingCode;
-      getPairings(data).push(pairing);
-      await writeData(data);
+      } while (await db.isPairingCodeInUse(pairingCode) && attempts < 5);
+
+      const fields = createPairingFields({ vehicleId, driverId, orgId: req.body?.orgId });
+      fields.pairingCode = pairingCode;
+      const pairing = await db.createPairing(fields);
+
       const payload = {
         ok: true,
         pairId: pairing.id,
@@ -256,13 +184,10 @@ function registerLegacyPairingRoutes(app, deps) {
     const pairId = req.params.pairId;
     if (!pairId) return res.status(400).json({ ok: false, error: "missing_pair_id" });
     try {
-      const data = await readData();
-      const pairing = (data.pairings || []).find((p) => p.id === pairId);
+      const pairing = await db.findPairingById(pairId);
       if (!pairing) return res.status(404).json({ ok: false, error: "pair_not_found" });
-      pairing.status = "expired";
-      pairing.expiresAt = nowIso();
-      pairing.driverPinExpiresAt = nowIso();
-      await writeData(data);
+      const now = nowIso();
+      await db.updatePairing(pairId, { status: "expired", expiresAt: now });
       res.json({ ok: true });
     } catch (err) {
       next(err);
@@ -275,25 +200,13 @@ function registerLegacyPairingRoutes(app, deps) {
       return res.status(400).json({ ok: false, error: "missing_vehicle_or_driver" });
     }
     try {
-      const data = await readData();
-      const vehicle = getVehicles(data).find((v) => v.vehicleId === vehicleId);
-      const driver = getDrivers(data).find((d) => d.driverId === driverId);
-      getPairings(data).forEach((p) => {
-        if ((p.vehicleId === vehicleId || p.driverId === driverId) && p.status !== "expired") {
-          p.status = "replaced";
-          p.expiresAt = nowIso();
-          p.driverPinExpiresAt = nowIso();
-        }
-      });
-      const pairing = createPairingRecord({
-        vehicleId,
-        driverId,
-        orgId: req.body?.orgId,
-        vehicleName: vehicle?.unitName || vehicle?.name || vehicleId,
-        driverName: `${driver?.firstName || ""} ${driver?.lastName || ""}`.trim()
-      });
-      getPairings(data).push(pairing);
-      await writeData(data);
+      const toReplace = await db.findNonExpiredPairingsForVehicleOrDriver(vehicleId, driverId);
+      const now = nowIso();
+      for (const p of toReplace) {
+        await db.updatePairing(p.id, { status: "replaced", expiresAt: now });
+      }
+      const fields = createPairingFields({ vehicleId, driverId, orgId: req.body?.orgId });
+      const pairing = await db.createPairing(fields);
       res.json({
         ok: true,
         pairId: pairing.id,
@@ -337,22 +250,20 @@ function registerLegacyPairingRoutes(app, deps) {
       return res.status(400).json({ ok: false, error: "MISSING_DEVICE", message: "deviceId required" });
     }
     try {
-      const data = await readData();
-      const pairing = (data.pairings || []).find((p) => normalizePairingCodeDigits(p.pairingCode || p.code).digits === input.pairingCode);
+      const pairing = await db.findPairingByCode(input.pairingCode);
       if (!pairing) {
         log("[PAIR-CLAIM] not_found", { pairingCode: input.pairingCode, deviceId: input.deviceId });
         pushPairingDebug(pairingDebug.claims, { time: nowIso(), pairingCode: input.pairingCode, deviceId: input.deviceId, status: "not_found" });
         return res.status(404).json({ ok: false, error: "PAIRING_CODE_INVALID_OR_EXPIRED", message: "Invalid or expired pairing code", legacyError: "Invalid code", ...(debugMode ? { debug: { normalized: input } } : {}) });
       }
-      const normalizedStored = normalizePairingCodeDigits(pairing.pairingCode || pairing.code).digits;
-      if (normalizedStored && normalizedStored !== pairing.pairingCode) pairing.pairingCode = normalizedStored;
       if (pairing.status === "active") {
         if (pairing.deviceId && pairing.deviceId !== input.deviceId) {
           log("[PAIR-CLAIM] already_claimed", { pairingCode: pairing.pairingCode, deviceId: input.deviceId, existingDeviceId: pairing.deviceId });
           pushPairingDebug(pairingDebug.claims, { time: nowIso(), pairingCode: pairing.pairingCode, deviceId: input.deviceId, status: "already_claimed", existingDeviceId: pairing.deviceId });
           return res.status(409).json({ ok: false, error: "ALREADY_CLAIMED", message: "Pairing code already claimed by another device", conflict: { pairingCode: pairing.pairingCode, assignmentId: pairing.id, deviceId: pairing.deviceId, status: pairing.status }, claimedByDeviceId: pairing.deviceId, ...(debugMode ? { debug: { normalized: input } } : {}) });
         }
-        return res.json({ ok: true, pairingCode: pairing.pairingCode, driverPin: pairing.driverPin, pinExpiresAt: pairing.driverPinExpiresAt, assignmentId: pairing.id, deviceId: pairing.deviceId || input.deviceId, deviceLabel: pairing.deviceLabel || input.deviceName || "", serverTime: nowIso(), vehicle: { vehicleId: pairing.vehicleId, name: pairing.vehicleName || "" }, driver: { driverId: pairing.driverId, name: pairing.driverName || "" }, vehicleId: pairing.vehicleId, driverId: pairing.driverId, status: pairing.status, ...(debugMode ? { debug: { normalized: input, route: req.path } } : {}) });
+        const [vehicle, driver] = await Promise.all([db.getVehicleByVehicleId(pairing.vehicleId), db.getDriverByDriverId(pairing.driverId)]);
+        return res.json({ ok: true, pairingCode: pairing.pairingCode, driverPin: pairing.driverPin, pinExpiresAt: pairing.driverPinExpiresAt, assignmentId: pairing.id, deviceId: pairing.deviceId || input.deviceId, deviceLabel: pairing.deviceLabel || input.deviceName || "", serverTime: nowIso(), vehicle: { vehicleId: pairing.vehicleId, name: vehicle?.unitName || "" }, driver: { driverId: pairing.driverId, name: driverDisplayName(driver) }, vehicleId: pairing.vehicleId, driverId: pairing.driverId, status: pairing.status, ...(debugMode ? { debug: { normalized: input, route: req.path } } : {}) });
       }
       if (pairing.status && pairing.status !== "pending") {
         log("[PAIR-CLAIM] status_invalid", { pairingCode: pairing.pairingCode, deviceId: input.deviceId, status: pairing.status });
@@ -361,8 +272,7 @@ function registerLegacyPairingRoutes(app, deps) {
       }
       if (isExpired(pairing.expiresAt) || isExpired(pairing.driverPinExpiresAt)) {
         log("[PAIR-CLAIM] expired", { pairingCode: pairing.pairingCode, deviceId: input.deviceId });
-        pairing.status = "expired";
-        await writeData(data);
+        await db.updatePairing(pairing.id, { status: "expired" });
         pushPairingDebug(pairingDebug.claims, { time: nowIso(), pairingCode: pairing.pairingCode, deviceId: input.deviceId, status: "expired" });
         return res.status(410).json({ ok: false, error: "PAIRING_CODE_INVALID_OR_EXPIRED", message: "Pairing code expired", legacyError: "Expired code", ...(debugMode ? { debug: { normalized: input } } : {}) });
       }
@@ -379,44 +289,40 @@ function registerLegacyPairingRoutes(app, deps) {
           return res.status(401).json({ ok: false, error: "PIN_INVALID", message: "Driver PIN does not match.", ...(debugMode ? { debug: { normalized: input } } : {}) });
         }
       }
-      pairing.status = "active";
-      pairing.deviceId = input.deviceId;
       const fallbackLabel = `Tablet-${input.deviceId.slice(-4) || "UNK"}`;
-      pairing.deviceLabel = input.deviceName || pairing.deviceLabel || fallbackLabel;
-      pairing.claimedAt = nowIso();
-      pairing.lastSeen = nowIso();
-      await writeData(data);
-      log("[PAIR-CLAIM] success", { pairingCode: pairing.pairingCode, deviceId: pairing.deviceId, assignmentId: pairing.id });
-      pushPairingDebug(pairingDebug.claims, { time: nowIso(), pairingCode: pairing.pairingCode, deviceId: pairing.deviceId, status: pairing.status, assignmentId: pairing.id });
-      res.json({ ok: true, pairingCode: pairing.pairingCode, driverPin: pairing.driverPin, pinExpiresAt: pairing.driverPinExpiresAt, assignmentId: pairing.id, deviceId: pairing.deviceId, deviceLabel: pairing.deviceLabel, serverTime: nowIso(), vehicle: { vehicleId: pairing.vehicleId, name: pairing.vehicleName || "" }, driver: { driverId: pairing.driverId, name: pairing.driverName || "" }, vehicleId: pairing.vehicleId, driverId: pairing.driverId, status: pairing.status, ...(debugMode ? { debug: { normalized: input, route: req.path } } : {}) });
+      const deviceLabel = input.deviceName || pairing.deviceLabel || fallbackLabel;
+      const updated = await db.updatePairing(pairing.id, {
+        status: "active",
+        deviceId: input.deviceId,
+        deviceLabel,
+        claimedAt: nowIso()
+      });
+      log("[PAIR-CLAIM] success", { pairingCode: updated.pairingCode, deviceId: updated.deviceId, assignmentId: updated.id });
+      pushPairingDebug(pairingDebug.claims, { time: nowIso(), pairingCode: updated.pairingCode, deviceId: updated.deviceId, status: updated.status, assignmentId: updated.id });
+      const [vehicle, driver] = await Promise.all([db.getVehicleByVehicleId(updated.vehicleId), db.getDriverByDriverId(updated.driverId)]);
+      res.json({ ok: true, pairingCode: updated.pairingCode, driverPin: updated.driverPin, pinExpiresAt: updated.driverPinExpiresAt, assignmentId: updated.id, deviceId: updated.deviceId, deviceLabel: updated.deviceLabel, serverTime: nowIso(), vehicle: { vehicleId: updated.vehicleId, name: vehicle?.unitName || "" }, driver: { driverId: updated.driverId, name: driverDisplayName(driver) }, vehicleId: updated.vehicleId, driverId: updated.driverId, status: updated.status, ...(debugMode ? { debug: { normalized: input, route: req.path } } : {}) });
     } catch (err) {
       next(err);
     }
   }
 
+  // Route name says "active" but this has always meant "pending" — preserved
+  // as-is (see db.js listPendingUnexpiredPairings for the full explanation).
   async function handlePairingsActive(req, res, next) {
     try {
-      const data = await readData();
-      const now = Date.now();
-      (data.pairings || []).forEach((p) => {
-        if (p.status === "pending" && p.expiresAt) {
-          const expired = new Date(p.expiresAt).getTime() <= now;
-          if (expired) p.status = "expired";
-        }
-        if (p.driverPinExpiresAt) {
-          const pinExpired = new Date(p.driverPinExpiresAt).getTime() <= now;
-          if (pinExpired && p.status !== "expired") p.status = "expired";
-        }
-      });
-      const activePairings = (data.pairings || [])
-        .filter((p) => p && p.status === "pending")
-        .filter((p) => p.pairingCode && p.driverPin && (p.orgId || "").trim())
-        .filter((p) => !isExpired(p.expiresAt) && !isExpired(p.driverPinExpiresAt))
-        .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
-      await writeData(data);
+      const activePairings = await db.listPendingUnexpiredPairings();
       res.json(activePairings);
     } catch (err) {
       next(err);
+    }
+  }
+
+  async function pairingHealthHandler(req, res) {
+    try {
+      const counts = await db.getPairingHealthCounts();
+      res.json({ ok: true, time: nowIso(), version: "pairing-v1", active: counts.active, pending: counts.pending, lastWriteAt: lastDataWriteAtRef() });
+    } catch (err) {
+      res.status(500).json({ ok: false, error: "health_error", message: err?.message || String(err) });
     }
   }
 
@@ -432,30 +338,12 @@ function registerLegacyPairingRoutes(app, deps) {
 
   app.use(["/api/pairings", "/pairings", "/api/pairing"], pairingRequestLogger);
 
-  app.get("/api/pairings/health", (req, res) => {
-    readData().then((data) => {
-      const active = (data.pairings || []).filter((p) => p.status === "active" && !isExpired(p.expiresAt));
-      const pending = (data.pairings || []).filter((p) => p.status === "pending" && !isExpired(p.expiresAt));
-      res.json({ ok: true, time: nowIso(), version: "pairing-v1", active: active.length, pending: pending.length, lastWriteAt: lastDataWriteAtRef() });
-    }).catch((err) => {
-      res.status(500).json({ ok: false, error: "health_error", message: err?.message || String(err) });
-    });
-  });
-
-  app.get("/api/pairing/health", (req, res) => {
-    readData().then((data) => {
-      const active = (data.pairings || []).filter((p) => p.status === "active" && !isExpired(p.expiresAt));
-      const pending = (data.pairings || []).filter((p) => p.status === "pending" && !isExpired(p.expiresAt));
-      res.json({ ok: true, time: nowIso(), version: "pairing-v1", active: active.length, pending: pending.length, lastWriteAt: lastDataWriteAtRef() });
-    }).catch((err) => {
-      res.status(500).json({ ok: false, error: "health_error", message: err?.message || String(err) });
-    });
-  });
+  app.get("/api/pairings/health", pairingHealthHandler);
+  app.get("/api/pairing/health", pairingHealthHandler);
 
   app.get("/api/pairings/debug", requireEmployeeOrCustomerApi, async (req, res) => {
     try {
-      const data = await readData();
-      const active = (data.pairings || []).filter((p) => p.status === "active" && !isExpired(p.expiresAt));
+      const active = await db.listClaimedActivePairings();
       res.json({ ok: true, generated: pairingDebug.generated, claims: pairingDebug.claims, active });
     } catch (err) {
       res.status(500).json({ ok: false, error: "debug_error", message: err?.message || String(err) });
@@ -490,46 +378,27 @@ function registerLegacyPairingRoutes(app, deps) {
       return res.status(400).json({ error: "companyCode and driverPin required" });
     }
     try {
-      const data = await readData();
-      // Build a lookup: orgId -> companyCode for all orgs
-      const orgCompanyCodeMap = {};
-      (data.orgs || []).forEach((o) => {
-        const oid = normalizeCompanyCode(o.orgId || o.id || '');
-        if (oid && o.companyCode) orgCompanyCodeMap[oid] = normalizeCompanyCode(o.companyCode);
-      });
-
-      const pairing = (data.pairings || []).find((p) => {
-        if (p.driverPin !== normalizedDriverPin) return false;
-        const pairingOrgId = normalizeCompanyCode(p.orgId || 'ORG_DEFAULT');
-        // Match by raw orgId OR by org's friendly companyCode
-        const friendlyCode = orgCompanyCodeMap[pairingOrgId] || '';
-        return pairingOrgId === normalizedCompanyCode || friendlyCode === normalizedCompanyCode;
-      });
-      if (!pairing) return res.status(401).json({ error: "Invalid credentials" });
+      const found = await db.findDriverLoginPairing({ companyCode, driverPin: normalizedDriverPin, normalizeCode: normalizeCompanyCode });
+      if (!found) return res.status(401).json({ error: "Invalid credentials" });
+      const { pairing, org } = found;
       if (isExpired(pairing.driverPinExpiresAt) || isExpired(pairing.expiresAt)) {
-        pairing.status = "expired";
-        await writeData(data);
+        await db.updatePairing(pairing.id, { status: "expired" });
         return res.status(410).json({ error: "PIN expired" });
       }
-      const allowedCompanyCodes = buildCompanyCodeCandidates(data, pairing);
-      // Also allow what the driver typed (they already matched via pairing find above)
-      const allCodes = Array.from(new Set([...allowedCompanyCodes, normalizedCompanyCode]));
-      if (!allCodes.includes(normalizedCompanyCode)) {
-        return res.status(401).json({ error: "Invalid credentials" });
-      }
-      const drivers = Array.isArray(data.drivers) ? data.drivers : [];
-      const driver = drivers.find((d) => d.driverId === pairing.driverId);
+      const driver = await db.getDriverByDriverId(pairing.driverId);
       if (!driver) {
         return res.status(404).json({ error: "Driver not found" });
       }
-      const orgForTenant = (Array.isArray(data.orgs) ? data.orgs : []).find((o) => { const oid = normalizeCompanyCode(o.orgId || o.id || ""); return oid === normalizeCompanyCode(pairing.orgId || ""); }); const resolvedTenantId = (orgForTenant?.companyCode ? normalizeCompanyCode(orgForTenant.companyCode) : null) || allowedCompanyCodes[0] || normalizedCompanyCode;
+      const resolvedTenantId = (org?.companyCode ? normalizeCompanyCode(org.companyCode) : null)
+        || normalizeCompanyCode(pairing.orgId || "ORG_DEFAULT")
+        || normalizedCompanyCode;
       res.json({
         tenantId: resolvedTenantId,
         driverId: driver.driverId,
         vehicleId: pairing.vehicleId,
         pairingCode: pairing.pairingCode,
         token: createDriverAuthToken(),
-        driverName: `${driver.firstName || ""} ${driver.lastName || ""}`.trim() || driver.driverId
+        driverName: driverDisplayName(driver) || driver.driverId
       });
     } catch (err) {
       next(err);
@@ -545,13 +414,10 @@ function registerLegacyPairingRoutes(app, deps) {
     const { vehicleId, driverId } = req.body || {};
     if (!vehicleId || !driverId) return res.status(400).json({ error: "vehicleId and driverId required" });
     try {
-      const data = await readData();
-      const vehicle = getVehicles(data).find((v) => v.vehicleId === vehicleId);
-      const driver = getDrivers(data).find((d) => d.driverId === driverId);
+      const [vehicle, driver] = await Promise.all([db.getVehicleByVehicleId(vehicleId), db.getDriverByDriverId(driverId)]);
       if (!vehicle || !driver) return res.status(404).json({ error: "Vehicle or driver not found" });
-      const pairing = createPairingRecord({ vehicleId, driverId, orgId: req.body?.orgId, vehicleName: vehicle.unitName || vehicle.name || vehicle.vehicleId, driverName: `${driver.firstName || ""} ${driver.lastName || ""}`.trim() });
-      getPairings(data).push(pairing);
-      await writeData(data);
+      const fields = createPairingFields({ vehicleId, driverId, orgId: req.body?.orgId });
+      const pairing = await db.createPairing(fields);
       res.json({ ok: true, pairingId: pairing.id, pairingCode: pairing.pairingCode, driverPin: pairing.driverPin, expiresAt: pairing.expiresAt });
     } catch (err) {
       next(err);
@@ -567,21 +433,19 @@ function registerLegacyPairingRoutes(app, deps) {
       return res.status(400).json({ ok: false, error: "pairingId or pairingCode and deviceId required" });
     }
     try {
-      const data = await readData();
-      const pairing = (data.pairings || []).find((p) => (pairingId && p.id === pairingId) || (pairingCode && normalizePairingCode(p.pairingCode || p.code) === pairingCode));
+      const pairing = pairingId ? await db.findPairingById(pairingId) : await db.findPairingByCode(pairingCode);
       if (!pairing) return res.status(404).json({ ok: false, error: "Invalid pairing" });
       if (isExpired(pairing.expiresAt)) {
-        pairing.status = "expired";
-        await writeData(data);
+        await db.updatePairing(pairing.id, { status: "expired" });
         return res.status(410).json({ ok: false, error: "Expired code" });
       }
-      pairing.status = "active";
-      pairing.deviceId = deviceId;
-      pairing.deviceLabel = deviceLabel || pairing.deviceLabel || "";
-      pairing.claimedAt = nowIso();
-      pairing.lastSeen = nowIso();
-      await writeData(data);
-      res.json({ ok: true, pairing });
+      const updated = await db.updatePairing(pairing.id, {
+        status: "active",
+        deviceId,
+        deviceLabel: deviceLabel || pairing.deviceLabel || "",
+        claimedAt: nowIso()
+      });
+      res.json({ ok: true, pairing: updated });
     } catch (err) {
       next(err);
     }
@@ -589,22 +453,15 @@ function registerLegacyPairingRoutes(app, deps) {
 
   app.get("/api/pairing/status", async (req, res, next) => {
     try {
-      const data = await readData();
       const vehicleId = sanitizeString(req.query.vehicleId || "", 80);
-      const pairing = (data.pairings || []).find((p) => p.vehicleId === vehicleId && p.status === "active");
+      const pairing = await db.getActivePairingForVehicle(vehicleId);
       res.json({ ok: true, pairing: pairing || null });
     } catch (err) {
       next(err);
     }
   });
 
-  const pairingRouter = createPairingRouter(pairingRouterDeps);
-  app.use("/api/pairing", pairingRouter);
-
-  return {
-    findPairConflict,
-    pairingDebug
-  };
+  return { pairingDebug };
 }
 
 module.exports = {

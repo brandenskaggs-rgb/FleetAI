@@ -1,15 +1,13 @@
+const db = require("../db");
+
 function registerFleetOpsRoutes(app, deps) {
   const {
     readData,
-    writeData,
     sanitizeString,
     parseNumberField,
     nowIso,
-    makeId,
     generateDigits,
-    addAudit,
     requireEmployeeOrCustomerApi,
-    resolveOrgIdForVehicle,
     telemetryLatest,
     telemetrySubscribers,
     getTelemetryLastSeen,
@@ -19,7 +17,9 @@ function registerFleetOpsRoutes(app, deps) {
     normalizeMetrics
   } = deps;
 
-  function resolveRequestOrgId(req, data) {
+  // Resolves the acting org for a request: explicit orgId (session/route/body/query)
+  // wins; otherwise falls back to the logged-in user's own orgId from Postgres.
+  async function resolveRequestOrgId(req) {
     const customerOrgId = sanitizeString(req.customer?.orgId || "", 80);
     const routeOrgId = sanitizeString(req.params?.orgId || "", 80);
     const bodyOrgId = sanitizeString(req.body?.orgId || req.query?.orgId || "", 80);
@@ -27,28 +27,17 @@ function registerFleetOpsRoutes(app, deps) {
       return customerOrgId || routeOrgId || bodyOrgId;
     }
     const customerUserId = sanitizeString(req.customer?.userId || "", 80);
-    if (customerUserId && data && Array.isArray(data.users)) {
-      const user = data.users.find((u) => sanitizeString(u?.id || "", 80) === customerUserId);
-      const userOrgId = sanitizeString(user?.orgId || "", 80);
-      if (userOrgId) return userOrgId;
+    if (customerUserId) {
+      const user = await db.getUserById(customerUserId);
+      if (user?.orgId) return user.orgId;
     }
     return "";
   }
 
-  function ensureFleetCollections(data) {
-    data.vehicles = Array.isArray(data.vehicles) ? data.vehicles : [];
-    data.drivers = Array.isArray(data.drivers) ? data.drivers : [];
-    data.pairings = Array.isArray(data.pairings) ? data.pairings : [];
-    return data;
-  }
-
   async function handleListVehicles(req, res, next) {
     try {
-      const data = ensureFleetCollections(await readData());
-      const orgId = resolveRequestOrgId(req, data);
-      const vehicles = orgId
-        ? (data.vehicles || []).filter((v) => (v.orgId || "") === orgId)
-        : (data.vehicles || []);
+      const orgId = await resolveRequestOrgId(req);
+      const vehicles = await db.listVehicles({ orgId: orgId || undefined });
       if (req.path.startsWith("/api/orgs/")) {
         return res.json({ ok: true, data: vehicles });
       }
@@ -64,17 +53,15 @@ function registerFleetOpsRoutes(app, deps) {
       return res.status(400).json({ error: "vehicleId, unitName, vin, type required" });
     }
     try {
-      const data = ensureFleetCollections(await readData());
-      const normalizedOrgId = resolveRequestOrgId(req, data);
+      const normalizedOrgId = await resolveRequestOrgId(req);
       if (!normalizedOrgId) {
         return res.status(400).json({ error: "orgId required" });
       }
-      const exists = (data.vehicles || []).some((v) => v.vehicleId === vehicleId);
-      if (exists) {
+      const existing = await db.getVehicleByVehicleId(vehicleId);
+      if (existing) {
         return res.status(409).json({ error: "Vehicle already exists" });
       }
-      const vehicle = {
-        id: makeId("VEH"),
+      const vehicle = await db.createVehicle({
         vehicleId,
         unitName,
         vin,
@@ -82,12 +69,9 @@ function registerFleetOpsRoutes(app, deps) {
         orgId: normalizedOrgId,
         year: parseNumberField(req.body?.year, null),
         make: sanitizeString(req.body?.make || "", 80),
-        model: sanitizeString(req.body?.model || "", 80),
-        createdAt: nowIso()
-      };
-      data.vehicles.push(vehicle);
-      addAudit(data, "VEHICLE_CREATED", vehicle.vehicleId || vehicle.id || "vehicle");
-      await writeData(data);
+        model: sanitizeString(req.body?.model || "", 80)
+      });
+      await db.logAudit({ orgId: normalizedOrgId, event: "VEHICLE_CREATED", detail: vehicle.vehicleId });
       if (req.path.startsWith("/api/orgs/")) {
         return res.json({ ok: true, data: vehicle });
       }
@@ -99,14 +83,14 @@ function registerFleetOpsRoutes(app, deps) {
 
   async function handleDeleteVehicle(req, res, next) {
     try {
-      const data = await readData();
       const orgId = sanitizeString(req.params.orgId || "", 80);
       const vehicleId = sanitizeString(req.params.vehicleId || "", 80);
-      const idx = (data.vehicles || []).findIndex((v) => (v.vehicleId === vehicleId || v.id === vehicleId) && (!orgId || !v.orgId || v.orgId === orgId));
-      if (idx < 0) return res.status(404).json({ error: "Vehicle not found" });
-      const [removed] = data.vehicles.splice(idx, 1);
-      addAudit(data, "VEHICLE_DELETED", removed.vehicleId || removed.id || vehicleId);
-      await writeData(data);
+      const existing = await db.getVehicleByVehicleId(vehicleId);
+      if (!existing || (orgId && existing.orgId && existing.orgId !== orgId)) {
+        return res.status(404).json({ error: "Vehicle not found" });
+      }
+      const removed = await db.deleteVehicleByVehicleId(vehicleId);
+      await db.logAudit({ orgId: existing.orgId, event: "VEHICLE_DELETED", detail: vehicleId });
       return res.json({ ok: true, data: removed });
     } catch (err) {
       next(err);
@@ -115,11 +99,8 @@ function registerFleetOpsRoutes(app, deps) {
 
   async function handleListDrivers(req, res, next) {
     try {
-      const data = ensureFleetCollections(await readData());
-      const orgId = resolveRequestOrgId(req, data);
-      const drivers = orgId
-        ? (data.drivers || []).filter((d) => (d.orgId || "") === orgId)
-        : (data.drivers || []);
+      const orgId = await resolveRequestOrgId(req);
+      const drivers = await db.listDrivers({ orgId: orgId || undefined });
       if (req.path.startsWith("/api/orgs/")) {
         return res.json({ ok: true, data: drivers });
       }
@@ -135,27 +116,23 @@ function registerFleetOpsRoutes(app, deps) {
       return res.status(400).json({ error: "firstName, lastName, phone required" });
     }
     try {
-      const data = ensureFleetCollections(await readData());
-      const normalizedOrgId = resolveRequestOrgId(req, data);
+      const normalizedOrgId = await resolveRequestOrgId(req);
       if (!normalizedOrgId) {
         return res.status(400).json({ error: "orgId required" });
       }
       const id = sanitizeString(req.body?.driverId || "", 80) || `DRIVER_${generateDigits(5)}`;
-      if ((data.drivers || []).some((d) => d.driverId === id)) {
+      const existing = await db.getDriverByDriverId(id);
+      if (existing) {
         return res.status(409).json({ error: "Driver already exists" });
       }
-      const driver = {
-        id: makeId("DRV"),
+      const driver = await db.createDriver({
         driverId: id,
         orgId: normalizedOrgId,
         firstName,
         lastName,
-        phone,
-        createdAt: nowIso()
-      };
-      data.drivers.push(driver);
-      addAudit(data, "DRIVER_CREATED", driver.driverId || driver.id || id);
-      await writeData(data);
+        phone
+      });
+      await db.logAudit({ orgId: normalizedOrgId, event: "DRIVER_CREATED", detail: driver.driverId });
       if (req.path.startsWith("/api/orgs/")) {
         return res.json({ ok: true, data: driver });
       }
@@ -167,14 +144,14 @@ function registerFleetOpsRoutes(app, deps) {
 
   async function handleDeleteDriver(req, res, next) {
     try {
-      const data = await readData();
       const orgId = sanitizeString(req.params.orgId || "", 80);
       const driverId = sanitizeString(req.params.driverId || "", 80);
-      const idx = (data.drivers || []).findIndex((d) => (d.driverId === driverId || d.id === driverId) && (!orgId || !d.orgId || d.orgId === orgId));
-      if (idx < 0) return res.status(404).json({ error: "Driver not found" });
-      const [removed] = data.drivers.splice(idx, 1);
-      addAudit(data, "DRIVER_DELETED", removed.driverId || removed.id || driverId);
-      await writeData(data);
+      const existing = await db.getDriverByDriverId(driverId);
+      if (!existing || (orgId && existing.orgId && existing.orgId !== orgId)) {
+        return res.status(404).json({ error: "Driver not found" });
+      }
+      const removed = await db.deleteDriverByDriverId(driverId);
+      await db.logAudit({ orgId: existing.orgId, event: "DRIVER_DELETED", detail: driverId });
       return res.json({ ok: true, data: removed });
     } catch (err) {
       next(err);
@@ -201,9 +178,8 @@ function registerFleetOpsRoutes(app, deps) {
 
   app.get("/api/orgs/:orgId/public-profile", async (req, res, next) => {
     try {
-      const data = await readData();
       const orgId = sanitizeString(req.params.orgId || "", 80);
-      const org = (data.orgs || []).find((item) => String(item.id || "") === orgId);
+      const org = await db.getOrg(orgId);
       res.json({ ok: true, data: { orgId, name: org?.name || "", status: org?.status || "unknown" } });
     } catch (err) {
       next(err);
@@ -212,10 +188,11 @@ function registerFleetOpsRoutes(app, deps) {
 
   app.get("/api/pairing/options", async (req, res, next) => {
     try {
-      const data = await readData();
       const orgId = sanitizeString(req.query.orgId || "", 80);
-      const vehicles = orgId ? (data.vehicles || []).filter((v) => (v.orgId || "") === orgId) : (data.vehicles || []);
-      const drivers = orgId ? (data.drivers || []).filter((d) => (d.orgId || "") === orgId) : (data.drivers || []);
+      const [vehicles, drivers] = await Promise.all([
+        db.listVehicles({ orgId: orgId || undefined }),
+        db.listDrivers({ orgId: orgId || undefined })
+      ]);
       res.json({ ok: true, vehicles, drivers });
     } catch (err) {
       next(err);

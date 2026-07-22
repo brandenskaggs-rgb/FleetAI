@@ -1,5 +1,6 @@
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
+const db = require('../db');
 const {
   makeId, nowIso, addAudit, sanitizeString, normalizeEmail, parseNumberField,
   isExpired, generateTempPassword
@@ -12,6 +13,47 @@ const { validateBody, schemas } = require('../middleware/validate');
 
 function registerOrgManagementRoutes(app, deps) {
   const { readData, writeData, requireEmployeeApi, requireCustomerApi, requireRole, getRateState, prismaAuthAdapter } = deps;
+
+  // Mirrors core org identity (name/status/email/phone) into Prisma so any
+  // Vehicle/Driver/Pairing created against this orgId has a valid FK target,
+  // and so Prisma-backed reads (e.g. /api/orgs/:orgId/public-profile in
+  // fleetOpsRoutes.js) stay in sync. The flat file stays authoritative for the
+  // admin-only fields (billingPlan, notes, fleetSizeEstimate, etc.) that don't
+  // have a Prisma home yet — this is a deliberate dual-write, not a full
+  // migration of the admin org-management panel.
+  async function mirrorOrgToPrisma(org) {
+    try {
+      const orgId = org.orgId || org.id;
+      const existing = await db.getOrg(orgId);
+      if (existing) {
+        await db.updateOrg(orgId, {
+          name: org.name,
+          status: org.status,
+          email: org.primaryContactEmail || null,
+          phone: org.phone || null
+        });
+      } else {
+        await db.createOrg({
+          id: orgId,
+          name: org.name,
+          status: org.status,
+          email: org.primaryContactEmail || null,
+          phone: org.phone || null
+        });
+      }
+    } catch (err) {
+      console.warn(`[ORG-SYNC] failed to mirror org to Prisma: ${err.message}`);
+    }
+  }
+
+  async function mirrorOrgStatusToPrisma(orgId, status) {
+    try {
+      const existing = await db.getOrg(orgId);
+      if (existing) await db.updateOrgStatus(orgId, status);
+    } catch (err) {
+      console.warn(`[ORG-SYNC] failed to mirror org status to Prisma: ${err.message}`);
+    }
+  }
   app.get("/api/leads/public-status", (req, res) => {
     res.json({ ok: true });
   });
@@ -179,12 +221,13 @@ function registerOrgManagementRoutes(app, deps) {
       data.orgs.push(org);
       addAudit(data, "ORG_CREATED", `${orgId}:${org.name}`);
       await writeData(data);
+      await mirrorOrgToPrisma(org);
       res.status(201).json({ ok: true, data: org });
     } catch (err) {
       next(err);
     }
   });
-  
+
   app.get("/api/orgs/:orgId", requireEmployeeApi, async (req, res, next) => {
     try {
       const data = await readData();
@@ -237,12 +280,13 @@ function registerOrgManagementRoutes(app, deps) {
       org.updatedAt = nowIso();
       addAudit(data, "ORG_UPDATED", org.orgId || org.id || "unknown");
       await writeData(data);
+      await mirrorOrgToPrisma(org);
       res.json({ ok: true, data: org });
     } catch (err) {
       next(err);
     }
   });
-  
+
   app.delete("/api/orgs/:orgId", requireEmployeeApi, requireRole(["SUPER_ADMIN"]), async (req, res, next) => {
     try {
       const data = await readData();
@@ -257,12 +301,13 @@ function registerOrgManagementRoutes(app, deps) {
       org.updatedAt = nowIso();
       addAudit(data, "ORG_DELETED", `${org.orgId || org.id}:${org.deletedBy}`);
       await writeData(data);
+      await mirrorOrgStatusToPrisma(org.orgId || org.id, "DELETED");
       res.json({ ok: true, data: org });
     } catch (err) {
       next(err);
     }
   });
-  
+
   app.post("/api/orgs/:orgId/restore", requireEmployeeApi, requireRole(["SUPER_ADMIN"]), async (req, res, next) => {
     try {
       const data = await readData();
@@ -274,6 +319,7 @@ function registerOrgManagementRoutes(app, deps) {
       org.updatedAt = nowIso();
       addAudit(data, "ORG_RESTORED", `${org.orgId || org.id}`);
       await writeData(data);
+      await mirrorOrgStatusToPrisma(org.orgId || org.id, "ACTIVE");
       res.json({ ok: true, data: org });
     } catch (err) {
       next(err);
@@ -361,6 +407,7 @@ function registerOrgManagementRoutes(app, deps) {
       addAudit(data, "ORG_CREATED", `${orgId}:${org.name}`);
       addAudit(data, "LEAD_CONVERTED_TO_ORG", `${lead.leadId || lead.id}:${orgId}`);
       await writeData(data);
+      await mirrorOrgToPrisma(org);
       res.json({ ok: true, data: { lead, org } });
     } catch (err) {
       next(err);

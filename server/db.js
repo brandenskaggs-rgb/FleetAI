@@ -437,6 +437,554 @@ async function insertMlFeatureSnapshot(snapshot = {}) {
   return id;
 }
 
+// ─── Vehicles ─────────────────────────────────────────────────────────────────
+
+function rowToVehicle(row) {
+  return {
+    id: row.id,
+    vehicleId: row.vehicleId,
+    unitName: row.unitName,
+    vin: row.vin,
+    type: row.type,
+    orgId: row.orgId,
+    year: row.year,
+    make: row.make,
+    model: row.model,
+    motiveId: row.motiveId,
+    motiveMetadata: row.motiveMetadata || {},
+    createdAt: row.createdAt instanceof Date ? row.createdAt.toISOString() : row.createdAt,
+    updatedAt: row.updatedAt instanceof Date ? row.updatedAt.toISOString() : row.updatedAt
+  };
+}
+
+async function createVehicle(vehicle) {
+  const row = await getPrisma().vehicle.create({
+    data: {
+      vehicleId: vehicle.vehicleId,
+      unitName: vehicle.unitName,
+      vin: vehicle.vin || null,
+      type: vehicle.type || null,
+      orgId: vehicle.orgId || null,
+      year: vehicle.year ?? null,
+      make: vehicle.make || null,
+      model: vehicle.model || null
+    }
+  });
+  return rowToVehicle(row);
+}
+
+async function listVehicles({ orgId } = {}) {
+  const rows = await getPrisma().vehicle.findMany({
+    where: orgId ? { orgId } : {},
+    orderBy: { createdAt: "asc" }
+  });
+  return rows.map(rowToVehicle);
+}
+
+async function getVehicleByVehicleId(vehicleId) {
+  if (!vehicleId) return null;
+  const row = await getPrisma().vehicle.findUnique({ where: { vehicleId } });
+  return row ? rowToVehicle(row) : null;
+}
+
+async function deleteVehicleByVehicleId(vehicleId) {
+  try {
+    const row = await getPrisma().vehicle.delete({ where: { vehicleId } });
+    return rowToVehicle(row);
+  } catch (err) {
+    if (err.code === "P2025") return null; // Prisma "record not found"
+    throw err;
+  }
+}
+
+async function findVehicleByMotiveIdOrVin(motiveId, vin) {
+  if (motiveId) {
+    const byMotive = await getPrisma().vehicle.findUnique({ where: { motiveId } });
+    if (byMotive) return rowToVehicle(byMotive);
+  }
+  if (vin) {
+    const byVin = await getPrisma().vehicle.findFirst({ where: { vin } });
+    if (byVin) return rowToVehicle(byVin);
+  }
+  return null;
+}
+
+// Upserts a vehicle from Motive webhook/sync data. Matches by motiveId then VIN
+// (mirrors the old flat-file matching order in motiveWebhookReceiver.js/motiveSync.js).
+// Motive-specific device bookkeeping (motiveDeviceId, motiveDeviceIdentifier,
+// motiveDeviceModel, metricUnits, source) lives in motiveMetadata (a flexible JSON
+// blob) rather than one dedicated column each, since that integration is still
+// evolving and its exact field set isn't stable yet.
+async function upsertVehicleFromMotive({ motiveId, vin, make, model, year, unitName, orgId, metadata }) {
+  const normalizedVin = vin ? String(vin).trim().toUpperCase() : null;
+  const existing = await findVehicleByMotiveIdOrVin(motiveId, normalizedVin);
+  const yearInt = year != null && year !== "" ? parseInt(year, 10) : null;
+  const safeYear = Number.isFinite(yearInt) ? yearInt : null;
+
+  if (existing) {
+    const mergedMetadata = Object.assign({}, existing.motiveMetadata || {}, metadata || {});
+    const row = await getPrisma().vehicle.update({
+      where: { vehicleId: existing.vehicleId },
+      data: {
+        motiveId: motiveId || existing.motiveId,
+        vin: normalizedVin || existing.vin,
+        make: make || existing.make,
+        model: model || existing.model,
+        year: safeYear ?? existing.year,
+        unitName: unitName || existing.unitName,
+        motiveMetadata: mergedMetadata
+      }
+    });
+    return { vehicle: rowToVehicle(row), created: false };
+  }
+
+  const vehicleId = makeId("VEH");
+  const row = await getPrisma().vehicle.create({
+    data: {
+      vehicleId,
+      unitName: unitName || vehicleId,
+      vin: normalizedVin || null,
+      make: make || null,
+      model: model || null,
+      year: safeYear,
+      motiveId: motiveId || null,
+      orgId: orgId || null,
+      motiveMetadata: metadata || {}
+    }
+  });
+  return { vehicle: rowToVehicle(row), created: true };
+}
+
+async function updateVehicleMotiveMetadata(vehicleId, patch = {}) {
+  const existing = await getVehicleByVehicleId(vehicleId);
+  if (!existing) return null;
+  const merged = Object.assign({}, existing.motiveMetadata || {}, patch);
+  const row = await getPrisma().vehicle.update({ where: { vehicleId }, data: { motiveMetadata: merged } });
+  return rowToVehicle(row);
+}
+
+// Replaces resolveOrgIdForVehicle (server.js:2091) which scanned a denormalized
+// org.vehicleIds array. Vehicle.orgId is a direct FK — this is a single lookup.
+async function getVehicleOrgId(vehicleId, fallback = "ORG_DEFAULT") {
+  if (!vehicleId) return fallback;
+  const row = await getPrisma().vehicle.findUnique({ where: { vehicleId }, select: { orgId: true } });
+  return (row && row.orgId) || fallback;
+}
+
+// ─── Drivers ──────────────────────────────────────────────────────────────────
+
+function rowToDriver(row) {
+  return {
+    id: row.id,
+    driverId: row.driverId,
+    firstName: row.firstName,
+    lastName: row.lastName,
+    email: row.email,
+    phone: row.phone,
+    pin: row.pin,
+    orgId: row.orgId,
+    status: row.status,
+    licenseNum: row.licenseNum,
+    motiveId: row.motiveId,
+    motiveMetadata: row.motiveMetadata || {},
+    createdAt: row.createdAt instanceof Date ? row.createdAt.toISOString() : row.createdAt,
+    updatedAt: row.updatedAt instanceof Date ? row.updatedAt.toISOString() : row.updatedAt
+  };
+}
+
+async function createDriver(driver) {
+  const row = await getPrisma().driver.create({
+    data: {
+      driverId: driver.driverId,
+      firstName: driver.firstName || null,
+      lastName: driver.lastName || null,
+      phone: driver.phone || null,
+      email: driver.email || null,
+      orgId: driver.orgId || null,
+      pin: driver.pin || null,
+      licenseNum: driver.licenseNum || null
+    }
+  });
+  return rowToDriver(row);
+}
+
+async function listDrivers({ orgId } = {}) {
+  const rows = await getPrisma().driver.findMany({
+    where: orgId ? { orgId } : {},
+    orderBy: { createdAt: "asc" }
+  });
+  return rows.map(rowToDriver);
+}
+
+async function getDriverByDriverId(driverId) {
+  if (!driverId) return null;
+  const row = await getPrisma().driver.findUnique({ where: { driverId } });
+  return row ? rowToDriver(row) : null;
+}
+
+async function deleteDriverByDriverId(driverId) {
+  try {
+    const row = await getPrisma().driver.delete({ where: { driverId } });
+    return rowToDriver(row);
+  } catch (err) {
+    if (err.code === "P2025") return null;
+    throw err;
+  }
+}
+
+async function findDriverByMotiveUserId(motiveUserId) {
+  if (!motiveUserId) return null;
+  const row = await getPrisma().driver.findUnique({ where: { motiveId: motiveUserId } });
+  return row ? rowToDriver(row) : null;
+}
+
+async function upsertDriverFromMotive({ motiveUserId, firstName, lastName, email, phone, orgId }) {
+  const existing = await findDriverByMotiveUserId(motiveUserId);
+  if (existing) {
+    const row = await getPrisma().driver.update({
+      where: { driverId: existing.driverId },
+      data: {
+        firstName: firstName || existing.firstName,
+        lastName: lastName || existing.lastName,
+        email: email || existing.email,
+        phone: phone || existing.phone,
+        status: "active"
+      }
+    });
+    return { driver: rowToDriver(row), created: false };
+  }
+  const driverId = makeId("DRV");
+  const row = await getPrisma().driver.create({
+    data: {
+      driverId,
+      motiveId: motiveUserId,
+      firstName: firstName || "",
+      lastName: lastName || "",
+      email: email || "",
+      phone: phone || "",
+      orgId: orgId || null,
+      status: "active"
+    }
+  });
+  return { driver: rowToDriver(row), created: true };
+}
+
+async function updateDriverMotiveMetadata(driverId, patch = {}) {
+  const existing = await getDriverByDriverId(driverId);
+  if (!existing) return null;
+  const prismaRow = await getPrisma().driver.findUnique({ where: { driverId }, select: { motiveMetadata: true } });
+  const merged = Object.assign({}, prismaRow?.motiveMetadata || {}, patch);
+  const row = await getPrisma().driver.update({ where: { driverId }, data: { motiveMetadata: merged } });
+  return rowToDriver(row);
+}
+
+// ─── Users (minimal — auth itself stays on prismaAuthAdapter.js) ──────────────
+
+async function getUserById(userId) {
+  if (!userId) return null;
+  const row = await getPrisma().user.findUnique({ where: { id: userId } });
+  if (!row) return null;
+  return { id: row.id, email: row.email, orgId: row.orgId || null, role: row.role };
+}
+
+// Notification.vehicleId has no FK constraint (plain string field), so no
+// ensureVehicleStub needed here — safe to pass "unknown" for unresolved vehicles.
+async function createNotification({ orgId, vehicleId, eventId, recipientType, recipientId, title, body, severity } = {}) {
+  await getPrisma().notification.create({
+    data: {
+      orgId: orgId || null,
+      vehicleId: vehicleId || null,
+      eventId: eventId || null,
+      recipientType: recipientType || "fleet_manager",
+      recipientId: recipientId || orgId || null,
+      title,
+      body,
+      severity: severity || null
+    }
+  });
+}
+
+async function logAudit({ orgId, userId, event, detail } = {}) {
+  if (!event) return;
+  await getPrisma().auditLog.create({
+    data: {
+      orgId: orgId || null,
+      userId: userId || null,
+      event,
+      detail: detail || ""
+    }
+  });
+}
+
+// ─── Orgs ─────────────────────────────────────────────────────────────────────
+
+function rowToOrg(row) {
+  return {
+    id: row.id,
+    name: row.name,
+    status: row.status,
+    email: row.email,
+    phone: row.phone,
+    address: row.address,
+    industry: row.industry,
+    companyCode: row.companyCode,
+    vehicleIds: Array.isArray(row.vehicleIds) ? row.vehicleIds : [],
+    createdAt: row.createdAt instanceof Date ? row.createdAt.toISOString() : row.createdAt,
+    updatedAt: row.updatedAt instanceof Date ? row.updatedAt.toISOString() : row.updatedAt
+  };
+}
+
+async function createOrg(org) {
+  const id = org.id || makeId("ORG");
+  const row = await getPrisma().org.create({
+    data: {
+      id,
+      name: org.name || id,
+      status: org.status || "LEAD",
+      email: org.email || null,
+      phone: org.phone || null,
+      address: org.address || null,
+      industry: org.industry || null,
+      companyCode: org.companyCode || null
+    }
+  });
+  return rowToOrg(row);
+}
+
+async function getOrg(orgId) {
+  if (!orgId) return null;
+  const row = await getPrisma().org.findUnique({ where: { id: orgId } });
+  return row ? rowToOrg(row) : null;
+}
+
+async function listOrgs() {
+  const rows = await getPrisma().org.findMany({ orderBy: { createdAt: "asc" } });
+  return rows.map(rowToOrg);
+}
+
+async function updateOrg(orgId, patch = {}) {
+  const data = {};
+  for (const key of ["name", "status", "email", "phone", "address", "industry", "companyCode"]) {
+    if (patch[key] !== undefined) data[key] = patch[key];
+  }
+  const row = await getPrisma().org.update({ where: { id: orgId }, data });
+  return rowToOrg(row);
+}
+
+async function updateOrgStatus(orgId, status) {
+  const row = await getPrisma().org.update({ where: { id: orgId }, data: { status } });
+  return rowToOrg(row);
+}
+
+// Replaces repairAuthStore.js's ensureOrg — guarantees a real Org row exists
+// (previously only the flat file's data.orgs got this synthetic default).
+async function ensureDefaultOrg(orgId = "ORG_DEFAULT") {
+  const row = await getPrisma().org.upsert({
+    where: { id: orgId },
+    update: {},
+    create: { id: orgId, name: "Default Org", status: "active" }
+  });
+  return rowToOrg(row);
+}
+
+// ─── Pairings ─────────────────────────────────────────────────────────────────
+// Thin persistence layer only — the business logic (code-collision retry loop,
+// claim validation chain, response shaping) stays in legacyPairing.js exactly
+// as it was, just re-pointed at these Prisma calls instead of the flat file.
+// The flat-file "driverPinExpiresAt" field was always set identically to
+// "expiresAt" in every code path (never independently) — both map to the single
+// Prisma Pairing.expiresAt column.
+
+function rowToPairing(row) {
+  const expiresAtIso = row.expiresAt instanceof Date ? row.expiresAt.toISOString() : row.expiresAt;
+  return {
+    id: row.id,
+    pairingCode: row.pairCode,
+    pairCode: row.pairCode,
+    vehicleId: row.vehicleId,
+    driverId: row.driverId,
+    deviceId: row.deviceId,
+    deviceLabel: row.deviceLabel,
+    driverPin: row.driverPin,
+    orgId: row.orgId,
+    status: row.status,
+    expiresAt: expiresAtIso,
+    driverPinExpiresAt: expiresAtIso,
+    claimedAt: row.claimedAt instanceof Date ? row.claimedAt.toISOString() : row.claimedAt,
+    revokedAt: row.revokedAt instanceof Date ? row.revokedAt.toISOString() : row.revokedAt,
+    createdAt: row.createdAt instanceof Date ? row.createdAt.toISOString() : row.createdAt,
+    updatedAt: row.updatedAt instanceof Date ? row.updatedAt.toISOString() : row.updatedAt
+  };
+}
+
+async function createPairing(pairing) {
+  const row = await getPrisma().pairing.create({
+    data: {
+      id: pairing.id || makeId("PAIR"),
+      pairCode: pairing.pairingCode || pairing.pairCode || null,
+      vehicleId: pairing.vehicleId || null,
+      driverId: pairing.driverId || null,
+      orgId: pairing.orgId || null,
+      driverPin: pairing.driverPin || null,
+      status: pairing.status || "pending",
+      expiresAt: pairing.expiresAt ? new Date(pairing.expiresAt) : null
+    }
+  });
+  return rowToPairing(row);
+}
+
+async function findPairingById(id) {
+  if (!id) return null;
+  const row = await getPrisma().pairing.findUnique({ where: { id } });
+  return row ? rowToPairing(row) : null;
+}
+
+// pairCode isn't unique in the schema (a code can be reused once expired), so
+// this returns the most recent match — mirrors the flat-file .find() which
+// returned the first match in insertion order; matching latest is the more
+// correct choice since codes are only reused after expiry/replacement.
+async function findPairingByCode(code) {
+  if (!code) return null;
+  const row = await getPrisma().pairing.findFirst({
+    where: { pairCode: code },
+    orderBy: { createdAt: "desc" }
+  });
+  return row ? rowToPairing(row) : null;
+}
+
+async function updatePairing(id, patch = {}) {
+  const data = {};
+  if (patch.status !== undefined) data.status = patch.status;
+  if (patch.deviceId !== undefined) data.deviceId = patch.deviceId;
+  if (patch.deviceLabel !== undefined) data.deviceLabel = patch.deviceLabel;
+  if (patch.expiresAt !== undefined) data.expiresAt = patch.expiresAt ? new Date(patch.expiresAt) : null;
+  if (patch.claimedAt !== undefined) data.claimedAt = patch.claimedAt ? new Date(patch.claimedAt) : null;
+  const row = await getPrisma().pairing.update({ where: { id }, data });
+  return rowToPairing(row);
+}
+
+// Pending/active pairings for the SAME vehicle+driver pair — used by
+// handlePairCodeGenerate to expire a prior assignment before issuing a new code.
+async function findActivePairingsForPair(vehicleId, driverId) {
+  const rows = await getPrisma().pairing.findMany({
+    where: { vehicleId, driverId, status: { in: ["pending", "active"] } }
+  });
+  return rows.map(rowToPairing);
+}
+
+// Any non-expired pairing touching EITHER the vehicle OR the driver — used by
+// handlePairCodeReplace, which bumps status to "replaced" rather than "expired".
+async function findNonExpiredPairingsForVehicleOrDriver(vehicleId, driverId) {
+  const rows = await getPrisma().pairing.findMany({
+    where: {
+      status: { not: "expired" },
+      OR: [{ vehicleId }, { driverId }]
+    }
+  });
+  return rows.map(rowToPairing);
+}
+
+async function isPairingCodeInUse(code) {
+  const now = new Date();
+  const rows = await getPrisma().pairing.findMany({
+    where: { pairCode: code, status: { in: ["pending", "active"] } },
+    select: { expiresAt: true }
+  });
+  return rows.some((r) => !r.expiresAt || r.expiresAt.getTime() > now.getTime());
+}
+
+async function getActivePairingForVehicle(vehicleId) {
+  if (!vehicleId) return null;
+  const row = await getPrisma().pairing.findFirst({
+    where: { vehicleId, status: "active" },
+    orderBy: { createdAt: "desc" }
+  });
+  return row ? rowToPairing(row) : null;
+}
+
+// Mirrors handlePairingsActive exactly: auto-expires stale pending rows first
+// (a real side effect on read, same as the original), then returns pending rows
+// that have a code+PIN+org set and aren't expired, newest first. Despite the
+// route name ("active"), this has always meant "pending", not "claimed" —
+// preserved as-is rather than silently renamed.
+async function listPendingUnexpiredPairings() {
+  const now = new Date();
+  await getPrisma().pairing.updateMany({
+    where: { status: "pending", expiresAt: { lte: now } },
+    data: { status: "expired" }
+  });
+  const rows = await getPrisma().pairing.findMany({
+    where: {
+      status: "pending",
+      pairCode: { not: null },
+      driverPin: { not: null },
+      orgId: { not: null },
+      OR: [{ expiresAt: null }, { expiresAt: { gt: now } }]
+    },
+    orderBy: { createdAt: "desc" }
+  });
+  return rows.map(rowToPairing);
+}
+
+// Truly claimed pairings (status "active") — distinct from listPendingUnexpiredPairings
+// above, which despite its route's name actually lists "pending" pairings. Used by
+// the /api/pairings/debug admin view, mirroring the original's separate definition.
+async function listClaimedActivePairings() {
+  const now = new Date();
+  const rows = await getPrisma().pairing.findMany({
+    where: { status: "active", OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] },
+    orderBy: { createdAt: "desc" }
+  });
+  return rows.map(rowToPairing);
+}
+
+async function getPairingStatusSummary() {
+  const now = new Date();
+  const [mostRecent, activeClaimsCount] = await Promise.all([
+    getPrisma().pairing.findFirst({ orderBy: { createdAt: "desc" }, select: { createdAt: true } }),
+    getPrisma().pairing.count({ where: { status: "active", OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] } })
+  ]);
+  return {
+    lastPairCodeCreatedAt: mostRecent?.createdAt instanceof Date ? mostRecent.createdAt.toISOString() : null,
+    activeClaimsCount
+  };
+}
+
+async function getPairingHealthCounts() {
+  const now = new Date();
+  const unexpired = { OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] };
+  const [active, pending] = await Promise.all([
+    getPrisma().pairing.count({ where: { status: "active", ...unexpired } }),
+    getPrisma().pairing.count({ where: { status: "pending", ...unexpired } })
+  ]);
+  return { active, pending };
+}
+
+// Resolves the /auth/driverLogin flow: among ALL non-expired pairings whose
+// driverPin matches, find the one whose org (by raw orgId or by companyCode)
+// also matches what was typed — mirrors the original's single combined
+// find() predicate (pin AND org-code together), not "find by pin then check
+// org", since two different orgs could in principle share a driverPin.
+async function findDriverLoginPairing({ companyCode, driverPin, normalizeCode }) {
+  const norm = normalizeCode;
+  const typedCode = norm(companyCode);
+  const rows = await getPrisma().pairing.findMany({
+    where: { driverPin, status: { not: "expired" } },
+    orderBy: { createdAt: "desc" }
+  });
+  for (const row of rows) {
+    const pairing = rowToPairing(row);
+    const orgId = pairing.orgId || "ORG_DEFAULT";
+    const pairingOrgCode = norm(orgId);
+    const org = await getOrg(orgId);
+    const friendlyCode = org?.companyCode ? norm(org.companyCode) : "";
+    if (pairingOrgCode === typedCode || friendlyCode === typedCode) {
+      return { pairing, org };
+    }
+  }
+  return null;
+}
+
 // ─── Sync Artifacts From Disk ─────────────────────────────────────────────────
 
 async function syncMlArtifactsFromDisk(modelDir) {
@@ -484,5 +1032,46 @@ module.exports = {
   findMlBaselineProfile,
   insertMlPredictionRun,
   insertMlFeatureSnapshot,
-  syncMlArtifactsFromDisk
+  syncMlArtifactsFromDisk,
+  // Vehicles
+  createVehicle,
+  listVehicles,
+  getVehicleByVehicleId,
+  deleteVehicleByVehicleId,
+  findVehicleByMotiveIdOrVin,
+  upsertVehicleFromMotive,
+  updateVehicleMotiveMetadata,
+  getVehicleOrgId,
+  // Drivers
+  createDriver,
+  listDrivers,
+  getDriverByDriverId,
+  deleteDriverByDriverId,
+  findDriverByMotiveUserId,
+  upsertDriverFromMotive,
+  updateDriverMotiveMetadata,
+  getUserById,
+  logAudit,
+  createNotification,
+  // Orgs
+  createOrg,
+  getOrg,
+  listOrgs,
+  updateOrg,
+  updateOrgStatus,
+  ensureDefaultOrg,
+  // Pairings
+  createPairing,
+  findPairingById,
+  findPairingByCode,
+  updatePairing,
+  findActivePairingsForPair,
+  findNonExpiredPairingsForVehicleOrDriver,
+  isPairingCodeInUse,
+  getActivePairingForVehicle,
+  listPendingUnexpiredPairings,
+  listClaimedActivePairings,
+  getPairingHealthCounts,
+  getPairingStatusSummary,
+  findDriverLoginPairing
 };

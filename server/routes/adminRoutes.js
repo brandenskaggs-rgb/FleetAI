@@ -1,7 +1,31 @@
 const express = require("express");
 const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
-const { getPrisma } = require("../db");
+const { getPrisma, createOrg, getOrg, updateOrg, updateOrgStatus } = require("../db");
+
+// Mirrors core org identity into Prisma (see orgManagementRoutes.js's
+// mirrorOrgToPrisma for the full rationale — flat file stays authoritative
+// for admin-only fields like billingPlan/notes; Prisma just needs a valid
+// row so Vehicle/Driver/Pairing FK references and dashboard reads work).
+async function mirrorAdminOrgToPrisma(org) {
+  try {
+    const existing = await getOrg(org.id);
+    const fields = { name: org.name, status: org.status, email: org.primaryContactEmail || null, phone: org.phone || null, industry: org.industry || null };
+    if (existing) await updateOrg(org.id, fields);
+    else await createOrg({ id: org.id, ...fields });
+  } catch (err) {
+    console.warn(`[ORG-SYNC] failed to mirror admin org to Prisma: ${err.message}`);
+  }
+}
+
+async function mirrorAdminOrgStatusToPrisma(orgId, status) {
+  try {
+    const existing = await getOrg(orgId);
+    if (existing) await updateOrgStatus(orgId, status);
+  } catch (err) {
+    console.warn(`[ORG-SYNC] failed to mirror admin org status to Prisma: ${err.message}`);
+  }
+}
 const { generateApiKey } = require("../middleware/apiKeyAuth");
 const { validateBody, schemas } = require("../middleware/validate");
 const { makeId, nowIso, addAudit, sanitizeString, normalizeEmail, parseNumberField } = require("../lib/utils");
@@ -315,6 +339,7 @@ function registerAdminRoutes(app, deps) {
       data.featureFlags[org.id] = defaultFeatures(org.id);
       addAudit(data, "ORG_CREATED", `${org.id}:${org.name}`);
       await writeData(data);
+      await mirrorAdminOrgToPrisma(org);
       res.json({ ok: true, data: org });
     } catch (err) {
       next(err);
@@ -348,6 +373,7 @@ function registerAdminRoutes(app, deps) {
       org.updatedAt = nowIso();
       addAudit(data, "ORG_UPDATED", org.id);
       await writeData(data);
+      await mirrorAdminOrgToPrisma(org);
       res.json({ ok: true, data: org });
     } catch (err) {
       next(err);
@@ -365,6 +391,7 @@ function registerAdminRoutes(app, deps) {
       org.updatedAt = nowIso();
       addAudit(data, "ORG_STATUS_UPDATED", `${org.id}:${status}`);
       await writeData(data);
+      await mirrorAdminOrgStatusToPrisma(org.id, org.status);
       res.json({ ok: true, data: org });
     } catch (err) {
       next(err);
@@ -709,6 +736,7 @@ function registerAdminRoutes(app, deps) {
       addAudit(data, "ORG_CREATED", `${org.id}:${org.name}`);
       addAudit(data, "LEAD_CONVERTED_TO_ORG", `${lead.id}:${org.id}`);
       await writeData(data);
+      await mirrorAdminOrgToPrisma(org);
       res.json({ ok: true, data: { lead, org } });
     } catch (err) {
       next(err);

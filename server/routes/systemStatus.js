@@ -1,3 +1,5 @@
+const db = require("../db");
+
 function registerSystemStatusRoutes(app, deps) {
   const {
     healthPayload,
@@ -105,18 +107,7 @@ function registerSystemStatusRoutes(app, deps) {
 
   app.get("/api/system/pairing/status", async (req, res) => {
     try {
-      const data = await readData();
-      const pairings = Array.isArray(data.pairings) ? data.pairings : [];
-      let lastPairCodeCreatedAt = null;
-      let activeClaimsCount = 0;
-      pairings.forEach((p) => {
-        if (p?.createdAt) {
-          if (!lastPairCodeCreatedAt || new Date(p.createdAt) > new Date(lastPairCodeCreatedAt)) {
-            lastPairCodeCreatedAt = p.createdAt;
-          }
-        }
-        if (p?.status === "active" && !isExpired(p.expiresAt)) activeClaimsCount += 1;
-      });
+      const { lastPairCodeCreatedAt, activeClaimsCount } = await db.getPairingStatusSummary();
       res.json({
         ok: true,
         pairingEnabled: true,
