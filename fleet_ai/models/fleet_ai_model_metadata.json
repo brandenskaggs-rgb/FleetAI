@@ -99,12 +99,12 @@
   ],
   "featureCount": 93,
   "rows": 450000,
-  "failure_rate": 0.072856,
-  "accuracy": 0.991208,
-  "precision": 0.952333,
-  "recall": 0.924636,
+  "failure_rate": 0.072242,
+  "accuracy": 0.991248,
+  "precision": 0.949458,
+  "recall": 0.927362,
   "f1": 0.93828,
-  "roc_auc": 0.998454,
+  "roc_auc": 0.998353,
   "threshold": 0.52,
   "thresholds": {
     "balanced": 0.52,
@@ -124,234 +124,269 @@
   ],
   "holdout": {
     "rows": 5840,
-    "accuracy": 0.977397,
-    "precision": 0.983658,
-    "recall": 0.948653,
-    "f1": 0.965839,
-    "roc_auc": 0.998142,
-    "brier_score": 0.015373,
-    "brier_skill_score": 0.931178,
+    "accuracy": 0.977055,
+    "precision": 0.989845,
+    "recall": 0.941535,
+    "f1": 0.965086,
+    "roc_auc": 0.998027,
+    "brier_score": 0.016417,
+    "brier_skill_score": 0.926503,
     "prevalence": 0.336815,
     "calibration": {
-      "slope": 1.0968,
-      "intercept": 0.4644,
+      "slope": 1.0902,
+      "intercept": 0.6248,
       "note": "logistic regression of actual on logit(predicted); slope=1, intercept=0 is perfect"
     },
     "reliability_curve": [
       {
-        "mean_predicted": 0.0035,
-        "fraction_positive": 0.0038
+        "mean_predicted": 0.0041,
+        "fraction_positive": 0.0056
       },
       {
-        "mean_predicted": 0.1599,
-        "fraction_positive": 0.2527
+        "mean_predicted": 0.1299,
+        "fraction_positive": 0.2609
       },
       {
-        "mean_predicted": 0.3236,
-        "fraction_positive": 0.4103
+        "mean_predicted": 0.2618,
+        "fraction_positive": 0.3119
       },
       {
-        "mean_predicted": 0.4307,
-        "fraction_positive": 0.5185
+        "mean_predicted": 0.3159,
+        "fraction_positive": 0.5909
       },
       {
-        "mean_predicted": 0.5221,
-        "fraction_positive": 0.6
+        "mean_predicted": 0.4411,
+        "fraction_positive": 0.5349
       },
       {
-        "mean_predicted": 0.668,
-        "fraction_positive": 0.75
+        "mean_predicted": 0.5312,
+        "fraction_positive": 0.6296
       },
       {
-        "mean_predicted": 0.7782,
-        "fraction_positive": 0.8226
+        "mean_predicted": 0.6755,
+        "fraction_positive": 0.8333
       },
       {
-        "mean_predicted": 0.8689,
-        "fraction_positive": 0.9091
+        "mean_predicted": 0.7406,
+        "fraction_positive": 0.918
       },
       {
-        "mean_predicted": 0.9926,
+        "mean_predicted": 0.8777,
+        "fraction_positive": 0.9245
+      },
+      {
+        "mean_predicted": 0.9946,
         "fraction_positive": 0.9988
       }
     ],
     "risk_bands": [
       {
         "band": "0.0-0.1",
-        "rows": 3724,
-        "brier": 0.003603,
-        "mean_pred": 0.0035,
-        "frac_actual": 0.0038
+        "rows": 3698,
+        "brier": 0.004135,
+        "mean_pred": 0.0033,
+        "frac_actual": 0.0043
       },
       {
         "band": "0.1-0.2",
-        "rows": 90,
-        "brier": 0.198775,
-        "mean_pred": 0.1595,
-        "frac_actual": 0.2556
+        "rows": 77,
+        "brier": 0.183426,
+        "mean_pred": 0.1178,
+        "frac_actual": 0.2208
       },
       {
         "band": "0.2-0.3",
-        "rows": 1,
-        "brier": 0.04,
-        "mean_pred": 0.2,
-        "frac_actual": 0.0
+        "rows": 109,
+        "brier": 0.218024,
+        "mean_pred": 0.2618,
+        "frac_actual": 0.3119
       },
       {
         "band": "0.3-0.4",
-        "rows": 39,
-        "brier": 0.251009,
-        "mean_pred": 0.3236,
-        "frac_actual": 0.4103
+        "rows": 22,
+        "brier": 0.317763,
+        "mean_pred": 0.3159,
+        "frac_actual": 0.5909
       },
       {
         "band": "0.4-0.5",
-        "rows": 53,
-        "brier": 0.254839,
-        "mean_pred": 0.4294,
-        "frac_actual": 0.5094
+        "rows": 43,
+        "brier": 0.257474,
+        "mean_pred": 0.4411,
+        "frac_actual": 0.5349
       },
       {
         "band": "0.5-0.6",
-        "rows": 46,
-        "brier": 0.245666,
-        "mean_pred": 0.5216,
-        "frac_actual": 0.6087
+        "rows": 27,
+        "brier": 0.241222,
+        "mean_pred": 0.5312,
+        "frac_actual": 0.6296
       },
       {
         "band": "0.6-0.7",
-        "rows": 36,
-        "brier": 0.194232,
-        "mean_pred": 0.668,
-        "frac_actual": 0.75
+        "rows": 12,
+        "brier": 0.163142,
+        "mean_pred": 0.6755,
+        "frac_actual": 0.8333
       },
       {
         "band": "0.7-0.8",
-        "rows": 62,
-        "brier": 0.144686,
-        "mean_pred": 0.7782,
-        "frac_actual": 0.8226
+        "rows": 61,
+        "brier": 0.106401,
+        "mean_pred": 0.7406,
+        "frac_actual": 0.918
       },
       {
         "band": "0.8-0.9",
-        "rows": 66,
-        "brier": 0.085626,
-        "mean_pred": 0.8689,
-        "frac_actual": 0.9091
+        "rows": 106,
+        "brier": 0.071185,
+        "mean_pred": 0.8777,
+        "frac_actual": 0.9245
       },
       {
         "band": "0.9-1.0",
-        "rows": 832,
-        "brier": 0.002668,
-        "mean_pred": 0.9847,
-        "frac_actual": 0.9976
+        "rows": 786,
+        "brier": 0.002704,
+        "mean_pred": 0.9885,
+        "frac_actual": 0.9975
       }
     ],
+    "noise_robustness": {
+      "threshold_used": 0.5199999999999998,
+      "tiers": {
+        "clean": {
+          "true_negative_rows": 1582,
+          "fp_rate_raw_rf": 0.035398,
+          "fp_rate_raw_hgb": 0.032238,
+          "fp_rate_blended_uncalibrated": 0.031606,
+          "fp_rate_calibrated_final": 0.004425
+        },
+        "medium": {
+          "true_negative_rows": 1168,
+          "fp_rate_raw_rf": 0.025685,
+          "fp_rate_raw_hgb": 0.066781,
+          "fp_rate_blended_uncalibrated": 0.042808,
+          "fp_rate_calibrated_final": 0.006849
+        },
+        "noisy": {
+          "true_negative_rows": 1123,
+          "fp_rate_raw_rf": 0.0187,
+          "fp_rate_raw_hgb": 0.059662,
+          "fp_rate_blended_uncalibrated": 0.033838,
+          "fp_rate_calibrated_final": 0.003562
+        }
+      },
+      "noisy_tier_calibration": {
+        "slope": 1.1683,
+        "intercept": 0.9307,
+        "rows": 1946
+      }
+    },
     "note": "heavy_duty seed=777 out-of-sample holdout"
   },
   "featureImportance": [
     {
-      "feature": "battery_voltage",
-      "importance": 0.08551
-    },
-    {
-      "feature": "rpm",
-      "importance": 0.074141
-    },
-    {
       "feature": "drive_cycle_phase_code",
-      "importance": 0.070577
+      "importance": 0.090447
     },
     {
-      "feature": "hub_temp_fl_c",
-      "importance": 0.058124
-    },
-    {
-      "feature": "hub_temp_fr_c",
-      "importance": 0.048116
+      "feature": "battery_voltage",
+      "importance": 0.063858
     },
     {
       "feature": "maf_throttle_ratio",
-      "importance": 0.047528
+      "importance": 0.063383
     },
     {
       "feature": "hub_temp_rl_c",
-      "importance": 0.041386
+      "importance": 0.052773
     },
     {
-      "feature": "hub_temp_rr_c",
-      "importance": 0.039355
+      "feature": "rpm",
+      "importance": 0.049442
+    },
+    {
+      "feature": "hub_temp_fr_c",
+      "importance": 0.048235
     },
     {
       "feature": "idle_hours_day",
-      "importance": 0.038717
+      "importance": 0.043421
+    },
+    {
+      "feature": "hub_temp_rr_c",
+      "importance": 0.033901
     },
     {
       "feature": "aero_drag_kw",
-      "importance": 0.037014
-    },
-    {
-      "feature": "battery_soc_pct",
-      "importance": 0.027336
+      "importance": 0.033443
     },
     {
       "feature": "battery_voltage_delta_30d",
-      "importance": 0.027179
+      "importance": 0.029475
     },
     {
-      "feature": "bearing_wear_index",
-      "importance": 0.026343
+      "feature": "hub_temp_fl_c",
+      "importance": 0.029308
     },
     {
       "feature": "alternator_deficit_w",
-      "importance": 0.022903
-    },
-    {
-      "feature": "idle_heat_soak",
-      "importance": 0.022824
-    },
-    {
-      "feature": "bsfc_g_per_kwh",
-      "importance": 0.022131
-    },
-    {
-      "feature": "hubTempFR_accel_h24",
-      "importance": 0.018549
+      "importance": 0.02749
     },
     {
       "feature": "bearingFreqScore_accel_h24",
-      "importance": 0.017247
+      "importance": 0.026009
     },
     {
-      "feature": "rolling_resistance_kw",
-      "importance": 0.016984
+      "feature": "bsfc_g_per_kwh",
+      "importance": 0.022843
     },
     {
-      "feature": "hubTempRL_accel_h24",
-      "importance": 0.015901
+      "feature": "battery_soc_pct",
+      "importance": 0.022491
     },
     {
-      "feature": "hubTempRR_accel_h24",
-      "importance": 0.015738
-    },
-    {
-      "feature": "hubTempFL_accel_h24",
-      "importance": 0.013323
+      "feature": "hubTempFR_accel_h24",
+      "importance": 0.020487
     },
     {
       "feature": "egr_cooler_fouling",
-      "importance": 0.012495
+      "importance": 0.020017
+    },
+    {
+      "feature": "idle_heat_soak",
+      "importance": 0.019682
+    },
+    {
+      "feature": "hubTempFL_accel_h24",
+      "importance": 0.018657
+    },
+    {
+      "feature": "hubTempRL_accel_h24",
+      "importance": 0.016813
+    },
+    {
+      "feature": "hubTempRR_accel_h24",
+      "importance": 0.015699
+    },
+    {
+      "feature": "bearing_wear_index",
+      "importance": 0.015172
+    },
+    {
+      "feature": "rolling_resistance_kw",
+      "importance": 0.015142
     },
     {
       "feature": "scr_inlet_temp_c",
-      "importance": 0.010892
+      "importance": 0.013477
     },
     {
-      "feature": "tire_pressure",
-      "importance": 0.010458
+      "feature": "vehicle_class_code",
+      "importance": 0.011824
     }
   ],
-  "brier_score": 0.006357,
+  "brier_score": 0.006481,
   "physics_engine": "v4.4 \u2014 ISA/aero/BSFC/thermal/Walther/L10/DPF/Peukert/sensor-drift + isotonic calibration + shared registry",
   "calibrated": true,
   "notes": "Physics-informed synthetic priors v4.3. v4.2 audit fixes retained. v4.3 adds: (5) training/inference vehicle specs unified (mass, engine_kw, Cd, Crr, frontal_m2 now identical); (6) grade generator produces realistic downhill grades normal(0.5,2.0) clipped to [-5.5,8.5]%; (7) hub bearing omega floor removed \u2014 zero speed produces zero friction heat. Natural-balance training (8.5% real failure rate) + Platt isotonic calibration. Bearing life from field-calibrated L10; DPF from sawtooth regen state machine; battery from Peukert + Arrhenius aging; oil from Walther viscosity equation."

@@ -31,10 +31,20 @@ try:
         sys.path.insert(0, str(_REPO_ROOT))
     from fleet_ai.physics.vehicle_physics import VEHICLE_SPECS as _VEHICLE_SPECS
     from fleet_ai.physics.vehicle_physics import inference_specs as _inference_specs
+    from fleet_ai.physics.vehicle_physics import estimate_sensor_drift as _estimate_sensor_drift
+    from fleet_ai.physics.vehicle_physics import build_rf_matrix as _build_rf_matrix
     _REGISTRY_LOADED = True
 except Exception:
     _REGISTRY_LOADED = False
+    _build_rf_matrix = None
     logger.warning("[pretrained] fleet_ai.physics registry not found — using inline fallback specs")
+
+    def _estimate_sensor_drift(odometer_miles, engine_hours, maintenance_neglect):
+        """Inline fallback — must match fleet_ai.physics.vehicle_physics.estimate_sensor_drift exactly."""
+        coolant_error_c = max(0.0, min(8.0, odometer_miles / 600000.0 * 4.0 * maintenance_neglect))
+        maf_error_pct   = max(0.0, min(15.0, odometer_miles / 500000.0 * 8.0 * maintenance_neglect))
+        o2_lag_ms       = max(50.0, min(500.0, 80.0 + engine_hours / 10000.0 * 200.0 * maintenance_neglect))
+        return coolant_error_c, maf_error_pct, o2_lag_ms
 
 
 def _find_model_file(filename: str) -> Path:
@@ -543,9 +553,13 @@ class PretrainedScorer:
         cranking_v = _cranking_voltage(batt_soh, ambient)
 
         # ── v4: sensor drift ─────────────────────────────────────────────────
-        coolant_error_c = max(0.0, min(8.0, odometer_miles / 600000.0 * 4.0 * maintenance_neglect))
-        maf_error_pct   = max(0.0, min(15.0, odometer_miles / 500000.0 * 8.0 * maintenance_neglect))
-        o2_lag_ms       = max(50.0, min(500.0, 80.0 + engine_hours / 10000.0 * 200.0 * maintenance_neglect))
+        # Shared with training (fleet_ai.physics.vehicle_physics.estimate_sensor_drift)
+        # so this can never silently diverge from what fleet_simulation.py trains on.
+        coolant_error_c, maf_error_pct, o2_lag_ms = _estimate_sensor_drift(
+            odometer_miles, engine_hours, maintenance_neglect)
+        coolant_error_c = float(coolant_error_c)
+        maf_error_pct   = float(maf_error_pct)
+        o2_lag_ms       = float(o2_lag_ms)
 
         return {
             # identity
@@ -668,7 +682,21 @@ class PretrainedScorer:
             models = bundle["models"]
             cals   = bundle.get("calibrators", {}) or {}
 
-            rf_raw  = models["random_forest"].predict_proba(X)[0, 1]
+            # RF was trained on an imputed + "_was_missing"-flagged matrix (see
+            # fleet_ai/training/fleet_simulation.py _train_from_df) — HGB keeps
+            # using the raw feature vector. Live scoring here is always a fully
+            # populated best-effort vector (no live NaN), so the indicator flags
+            # are always 0, but the column set still must match what RF was fit
+            # on. Falls back to feeding RF the same X as HGB for older bundles
+            # saved before this fix (no rf_imputer present).
+            rf_imputer = bundle.get("rf_imputer")
+            rf_missingness_cols = bundle.get("rf_missingness_cols")
+            if _build_rf_matrix is not None and rf_imputer is not None and rf_missingness_cols is not None:
+                X_rf, _ = _build_rf_matrix(X, rf_missingness_cols, rf_imputer)
+            else:
+                X_rf = X
+
+            rf_raw  = models["random_forest"].predict_proba(X_rf)[0, 1]
             hgb_raw = models["hist_gradient_boosting"].predict_proba(X)[0, 1]
 
             # Step 1: per-model isotonic calibration (v4.1+)

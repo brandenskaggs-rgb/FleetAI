@@ -17,6 +17,18 @@ import pandas as pd
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
+# Shared RF missing-value matrix builder (see fleet_ai/physics/vehicle_physics.py).
+# Falls back to feeding RF the same matrix as HGB if the registry is unreachable
+# (e.g. stripped deploy) or the loaded model bundle predates this fix — matches
+# the old (pre-imputer) behavior rather than hard-crashing the service.
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+try:
+    from fleet_ai.physics.vehicle_physics import build_rf_matrix
+except Exception:
+    build_rf_matrix = None
+
 
 ROOT = Path(__file__).resolve().parents[1]
 MODELS_DIR = ROOT / "models"
@@ -290,7 +302,21 @@ def predict(req: PredictRequest):
         models = MODEL["models"]
         rf_weight = float(MODEL.get("rf_weight", 0.5))
         hgb_weight = float(MODEL.get("hgb_weight", 0.5))
-        risk_probability = (rf_weight * float(models["random_forest"].predict_proba(input_df)[0, 1])) + (
+
+        # RF was trained on an imputed + "_was_missing"-flagged matrix (see
+        # fleet_ai/training/fleet_simulation.py _train_from_df); it needs that
+        # same shape here, not the raw feature vector HGB uses. Live scoring is
+        # a single best-effort vector with no actual missing values, so the
+        # indicator flags are always 0 — but the column set still has to match
+        # what RF was fit on, or predict_proba raises/misaligns silently.
+        rf_imputer = MODEL.get("rf_imputer")
+        rf_missingness_cols = MODEL.get("rf_missingness_cols")
+        if build_rf_matrix is not None and rf_imputer is not None and rf_missingness_cols is not None:
+            rf_input_df, _ = build_rf_matrix(input_df, rf_missingness_cols, rf_imputer)
+        else:
+            rf_input_df = input_df
+
+        risk_probability = (rf_weight * float(models["random_forest"].predict_proba(rf_input_df)[0, 1])) + (
             hgb_weight * float(models["hist_gradient_boosting"].predict_proba(input_df)[0, 1])
         )
     else:

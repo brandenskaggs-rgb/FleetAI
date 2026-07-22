@@ -79,6 +79,8 @@ from fleet_ai.physics.vehicle_physics import (
     VEHICLE_SPECS as _VEHICLE_SPECS,
     PHYS_KEY_ORDER as _PHYS_KEY_ORDER,
     build_phys_tuple as _build_phys_tuple,
+    estimate_sensor_drift,
+    build_rf_matrix,
 )
 
 _PHYS = {name: _build_phys_tuple(name) for name in _VEHICLE_SPECS}
@@ -619,6 +621,30 @@ def _sensor_drift(age_years: np.ndarray, vibration: np.ndarray,
     return coolant_err, maf_err, o2_lag
 
 
+def _apply_o2_lag_smoothing(raw: np.ndarray, o2_lag_ms: np.ndarray,
+                             fleet_size: int, steps_per_vehicle: int) -> np.ndarray:
+    """
+    A degraded O2 sensor responds slowly, so the ECU's fast (short-term) fuel-trim
+    correction lags behind the true mixture state instead of tracking it directly.
+    Modeled as an EWMA over each vehicle's own observation sequence in day order.
+    Rows are already vehicle-major/day-minor (see vehicle_idx/day_idx construction
+    in generate_mixed_fleet_data), so a reshape recovers each vehicle's time series
+    without any sort — this is real per-vehicle sequential smoothing, not an
+    i.i.d. approximation.
+    alpha = 100/lag: a fresh 100ms sensor gives alpha=1 (no damping); an 850ms
+    degraded sensor gives alpha≈0.12 (heavy damping toward the running average).
+    """
+    raw_grid   = raw.reshape(fleet_size, steps_per_vehicle)
+    lag_grid   = o2_lag_ms.reshape(fleet_size, steps_per_vehicle)
+    alpha_grid = np.clip(100.0 / np.maximum(lag_grid, 1.0), 0.12, 1.0)
+    smoothed = np.empty_like(raw_grid)
+    smoothed[:, 0] = raw_grid[:, 0]
+    for t in range(1, steps_per_vehicle):
+        a = alpha_grid[:, t]
+        smoothed[:, t] = a * raw_grid[:, t] + (1.0 - a) * smoothed[:, t - 1]
+    return smoothed.reshape(-1)
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # DATA GENERATOR
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -643,8 +669,9 @@ def generate_mixed_fleet_data(
     electrochemical equations rather than statistical approximations.
     """
     rng  = np.random.default_rng(seed)
-    rows = int(fleet_size * days * observations_per_day)
-    vehicle_idx = np.repeat(np.arange(fleet_size), days * observations_per_day)
+    steps_per_vehicle = days * observations_per_day
+    rows = int(fleet_size * steps_per_vehicle)
+    vehicle_idx = np.repeat(np.arange(fleet_size), steps_per_vehicle)
     day_idx     = np.tile(np.repeat(np.arange(days), observations_per_day), fleet_size)
 
     # ── Vehicle profiles ──────────────────────────────────────────────────────
@@ -941,6 +968,20 @@ def generate_mixed_fleet_data(
     coolant_err, maf_err, o2_lag = _sensor_drift(
         age_years, vibration_scalar, maintenance_neglect, long_haul_ratio, rng, rows)
 
+    # Reported (sensor-corrupted) engine_temp — this is what feeds the model.
+    # engine_temp itself stays the TRUE physics value for all downstream thermal
+    # chains, failure scoring, and delta/accel features below: the physics decides
+    # what breaks, the sensor only imperfectly reports it.
+    engine_temp_reported = np.clip(engine_temp + coolant_err, ambient_temp_c - 10, 148)
+
+    # Estimated (not measured) sensor drift — same proxy formula pretrained.py
+    # uses at inference (mileage/hours/maintenance history). Neither training nor
+    # live inference ever has the true instantaneous coolant_err/maf_err/o2_lag
+    # draw above; feeding the model the real draw as a "sensor_*_error" column
+    # would leak the answer key it will never actually have in production.
+    sensor_coolant_error_est, sensor_maf_error_est, sensor_o2_lag_est = estimate_sensor_drift(
+        odometer_miles, engine_hours, maintenance_neglect)
+
     # ── Derived / legacy v3 signals ──────────────────────────────────────────
     wear_progress       = np.clip(day_idx / max(days, 1) + (age_years / 14) * 0.22
                                   + maintenance_neglect * 0.55, 0, 1.8)
@@ -959,7 +1000,10 @@ def generate_mixed_fleet_data(
     throttle_pos        = np.clip(20 + 35 * payload_ratio + 12 * road_grade_pct
                                   + 8 * towing_ratio + rng.normal(0, 6, rows), 5, 100)
     maf_approx          = np.clip(0.12 * rpm * throttle_pos / 100 + rng.normal(0, 8, rows), 1, 350)
-    maf_throttle_ratio  = np.clip(maf_approx / np.maximum(throttle_pos, 1.0), 0.3, 5.0)
+    # Fouled hot-wire MAF misreports airflow by maf_err%; this is what the ECU
+    # (and our feature) actually sees — maf_approx itself stays the true reading.
+    maf_approx_reported = maf_approx * (1.0 + maf_err / 100.0)
+    maf_throttle_ratio  = np.clip(maf_approx_reported / np.maximum(throttle_pos, 1.0), 0.3, 5.0)
     intake_ambient_delta = np.clip(turbo_outlet_temp - ambient_temp_c, -5, 80)
     coolant_oil_delta   = oil_temp - engine_temp
     exhaust_back_pressure = np.clip(7 + 0.10 * dpf_soot_load + 0.08 * dpf_ash_pct
@@ -982,6 +1026,9 @@ def generate_mixed_fleet_data(
 
     fuel_trim_short     = np.clip(rng.normal(0, 3, rows) + 5 * maintenance_neglect
                                   - 2 * altitude_stress, -25, 25)
+    # O2 sensor lag damps the ECU's fast trim correction — see _apply_o2_lag_smoothing.
+    fuel_trim_short     = _apply_o2_lag_smoothing(
+        fuel_trim_short, o2_lag, fleet_size, steps_per_vehicle)
     # At altitude, air is thin → engine runs rich → ECU pulls fuel → LTFT negative
     fuel_trim_long      = np.clip(rng.normal(0, 1.5, rows) + 7 * maintenance_neglect
                                   - 4 * altitude_stress + 2 * wear_progress, -25, 25)
@@ -1130,7 +1177,7 @@ def generate_mixed_fleet_data(
     subsystem = sub_keys[np.argmax(np.vstack(list(subsystem_prob.values())), axis=0)]
 
     # ── DataFrame ──────────────────────────────────────────────────────────────
-    return pd.DataFrame({
+    df = pd.DataFrame({
         "vehicle_id":            [f"SIM-{i:05d}" for i in vehicle_idx],
         "profile_key":           [Profile(a, b, c, d, e).profile_key
                                   for a, b, c, d, e in zip(make, model, vehicle_class, protocol, powertrain)],
@@ -1148,7 +1195,7 @@ def generate_mixed_fleet_data(
         "time_since_start_min":  np.round(time_since_start_min, 1),
         # Core sensors
         "rpm":                   np.round(rpm, 1),
-        "engine_temp":           np.round(engine_temp, 2),
+        "engine_temp":           np.round(engine_temp_reported, 2),
         "oil_temp":              np.round(oil_temp, 2),
         "transmission_temp":     np.round(transmission_temp, 2),
         "fuel_pressure":         np.round(fuel_pressure, 2),
@@ -1228,10 +1275,11 @@ def generate_mixed_fleet_data(
         "battery_soc_pct":       np.round(battery_soc, 2),
         "alternator_deficit_w":  np.round(alt_deficit, 1),
         "cranking_voltage_v":    np.round(cranking_v, 3),
-        # v4 sensor drift
-        "sensor_coolant_error_c": np.round(coolant_err, 3),
-        "sensor_maf_error_pct":   np.round(maf_err, 3),
-        "sensor_o2_lag_ms":       np.round(o2_lag, 1),
+        # v4 sensor drift — estimated proxy (matches pretrained.py inference formula),
+        # NOT the true coolant_err/maf_err/o2_lag draw used above to corrupt readings.
+        "sensor_coolant_error_c": np.round(sensor_coolant_error_est, 3),
+        "sensor_maf_error_pct":   np.round(sensor_maf_error_est, 3),
+        "sensor_o2_lag_ms":       np.round(sensor_o2_lag_est, 1),
         # Phase 2B — temporal acceleration (names match features.py inference keys)
         "hubTempFL_accel_h24":           hubTempFL_accel_h24,
         "hubTempFR_accel_h24":           hubTempFR_accel_h24,
@@ -1248,6 +1296,22 @@ def generate_mixed_fleet_data(
         "failure_probability_true": np.round(failure_probability, 6),
         "failure_subsystem":     subsystem,
     })
+
+    # ── Real sensor missingness ─────────────────────────────────────────────────
+    # sensor_missing_rate was previously computed and stored as a column but never
+    # used to drop anything — every "sensor" read out as perfectly present. Apply
+    # it for real: each row independently drops each BASELINE_METRICS reading with
+    # probability equal to THAT row's own sensor_missing_rate. This runs after
+    # failure/subsystem scoring above, which used the true (never-missing)
+    # physics values — only the exported feature columns get corrupted, matching
+    # the engine_temp/maf/o2_lag split above.
+    _missing_cols = [c for c in BASELINE_METRICS if c in df.columns]
+    _miss_draw = rng.random((rows, len(_missing_cols)))
+    _miss_mask = _miss_draw < sensor_missing_rate[:, None]
+    for _j, _col in enumerate(_missing_cols):
+        df.loc[_miss_mask[:, _j], _col] = np.nan
+
+    return df
 
 
 def generate_heavy_duty_data(
@@ -1334,6 +1398,16 @@ def _train_from_df(df: pd.DataFrame, seed: int = 42, calibrate: bool = False) ->
         X_train, X_val, y_train, y_val = train_test_split(
             X_dev, y_dev, test_size=val_frac, random_state=seed, stratify=y_dev)
 
+    # RandomForest can't accept NaN (HistGradientBoosting can, and uses missingness
+    # as a native split signal). Build RF's own median-imputed + "_was_missing"
+    # indicator matrix via the shared helper (single implementation, also used by
+    # both live inference services) so RF keeps that signal explicitly instead of
+    # losing it. Imputer is fit on X_train ONLY to avoid leaking val/test stats.
+    missingness_cols = [c for c in BASELINE_METRICS if c in available_features]
+    X_train_rf, rf_imputer = build_rf_matrix(X_train, missingness_cols)
+    X_val_rf,  _           = build_rf_matrix(X_val,  missingness_cols, rf_imputer)
+    X_test_rf, _           = build_rf_matrix(X_test, missingness_cols, rf_imputer)
+
     # Compute balanced sample weights for both RF and HGB.
     # Per-class amplifiers additionally boost cargo_van and medium_duty failures,
     # which cluster below any reasonable threshold at natural base rate (1.67% and 1.97%)
@@ -1360,13 +1434,13 @@ def _train_from_df(df: pd.DataFrame, seed: int = 42, calibrate: bool = False) ->
     hgb_model = HistGradientBoostingClassifier(
         max_depth=9, learning_rate=0.045, max_iter=500,
         l2_regularization=0.06, random_state=seed)
-    rf_model.fit(X_train, y_train, sample_weight=sample_w)
+    rf_model.fit(X_train_rf, y_train, sample_weight=sample_w)
     hgb_model.fit(X_train, y_train, sample_weight=sample_w)
 
     # ── Step 1: Per-model isotonic calibrators on first half of val ──────────
     # Fitting on a subset of val prevents the calibrators from overfitting the
     # same data used for ensemble-weight search and ensemble calibration below.
-    rf_val_raw   = rf_model.predict_proba(X_val)[:, 1]
+    rf_val_raw   = rf_model.predict_proba(X_val_rf)[:, 1]
     hgb_val_raw  = hgb_model.predict_proba(X_val)[:, 1]
     y_val_arr    = y_val.to_numpy()
     n_half       = len(y_val_arr) // 2
@@ -1474,7 +1548,7 @@ def _train_from_df(df: pd.DataFrame, seed: int = 42, calibrate: bool = False) ->
     threshold = best_threshold
 
     # ── Step 7: Test set through full pipeline ────────────────────────────────
-    rf_test_raw  = rf_model.predict_proba(X_test)[:, 1]
+    rf_test_raw  = rf_model.predict_proba(X_test_rf)[:, 1]
     hgb_test_raw = hgb_model.predict_proba(X_test)[:, 1]
     test_prob    = _pipeline(rf_test_raw, hgb_test_raw)
     predictions  = (test_prob >= threshold).astype(int)
@@ -1493,6 +1567,8 @@ def _train_from_df(df: pd.DataFrame, seed: int = 42, calibrate: bool = False) ->
         "ensemble_calibrator": ensemble_calibrator,
         "ensemble_calibrator_type": ensemble_calibrator_type,
         "features": available_features,
+        "rf_imputer": rf_imputer,
+        "rf_missingness_cols": missingness_cols,
         "threshold": float(threshold), "thresholds": thresholds,
         "rf_weight": float(rf_weight), "hgb_weight": float(hgb_weight),
         "model_name": "mixed_fleet_rf_hgb_ensemble",
@@ -1528,7 +1604,8 @@ def _train_from_df(df: pd.DataFrame, seed: int = 42, calibrate: bool = False) ->
     # ── Holdout through full calibrated pipeline ──────────────────────────────
     holdout_df    = generate_heavy_duty_data(seed=777)
     holdout_feats = [c for c in available_features if c in holdout_df.columns]
-    ho_rf_raw  = rf_model.predict_proba(holdout_df[holdout_feats])[:, 1]
+    holdout_X_rf, _ = build_rf_matrix(holdout_df[holdout_feats], missingness_cols, rf_imputer)
+    ho_rf_raw  = rf_model.predict_proba(holdout_X_rf)[:, 1]
     ho_hgb_raw = hgb_model.predict_proba(holdout_df[holdout_feats])[:, 1]
     ho_prob    = _pipeline(ho_rf_raw, ho_hgb_raw)
     ho_pred    = (ho_prob >= threshold).astype(int)
@@ -1564,6 +1641,54 @@ def _train_from_df(df: pd.DataFrame, seed: int = 42, calibrate: bool = False) ->
                 "frac_actual": round(float(y_holdout[mask].mean()), 4),
             })
 
+    # ── Noise-robustness stratification ───────────────────────────────────────
+    # The whole point of turning on real sensor missingness/drift was to give the
+    # RF+HGB calibration pipeline actual noise to suppress — a single blended
+    # accuracy number can't tell you whether it's doing that job. sensor_missing_rate
+    # is real, ground-truth, and never itself corrupted, so terciles of it split
+    # holdout vehicles into structurally clean vs noisy sensor feeds. For each
+    # tier, report the false-positive rate at a FIXED decision threshold (the same
+    # one the final calibrated pipeline uses) at each pipeline stage — raw RF,
+    # raw HGB, uncalibrated blend, fully calibrated — so the FP-rate delta between
+    # stages isolates exactly what calibration is buying you under real noise.
+    noise_level  = holdout_df["sensor_missing_rate"].to_numpy()
+    tercile_lo, tercile_hi = np.quantile(noise_level, [1 / 3, 2 / 3])
+    noise_tier = np.where(noise_level <= tercile_lo, "clean",
+                 np.where(noise_level <= tercile_hi, "medium", "noisy"))
+
+    ho_rf_pred_fixed    = (ho_rf_raw >= threshold).astype(int)
+    ho_hgb_pred_fixed   = (ho_hgb_raw >= threshold).astype(int)
+    ho_blend_uncal_pred = ((0.5 * ho_rf_raw + 0.5 * ho_hgb_raw) >= threshold).astype(int)
+
+    def _fp_rate(pred_arr: np.ndarray, mask: np.ndarray):
+        sub = pred_arr[mask]
+        return round(float(sub.mean()), 6) if len(sub) else None
+
+    noise_robustness = {"threshold_used": float(threshold), "tiers": {}}
+    neg_mask = (y_holdout == 0)
+    for tname in ("clean", "medium", "noisy"):
+        tmask = neg_mask & (noise_tier == tname)
+        noise_robustness["tiers"][tname] = {
+            "true_negative_rows":           int(tmask.sum()),
+            "fp_rate_raw_rf":               _fp_rate(ho_rf_pred_fixed, tmask),
+            "fp_rate_raw_hgb":              _fp_rate(ho_hgb_pred_fixed, tmask),
+            "fp_rate_blended_uncalibrated": _fp_rate(ho_blend_uncal_pred, tmask),
+            "fp_rate_calibrated_final":     _fp_rate(ho_pred, tmask),
+        }
+
+    # Calibration slope/intercept restricted to the noisiest tier (pos + neg),
+    # showing whether predicted probabilities stay trustworthy specifically
+    # under high sensor-missingness conditions, not just on average.
+    noisy_mask = (noise_tier == "noisy")
+    if noisy_mask.sum() > 20 and len(np.unique(y_holdout[noisy_mask])) > 1:
+        _noisy_logit = np.log(ho_prob_clipped[noisy_mask] / (1 - ho_prob_clipped[noisy_mask])).reshape(-1, 1)
+        _noisy_cal_lr = LogisticRegression(fit_intercept=True).fit(_noisy_logit, y_holdout[noisy_mask])
+        noise_robustness["noisy_tier_calibration"] = {
+            "slope":     round(float(_noisy_cal_lr.coef_[0][0]), 4),
+            "intercept": round(float(_noisy_cal_lr.intercept_[0]), 4),
+            "rows":      int(noisy_mask.sum()),
+        }
+
     holdout_metrics = {
         "rows":              int(len(holdout_df)),
         "accuracy":          round(float(accuracy_score(y_holdout, ho_pred)), 6),
@@ -1581,11 +1706,15 @@ def _train_from_df(df: pd.DataFrame, seed: int = 42, calibrate: bool = False) ->
         },
         "reliability_curve": reliability,
         "risk_bands":        risk_bands,
+        "noise_robustness":  noise_robustness,
         "note":              "heavy_duty seed=777 out-of-sample holdout",
     }
 
     brier = round(float(brier_score_loss(y_test, test_prob)), 6)
-    feature_importance = _feature_importances(rf_model, available_features, top_n=25)
+    # rf_model was fit on X_train_rf, which has more columns than available_features
+    # (imputed sensor readings + "_was_missing" indicator flags) — must pass its
+    # actual column list or feature_importances_ silently misaligns via zip().
+    feature_importance = _feature_importances(rf_model, list(X_train_rf.columns), top_n=25)
 
     model_dir = Path(__file__).resolve().parents[1] / "models"
     model_dir.mkdir(parents=True, exist_ok=True)

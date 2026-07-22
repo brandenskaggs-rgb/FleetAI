@@ -31,6 +31,9 @@ oil_cap_l     L        engine oil capacity
 """
 from __future__ import annotations
 
+import numpy as np
+import pandas as pd
+
 # ── Canonical registry ────────────────────────────────────────────────────────
 # Keys must match VEHICLE_CLASS_CODES order (used for positional tuple lookup).
 VEHICLE_SPECS: dict[str, dict] = {
@@ -180,3 +183,50 @@ def inference_specs(class_code: int) -> dict:
         "dpf":         s["dpf"],
         "tire_circ_m": s["tire_circ_m"],
     }
+
+
+# ── Shared sensor-drift estimate (training + inference) ────────────────────────
+# Neither training nor live inference ever has access to the TRUE instantaneous
+# sensor error (that would be leaking the answer key) — both only ever get this
+# coarse estimate from mileage/hours/maintenance history. Previously fleet_simulation.py
+# fed the model the literal noise draw instead of this estimate, which both leaked
+# ground truth and diverged from what pretrained.py actually computes at inference.
+def estimate_sensor_drift(odometer_miles, engine_hours, maintenance_neglect):
+    """
+    Returns (coolant_error_c, maf_error_pct, o2_lag_ms). Works on scalars
+    (live single-vehicle scoring) or numpy arrays (vectorized training).
+    """
+    coolant_error_c = np.clip(odometer_miles / 600000.0 * 4.0 * maintenance_neglect, 0.0, 8.0)
+    maf_error_pct   = np.clip(odometer_miles / 500000.0 * 8.0 * maintenance_neglect, 0.0, 15.0)
+    o2_lag_ms       = np.clip(80.0 + engine_hours / 10000.0 * 200.0 * maintenance_neglect, 50.0, 500.0)
+    return coolant_error_c, maf_error_pct, o2_lag_ms
+
+
+# ── Shared RandomForest missing-value matrix builder ───────────────────────────
+# RandomForestClassifier cannot accept NaN (HistGradientBoostingClassifier can,
+# and uses it as a native split signal). Once sensor readings are genuinely
+# missing (see fleet_simulation.py sensor_missing_rate), RF needs an imputed
+# stand-in — but a plain fillna would silently throw away the "this sensor
+# dropped out" signal HGB gets for free. This gives RF the same signal back
+# explicitly, as fixed indicator columns so the schema never depends on whether
+# THIS particular batch happens to contain a NaN (training fold, holdout, and a
+# single live scoring request must all produce identical columns for the fitted
+# RF model).
+def build_rf_matrix(X: "pd.DataFrame", missingness_cols: list[str], imputer=None):
+    """
+    Returns (X_rf, imputer). Pass imputer=None to fit a new median SimpleImputer
+    on X (training fold only); pass a previously-fitted imputer to transform new
+    data (val/test/holdout/live) without leaking its statistics into the fit.
+    """
+    from sklearn.impute import SimpleImputer
+
+    if imputer is None:
+        imputer = SimpleImputer(strategy="median").fit(X)
+    X_imputed = pd.DataFrame(imputer.transform(X), index=X.index, columns=X.columns)
+
+    indicator_cols = [c for c in missingness_cols if c in X.columns]
+    was_missing = pd.DataFrame(
+        {f"{c}_was_missing": X[c].isna().astype(float).values for c in indicator_cols},
+        index=X.index,
+    )
+    return pd.concat([X_imputed, was_missing], axis=1), imputer
