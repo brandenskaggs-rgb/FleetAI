@@ -3620,6 +3620,15 @@ async function startServer() {
   await seedDevAuthStoreIfNeeded();
   verifyAuthStoreOrExit();
   await loadSessionsFromDb();
+  // Vehicle/Driver/Pairing/User all carry orgId as a real FK to Org.id now
+  // (previously just a loose string in the flat file) — ensure the ORG_DEFAULT
+  // row every fallback path assumes actually exists, or those inserts throw a
+  // foreign key violation instead of quietly working like they used to.
+  try {
+    await sqliteDb.ensureDefaultOrg();
+  } catch (err) {
+    console.warn(`[AUTH] could not ensure ORG_DEFAULT exists: ${err.message}`);
+  }
   const httpServer = app.listen(PORT, HOST, () => {
   const keyLen = SETUP_KEY.length;
   const keyMasked = keyLen >= 6
