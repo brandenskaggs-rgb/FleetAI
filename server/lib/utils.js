@@ -1,7 +1,12 @@
 const crypto = require("crypto");
 
 function makeId(prefix) {
-  return `${prefix}_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
+  // Matches server.js's own makeId exactly (48 bits of randomness via crypto,
+  // not Date.now()+a 1-in-10,000 draw) — adminRoutes.js/orgManagementRoutes.js
+  // require() this file directly rather than server.js's deps-injected version,
+  // so a mismatch here silently reintroduces a real ID-collision risk for
+  // org/user/lead/invite creation.
+  return `${prefix}_${crypto.randomBytes(6).toString("hex")}`;
 }
 
 function nowIso() {

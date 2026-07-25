@@ -1,4 +1,5 @@
 const crypto = require("crypto");
+const { normalizePredictionLabel } = require("../lib/mlMerge");
 
 function registerInternalMlApiRoutes(app, deps) {
   const {
@@ -187,7 +188,10 @@ function registerInternalMlApiRoutes(app, deps) {
   function normalizePredictionResponse({ vehicleId, orgId, pythonPrediction, jsPrediction, pythonError }) {
     if (pythonPrediction && pythonPrediction.ok !== false) {
       const probability = numberOrNull(pythonPrediction.riskProbability);
-      const level = pythonPrediction.prediction || fallbackRiskLevel(probability);
+      // Same underlying model output must read identically across every API
+      // surface (dashboard, partner API, this internal API) — normalizePredictionLabel
+      // is the single source of truth for that vocabulary (see server/lib/mlMerge.js).
+      const level = normalizePredictionLabel(pythonPrediction.prediction) || fallbackRiskLevel(probability);
       return {
         predictionSource: "python_ml_service",
         mlServiceAvailable: true,

@@ -9,6 +9,15 @@ const PREDICTION_LABEL_MAP = {
   insufficient_data: "CALIBRATING"
 };
 
+// Single source of truth for the raw Python label -> API vocabulary mapping.
+// partnerRoutes.js and internalMlApiRoutes.js used to pass the raw lowercase
+// Python label straight through unmapped, so the identical model output
+// surfaced as e.g. "FAILURE_IMMINENT" via the internal dashboard API but
+// "failure_imminent" via the partner API — same value, different API surfaces.
+function normalizePredictionLabel(rawLabel) {
+  return PREDICTION_LABEL_MAP[rawLabel] || rawLabel || null;
+}
+
 function deriveSensorRisksFromPython(py) {
   const risks = {};
   const riskProbability = Number(py?.riskProbability);
@@ -161,4 +170,4 @@ function mergePythonAndNodePrediction(jsPrediction, pythonPrediction, context = 
   });
 }
 
-module.exports = { mergePythonAndNodePrediction, deriveSensorRisksFromPython };
+module.exports = { mergePythonAndNodePrediction, deriveSensorRisksFromPython, normalizePredictionLabel };

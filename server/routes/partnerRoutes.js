@@ -13,6 +13,7 @@
 const crypto = require("crypto");
 const { requireApiKey } = require("../middleware/apiKeyAuth");
 const { getPrisma } = require("../db");
+const { normalizePredictionLabel } = require("../lib/mlMerge");
 const { notifyPrediction, WEBHOOK_EVENTS } = require("../services/webhookService");
 const oemIngestion = require("../services/oemIngestion");
 
@@ -242,7 +243,9 @@ function registerPartnerRoutes(app, deps) {
 
     // Build clean partner response
     const riskProbability = pythonPrediction?.riskProbability ?? jsPrediction?.riskProbability ?? null;
-    const prediction = pythonPrediction?.prediction ?? (jsPrediction?.insufficientData ? "insufficient_data" : null);
+    const prediction = normalizePredictionLabel(
+      pythonPrediction?.prediction ?? (jsPrediction?.insufficientData ? "insufficient_data" : null)
+    );
     const confidence = pythonPrediction?.confidence ?? jsPrediction?.confidence ?? null;
 
     const response = {

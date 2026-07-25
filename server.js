@@ -963,6 +963,17 @@ registerFleetOpsRoutes(app, {
   normalizeMetrics
 });
 
+// Registered before registerSolutionRoutes so its cost-analytics/driver-scores
+// handlers (real Motive telemetry) get first crack at those two paths and can
+// next() through to solutionRoutes.js's local-flat-file-log version when
+// Motive isn't configured — previously solutionRoutes.js was registered
+// first and always responded, permanently shadowing the Motive-backed routes.
+registerMotiveDataRoutes(app, {
+  requireEmployeeOrCustomerApi: (req, res, next) => requireEmployeeOrCustomerApi(req, res, next),
+  readData,
+  sanitizeString
+});
+
 registerSolutionRoutes(app, {
   readData,
   writeData,
@@ -1008,12 +1019,6 @@ registerMotiveOAuthRoutes(app, {
   requireSuperAdmin: (req, res, next) => requireSuperAdmin(req, res, next),
   sessionStore,
   getSession
-});
-
-registerMotiveDataRoutes(app, {
-  requireEmployeeOrCustomerApi: (req, res, next) => requireEmployeeOrCustomerApi(req, res, next),
-  readData,
-  sanitizeString
 });
 
 app.post("/api/telemetry/snapshot", validateBody(schemas.telemetrySnapshot), (req, res) => {
@@ -3623,7 +3628,14 @@ async function startServer() {
   // row every fallback path assumes actually exists, or those inserts throw a
   // foreign key violation instead of quietly working like they used to.
   try {
-    await sqliteDb.ensureDefaultOrg();
+    // Race against a timeout — a slow/unreachable DB at boot must not block
+    // the whole app from ever starting (this call is a best-effort guarantee,
+    // not a hard startup requirement; ensureDefaultOrg() is idempotent and
+    // safe to retry lazily on the next request if this attempt times out).
+    await Promise.race([
+      sqliteDb.ensureDefaultOrg(),
+      new Promise((_, reject) => setTimeout(() => reject(new Error("timed out after 5s")), 5000))
+    ]);
   } catch (err) {
     console.warn(`[AUTH] could not ensure ORG_DEFAULT exists: ${err.message}`);
   }

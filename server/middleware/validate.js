@@ -40,7 +40,12 @@ const passwordSetSchema = z.object({
 const apiKeyCreateSchema = z.object({
   partnerName: z.string().min(1, "partnerName is required.").max(200),
   orgId: z.string().max(100).optional().nullable(),
-  tier: z.enum(["standard", "premium", "internal"]).optional()
+  // Must match scripts/provision-partner.js's VALID_TIERS and the literal
+  // "partner_ml" partnerRoutes.js's auth guard checks for — this enum
+  // previously omitted "partner_ml"/"enterprise", so the admin UI (which
+  // defaults new partner keys to tier:"partner_ml") could never actually
+  // create one through POST /api/admin/api-keys.
+  tier: z.enum(["standard", "premium", "internal", "partner_ml", "enterprise"]).optional()
 });
 
 const leadCreateSchema = z.object({

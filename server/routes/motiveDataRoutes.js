@@ -40,9 +40,12 @@ function registerMotiveDataRoutes(app, { requireEmployeeOrCustomerApi, readData,
   app.get("/api/fuel-events", requireEmployeeOrCustomerApi, handleFuelEvents);
 
   // ── Cost Analytics ──────────────────────────────────────────────────────────
-  app.get("/api/cost-analytics", requireEmployeeOrCustomerApi, async (req, res) => {
+  // Falls through to solutionRoutes.js's local-flat-file-log version (registered
+  // after this) when Motive isn't configured, rather than responding with an
+  // empty result and permanently shadowing that fallback.
+  app.get("/api/cost-analytics", requireEmployeeOrCustomerApi, async (req, res, next) => {
     if (!motiveClient.isConfigured()) {
-      return res.json({ ok: true, data: [] });
+      return next();
     }
     try {
       const [purchases, localData] = await Promise.all([
@@ -85,17 +88,21 @@ function registerMotiveDataRoutes(app, { requireEmployeeOrCustomerApi, readData,
         };
       }).sort((a, b) => b.totalCost - a.totalCost);
 
+      // No Motive fuel-purchase data for this period — let the local
+      // maintenance/fuel-log fallback try instead of reporting a false empty.
+      if (!data.length) return next();
       return res.json({ ok: true, data });
     } catch (err) {
-      console.warn("[MOTIVE-DATA] cost analytics error:", err.message);
-      return res.json({ ok: true, data: [] });
+      console.warn("[MOTIVE-DATA] cost analytics error, falling back to local data:", err.message);
+      return next();
     }
   });
 
   // ── Driver Scores ───────────────────────────────────────────────────────────
-  app.get("/api/driver-scores", requireEmployeeOrCustomerApi, async (req, res) => {
+  // Same fallthrough rationale as cost-analytics above.
+  app.get("/api/driver-scores", requireEmployeeOrCustomerApi, async (req, res, next) => {
     if (!motiveClient.isConfigured()) {
-      return res.json({ ok: true, data: [] });
+      return next();
     }
     try {
       const now = new Date();
@@ -145,10 +152,11 @@ function registerMotiveDataRoutes(app, { requireEmployeeOrCustomerApi, readData,
         };
       }).sort((a, b) => b.score - a.score);
 
+      if (!data.length) return next();
       return res.json({ ok: true, data });
     } catch (err) {
-      console.warn("[MOTIVE-DATA] driver scores error:", err.message);
-      return res.json({ ok: true, data: [] });
+      console.warn("[MOTIVE-DATA] driver scores error, falling back to local data:", err.message);
+      return next();
     }
   });
 }
