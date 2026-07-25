@@ -304,6 +304,22 @@ def extract_features(samples: list[dict], vehicle_meta: Optional[dict] = None) -
     # Current values from latest sample
     current_metrics = {k: _to_f(latest.get("metrics", {}).get(k)) for k in METRIC_KEYS}
 
+    # Derived trend/anomaly signals Stage 2 (stage2.py) reads by these exact
+    # names — training (fleet_simulation.py) has these as physics-modeled
+    # synthetic columns; these are the real-telemetry equivalents computed
+    # from the same rolling window_stats every other feature here uses.
+    coolant_h24 = window_stats.get("coolantTemp", {}).get("h24", {})
+    coolant_h720 = window_stats.get("coolantTemp", {}).get("h720", {})  # 720h = 30 days
+    current_metrics["coolantTempOscillation"] = coolant_h24.get("std")
+    if coolant_h24.get("mean") is not None and coolant_h720.get("mean") is not None:
+        current_metrics["engineTempDelta30d"] = round(coolant_h24["mean"] - coolant_h720["mean"], 4)
+    else:
+        current_metrics["engineTempDelta30d"] = None
+    # idle_heat_soak has no real-telemetry equivalent yet — nothing in
+    # window_stats/METRIC_KEYS tracks idle duration or idle-specific heat
+    # buildup (duty_cycle_score below measures hard-use time, not idle time).
+    # Left unset (Stage 2 falls back to 0.0) rather than guessing at a proxy.
+
     # Duty cycle and density
     duty_cycle = _duty_cycle_score(sorted_samples[-500:] if len(sorted_samples) > 500 else sorted_samples)
     sample_density = _sample_density(sorted_samples)

@@ -15,6 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 warnings.filterwarnings("ignore")
 
 import numpy as np
+import pandas as pd
 import joblib
 from sklearn.metrics import (
     precision_score, recall_score, f1_score, roc_auc_score,
@@ -22,6 +23,7 @@ from sklearn.metrics import (
 )
 
 from fleet_ai.training.fleet_simulation import generate_mixed_fleet_data
+from fleet_ai.physics.vehicle_physics import build_rf_matrix
 from backend.app.ml.stage3 import Stage3Arbitrator, TemporalBuffer, STAGE3_LOW, STAGE3_HIGH
 
 MODEL_PATH  = Path(__file__).resolve().parents[2] / "fleet_ai" / "models" / "fleet_ai_model.pkl"
@@ -68,11 +70,20 @@ rf_cal    = cals.get("random_forest")
 hgb_cal   = cals.get("hist_gradient_boosting")
 rf_w      = bundle.get("rf_weight", 0.25)
 hgb_w     = bundle.get("hgb_weight", 0.75)
+rf_imputer = bundle.get("rf_imputer")
+rf_missingness_cols = bundle.get("rf_missingness_cols")
 print(f"Loaded: {len(feat_names)} features, RF_w={rf_w}, HGB_w={hgb_w}")
 
 
 def _batch_calibrated(X: np.ndarray) -> np.ndarray:
-    rf_raw  = rf_model.predict_proba(X)[:, 1]
+    # RF was fit on an imputed + _was_missing-flagged matrix (see
+    # fleet_ai/training/fleet_simulation.py _train_from_df) — X here is the
+    # plain HGB-shaped array, so build RF's matrix separately from it.
+    if rf_imputer is not None and rf_missingness_cols is not None:
+        X_rf, _ = build_rf_matrix(pd.DataFrame(X, columns=feat_names), rf_missingness_cols, rf_imputer)
+    else:
+        X_rf = X  # older model bundle predating the RF imputation fix
+    rf_raw  = rf_model.predict_proba(X_rf)[:, 1]
     hgb_raw = hgb_model.predict_proba(X)[:, 1]
     rf_p    = rf_cal.predict(rf_raw)  if rf_cal  else rf_raw
     hgb_p   = hgb_cal.predict(hgb_raw) if hgb_cal else hgb_raw

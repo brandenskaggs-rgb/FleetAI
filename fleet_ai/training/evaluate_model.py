@@ -18,6 +18,11 @@ from sklearn.metrics import (
 
 from fleet_simulation import FEATURE_COLUMNS, generate_heavy_duty_data
 
+import sys as _sys
+from pathlib import Path as _Path
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[2]))
+from fleet_ai.physics.vehicle_physics import build_rf_matrix
+
 
 def evaluate_model() -> None:
     model_path = Path(__file__).resolve().parents[1] / "models" / "fleet_ai_model.pkl"
@@ -46,7 +51,13 @@ def evaluate_model() -> None:
         models = loaded["models"]
         rf_weight = float(loaded.get("rf_weight", 0.5))
         hgb_weight = float(loaded.get("hgb_weight", 0.5))
-        rf_prob = models["random_forest"].predict_proba(X_eval)[:, 1]
+        rf_imputer = loaded.get("rf_imputer")
+        rf_missingness_cols = loaded.get("rf_missingness_cols")
+        if rf_imputer is not None and rf_missingness_cols is not None:
+            X_eval_rf, _ = build_rf_matrix(X_eval, rf_missingness_cols, rf_imputer)
+        else:
+            X_eval_rf = X_eval  # older model bundle predating the RF imputation fix
+        rf_prob = models["random_forest"].predict_proba(X_eval_rf)[:, 1]
         hgb_prob = models["hist_gradient_boosting"].predict_proba(X_eval)[:, 1]
         y_prob = (rf_weight * rf_prob) + (hgb_weight * hgb_prob)
     else:

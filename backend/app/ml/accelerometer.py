@@ -52,39 +52,16 @@ def _fft_magnitudes(signal: list[float]) -> list[float]:
     mean = sum(signal) / n
     x = [v - mean for v in signal]
 
-    # Cooley-Tukey FFT — iterative, power-of-2 only
-    # Pad or truncate to nearest power of 2
+    # Pad or truncate to nearest power of 2 (naive DFT is fast enough at this
+    # size — no Cooley-Tukey butterfly needed, and no bit-reversal permutation
+    # either, since that only pays off once the butterfly stage is implemented;
+    # permuting sample order here without it would corrupt every non-DC bin).
     size = 1
     while size < n:
         size <<= 1
     size = min(size, 2048)
     x = (x + [0.0] * size)[:size]
 
-    # Bit-reverse permutation
-    j = 0
-    for i in range(1, size):
-        bit = size >> 1
-        while j & bit:
-            j ^= bit
-            bit >>= 1
-        j ^= bit
-        if i < j:
-            x[i], x[j] = x[j], x[i]
-
-    # FFT butterfly
-    length = 2
-    while length <= size:
-        angle = -2 * math.pi / length
-        w_real, w_imag = math.cos(angle), math.sin(angle)
-        for i in range(0, size, length):
-            wr, wi = 1.0, 0.0
-            for k in range(length // 2):
-                # x is stored as interleaved real/imag — for real input, imag=0
-                # Simplified: treat as real-only (imag part tracked separately)
-                pass
-        length <<= 1
-
-    # Fall back to naive DFT for correctness (fast enough for n≤2048)
     magnitudes = []
     for k in range(size // 2):
         re = sum(x[t] * math.cos(2 * math.pi * k * t / size) for t in range(size))

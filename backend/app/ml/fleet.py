@@ -74,6 +74,7 @@ async def compute_fleet_normalization(
     metrics_critical = 0
     worst_metric: Optional[str] = None
     worst_z = 0.0
+    worst_percentile = 50.0  # 0-100 scale, matches per-metric "percentile" below
 
     # Pull only the 24h window mean per metric to compare against fleet baseline
     for metric_key, stats_by_window in window_stats.items():
@@ -129,6 +130,7 @@ async def compute_fleet_normalization(
         if abs(z) > abs(worst_z):
             worst_z = z
             worst_metric = metric_key
+            worst_percentile = percentile
 
         result[metric_key] = {
             "vehicle_mean": round(vehicle_mean, 4),
@@ -145,6 +147,10 @@ async def compute_fleet_normalization(
         "metrics_critical": metrics_critical,
         "worst_metric": worst_metric,
         "worst_z": round(worst_z, 3),
+        # Stage 2 (stage2.py) and the stacking meta-learner (stack.py) both
+        # read this as a 0-1 fraction (their fallback is 0.5, i.e. "50th
+        # percentile of 1.0") — divide the 0-100 per-metric scale used above.
+        "fleet_percentile": round(worst_percentile / 100.0, 4),
     }
     return result
 

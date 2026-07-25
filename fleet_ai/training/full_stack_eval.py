@@ -26,6 +26,7 @@ from sklearn.metrics import (
 )
 
 from fleet_ai.training.fleet_simulation import generate_mixed_fleet_data
+from fleet_ai.physics.vehicle_physics import build_rf_matrix
 
 # ── Config ────────────────────────────────────────────────────────────────────
 MODEL_PATH    = Path(__file__).resolve().parents[2] / "fleet_ai" / "models" / "fleet_ai_model.pkl"
@@ -73,16 +74,29 @@ rf_cal      = calibrators.get("random_forest")
 hgb_cal     = calibrators.get("hist_gradient_boosting")
 rf_w        = bundle.get("rf_weight", 0.25)
 hgb_w       = bundle.get("hgb_weight", 0.75)
+rf_imputer  = bundle.get("rf_imputer")
+rf_missingness_cols = bundle.get("rf_missingness_cols")
 print(f"  RF weight={rf_w}, HGB weight={hgb_w}")
 print(f"  Calibrators: RF={'yes' if rf_cal else 'no'}, HGB={'yes' if hgb_cal else 'no'}")
 print(f"  Feature count: {len(feat_names)}")
 
 # ── Per-layer scoring helpers ─────────────────────────────────────────────────
 
+def _rf_predict_proba(X_df):
+    """RF was fit on an imputed + _was_missing-flagged matrix (see
+    fleet_ai/training/fleet_simulation.py _train_from_df) — build the same
+    shape here rather than feeding it the raw (HGB-shaped) matrix directly."""
+    if rf_imputer is not None and rf_missingness_cols is not None:
+        X_rf, _ = build_rf_matrix(X_df, rf_missingness_cols, rf_imputer)
+    else:
+        X_rf = X_df  # older model bundle predating the RF imputation fix
+    return rf_model.predict_proba(X_rf)[:, 1]
+
+
 def _raw_prob(X):
     """Layer 0: weighted blend of raw probabilities."""
     X_df    = pd.DataFrame(X, columns=feat_names)
-    rf_raw  = rf_model.predict_proba(X_df)[:, 1]
+    rf_raw  = _rf_predict_proba(X_df)
     hgb_raw = hgb_model.predict_proba(X_df)[:, 1]
     return rf_w * rf_raw + hgb_w * hgb_raw
 
@@ -90,7 +104,7 @@ def _raw_prob(X):
 def _calibrated_prob(X):
     """Layer 1: isotonic-calibrated blend."""
     X_df    = pd.DataFrame(X, columns=feat_names)
-    rf_raw  = rf_model.predict_proba(X_df)[:, 1]
+    rf_raw  = _rf_predict_proba(X_df)
     hgb_raw = hgb_model.predict_proba(X_df)[:, 1]
     if rf_cal is not None:
         rf_cal_p  = rf_cal.predict(rf_raw)

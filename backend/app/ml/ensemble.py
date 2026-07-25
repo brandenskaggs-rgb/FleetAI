@@ -432,9 +432,14 @@ def compute_ensemble(
 
     raw_total = min(1.0, blended + fleet_boost + mv_boost)
 
-    # Phase 3A — multi-signal hard gate (prevent single-signal false alarms)
+    # Phase 3A — multi-signal hard gate (prevent single-signal false alarms).
+    # Must use the same per-class threshold Stage 1 fires on, or the gate's
+    # fixed 0.35 default silences it for every class but heavy_duty_j1939
+    # (whose raw scores rarely reach 0.35 in the first place — see
+    # _CLASS_STAGE1_THRESHOLDS).
     gated_total, active_signals = multi_signal_gate(
-        raw_total, pretrained_score, if_score, w_score, t_score, d_score
+        raw_total, pretrained_score, if_score, w_score, t_score, d_score,
+        stage1_threshold=get_class_threshold(vehicle_class),
     )
 
     # Phase 1B — per-class risk multiplier (calibrate FP rate by vehicle class)
