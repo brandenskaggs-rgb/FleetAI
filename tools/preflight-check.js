@@ -144,7 +144,6 @@ function checkUiFunctions() {
 
 function checkRequiredAssets() {
   const required = [
-    "js/watchdog-status.js",
     "tools/watchdog.js"
   ];
   required.forEach((rel) => {

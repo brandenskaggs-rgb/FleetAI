@@ -93,7 +93,6 @@ const PORT = Number(process.env.PORT) || 3000;
 const SITE_ROOT = path.resolve(__dirname);
 const UI_DIR = path.resolve(__dirname, "ui");
 const ADMIN_DIR = path.resolve(__dirname, "admin");
-const APP_DIR = path.resolve(__dirname, "app");
 const DRIVER_DIR = path.resolve(__dirname, "driver_app");
 const CSS_DIR = path.resolve(__dirname, "css");
 const JS_DIR = path.resolve(__dirname, "js");
@@ -3406,7 +3405,6 @@ app.use(denyStaticSourcePaths);
 app.use("/", express.static(SITE_ROOT));
 app.use("/ui", express.static(UI_DIR));
 app.use("/admin", express.static(ADMIN_DIR));
-app.use("/app", express.static(APP_DIR));
 app.use("/driver_app", (req, res) => {
   res.status(404).send("Not found");
 });
