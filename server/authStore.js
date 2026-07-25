@@ -137,29 +137,6 @@ function saveAuthStore(filePath, data) {
   writeJsonAtomic(filePath, normalized);
 }
 
-function findUserByEmail(data, email) {
-  const emailNormalized = normalizeEmail(email);
-  if (!emailNormalized) return { user: null, emailNormalized };
-  const user = (data.users || []).find((u) => normalizeEmail(u.email) === emailNormalized) || null;
-  return { user, emailNormalized };
-}
-
-function findEmployeeByEmail(data, email) {
-  const result = findUserByEmail(data, email);
-  if (!result.user || !isEmployeeRole(result.user)) {
-    return { user: null, emailNormalized: result.emailNormalized };
-  }
-  return result;
-}
-
-function findCustomerByEmail(data, email) {
-  const result = findUserByEmail(data, email);
-  if (!result.user || !isCustomerRole(result.user)) {
-    return { user: null, emailNormalized: result.emailNormalized };
-  }
-  return result;
-}
-
 function isActiveUser(user) {
   if (!user) return false;
   const status = String(user.status || "").toUpperCase();
@@ -181,25 +158,6 @@ function hasPasswordHash(user) {
   return typeof user?.passwordHash === "string" && user.passwordHash.trim() !== "";
 }
 
-function needsPasswordReset(user) {
-  return !hasPasswordHash(user)
-    || user.firstLogin === true
-    || user.mustSetPassword
-    || user.requirePasswordReset
-    || user.mustResetPassword
-    || user.isTemporaryPassword;
-}
-
-async function verifyPassword(user, password) {
-  if (!hasPasswordHash(user)) return false;
-  return bcrypt.compare(password, user.passwordHash);
-}
-
-async function verifyPasswordHash(hash, password) {
-  if (!hash || !password) return false;
-  return bcrypt.compare(password, hash);
-}
-
 async function setPassword(user, password) {
   user.passwordHash = await bcrypt.hash(password, 12);
   user.passwordAlgo = "bcrypt";
@@ -211,45 +169,6 @@ async function setPassword(user, password) {
   user.passwordLastSetAt = new Date().toISOString();
   user.lastPasswordChangeAt = user.passwordLastSetAt;
   return user;
-}
-
-async function devAutoRepairPasswordOnMismatch(user, password, enabled) {
-  if (!enabled) return false;
-  await setPassword(user, password);
-  return true;
-}
-
-function createAuthStore({ readData, writeData, autoRepairEnabled }) {
-  return {
-    loadAuthStore: async () => readData(),
-    saveAuthStore: async (data) => writeData(data),
-    normalizeEmail,
-    normalizeAuthData,
-    findUserByEmail,
-    isActiveUser,
-    isCustomerRole,
-    isEmployeeRole,
-    needsPasswordReset,
-    verifyPassword,
-    setPassword,
-    devAutoRepairPasswordOnMismatch: async (user, password) =>
-      devAutoRepairPasswordOnMismatch(user, password, autoRepairEnabled)
-  };
-}
-
-function createUser({ email, role, kind, orgId }) {
-  const normalizedEmail = normalizeEmail(email);
-  if (!normalizedEmail) throw new Error("[AUTH STORE] createUser missing email");
-  if (!role) throw new Error("[AUTH STORE] createUser missing role");
-  const resolvedKind = kind || (String(role).toUpperCase().startsWith("CUSTOMER") ? "customer" : "employee");
-  return normalizeUser({
-    email: normalizedEmail,
-    role,
-    kind: resolvedKind,
-    orgId: orgId || "ORG_DEFAULT",
-    isActive: true,
-    active: true
-  });
 }
 
 function createOrg({ id, name }) {
@@ -264,24 +183,15 @@ function createOrg({ id, name }) {
 }
 
 module.exports = {
-  createAuthStore,
   loadAuthStore,
   saveAuthStore,
   normalizeEmail,
   normalizeAuthData,
   validateAuthSchema,
-  findUserByEmail,
-  findEmployeeByEmail,
-  findCustomerByEmail,
   isActiveUser,
   isCustomerRole,
   isEmployeeRole,
-  needsPasswordReset,
   hasPasswordHash,
-  verifyPassword,
-  verifyPasswordHash,
   setPassword,
-  devAutoRepairPasswordOnMismatch,
-  createUser,
   createOrg
 };

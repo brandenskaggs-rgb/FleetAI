@@ -1,7 +1,7 @@
 const express = require("express");
 const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
-const { getPrisma, createOrg, getOrg, updateOrg, updateOrgStatus } = require("../db");
+const { getPrisma, createOrg, getOrg, updateOrg, updateOrgStatus, listVehicles } = require("../db");
 
 // Mirrors core org identity into Prisma (see orgManagementRoutes.js's
 // mirrorOrgToPrisma for the full rationale — flat file stays authoritative
@@ -279,7 +279,8 @@ function registerAdminRoutes(app, deps) {
       const billing = data.billing || {};
       const activeOrgs = orgs.filter((o) => o.status === "ACTIVE").length;
       const activePilots = orgs.filter((o) => o.status === "PILOT").length;
-      const activeVehicles = (data.vehicles || []).length;
+      // Vehicles moved to Prisma this session — data.vehicles is always empty now.
+      const activeVehicles = (await listVehicles()).length;
       const mrr = Object.values(billing).reduce((sum, b) => sum + (b.mrrEstimate || 0), 0);
       const closedStages = new Set(["CONVERTED", "CLOSED", "LOST"]);
       const openLeads = leads.filter((l) => !closedStages.has((l.stage || l.status || "").toUpperCase())).length;
@@ -548,107 +549,16 @@ function registerAdminRoutes(app, deps) {
     }
   });
 
-  adminRouter.get("/invites", async (req, res, next) => {
-    try {
-      const data = await readData();
-      res.json({ ok: true, data: data.invites || [] });
-    } catch (err) {
-      next(err);
-    }
-  });
-
-  adminRouter.post("/invites", async (req, res, next) => {
-    const { orgId, type } = req.body || {};
-    if (!orgId || !type) return res.status(400).json({ error: "orgId and type required" });
-    try {
-      const data = await readData();
-      const token = crypto.randomBytes(16).toString("hex");
-      const hours = data.settings?.inviteExpiryHours || 72;
-      const invite = {
-        id: makeId("INV"),
-        orgId,
-        type,
-        token,
-        expiresAt: new Date(Date.now() + hours * 3600000).toISOString(),
-        createdAt: nowIso(),
-        createdBy: req.employee?.email || "system"
-      };
-      data.invites = data.invites || [];
-      data.invites.push(invite);
-      addAudit(data, "INVITE_CREATED", invite.id);
-      await writeData(data);
-      res.json({ ok: true, data: invite });
-    } catch (err) {
-      next(err);
-    }
-  });
-
-  adminRouter.delete("/invites/:id", async (req, res, next) => {
-    try {
-      const data = await readData();
-      data.invites = (data.invites || []).filter((i) => i.id !== req.params.id);
-      addAudit(data, "INVITE_REVOKED", req.params.id);
-      await writeData(data);
-      res.json({ ok: true });
-    } catch (err) {
-      next(err);
-    }
-  });
-
-  adminRouter.get("/billing/:orgId", async (req, res, next) => {
-    try {
-      const data = await readData();
-      data.billing = data.billing || {};
-      const billing = data.billing[req.params.orgId] || defaultBilling(req.params.orgId, data);
-      res.json({ ok: true, data: billing });
-    } catch (err) {
-      next(err);
-    }
-  });
-
-  adminRouter.put("/billing/:orgId", async (req, res, next) => {
-    try {
-      const data = await readData();
-      data.billing = data.billing || {};
-      const current = data.billing[req.params.orgId] || defaultBilling(req.params.orgId, data);
-      const updates = req.body || {};
-      const nextBilling = Object.assign({}, current, updates, { updatedAt: nowIso() });
-      nextBilling.mrrEstimate = (nextBilling.pricePerVehicle || 0) * (nextBilling.vehicleCount || 0);
-      data.billing[req.params.orgId] = nextBilling;
-      addAudit(data, "BILLING_UPDATED", req.params.orgId);
-      await writeData(data);
-      res.json({ ok: true, data: nextBilling });
-    } catch (err) {
-      next(err);
-    }
-  });
-
-  adminRouter.get("/features/:orgId", async (req, res, next) => {
-    try {
-      const data = await readData();
-      data.featureFlags = data.featureFlags || {};
-      const features = data.featureFlags[req.params.orgId] || defaultFeatures(req.params.orgId);
-      res.json({ ok: true, data: features });
-    } catch (err) {
-      next(err);
-    }
-  });
-
-  adminRouter.put("/features/:orgId", async (req, res, next) => {
-    try {
-      const data = await readData();
-      data.featureFlags = data.featureFlags || {};
-      const current = data.featureFlags[req.params.orgId] || defaultFeatures(req.params.orgId);
-      const updates = req.body || {};
-      const nextFeatures = Object.assign({}, current, updates, { updatedAt: nowIso() });
-      data.featureFlags[req.params.orgId] = nextFeatures;
-      addAudit(data, "FEATURES_UPDATED", req.params.orgId);
-      await writeData(data);
-      res.json({ ok: true, data: nextFeatures });
-    } catch (err) {
-      next(err);
-    }
-  });
+  // NOTE: this file previously also had /invites, /billing/:orgId, and
+  // /features/:orgId routes on adminRouter — confirmed dead (zero callers
+  // anywhere in the repo; the admin UI's actual invite/billing/feature-flag
+  // actions all go through orgManagementRoutes.js's separate, live endpoints
+  // instead) and removed. This was also the only code path that ever wrote
+  // data.billing[orgId].mrrEstimate, which is why the admin overview's MRR
+  // KPI (adminRoutes.js "/overview" below) has always read as 0/-- — fixing
+  // that needs a real decision about which of the two billing data models
+  // (this dead one vs. orgManagementRoutes.js's org-embedded billing fields)
+  // should be authoritative, not just resurrecting this dead code.
 
   adminRouter.get("/leads", async (req, res, next) => {
     try {
