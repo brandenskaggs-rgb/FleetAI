@@ -922,7 +922,7 @@ select option{background:var(--panel);color:var(--text)}
 }
 .landingV2 .hero h1{
   color:var(--ink);
-  font-size:clamp(38px,5vw,70px);
+  font-size:clamp(30px,3.2vw,46px);
   line-height:.98;
   letter-spacing:-.05em;
   margin:0 0 18px;
@@ -1140,7 +1140,7 @@ select option{background:var(--panel);color:var(--text)}
 }
 .landingV2.contentV2 .hero h1{
   max-width:760px;
-  font-size:clamp(40px,5.4vw,68px);
+  font-size:clamp(30px,3.2vw,46px);
 }
 .landingV2.contentV2 .hero p{
   max-width:720px;
@@ -1709,7 +1709,7 @@ select option{background:var(--panel);color:var(--text)}
 }
 .landingV2 .hero h1{
   color:var(--ink)!important;
-  font-size:clamp(42px,6vw,76px)!important;
+  font-size:clamp(30px,3.2vw,46px)!important;
   line-height:.96!important;
   letter-spacing:-.035em!important;
   max-width:720px;
@@ -1931,7 +1931,7 @@ select option{background:var(--panel);color:var(--text)}
     padding:52px 0 30px!important;
   }
   .landingV2 .hero h1{
-    font-size:42px!important;
+    font-size:clamp(28px,7.4vw,38px)!important;
   }
   .landingV2 .heroMetrics,
   .landingV2 .solutionPillars{
@@ -1948,4 +1948,10 @@ select option{background:var(--panel);color:var(--text)}
   .landingV2 .commandShell{
     border-radius:10px!important;
   }
+}
+
+/* A hero without the two-column grid has the full container to work with,
+   so it can carry the larger display size. */
+.landingV2 .hero:not(:has(.heroGrid)) h1{
+  font-size:clamp(38px,5vw,64px)!important;
 }
