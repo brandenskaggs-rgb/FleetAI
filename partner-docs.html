@@ -8,25 +8,29 @@
   <link rel="stylesheet" href="css/fonts.css?v=20260729" />
   <style>
     :root {
-      --ink:    #0A1628;
-      --text:   #3C4A61;
-      --muted:  #65738B;
-      --line:   #DCE3EF;
-      --bg:     #F6F8FC;
+      --ink:    #F7F8F9;
+      --text:   #A7B8CC;
+      --muted:  #8FA3BA;
+      --line:   rgba(150,180,215,.16);
+      --bg:     #16212F;
       --white:  #FFFFFF;
+      --surface: #0E1722;   /* page + card surface (dark) */
+      --surface-2: #16212F;  /* raised card */
       --blue:   #1F5EFF;
-      --blue-lt:#EDF2FF;
-      --green:  #0F9F63;
-      --warn:   #B76A0B;
-      --red:    #C7362F;
-      --navy:   #0A1628;
+      --blue-text:#6C9BFF;
+      --warn-wash: rgba(245,166,35,.14);
+      --blue-lt:rgba(31,94,255,.14);
+      --green:  #35C98D;
+      --warn:   #F5A623;
+      --red:    #FF5F52;
+      --navy:   #05080E;
       --code-bg:#0D1117;
       --font:   'Archivo', 'Segoe UI', system-ui, sans-serif;
       --display:'Archivo', 'Segoe UI', system-ui, sans-serif;
       --mono:   'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
       --syn-kw: #79C0FF;
       --syn-str:#A5D6A7;
-      --syn-cmt:#6E7681;
+      --syn-cmt:#8B949E;
       --syn-fn: #D2A8FF;
       --syn-prop:#FFA657;
       --syn-num:#FF7B72;
@@ -34,10 +38,10 @@
     }
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html { scroll-behavior: smooth; -webkit-font-smoothing: antialiased; }
-    body { font-family: var(--font); color: var(--text); background: var(--white); line-height: 1.6; }
-    a { color: var(--blue); text-decoration: none; }
+    body { font-family: var(--font); color: var(--text); background: var(--surface); line-height: 1.6; }
+    a { color:var(--blue-text); text-decoration: none; }
     a:hover { text-decoration: underline; }
-    code { font-family: var(--mono); font-size: .875em; background: var(--blue-lt); color: var(--blue); padding: 1px 6px; border-radius: 4px; }
+    code { font-family: var(--mono); font-size: .875em; background: var(--blue-lt); color:var(--blue-text); padding: 1px 6px; border-radius: 4px; }
     h1,h2,h3,h4 { font-family: var(--display); color: var(--ink); }
 
     /* LAYOUT */
@@ -64,7 +68,7 @@
       color: var(--muted); border-left: 3px solid transparent; transition: all .1s;
     }
     .sidebar a:hover { color: var(--ink); text-decoration: none; background: rgba(15,23,42,.04); }
-    .sidebar a.active { color: var(--blue); border-left-color: var(--blue); background: var(--blue-lt); }
+    .sidebar a.active { color:var(--blue-text); border-left-color:var(--blue-text); background: var(--blue-lt); }
     .sidebar a.method-link { font-family: var(--mono); font-size: 12px; }
 
     /* MAIN */
@@ -95,9 +99,9 @@
       font-family: var(--mono); font-size: 11px; font-weight: 800; letter-spacing: .5px;
       flex-shrink: 0;
     }
-    .m-get    { background: rgba(37,99,235,.1);  color: #1D4ED8; }
-    .m-post   { background: rgba(5,150,105,.1);  color: #065F46; }
-    .m-delete { background: rgba(220,38,38,.1);  color: #991B1B; }
+    .m-get    { background: rgba(37,99,235,.16);  color: #6C9BFF; }
+    .m-post   { background: rgba(5,150,105,.16);  color: #35C98D; }
+    .m-delete { background: rgba(220,38,38,.16);  color: #FF8A80; }
 
     .path { font-family: var(--mono); font-size: 14px; font-weight: 600; color: var(--ink); }
 
@@ -108,7 +112,7 @@
     }
     .code-block__label {
       padding: 8px 16px; font-size: 11px; font-weight: 600;
-      color: rgba(255,255,255,.3); font-family: var(--mono);
+      color: rgba(255,255,255,.64); font-family: var(--mono);
       background: rgba(255,255,255,.04); border-bottom: 1px solid rgba(255,255,255,.06);
     }
     .code-block pre {
@@ -121,7 +125,7 @@
     .fn   { color: var(--syn-fn); }
     .prop { color: var(--syn-prop); }
     .num  { color: var(--syn-num); }
-    .dim  { color: rgba(255,255,255,.25); }
+    .dim  { color: rgba(255,255,255,.60); }
 
     /* PARAM TABLE */
     .param-table { width: 100%; border-collapse: collapse; font-size: 13px; margin: 14px 0; }
@@ -129,16 +133,16 @@
     .param-table td { padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
     .param-table tr:last-child td { border-bottom: none; }
     .param-name { font-family: var(--mono); font-weight: 600; color: var(--ink); font-size: 12px; }
-    .param-req  { font-size: 10px; font-weight: 700; color: #DC2626; margin-left: 6px; }
+    .param-req  { font-size: 10px; font-weight: 700; color: #FF8A80; margin-left: 6px; }
     .param-opt  { font-size: 10px; font-weight: 700; color: var(--muted); margin-left: 6px; }
-    .param-type { font-family: var(--mono); font-size: 11px; color: var(--blue); }
+    .param-type { font-family: var(--mono); font-size: 11px; color:var(--blue-text); }
     .param-desc { color: var(--muted); line-height: 1.5; }
 
     /* ALERT BOXES */
     .alert { padding: 14px 16px; border-radius: 8px; font-size: 13px; margin: 14px 0; line-height: 1.6; }
-    .alert-info  { background: var(--blue-lt);    border-left: 3px solid var(--blue); color: #1E40AF; }
-    .alert-warn  { background: #FFFBEB;           border-left: 3px solid var(--warn); color: #92400E; }
-    .alert-green { background: rgba(5,150,105,.08); border-left: 3px solid var(--green); color: #065F46; }
+    .alert-info  { background: var(--blue-lt);    border-left: 3px solid var(--blue); color: #6C9BFF; }
+    .alert-warn  { background: var(--warn-wash);           border-left: 3px solid var(--warn); color: #F5C06B; }
+    .alert-green { background: rgba(5,150,105,.08); border-left: 3px solid var(--green); color: #35C98D; }
 
     /* VALUE TABLE (for enum values etc) */
     .value-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 14px 0; }
@@ -691,7 +695,7 @@ app.<span class="fn">post</span>(<span class="str">'/hooks/fleetai'</span>, (req
       <table class="param-table">
         <thead><tr><th>Range</th><th>Label</th><th>Recommended action</th></tr></thead>
         <tbody>
-          <tr><td><code>0.75 – 1.00</code></td><td style="color:#DC2626;font-weight:600">Critical</td><td class="param-desc">Do not dispatch. Schedule inspection immediately.</td></tr>
+          <tr><td><code>0.75 – 1.00</code></td><td style="color:#FF8A80;font-weight:600">Critical</td><td class="param-desc">Do not dispatch. Schedule inspection immediately.</td></tr>
           <tr><td><code>0.35 – 0.74</code></td><td style="color:#D97706;font-weight:600">Warning</td><td class="param-desc">Flag for maintenance within service window.</td></tr>
           <tr><td><code>0.00 – 0.34</code></td><td style="color:#059669;font-weight:600">Healthy</td><td class="param-desc">No action required. Continue monitoring.</td></tr>
         </tbody>

@@ -50,7 +50,7 @@ p { margin: 0; }
   text-transform: uppercase;
   color: var(--ink-3);
 }
-.label--signal { color: var(--signal); }
+.label--signal { color: var(--signal-text); }
 /* Instrumentation label — same teal as the wireframe in the hero plate. */
 .label--diag { color: var(--diag); }
 
@@ -109,7 +109,7 @@ p { margin: 0; }
 }
 .wordmark__mark { width: 26px; height: 26px; border-radius: 7px; flex: 0 0 auto; }
 .wordmark .brandFleet { color: var(--ink); }
-.wordmark .brandAI { color: var(--signal); }
+.wordmark .brandAI { color: var(--signal-text); }
 
 .siteNav {
   display: flex;

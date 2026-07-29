@@ -34,9 +34,16 @@
   /* ── Brand ──────────────────────────────────────────────────────────
      From assets/brand/fleet-ai-logo.svg. Blue stays the action colour so
      the mark and the CTAs agree. */
-  --signal:      #2F6BFF;
-  --signal-deep: #1F4FD8;
-  --signal-wash: rgba(47, 107, 255, 0.14);
+  /* The logo blue exactly. It also happens to be the accessible choice:
+     white on #1F5EFF is 5.15:1, where the lighter #2F6BFF sat at 4.53 and
+     rounded under AA on some surfaces. Brand-correct and contrast-correct. */
+  --signal:      #1F5EFF;
+  --signal-deep: #1A4FD8;
+  --signal-wash: rgba(31, 94, 255, 0.14);
+  /* Blue as TEXT on a dark surface. --signal itself is only 4.01:1 against
+     --night, so it fails AA for body-size type. Use this for links, numerals,
+     and the AI in the wordmark; use --signal for filled backgrounds. */
+  --signal-text: #6C9BFF;
 
   /* ── Health states ──────────────────────────────────────────────────
      The product's output vocabulary. Amber is the frame's warning marker. */
@@ -48,9 +55,13 @@
   --critical-wash: rgba(255, 95, 82, 0.13);
 
   /* ── Ink ────────────────────────────────────────────────────────────*/
-  --ink:   #F7F8F9;      /* sampled: headlight */
-  --ink-2: #A7B8CC;
-  --ink-3: #71869E;
+  /* Contrast-verified against --night and --slate with the WCAG sRGB formula.
+     --ink-3 was #71869E, which measured 4.2-4.3:1 on raised panels and so
+     failed AA for body-size text — the "fonts hidden by the colors" problem.
+     It is now 6.3:1 at worst. */
+  --ink:   #F7F8F9;      /* sampled: headlight  — 18.0:1 */
+  --ink-2: #A7B8CC;      /* secondary prose     — 9.4:1  */
+  --ink-3: #8FA3BA;      /* labels, captions    — 6.3:1  */
 
   --rule:        rgba(150, 180, 215, 0.16);
   --rule-strong: rgba(150, 180, 215, 0.30);

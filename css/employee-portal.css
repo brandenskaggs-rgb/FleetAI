@@ -410,7 +410,7 @@
   border-radius:999px;
   font-size:11px;
   border:1px solid color-mix(in srgb, var(--primary) 35%, var(--border));
-  color:var(--primary);
+  color:var(--signal-text);
   background:var(--primary-soft);
 }
 .actionDisabled{
@@ -450,7 +450,7 @@ body.density-compact .panelHeader{
 .employeeConsoleV2{
   min-height:100vh;
   background:var(--night);
-  color:var(--steel-deep);
+  color:var(--ink);
 }
 .employeeConsoleV2 .employeeTopbar{
   position:sticky;
@@ -469,7 +469,7 @@ body.density-compact .panelHeader{
   display:inline-flex;
   align-items:center;
   gap:4px;
-  color:var(--steel-deep);
+  color:var(--ink);
   min-width:148px;
 }
 .employeeConsoleV2 .wordmark::before{
@@ -481,28 +481,28 @@ body.density-compact .panelHeader{
   border-radius:4px;
 }
 .employeeConsoleV2 .brandFleet{
-  color:var(--steel-deep);
+  color:var(--ink);
 }
 .employeeConsoleV2 .brandAI{
-  color:var(--signal);
+  color:var(--signal-text);
 }
 .employeeTopbar__center{
   display:flex;
   align-items:center;
   gap:10px;
   min-width:0;
-  color:#52667f;
+  color:var(--muted);
   font-size:12px;
 }
 .employeeTopbar__center span{
   padding:4px 8px;
   border-radius:999px;
   background:var(--signal-wash);
-  color:var(--signal);
+  color:var(--signal-text);
   font-weight:850;
 }
 .employeeTopbar__center strong{
-  color:var(--steel-deep);
+  color:var(--ink);
   font-size:13px;
 }
 .employeeConsoleV2 .employeeShell{
@@ -530,13 +530,13 @@ body.density-compact .panelHeader{
   background:#fff;
 }
 .employeeConsoleV2 .brandTitle{
-  color:var(--steel-deep);
+  color:var(--ink);
   font-size:15px;
   letter-spacing:-.01em;
 }
 .employeeConsoleV2 .brandMeta{
   max-width:170px;
-  color:#6b7e96;
+  color:var(--muted);
   line-height:1.45;
 }
 .employeeConsoleV2 .sidebarNav{
@@ -553,13 +553,13 @@ body.density-compact .panelHeader{
   padding:7px 9px;
   border:1px solid transparent;
   border-radius:7px;
-  color:#263a57;
+  color:var(--ink-2);
   font-size:12px;
   font-weight:800;
   box-shadow:none;
 }
 .employeeConsoleV2 .sidebarNav button.is-active{
-  color:var(--signal);
+  color:var(--signal-text);
   background:var(--signal-wash);
   border-color:#cfe0ff;
   box-shadow:inset 2px 0 0 var(--signal);
@@ -575,18 +575,18 @@ body.density-compact .panelHeader{
   border-radius:8px;
   padding:10px;
   background:var(--slate);
-  color:#52667f;
+  color:var(--muted);
   line-height:1.45;
 }
 .employeeConsoleV2 .noteTitle{
-  color:var(--steel-deep);
+  color:var(--ink);
   font-weight:850;
 }
 .employeeConsoleV2 .btn.ghost,
 .employeeConsoleV2 .btn.secondary{
   background:#fff;
   border-color:#d8e4f2;
-  color:var(--signal);
+  color:var(--signal-text);
   box-shadow:none;
 }
 .employeeConsoleV2 .btn.ghost:hover,
@@ -608,13 +608,13 @@ body.density-compact .panelHeader{
   box-shadow:none;
 }
 .employeeConsoleV2 .mainHeader h1{
-  color:var(--steel-deep);
+  color:var(--ink);
   font-size:24px;
   letter-spacing:-.02em;
 }
 .employeeConsoleV2 .mainHeader p{
   max-width:680px;
-  color:#52667f;
+  color:var(--muted);
 }
 .employeeConsoleV2 .roleMeta{
   display:inline-flex;
@@ -622,7 +622,7 @@ body.density-compact .panelHeader{
   padding:4px 8px;
   border-radius:999px;
   background:var(--slate);
-  color:#52667f;
+  color:var(--muted);
   font-weight:800;
 }
 .employeeConsoleV2 .headerActions{
@@ -634,7 +634,7 @@ body.density-compact .panelHeader{
   border-radius:8px;
   border:1px solid #d8e4f2;
   background:var(--slate);
-  color:var(--steel-deep);
+  color:var(--ink);
 }
 .employeeConsoleV2 .viewSection{
   gap:14px;
@@ -654,14 +654,14 @@ body.density-compact .panelHeader{
   padding:14px;
 }
 .employeeConsoleV2 .kpiLabel{
-  color:#6b7e96;
+  color:var(--muted);
   text-transform:uppercase;
   letter-spacing:.04em;
   font-size:10px;
   font-weight:850;
 }
 .employeeConsoleV2 .kpiValue{
-  color:var(--steel-deep);
+  color:var(--ink);
   font-size:24px;
 }
 .employeeConsoleV2 .panelHeader{
@@ -670,7 +670,7 @@ body.density-compact .panelHeader{
 }
 .employeeConsoleV2 .panelHeader h2,
 .employeeConsoleV2 .panelHeader h3{
-  color:var(--steel-deep);
+  color:var(--ink);
   font-size:14px;
 }
 .employeeConsoleV2 .panelBody{
@@ -709,7 +709,7 @@ body.density-compact .panelHeader{
   box-shadow:none;
 }
 .employeeConsoleV2 .dataTable th{
-  color:#6b7e96;
+  color:var(--muted);
   background:var(--slate);
   font-size:10px;
   text-transform:uppercase;
@@ -726,7 +726,7 @@ body.density-compact .panelHeader{
   background:#fff;
 }
 .employeeConsoleV2 .filterTabs button.is-active{
-  color:var(--signal);
+  color:var(--signal-text);
   background:var(--signal-wash);
   border-color:#cfe0ff;
 }
