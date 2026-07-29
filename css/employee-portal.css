@@ -352,14 +352,14 @@
 }
 .status-pilot,
 .status-contacted{
-  border-color:color-mix(in srgb, #f59e0b 35%, var(--border));
-  background:color-mix(in srgb, #f59e0b 12%, var(--panel));
+  border-color:color-mix(in srgb, var(--watch) 35%, var(--border));
+  background:color-mix(in srgb, var(--watch) 12%, var(--panel));
 }
 .status-active,
 .status-qualified,
 .status-scheduled{
-  border-color:color-mix(in srgb, #22c55e 35%, var(--border));
-  background:color-mix(in srgb, #22c55e 12%, var(--panel));
+  border-color:color-mix(in srgb, var(--nominal) 35%, var(--border));
+  background:color-mix(in srgb, var(--nominal) 12%, var(--panel));
 }
 .status-paused{
   border-color:color-mix(in srgb, #94a3b8 35%, var(--border));
@@ -368,12 +368,12 @@
 .status-churned,
 .status-lost,
 .status-closed{
-  border-color:color-mix(in srgb, #ef4444 35%, var(--border));
-  background:color-mix(in srgb, #ef4444 12%, var(--panel));
+  border-color:color-mix(in srgb, var(--critical) 35%, var(--border));
+  background:color-mix(in srgb, var(--critical) 12%, var(--panel));
 }
 .status-converted{
-  border-color:color-mix(in srgb, #22c55e 35%, var(--border));
-  background:color-mix(in srgb, #22c55e 12%, var(--panel));
+  border-color:color-mix(in srgb, var(--nominal) 35%, var(--border));
+  background:color-mix(in srgb, var(--nominal) 12%, var(--panel));
 }
 .toggleGrid{
   display:grid;
@@ -449,8 +449,8 @@ body.density-compact .panelHeader{
 /* Employee console v2: onboarding operations workspace */
 .employeeConsoleV2{
   min-height:100vh;
-  background:#f6f8fb;
-  color:#07172f;
+  background:var(--night);
+  color:var(--steel-deep);
 }
 .employeeConsoleV2 .employeeTopbar{
   position:sticky;
@@ -469,7 +469,7 @@ body.density-compact .panelHeader{
   display:inline-flex;
   align-items:center;
   gap:4px;
-  color:#07172f;
+  color:var(--steel-deep);
   min-width:148px;
 }
 .employeeConsoleV2 .wordmark::before{
@@ -481,10 +481,10 @@ body.density-compact .panelHeader{
   border-radius:4px;
 }
 .employeeConsoleV2 .brandFleet{
-  color:#07172f;
+  color:var(--steel-deep);
 }
 .employeeConsoleV2 .brandAI{
-  color:#145fe8;
+  color:var(--signal);
 }
 .employeeTopbar__center{
   display:flex;
@@ -497,12 +497,12 @@ body.density-compact .panelHeader{
 .employeeTopbar__center span{
   padding:4px 8px;
   border-radius:999px;
-  background:#eef5ff;
-  color:#145fe8;
+  background:var(--signal-wash);
+  color:var(--signal);
   font-weight:850;
 }
 .employeeTopbar__center strong{
-  color:#07172f;
+  color:var(--steel-deep);
   font-size:13px;
 }
 .employeeConsoleV2 .employeeShell{
@@ -530,7 +530,7 @@ body.density-compact .panelHeader{
   background:#fff;
 }
 .employeeConsoleV2 .brandTitle{
-  color:#07172f;
+  color:var(--steel-deep);
   font-size:15px;
   letter-spacing:-.01em;
 }
@@ -559,10 +559,10 @@ body.density-compact .panelHeader{
   box-shadow:none;
 }
 .employeeConsoleV2 .sidebarNav button.is-active{
-  color:#145fe8;
-  background:#edf4ff;
+  color:var(--signal);
+  background:var(--signal-wash);
   border-color:#cfe0ff;
-  box-shadow:inset 2px 0 0 #145fe8;
+  box-shadow:inset 2px 0 0 var(--signal);
 }
 .employeeConsoleV2 .sidebarLink{
   margin-top:8px;
@@ -574,24 +574,24 @@ body.density-compact .panelHeader{
   border:1px solid #dfe7f2;
   border-radius:8px;
   padding:10px;
-  background:#f8fafc;
+  background:var(--slate);
   color:#52667f;
   line-height:1.45;
 }
 .employeeConsoleV2 .noteTitle{
-  color:#07172f;
+  color:var(--steel-deep);
   font-weight:850;
 }
 .employeeConsoleV2 .btn.ghost,
 .employeeConsoleV2 .btn.secondary{
   background:#fff;
   border-color:#d8e4f2;
-  color:#145fe8;
+  color:var(--signal);
   box-shadow:none;
 }
 .employeeConsoleV2 .btn.ghost:hover,
 .employeeConsoleV2 .btn.secondary:hover{
-  background:#f3f7ff;
+  background:var(--signal-wash);
   border-color:#bcd1f4;
 }
 .employeeConsoleV2 .employeeMain{
@@ -608,7 +608,7 @@ body.density-compact .panelHeader{
   box-shadow:none;
 }
 .employeeConsoleV2 .mainHeader h1{
-  color:#07172f;
+  color:var(--steel-deep);
   font-size:24px;
   letter-spacing:-.02em;
 }
@@ -621,7 +621,7 @@ body.density-compact .panelHeader{
   margin-top:10px;
   padding:4px 8px;
   border-radius:999px;
-  background:#f1f5f9;
+  background:var(--slate);
   color:#52667f;
   font-weight:800;
 }
@@ -633,8 +633,8 @@ body.density-compact .panelHeader{
   height:34px;
   border-radius:8px;
   border:1px solid #d8e4f2;
-  background:#f8fafc;
-  color:#07172f;
+  background:var(--slate);
+  color:var(--steel-deep);
 }
 .employeeConsoleV2 .viewSection{
   gap:14px;
@@ -661,7 +661,7 @@ body.density-compact .panelHeader{
   font-weight:850;
 }
 .employeeConsoleV2 .kpiValue{
-  color:#07172f;
+  color:var(--steel-deep);
   font-size:24px;
 }
 .employeeConsoleV2 .panelHeader{
@@ -670,7 +670,7 @@ body.density-compact .panelHeader{
 }
 .employeeConsoleV2 .panelHeader h2,
 .employeeConsoleV2 .panelHeader h3{
-  color:#07172f;
+  color:var(--steel-deep);
   font-size:14px;
 }
 .employeeConsoleV2 .panelBody{
@@ -710,7 +710,7 @@ body.density-compact .panelHeader{
 }
 .employeeConsoleV2 .dataTable th{
   color:#6b7e96;
-  background:#f8fafc;
+  background:var(--slate);
   font-size:10px;
   text-transform:uppercase;
   letter-spacing:.04em;
@@ -726,8 +726,8 @@ body.density-compact .panelHeader{
   background:#fff;
 }
 .employeeConsoleV2 .filterTabs button.is-active{
-  color:#145fe8;
-  background:#edf4ff;
+  color:var(--signal);
+  background:var(--signal-wash);
   border-color:#cfe0ff;
 }
 .employeeConsoleV2 .footer{

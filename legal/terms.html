@@ -1,37 +1,35 @@
 ﻿<!doctype html>
-<html lang="en">
+<html lang="en" data-theme="light-blue">
 <head>
   <link rel="stylesheet" href="/css/theme.css" />
 
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Fleet AI Terms of Service</title>
+  <link rel="stylesheet" href="/css/fonts.css" />
   <link rel="stylesheet" href="/css/site-tokens.css" />
   <link rel="stylesheet" href="/css/site-theme.css" />
   <link rel="stylesheet" href="/css/site-components.css" />
   <link rel="stylesheet" href="/css/site-layout.css" />
   <link rel="stylesheet" href="/css/design-system.css" />
+  <script>try{document.documentElement.dataset.theme="light-blue";}catch(e){}</script>
 </head>
 <body>
   <header class="siteHeader">
     <div class="container siteHeader__row">
-      <a class="wordmark" href="/index.html"><span class="brandFleet">Fleet</span><span class="brandAI">AI</span></a>
+      <a class="wordmark" href="/index.html"><img class="wordmark__mark" src="/assets/brand/fleet-ai-mark.svg" alt="" width="26" height="26" />
+        <span><span class="brandFleet">Fleet</span><span class="brandAI">AI</span></span></a>
       <nav class="siteNav" id="siteNav">
         <a href="/product.html">Product</a>
         <a href="/pricing.html">Pricing</a>
-        <a href="/pilot.html">Pilot Program</a>
+        <a href="/developers.html">Developers</a>
         <a href="/security.html">Security</a>
-        <a href="/about.html">About Us</a>
-        <a href="/request-demo.html" class="btn primary">Request Demo</a>
-        <a href="/login.html" class="btn secondary">Sign In</a>
+        <a href="/about.html">Company</a>
       </nav>
       <div class="siteActions">
-        <select class="themeSelect" id="siteThemeSelect" aria-label="Theme">
-          <option value="light-blue">Light</option>
-          <option value="dark-blue">Dark Blue</option>
-          <option value="dark-gray">Dark Gray</option>
-        </select>
-        <button class="navToggle" id="navToggle" type="button">Menu</button>
+        <a class="siteSignIn" href="/login.html">Sign in</a>
+        <a class="btn primary" href="/request-demo.html">Request demo</a>
+        <button class="navToggle" id="navToggle" type="button" aria-label="Menu" aria-controls="siteNav">&#9776;</button>
       </div>
     </div>
   </header>

@@ -1,144 +1,148 @@
-:root{
-  --bg:#030711;
-  --bg-soft:#070d19;
-  --panel:#0d1424;
-  --panel2:var(--bg-soft);
-  --border:rgba(132,151,185,0.22);
-  --text:#f5f7ff;
-  --muted:#94a2c3;
-  --primary:#5ea2ff;
-  --primary-700:#3d82f2;
-  --primary-600:var(--primary-700);
-  --primary-hover:#6ab0ff;
-  --primary-soft:rgba(94,162,255,0.16);
-  --accent:#f7b347;
-  --accent-soft:rgba(247,179,71,0.22);
-  --shadow-sm:var(--shadow-1);
-  --shadow-md:var(--shadow-2);
-  --radius:var(--radius-md);
-  --radius-lg:var(--radius-lg);
-  --container:var(--container-max);
-  --focus:0 0 0 3px rgba(94,162,255,0.25);
+/* Fleet AI design tokens — "Night Run"
+   ------------------------------------------------
+   Derived directly from assets/images/hero-truck-1600.webp: a Cascadia at
+   dusk with a diagnostic wireframe reading its running gear and an amber
+   fault marker at the front axle. Surface colours are sampled from that
+   frame (road shadow #0E1722, dusk sky #51749E, headlight #F7F8F9, glow core
+   #99D7E4) so the page and the photograph are the same scene.
 
-  --header-bg:rgba(5,8,18,0.92);
-  --header-border:rgba(255,255,255,0.08);
-  --header-link:rgba(255,255,255,0.78);
-  --header-link-active:#ffffff;
-  --header-ghost:rgba(255,255,255,0.12);
-  --header-ghost-border:rgba(255,255,255,0.18);
-  --footer-bg:#050913;
-  --footer-text:rgba(255,255,255,0.78);
+   The product's thesis is in the image: the truck is moving, and we can see
+   inside it. Teal is instrumentation. Amber is a fault. Blue stays the brand.
 
-  --haze-1:rgba(94,162,255,0.25);
-  --haze-2:rgba(247,179,71,0.24);
-  --haze-3:rgba(61,130,242,0.16);
-  --haze-4:#030711;
+   Theme note: js/site.js applyTheme() hard-locks data-theme="light-blue" and
+   hides the selector, so tokens live on :root and apply regardless of the
+   attribute value. Legacy alias names below keep ~4.3k lines of existing
+   component CSS working unchanged. */
 
-  --space-1:6px;
-  --space-2:10px;
-  --space-3:14px;
-  --space-4:18px;
-  --space-5:24px;
-  --space-6:32px;
-  --space-7:40px;
-  --space-8:56px;
+:root {
+  /* ── Surfaces, sampled from the frame ───────────────────────────────*/
+  --void:    #05080E;   /* deepest road shadow — page base */
+  --night:   #0E1722;   /* sampled: road shadow — panels */
+  --slate:   #16212F;   /* raised panel */
+  --dusk:    #22314A;   /* borders, sky mid-band */
+  --horizon: #51749E;   /* sampled: dusk sky — muted accent */
 
-  --font-body:"Bahnschrift","Segoe UI Variable","Segoe UI","Candara","Trebuchet MS","Noto Sans",sans-serif;
-  --font-display:"Bahnschrift","Segoe UI Variable","Segoe UI","Candara","Trebuchet MS","Noto Sans",sans-serif;
+  /* ── Instrumentation ────────────────────────────────────────────────
+     The wireframe glow. This is the signature colour and it means one
+     thing: live telemetry. Never used for decoration. */
+  --diag:      #4FD8C4;
+  --diag-core: #99D7E4;                      /* sampled glow core */
+  --diag-wash: rgba(79, 216, 196, 0.12);
+  --diag-line: rgba(79, 216, 196, 0.34);
+  --diag-glow: 0 0 24px rgba(79, 216, 196, 0.30);
+
+  /* ── Brand ──────────────────────────────────────────────────────────
+     From assets/brand/fleet-ai-logo.svg. Blue stays the action colour so
+     the mark and the CTAs agree. */
+  --signal:      #2F6BFF;
+  --signal-deep: #1F4FD8;
+  --signal-wash: rgba(47, 107, 255, 0.14);
+
+  /* ── Health states ──────────────────────────────────────────────────
+     The product's output vocabulary. Amber is the frame's warning marker. */
+  --nominal:      #35C98D;
+  --nominal-wash: rgba(53, 201, 141, 0.13);
+  --watch:        #F5A623;                   /* the fault triangle */
+  --watch-wash:   rgba(245, 166, 35, 0.13);
+  --critical:     #FF5F52;
+  --critical-wash: rgba(255, 95, 82, 0.13);
+
+  /* ── Ink ────────────────────────────────────────────────────────────*/
+  --ink:   #F7F8F9;      /* sampled: headlight */
+  --ink-2: #A7B8CC;
+  --ink-3: #71869E;
+
+  --rule:        rgba(150, 180, 215, 0.16);
+  --rule-strong: rgba(150, 180, 215, 0.30);
+
+  /* ── Legacy aliases ─────────────────────────────────────────────────
+     site-components.css / site-layout.css / design-system.css /
+     employee-portal.css consume these names. Names kept, values swapped, so
+     every existing page re-skins without touching a component rule. */
+  --paper: var(--void);
+  --panel-1: var(--night);
+  --panel-2: var(--slate);
+  --bg: var(--void);
+  --bg-soft: var(--night);
+  --panel: var(--night);
+  --panel2: var(--slate);
+  --border: var(--rule);
+  --text: var(--ink);
+  --muted: var(--ink-3);
+  --primary: var(--signal);
+  --primary-700: var(--signal-deep);
+  --primary-600: var(--signal-deep);
+  --primary-hover: #4B80FF;
+  --primary-soft: var(--signal-wash);
+  --accent: var(--watch);
+  --accent-soft: var(--watch-wash);
+  --steel: var(--night);
+  --steel-deep: var(--void);
+
+  --header-bg: rgba(5, 8, 14, 0.72);
+  --header-border: var(--rule);
+  --header-link: var(--ink-2);
+  --header-link-active: var(--ink);
+  --header-ghost: transparent;
+  --header-ghost-border: var(--rule-strong);
+  --footer-bg: #04060B;
+  --footer-text: rgba(167, 184, 204, 0.78);
+
+  /* Old radial "haze" gradients neutralised — depth comes from the
+     photograph and from hairlines, not from blurred colour blobs. */
+  --haze-1: transparent;
+  --haze-2: transparent;
+  --haze-3: transparent;
+  --haze-4: var(--void);
+
+  /* ── Type ───────────────────────────────────────────────────────────*/
+  --font-display: "Archivo", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Archivo", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --track-display: -0.034em;
+  --track-head: -0.021em;
+  --track-label: 0.09em;
+
+  /* ── Space ──────────────────────────────────────────────────────────*/
+  --space-1: 6px;  --space-2: 10px; --space-3: 14px; --space-4: 18px;
+  --space-5: 24px; --space-6: 32px; --space-7: 40px; --space-8: 56px;
+
+  /* ── Form ───────────────────────────────────────────────────────────*/
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius: var(--radius-md);
+  --container: 1200px;
+  --container-max: 1200px;
+  --gutter: clamp(18px, 3vw, 30px);
+  --section-y: 96px;
+
+  --text-xs: 12px; --text-sm: 13px; --text-md: 15px;
+  --text-lg: 18px; --text-xl: 22px; --text-2xl: 28px;
+  --line-body: 1.6; --line-tight: 1.16;
+  --stack-1: var(--space-1); --stack-2: var(--space-2); --stack-3: var(--space-3);
+  --stack-4: var(--space-4); --stack-5: var(--space-5); --stack-6: var(--space-6);
+  --stack-7: var(--space-7);
+
+  /* On dark, elevation reads as glow + hairline, not drop shadow. */
+  --shadow-1: 0 1px 0 rgba(255, 255, 255, 0.04);
+  --shadow-2: 0 24px 60px rgba(0, 0, 0, 0.55);
+  --shadow-sm: var(--shadow-1);
+  --shadow-md: var(--shadow-2);
+  --focus: 0 0 0 3px rgba(79, 216, 196, 0.45);
 }
 
-:root[data-theme="light-blue"]{
-  --bg:#f7fbff;
-  --bg-soft:#eef5ff;
-  --panel:#ffffff;
-  --panel2:var(--bg-soft);
-  --border:rgba(30,64,175,0.12);
-  --text:#0b1b2b;
-  --muted:#51657f;
-  --primary:#2563eb;
-  --primary-700:#1d4ed8;
-  --primary-600:var(--primary-700);
-  --primary-hover:#1d4ed8;
-  --primary-soft:rgba(37,99,235,0.12);
-  --accent:#b45309;
-  --accent-soft:rgba(180,83,9,0.18);
-  --shadow-sm:0 8px 20px rgba(10,30,60,0.08);
-  --shadow-md:0 18px 40px rgba(10,30,60,0.12);
-  --focus:0 0 0 3px rgba(37,99,235,0.2);
-  --header-bg:rgba(20,24,31,0.92);
-  --header-border:rgba(255,255,255,0.08);
-  --header-link:rgba(255,255,255,0.78);
-  --header-link-active:#ffffff;
-  --header-ghost:rgba(255,255,255,0.12);
-  --header-ghost-border:rgba(255,255,255,0.22);
-  --footer-bg:#0f1319;
-  --footer-text:rgba(255,255,255,0.78);
-  --haze-1:rgba(37,99,235,0.12);
-  --haze-2:rgba(56,189,248,0.10);
-  --haze-3:rgba(37,99,235,0.08);
-  --haze-4:#ffffff;
-}
+:root[data-theme="light-blue"] { color-scheme: dark; }
 
-:root[data-theme="dark-blue"]{
-  --bg:#0b1220;
-  --bg-soft:#0e1728;
-  --panel:#111a2b;
-  --panel2:var(--bg-soft);
-  --border:rgba(84,116,173,0.22);
-  --text:#eaf2ff;
-  --muted:#a1b3d1;
-  --primary:#4d8bff;
-  --primary-700:#2f6fea;
-  --primary-600:var(--primary-700);
-  --primary-hover:#2f6fea;
-  --primary-soft:rgba(77,139,255,0.18);
-  --accent:#f7b347;
-  --accent-soft:rgba(247,179,71,0.22);
-  --shadow-sm:0 10px 24px rgba(0,0,0,0.35);
-  --shadow-md:0 18px 40px rgba(0,0,0,0.45);
-  --focus:0 0 0 3px rgba(77,139,255,0.25);
-  --header-bg:#0f1624;
-  --header-border:rgba(255,255,255,0.08);
-  --header-link:rgba(255,255,255,0.8);
-  --header-link-active:#ffffff;
-  --header-ghost:rgba(255,255,255,0.12);
-  --header-ghost-border:rgba(255,255,255,0.2);
-  --footer-bg:#0b0f16;
-  --footer-text:rgba(255,255,255,0.78);
-  --haze-1:rgba(77,139,255,0.18);
-  --haze-2:rgba(56,189,248,0.08);
-  --haze-3:rgba(77,139,255,0.12);
-  --haze-4:#0b1220;
-}
+@media (max-width: 1024px) { :root { --section-y: 72px; } }
+@media (max-width: 768px)  { :root { --section-y: 56px; --gutter: 18px; } }
 
-:root[data-theme="dark-gray"]{
-  --bg:#111315;
-  --bg-soft:#14181c;
-  --panel:#1a1d22;
-  --panel2:var(--bg-soft);
-  --border:rgba(120,130,150,0.22);
-  --text:#f2f4f8;
-  --muted:#b3bbc7;
-  --primary:#4d8bff;
-  --primary-700:#2f6fea;
-  --primary-600:var(--primary-700);
-  --primary-hover:#2f6fea;
-  --primary-soft:rgba(77,139,255,0.16);
-  --accent:#f7b347;
-  --accent-soft:rgba(247,179,71,0.22);
-  --shadow-sm:0 10px 24px rgba(0,0,0,0.35);
-  --shadow-md:0 18px 40px rgba(0,0,0,0.45);
-  --focus:0 0 0 3px rgba(77,139,255,0.22);
-  --header-bg:#12161c;
-  --header-border:rgba(255,255,255,0.08);
-  --header-link:rgba(255,255,255,0.8);
-  --header-link-active:#ffffff;
-  --header-ghost:rgba(255,255,255,0.12);
-  --header-ghost-border:rgba(255,255,255,0.2);
-  --footer-bg:#0f1317;
-  --footer-text:rgba(255,255,255,0.78);
-  --haze-1:rgba(77,139,255,0.12);
-  --haze-2:rgba(56,189,248,0.06);
-  --haze-3:rgba(77,139,255,0.08);
-  --haze-4:#111315;
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

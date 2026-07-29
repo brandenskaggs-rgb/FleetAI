@@ -1,114 +1,245 @@
-*{box-sizing:border-box}
-html,body{margin:0;padding:0}
-html{scroll-behavior:smooth}
-body{
-  font-family:var(--font-body);
-  color:var(--text);
-  background:
-    radial-gradient(900px 520px at 12% -12%, var(--haze-1) 0%, rgba(37,99,235,0) 60%),
-    radial-gradient(800px 520px at 88% -6%, var(--haze-2) 0%, rgba(56,189,248,0) 55%),
-    radial-gradient(900px 640px at 30% 92%, var(--haze-3) 0%, rgba(37,99,235,0) 60%),
-    linear-gradient(180deg, var(--bg) 0%, var(--haze-4) 100%);
-}
-a{color:inherit;text-decoration:none}
-img{max-width:100%;display:block}
-::selection{background:var(--primary-soft)}
-:focus-visible{outline:none;box-shadow:var(--focus)}
+/* Fleet AI — base surface, header, footer, and shared instrument primitives.
+   Loaded by every page (marketing, auth, portal), so the header and footer
+   here are the single definition. index.html previously carried its own
+   inline nav in a different font, color, and link set — that divergence is
+   what made the site read as two different products. */
 
-.siteHeader{
-  position:sticky;
-  top:0;
-  z-index:50;
-  background:var(--header-bg);
-  backdrop-filter:blur(12px);
-  border-bottom:1px solid var(--header-border);
-}
-.siteHeader .siteNav a{
-  color:var(--header-link);
-}
-.siteHeader .siteNav a:hover,
-.siteHeader .siteNav a.is-active{
-  color:var(--header-link-active);
-}
-.siteHeader .btn.ghost{
-  color:#ffffff;
-  border-color:var(--header-ghost-border);
-}
-.siteHeader .btn.primary{
-  border-color:#2f6cf5;
-  background:linear-gradient(180deg, #2f6cf5 0%, #2459d6 100%);
-}
-.siteHeader .btn.secondary{
-  color:#ffffff;
-  background:var(--header-ghost);
-  border-color:var(--header-ghost-border);
-}
-.siteHeader .themeSelect{
-  background:rgba(255,255,255,0.12);
-  color:#ffffff;
-  border-color:var(--header-ghost-border);
-}
-.siteHeader .themeSelect:hover,
-.siteHeader .themeSelect:focus{
-  background:rgba(255,255,255,0.18);
-  border-color:rgba(255,255,255,0.34);
-}
-.announceBar .btn.ghost{
-  color:#e6f0ff;
-  border-color:rgba(255,255,255,0.2);
-}
-.siteHeader .navToggle{
-  color:#ffffff;
-  border-color:var(--header-ghost-border);
-  background:rgba(255,255,255,0.06);
-}
-.wordmark{
-  display:flex;
-  gap:6px;
-  align-items:center;
-  font-family:var(--font-display);
-  font-weight:800;
-  font-size:20px;
-}
-.wordmark .brandFleet{color:#ffffff}
-.wordmark .brandAI{color:#4c8dff}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
 
-/* Sign-in text link — clean, no border box */
-.siteSignIn{
-  font-size:13px;
-  font-weight:600;
-  color:rgba(255,255,255,0.72);
-  padding:6px 12px;
-  border-radius:999px;
-  border:1px solid transparent;
-  transition:color .15s ease, background .15s ease, border-color .15s ease;
-  white-space:nowrap;
-  cursor:pointer;
-  letter-spacing:0.01em;
-}
-.siteSignIn:hover{
-  color:#ffffff;
-  background:rgba(255,255,255,0.07);
-  border-color:rgba(255,255,255,0.1);
+body {
+  font-family: var(--font-body);
+  color: var(--ink);
+  background: var(--paper);
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-synthesis-weight: none;
 }
 
-/* Mono live tag used in hero shell */
-.monoTag{
-  display:inline-flex;
-  align-items:center;
-  gap:5px;
-  padding:4px 10px;
-  border-radius:999px;
-  font-size:11px;
-  font-weight:700;
-  letter-spacing:0.08em;
-  font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;
-  border:1px solid;
+a { color: inherit; text-decoration: none; }
+img, svg { max-width: 100%; display: block; }
+::selection { background: rgba(31, 94, 255, 0.16); }
+:focus-visible { outline: none; box-shadow: var(--focus); border-radius: 3px; }
+
+h1, h2, h3, h4 {
+  font-family: var(--font-display);
+  color: var(--ink);
+  margin: 0;
+  font-weight: 700;
+  letter-spacing: var(--track-head);
+  line-height: 1.14;
+}
+p { margin: 0; }
+
+/* ── Instrument primitives ────────────────────────────────────────────
+   Shared vocabulary. Mono is reserved for machine values — unit numbers,
+   readings, thresholds, timestamps, fault codes — never for prose. */
+
+.mono { font-family: var(--font-mono); font-variant-ligatures: none; }
+
+/* Eyebrow / column label. Mono + wide tracking reads as an instrument
+   legend rather than a marketing kicker. */
+.label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.label--signal { color: var(--signal); }
+/* Instrumentation label — same teal as the wireframe in the hero plate. */
+.label--diag { color: var(--diag); }
+
+/* Health state chips — the product's output vocabulary, one definition. */
+.state {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.055em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.state::before {
+  content: "";
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex: 0 0 auto;
+}
+.state--nominal  { color: var(--nominal);  background: var(--nominal-wash); }
+.state--watch    { color: var(--watch);    background: var(--watch-wash); }
+.state--critical { color: var(--critical); background: var(--critical-wash); }
+
+/* ── Header ───────────────────────────────────────────────────────────*/
+.siteHeader {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: var(--header-bg);
+  backdrop-filter: saturate(180%) blur(14px);
+  -webkit-backdrop-filter: saturate(180%) blur(14px);
+  border-bottom: 1px solid var(--header-border);
+}
+.siteHeader__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  height: 66px;
 }
 
-.footer{
-  background:var(--footer-bg);
-  color:var(--footer-text);
+.wordmark {
+  display: inline-flex;
+  gap: 9px;
+  align-items: center;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 19px;
+  letter-spacing: -0.03em;
+  color: var(--ink);
+  flex: 0 0 auto;
 }
-.footer a{color:rgba(255,255,255,0.8)}
-.footer a:hover{color:#ffffff}
+.wordmark__mark { width: 26px; height: 26px; border-radius: 7px; flex: 0 0 auto; }
+.wordmark .brandFleet { color: var(--ink); }
+.wordmark .brandAI { color: var(--signal); }
+
+.siteNav {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  margin-right: auto;
+}
+.siteHeader .siteNav a {
+  position: relative;
+  color: var(--header-link);
+  font-size: 14px;
+  font-weight: 500;
+  padding: 8px 11px;
+  border-radius: var(--radius-sm);
+  transition: color 0.14s ease, background 0.14s ease;
+}
+.siteHeader .siteNav a:hover { color: var(--ink); background: var(--panel-1); }
+.siteHeader .siteNav a.is-active { color: var(--ink); font-weight: 600; }
+/* Active marker is a signal tick on the baseline, matching the page motif. */
+.siteHeader .siteNav a.is-active::after {
+  content: "";
+  position: absolute;
+  left: 11px; right: 11px; bottom: -13px;
+  height: 2px;
+  background: var(--signal);
+}
+
+/* Landing only: the header sits over the hero photograph until you scroll,
+   so it starts fully transparent and gains its surface on scroll (js/site.js
+   toggles .is-stuck). Every other page keeps the solid bar above. */
+.siteHeader--over {
+  background: transparent;
+  border-bottom-color: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.siteHeader--over.is-stuck {
+  background: var(--header-bg);
+  border-bottom-color: var(--header-border);
+  backdrop-filter: saturate(160%) blur(16px);
+  -webkit-backdrop-filter: saturate(160%) blur(16px);
+}
+
+.siteActions { display: flex; gap: 8px; align-items: center; flex: 0 0 auto; }
+
+.siteSignIn {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--header-link);
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+  transition: color 0.14s ease, background 0.14s ease;
+}
+.siteSignIn:hover { color: var(--ink); background: var(--panel-1); }
+
+.navToggle {
+  display: none;
+  height: 38px;
+  padding: 0 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--rule-strong);
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 15px;
+  cursor: pointer;
+}
+
+/* Header button overrides: the old rules forced white text for a dark bar.
+   The bar is light now, so buttons use their own palette from
+   site-components.css and only the ghost variant needs a border colour. */
+.siteHeader .btn.ghost {
+  color: var(--ink-2);
+  border-color: var(--rule-strong);
+  background: transparent;
+}
+.siteHeader .btn.ghost:hover { color: var(--ink); background: var(--panel-1); }
+.siteHeader .btn.primary {
+  border-color: var(--signal);
+  background: var(--signal);
+  color: #fff;
+}
+.siteHeader .btn.primary:hover { background: var(--signal-deep); border-color: var(--signal-deep); }
+.siteHeader .btn.secondary {
+  color: var(--ink);
+  background: var(--panel-1);
+  border-color: var(--rule);
+}
+/* Theme select is hidden by site.js initThemeSwitch(); kept for valid markup. */
+.siteHeader .themeSelect[hidden] { display: none; }
+
+@media (max-width: 900px) {
+  .navToggle { display: inline-flex; align-items: center; }
+  .siteNav {
+    display: none;
+    position: absolute;
+    top: 66px; left: 0; right: 0;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    padding: var(--space-2);
+    background: var(--paper);
+    border-bottom: 1px solid var(--rule);
+    box-shadow: var(--shadow-2);
+  }
+  .siteNav.is-open { display: flex; }
+  .siteHeader .siteNav a { padding: 12px; }
+  .siteHeader .siteNav a.is-active::after { display: none; }
+  .siteHeader .siteNav a.is-active { background: var(--signal-wash); }
+  .siteSignIn { display: none; }
+}
+
+/* ── Footer ───────────────────────────────────────────────────────────*/
+.footer {
+  background: var(--footer-bg);
+  color: var(--footer-text);
+  border-top: 1px solid var(--rule);
+  padding: var(--space-8) 0 var(--space-6);
+  margin-top: var(--space-8);
+}
+.footer a { color: var(--footer-text); transition: color 0.14s ease; }
+.footer a:hover { color: #fff; }
+.footer .wordmark, .footer .wordmark .brandFleet { color: #fff; }
+.footer .wordmark .brandAI { color: #6C9BFF; }
+.footer h4 {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  color: rgba(233, 239, 250, 0.46);
+  margin: 0 0 var(--space-3);
+}

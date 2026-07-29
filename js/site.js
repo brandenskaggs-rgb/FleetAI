@@ -172,6 +172,18 @@ function initAnchors(){
   });
 }
 
+/* Landing header sits transparent over the hero photo and takes on its
+   surface once you scroll past it. No-op on pages without the modifier. */
+function initStickyHeader(){
+  const header = document.querySelector(".siteHeader--over");
+  if(!header) return;
+  const sync = ()=>{
+    header.classList.toggle("is-stuck", window.scrollY > 24);
+  };
+  sync();
+  window.addEventListener("scroll", sync, {passive:true});
+}
+
 function applyTheme(){
   const mode = "light-blue";
   document.documentElement.dataset.theme = mode;
@@ -194,4 +206,5 @@ document.addEventListener("DOMContentLoaded", ()=>{
   initPilotForm();
   initAnchors();
   initThemeSwitch();
+  initStickyHeader();
 });

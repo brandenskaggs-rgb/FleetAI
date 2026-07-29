@@ -1,15 +1,5 @@
-:root{
-  --container-max: 1200px;
-  --section-y: var(--space-7);
-  --gutter: clamp(16px, 3vw, 28px);
-  --stack-1: var(--space-1);
-  --stack-2: var(--space-2);
-  --stack-3: var(--space-3);
-  --stack-4: var(--space-4);
-  --stack-5: var(--space-5);
-  --stack-6: var(--space-6);
-  --stack-7: var(--space-7);
-}
+/* Token block moved to site-tokens.css. This file loads last on every page,
+   so its --container-max/--gutter silently overrode the token layer. */
 
 html{
   scroll-behavior: smooth;
@@ -99,18 +89,10 @@ html{
 }
 
 @media (max-width: 1024px){
-  :root{
-    --section-y: 72px;
-    --container-max: 1100px;
-  }
   .grid-4{ grid-template-columns: repeat(2, minmax(0,1fr)); }
 }
 
 @media (max-width: 768px){
-  :root{
-    --section-y: 56px;
-    --gutter: 16px;
-  }
   .grid-3,
   .grid-2{ grid-template-columns: 1fr; }
   .grid-4{ grid-template-columns: 1fr; }

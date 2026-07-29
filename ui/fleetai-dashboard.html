@@ -4,27 +4,25 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Fleet AI - Customer Workspace</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" onerror="this.href='https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css'">
+  <link rel="stylesheet" href="../assets/vendor/leaflet/leaflet.css" />
+  <link rel="stylesheet" href="../css/fonts.css?v=20260729" />
   <style>
     :root{
-      --bg:#F5F7FA; --surface2:#E9EEF5; --panel:#FFFFFF; --panel2:#F1F5F9;
-      --border:#E5EAF0; --text:#101828; --muted:#66758C;
+      --bg:#F6F8FC; --surface2:#EDF1F8; --panel:#FFFFFF; --panel2:#F6F8FC;
+      --border:#DCE3EF; --text:#0A1628; --muted:#65738B;
       --primary:#1F5EFF; --primary-dark:#1748C7; --primary-soft:rgba(31,94,255,.10);
-      --good:#16A34A; --warn:#D97706; --bad:#DC2626;
+      --good:#0F9F63; --warn:#B76A0B; --bad:#C7362F;
       --shadow:0 28px 90px rgba(15,23,42,.12); --shadow2:0 1px 2px rgba(15,23,42,.025),0 18px 46px rgba(15,23,42,.07);
       --hover:rgba(15,23,42,.045); --row:rgba(15,23,42,.035); --input:rgba(15,23,42,.045); --divider:rgba(15,23,42,.06);
-      --r:12px; --r-lg:16px; --r-sm:8px;
-      --font:Manrope,system-ui,-apple-system,Segoe UI,sans-serif;
-      --display:"Space Grotesk",Manrope,system-ui,sans-serif;
-      --mono:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono",monospace;
+      --r:8px;--r-lg:10px;--r-sm:6px;
+      --font:Archivo,'Segoe UI',system-ui,sans-serif;
+      --display:Archivo,'Segoe UI',system-ui,sans-serif;
+      --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
     }
     html[data-theme="dark"]{
       --bg:#111827; --surface2:#172033; --panel:#1f2a3d; --panel2:#26344b;
       --border:rgba(99,118,163,.45); --text:#F4F7FF; --muted:#A4B1D4;
-      --primary:#F7B347; --primary-dark:#D68B1C; --primary-soft:rgba(247,179,71,.18);
+      --primary:#5B8CFF;--primary-dark:#3F73F0;--primary-soft:rgba(91,140,255,.18);
       --good:#2bdc9b; --warn:#ffb020; --bad:#ff5c5c;
       --shadow:0 22px 70px rgba(0,0,0,.36); --shadow2:0 12px 34px rgba(0,0,0,.26);
       --hover:rgba(255,255,255,.045); --row:rgba(255,255,255,.035); --input:rgba(255,255,255,.065); --divider:rgba(255,255,255,.055);
@@ -44,7 +42,7 @@
     .brand h1{margin:0;font:700 17px/1 var(--display);letter-spacing:-.2px}
     .brand p{margin:4px 0 0;color:var(--muted);font-size:12px}
     .navGroup{margin:14px 0}
-    .navGroupLabel{margin:0 8px 7px;color:var(--muted);font-size:10px;font-weight:800;letter-spacing:.85px;text-transform:uppercase;opacity:.76}
+    .navGroupLabel{margin:0 8px 7px;color:var(--muted);font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:.9px;text-transform:uppercase;opacity:.8}
     .nav button{width:100%;height:38px;border:0;border-radius:11px;background:transparent;color:var(--muted);display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 10px;font-size:13px;font-weight:750;text-align:left}
     .nav button:hover{background:var(--hover);color:var(--text)}
     .nav button.active{background:var(--primary-soft);color:var(--text);box-shadow:inset 3px 0 0 var(--primary)}
@@ -57,7 +55,7 @@
     .pill.good{color:var(--good);background:color-mix(in srgb,var(--good) 14%,transparent)}
     .pill.warn{color:var(--warn);background:color-mix(in srgb,var(--warn) 14%,transparent)}
     .pill.bad{color:var(--bad);background:color-mix(in srgb,var(--bad) 14%,transparent)}
-    .note{border:0;border-radius:16px;background:var(--panel2);color:var(--muted);font-size:13px;padding:14px;margin:14px 2px}
+    .note{border:0;border-radius:8px;background:var(--panel2);color:var(--muted);font-size:13px;padding:14px;margin:14px 2px}
     .main{height:100vh;min-width:0;overflow:auto;padding:0 32px 36px}
     .app-header{position:sticky;top:0;z-index:20;background:color-mix(in srgb,var(--bg) 90%,transparent);backdrop-filter:blur(20px);display:grid;grid-template-columns:minmax(210px,1fr) minmax(180px,340px) max-content;align-items:center;gap:14px;padding:18px 0 14px;box-shadow:none}
     .crumb{min-width:0}
@@ -83,31 +81,31 @@
     .viewHeader p{margin:10px 0 0;color:var(--muted);font-size:15px}
     .section{display:block}.section.hide{display:none}
     .grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px}.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}.grid4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px}
-    .card,.opsPanel{background:color-mix(in srgb,var(--panel) 96%,var(--bg));border:0;border-radius:22px;box-shadow:var(--shadow2);overflow:hidden}
+    .card,.opsPanel{background:var(--panel);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow2);overflow:hidden}
     .cardHead,.opsPanel__head{min-height:62px;padding:20px 22px 8px;display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
     .cardHead h3,.opsPanel__title{margin:0;font:700 16px/1.2 var(--display)}
     .cardMeta,.opsPanel__meta{margin-top:5px;color:var(--muted);font-size:12px}
     .cardBody,.opsPanel__body{padding:18px 22px 22px}
     .overviewHero{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(320px,.65fr);gap:18px;margin-bottom:18px}
-    .heroPanel{background:linear-gradient(135deg,#101828,#1F2A44);color:#fff;border-radius:28px;padding:28px;box-shadow:0 28px 70px rgba(16,24,40,.18);position:relative;overflow:hidden}
-    .heroPanel:after{content:"";position:absolute;right:-90px;top:-90px;width:220px;height:220px;border-radius:999px;background:rgba(31,94,255,.34)}
+    .heroPanel{background:var(--steel-deep,#0A1628);color:#fff;border-radius:12px;padding:28px;box-shadow:0 28px 70px rgba(16,24,40,.18);position:relative;overflow:hidden}
+    .heroPanel:after{content:"";position:absolute;right:-90px;top:-90px;width:220px;height:220px;border-radius:999px;background:rgba(31,94,255,.22)}
     .heroPanel h3{position:relative;margin:0;font:700 28px/1.05 var(--display);letter-spacing:-.6px;max-width:620px}
     .heroPanel p{position:relative;color:rgba(255,255,255,.76);max-width:680px;margin:12px 0 0;font-size:15px}
     .heroPanel .sectionActions{position:relative;margin-top:24px}
     .heroPanel .btn{color:#fff}.heroPanel .btn.primary{background:#fff;color:#101828;box-shadow:none}
-    .planPanel{background:var(--panel);border-radius:28px;padding:24px;box-shadow:var(--shadow2)}
+    .planPanel{background:var(--panel);border-radius:12px;padding:24px;box-shadow:var(--shadow2)}
     .planPanel h3{margin:0 0 14px;font:700 18px/1.2 var(--display)}
     .planItem{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;padding:12px 0;box-shadow:inset 0 -1px 0 var(--divider)}
     .planItem:last-child{box-shadow:none}.planDot{width:10px;height:10px;border-radius:999px;background:var(--primary)}
     .commandStrip{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px;margin-bottom:18px}
-    .commandMetric{background:color-mix(in srgb,var(--panel) 97%,var(--bg));border:0;border-radius:22px;padding:24px;box-shadow:var(--shadow2)}
-    .commandMetric__label{color:var(--muted);font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.7px}
-    .commandMetric__value{font:700 46px/1 var(--display);margin:12px 0;color:var(--text);letter-spacing:-1.1px}
+    .commandMetric{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:24px;box-shadow:var(--shadow2)}
+    .commandMetric__label{color:var(--muted);font-family:var(--mono);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.85px}
+    .commandMetric__value{font:700 44px/1 var(--display);margin:12px 0;color:var(--text);letter-spacing:-1.6px;font-variant-numeric:tabular-nums}
     .commandMetric__value.good{color:var(--good)}.commandMetric__value.warn{color:var(--warn)}.commandMetric__value.bad{color:var(--bad)}
     .commandMetric__sub{color:var(--muted);font-size:13px}
     .tableWrap{overflow:auto}
     .table{width:100%;border-collapse:separate;border-spacing:0;min-width:720px}
-    .table th{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.72px;text-align:left;font-weight:800;padding:12px 12px 10px}
+    .table th{color:var(--muted);font-family:var(--mono);font-size:10.5px;text-transform:uppercase;letter-spacing:.85px;text-align:left;font-weight:600;padding:12px 12px 10px}
     .table td{padding:15px 12px;vertical-align:middle;font-size:14px}
     .table tbody tr{box-shadow:inset 0 -1px 0 var(--divider)}
     .table tbody tr:hover td{background:var(--hover)}
@@ -262,7 +260,7 @@
     <button class="btn primary" id="btnAdvisorToggle" type="button">AI Advisor</button>
   </div>
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" onerror="var s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js';document.head.appendChild(s)"></script>
+  <script src="../assets/vendor/leaflet/leaflet.js"></script>
   <script>
   (() => {
     "use strict";

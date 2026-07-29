@@ -6,6 +6,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Fleet AI Employee Portal</title>
+  <link rel="stylesheet" href="css/fonts.css?v=20260729" />
   <link rel="stylesheet" href="css/site-tokens.css" />
   <link rel="stylesheet" href="css/site-theme.css" />
   <link rel="stylesheet" href="css/site-components.css" />
@@ -16,14 +17,19 @@
 <body class="landingV2 authV2 accessV3 employeeAccess">
   <header class="siteHeader accessHeader">
     <div class="container siteHeader__row">
-      <a class="wordmark" href="index.html"><span class="brandFleet">Fleet</span><span class="brandAI">AI</span></a>
+      <a class="wordmark" href="index.html"><img class="wordmark__mark" src="assets/brand/fleet-ai-mark.svg" alt="" width="26" height="26" />
+        <span><span class="brandFleet">Fleet</span><span class="brandAI">AI</span></span></a>
       <nav class="siteNav" id="siteNav">
-        <a href="product.html">Platform</a>
+        <a href="product.html">Product</a>
+        <a href="pricing.html">Pricing</a>
+        <a href="developers.html">Developers</a>
         <a href="security.html">Security</a>
+        <a href="about.html">Company</a>
       </nav>
       <div class="siteActions">
-        <a class="btn secondary" href="customer-login.html">Customer sign in</a>
-        <a class="btn ghost" href="index.html">Home</a>
+        <a class="siteSignIn" href="login.html">Sign in</a>
+        <a class="btn primary" href="request-demo.html">Request demo</a>
+        <button class="navToggle" id="navToggle" type="button" aria-label="Menu" aria-controls="siteNav">&#9776;</button>
       </div>
     </div>
   </header>

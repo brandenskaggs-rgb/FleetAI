@@ -224,9 +224,16 @@ function applySecurityHeaders(req, res, next) {
   res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
   res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
   res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
+  // NOTE: style-src/font-src are deliberately 'self' only — no CDN fonts.
+  // Every page previously linked fonts.googleapis.com and silently fell back
+  // to system fonts because this policy blocked it. Typefaces are now
+  // self-hosted in assets/fonts (see css/fonts.css); do not reintroduce a CDN
+  // font link, it will not load. Leaflet is likewise vendored into
+  // assets/vendor/leaflet. The one external allowance is OpenStreetMap raster
+  // tiles, which the fleet map cannot render without.
   res.setHeader(
     "Content-Security-Policy",
-    "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https:; font-src 'self' data:; frame-ancestors 'none'; object-src 'none'; base-uri 'self';"
+    "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.tile.openstreetmap.org; connect-src 'self' https:; font-src 'self'; frame-ancestors 'none'; object-src 'none'; base-uri 'self';"
   );
   if (IS_PROD) {
     res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");

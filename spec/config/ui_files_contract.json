@@ -12,8 +12,7 @@
     "admin/setup.html",
     "admin/debug.html",
     "org/reset-password.html",
-    "app/dashboard.html",
-    "app/settings.html",
-    "app/billing.html"
+    "legal/privacy.html",
+    "legal/terms.html"
   ]
 }
