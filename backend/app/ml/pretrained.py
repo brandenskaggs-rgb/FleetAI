@@ -53,10 +53,15 @@ def _find_model_file(filename: str) -> Path:
     candidates = [
         # Explicit override (set FLEETAI_MODEL_DIR in Railway env vars)
         Path(os.getenv("FLEETAI_MODEL_DIR", "")) / filename if os.getenv("FLEETAI_MODEL_DIR") else None,
-        # backend/ is service root → /app/fleet_ai/models/
-        _here.parents[2] / "fleet_ai" / "models" / filename,
-        # Full repo deployed → /app/backend/fleet_ai/models/
+        # Repo root FIRST — fleet_ai/models at the repo root is where training
+        # writes and is the single source of truth. The backend-local
+        # backend/fleet_ai/models tree used to win this search, and its copy of
+        # fleet_ai_model.pkl had been stale since May while every retrain
+        # landed in the root dir — so this scorer and ml_service.py were
+        # silently serving two different models. Order matters here.
         _here.parents[3] / "fleet_ai" / "models" / filename if len(_here.parents) > 3 else None,
+        # backend/ as service root (no repo root above it)
+        _here.parents[2] / "fleet_ai" / "models" / filename,
         # Railway absolute fallbacks
         Path("/app/fleet_ai/models") / filename,
         Path("/app/backend/fleet_ai/models") / filename,

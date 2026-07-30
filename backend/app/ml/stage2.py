@@ -29,8 +29,10 @@ def _find_model_file(filename: str) -> Path:
     _here = Path(__file__).resolve()
     candidates = [
         Path(os.getenv("FLEETAI_MODEL_DIR", "")) / filename if os.getenv("FLEETAI_MODEL_DIR") else None,
-        _here.parents[2] / "fleet_ai" / "models" / filename,
+        # Repo root first — training writes there; the backend-local copy used
+        # to shadow it with stale artifacts (see pretrained._find_model_file).
         _here.parents[3] / "fleet_ai" / "models" / filename if len(_here.parents) > 3 else None,
+        _here.parents[2] / "fleet_ai" / "models" / filename,
         Path("/app/fleet_ai/models") / filename,
         Path("/app/backend/fleet_ai/models") / filename,
     ]
