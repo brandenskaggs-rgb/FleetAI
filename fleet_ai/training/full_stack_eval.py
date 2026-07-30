@@ -45,13 +45,15 @@ CLASS_MULT = {
     "passenger_car":    0.86,
 }
 
-# Per-class Stage 1 thresholds (mirrors ensemble.py _CLASS_STAGE1_THRESHOLDS)
+# Per-class Stage 1 thresholds (mirrors ensemble.py _CLASS_STAGE1_THRESHOLDS).
+# Derived by the max-F1 sweep below on the 2026-07-30 corrected-physics model;
+# keep the two dicts in lockstep.
 CLASS_THRESHOLDS = {
-    "heavy_duty_j1939": 0.35,
-    "medium_duty":      0.30,
-    "cargo_van":        0.12,
+    "heavy_duty_j1939": 0.69,
+    "medium_duty":      0.61,
+    "cargo_van":        0.25,
     "light_duty_truck": 0.24,
-    "passenger_car":    0.20,
+    "passenger_car":    0.24,
 }
 
 # Phase 3A signal threshold mapping (signal index in feature vector → danger direction)
@@ -335,6 +337,39 @@ print(f"\nGlobal (per-class thresholds): Prec={prec2:.4f}  Rec={rec2:.4f}  F1={f
 print(f"  TP={tp2:,}  FP={fp2:,}  FN={fn2:,}  TN={tn2:,}")
 print(f"  dTP vs flat: {tp2-tp:+,}  dFP vs flat: {fp2-fp:+,}")
 
+# ── Per-class threshold derivation (max F1 sweep) ────────────────────────────
+# The CLASS_THRESHOLDS above (and ensemble.py's _CLASS_STAGE1_THRESHOLDS they
+# mirror) encode operating points chosen on a specific score distribution.
+# Whenever the physics or the model changes, that distribution moves and the
+# hardcoded values go stale — after the 2026-07 physics corrections the old
+# values held heavy duty but dropped cargo_van to 0.34 precision. This sweep
+# re-derives each class's max-F1 threshold from the same scores the report
+# above is computed on, so the constants can be updated from evidence instead
+# of hand-picked. Update BOTH mirrors when adopting new values.
+print("\n" + "=" * 70)
+print("SUGGESTED PER-CLASS THRESHOLDS (max-F1 sweep on this run's scores)")
+print("=" * 70)
+print(f"{'Class':<22} {'Current':>8} {'Suggested':>10} {'Prec@sug':>9} {'Rec@sug':>8} {'F1@sug':>7}")
+print("-" * 70)
+suggested_thresholds = {}
+for cls, data in sorted(class_results.items()):
+    lbl  = np.array(data["labels"], dtype=int)
+    comb = np.array(data["combined"])
+    if lbl.sum() < 5:
+        continue
+    best_t, best_f1, best_m = None, -1.0, None
+    for t in np.arange(0.02, 0.91, 0.01):
+        m = _metrics_at_thresh(comb, lbl, float(t))
+        if m["f1"] > best_f1:
+            best_t, best_f1, best_m = round(float(t), 2), m["f1"], m
+    suggested_thresholds[cls] = {
+        "threshold": best_t, "precision": best_m["precision"],
+        "recall": best_m["recall"], "f1": best_m["f1"],
+        "current": CLASS_THRESHOLDS.get(cls, THRESH),
+    }
+    print(f"{cls:<22} {CLASS_THRESHOLDS.get(cls, THRESH):>8.2f} {best_t:>10.2f} "
+          f"{best_m['precision']:>9.4f} {best_m['recall']:>8.4f} {best_m['f1']:>7.4f}")
+
 # ── Precision at different operating points ───────────────────────────────────
 print("\n" + "=" * 70)
 print("PRECISION-RECALL OPERATING POINTS (combined pipeline)")
@@ -371,6 +406,7 @@ output = {
     "layer_metrics": layer_stats,
     "class_metrics_flat_threshold": class_stats,
     "class_metrics_per_class_threshold": class_stats_optimal,
+    "suggested_class_thresholds": suggested_thresholds,
     "operating_points": op_points,
     "brier_skill_score": round(float(bss), 6),
     "confusion_matrix_flat": {"tp": int(tp), "fp": int(fp), "fn": int(fn), "tn": int(tn)},

@@ -268,11 +268,21 @@ _CLASS_RISK_MULTIPLIER_DEFAULT = 0.92  # unknown class → conservative
 # 90-92% AUC). Lower thresholds restore recall without loosening the gate for
 # heavy-duty, which is the primary use case.
 _CLASS_STAGE1_THRESHOLDS: dict[str, float] = {
-    "heavy_duty_j1939": 0.35,   # baseline — well-calibrated
-    "medium_duty":      0.30,   # 0.35 × 0.92 multiplier ≈ 0.322; nudged lower to recover recall
-    "cargo_van":        0.12,   # gasoline vans score 0.10-0.22 range; must go low to recover recall
-    "light_duty_truck": 0.24,   # 0.35 × 0.88 ≈ 0.308; lighter vehicles need lower bar
-    "passenger_car":    0.20,   # 0.35 × 0.86 ≈ 0.301; lowest recall class needs most reduction
+    # Derived by the max-F1 sweep in fleet_ai/training/full_stack_eval.py
+    # ("SUGGESTED PER-CLASS THRESHOLDS" section / suggested_class_thresholds in
+    # full_stack_eval.json) on the 2026-07-30 corrected-physics model. These are
+    # distribution-dependent: re-run that sweep and update BOTH this dict and
+    # the eval script's CLASS_THRESHOLDS mirror whenever the physics or the
+    # Stage 1 model changes. The old values (0.35/0.30/0.12/0.24/0.20) were
+    # tuned pre-fix and had drifted to 0.34 precision on cargo_van.
+    "heavy_duty_j1939": 0.69,   # prec 0.958 / rec 0.943 at derivation
+    "medium_duty":      0.61,   # prec 0.844 / rec 0.878
+    "cargo_van":        0.25,   # prec 0.459 / rec 0.990 — best available; see note
+    "light_duty_truck": 0.24,   # prec 0.488 / rec 0.975 — unchanged, already at optimum
+    "passenger_car":    0.24,   # prec 0.608 / rec 0.992
+    # Light-class precision is capped by the Phase 1B multiplier suppressing
+    # their raw scores; re-fitting those multipliers on the new distribution is
+    # the real fix and is tracked as follow-up work, not attempted here.
 }
 _CLASS_STAGE1_THRESHOLD_DEFAULT = 0.30
 
