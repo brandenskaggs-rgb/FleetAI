@@ -83,6 +83,10 @@ from fleet_ai.physics.vehicle_physics import (
     build_rf_matrix,
 )
 
+# Standard gravity. Used to turn vehicle mass into bearing load as a real
+# force; see _hub_temps and the load_per_bearing calculation in build_frame.
+_G_MPS2 = 9.80665
+
 _PHYS = {name: _build_phys_tuple(name) for name in _VEHICLE_SPECS}
 _P_IDX = {k: i for i, k in enumerate(_PHYS_KEY_ORDER)}
 # Alias for backward compatibility with code that uses "therm_mass_kj_c"
@@ -142,7 +146,7 @@ FEATURE_COLUMNS = [
     "egr_cooler_fouling",       # thermal resistance buildup (0-1)
     # v4 — oil / lubrication
     "oil_viscosity_cst",        # Walther equation at current oil temp
-    "oil_film_thickness_ratio", # Stribeck-based film health (1=full, 0=boundary)
+    "lubrication_regime_index", # Stribeck regime score (1=full film, 0=boundary)
     "oil_tbn",                  # total base number (10=fresh, 0=depleted)
     # v4 — bearing & hub
     "bearing_wear_index",       # L10 life consumed (>1.0 past expected life)
@@ -386,7 +390,7 @@ def _oil_density_arr(oil_temp_c: np.ndarray) -> np.ndarray:
     return np.clip(875.0 - 0.65 * (oil_temp_c - 15.0), 750.0, 950.0)
 
 
-def _oil_film_ratio(
+def _lubrication_regime_index(
     viscosity_cst: np.ndarray,
     oil_temp_c: np.ndarray,
     rpm: np.ndarray,
@@ -409,7 +413,7 @@ def _oil_film_ratio(
     Oil density: ρ(T) = 875 − 0.65·(T−15) kg/m³ (SAE 15W-40, 0–150 °C, ±15 kg/m³)
     Normalization: H / (H + 0.50)
     Calibration: ≈ 0.656 at 15 cSt / 80 °C / 1800 rpm / 40% load / 0 wear.
-    Must match _oil_film_ratio in backend/app/ml/pretrained.py exactly.
+    Must match _lubrication_regime_index in backend/app/ml/pretrained.py exactly.
     """
     nu      = np.clip(viscosity_cst, 0.1, None) * 1e-6           # kinematic [m²/s]
     rho_oil = _oil_density_arr(oil_temp_c)                        # density [kg/m³]
@@ -420,42 +424,88 @@ def _oil_film_ratio(
     return np.clip(H / (H + 0.50), 0.0, 1.0)
 
 
-def _oil_tbn(engine_hours: np.ndarray, oil_temp_c: np.ndarray,
+def _oil_tbn(hours_since_oil_change: np.ndarray, oil_temp_c: np.ndarray,
              maintenance_neglect: np.ndarray) -> np.ndarray:
     """
-    Total Base Number degradation (Arrhenius).
-    TBN_fresh = 10.  Rate doubles every 10°C above 95°C reference.
-    Neglected maintenance = longer oil drain intervals = faster depletion.
+    Total Base Number depletion within the current oil charge (Arrhenius).
+
+    TBN_fresh = 10 mg KOH/g. Rate doubles per 10 °C above a 95 °C reference.
+
+    Takes hours SINCE THE LAST OIL CHANGE, not cumulative engine hours. The
+    previous version passed lifetime hours, so TBN never reset at a drain and
+    the additive package appeared to deplete over the life of the engine rather
+    than the life of the oil: 10.00 -> 9.66 across a full 1,000 h drain interval,
+    essentially flat, only crossing the < 2.5 failure trigger near engine
+    end-of-life. Bearings (miles_since_service) and batteries (age % interval)
+    already reset on their service intervals; oil was the one consumable that
+    did not.
+
+    Rate is calibrated so TBN falls measurably within one interval, which is the
+    central finding of Wolak (2017) across a 25-vehicle fleet — the previous
+    rate could not reproduce that at all. At the 95 °C reference on a maintained
+    vehicle: 10.0 fresh -> 7.8 at half interval -> 6.1 at a full 1,000 h.
+    Depletion to the 2.5 trigger needs roughly 2.8x the interval when
+    maintained, under one interval when neglected or running hot.
     """
     T_excess = np.clip(oil_temp_c - 95.0, 0, 50)
-    rate = 0.000035 * 2.0 ** (T_excess / 10.0) * (1.0 + maintenance_neglect * 2.0)
-    tbn  = 10.0 * np.exp(-rate * engine_hours)
+    rate = 0.00050 * 2.0 ** (T_excess / 10.0) * (1.0 + maintenance_neglect * 2.0)
+    tbn  = 10.0 * np.exp(-rate * np.maximum(hours_since_oil_change, 0.0))
     return np.clip(tbn, 0.0, 10.0)
 
 
 # ── Bearing physics ────────────────────────────────────────────────────────────
 
-def _l10_hours_field(vehicle_class: np.ndarray, payload_ratio: np.ndarray,
-                     grade_pct: np.ndarray, maintenance_neglect: np.ndarray) -> np.ndarray:
+def _l10_hours_field(bearing_C_kn: np.ndarray, load_per_bearing_kn: np.ndarray,
+                     bearing_rpm: np.ndarray, grade_pct: np.ndarray,
+                     a_field: np.ndarray, maintenance_neglect: np.ndarray) -> np.ndarray:
     """
-    Field-calibrated hub bearing life in hours.
-    Based on real fleet data: Class 8 = 400-600K miles to replacement.
-    ISO 281 theoretical L10 overpredicts life 5-10× versus field experience due to
-    contamination, misalignment, and grease degradation not captured in the formula.
-    Load and maintenance adjustments preserve physics-derived relationships.
+    Hub bearing life from ISO 281, derated to observed field intervals.
+
+        L10  = (C / P) ** (10/3) * 1e6   revolutions   (roller bearing exponent)
+        L10h = L10 / (60 * n)                          hours at n rev/min
+
+    C is the basic dynamic load rating (bearing_C_kn, per class). P is the
+    equivalent dynamic load. This is the first use of bearing_C_kn anywhere in
+    the pipeline: it was read from the spec registry and then discarded, so the
+    single most important parameter in ISO 281 was loaded and never formed into
+    the C/P ratio the standard is built on.
+
+    Load now enters as the (C/P)**(10/3) power law rather than the previous
+    linear `1 - (payload-0.5)*0.4` factor. Over payload 0.3 -> 1.0 the linear
+    form moved life by 1.36x; ISO 281 moves it by 2.19x. Rolling-contact
+    fatigue really is that load-sensitive and a linear term cannot express it.
+
+    a_field reconciles the standard with observed replacement intervals. It is
+    NOT a blanket "ISO overpredicts 5-10x" fudge — the measured ratio of ISO 281
+    basic rating life to field life differs sharply by class, at the reference
+    duty (payload 0.5, level, maintained, class average road speed):
+
+        heavy_duty_j1939   24,543 h  vs  26,000 h field   ->  0.94x   a=1.06
+        medium_duty       100,994 h  vs  17,000 h field   ->  5.94x   a=0.168
+        light_duty_truck   49,504 h  vs   8,000 h field   ->  6.19x   a=0.162
+        cargo_van          40,472 h  vs   9,000 h field   ->  4.50x   a=0.222
+        passenger_car      67,769 h  vs   5,000 h field   -> 13.55x   a=0.074
+
+    For Class 8 the standard and the field agree within 6%, so no derating is
+    warranted there and the old comment's claim was wrong for exactly the class
+    this model cares most about. For the lighter classes the standard genuinely
+    does overpredict, plausibly because those wheel ends are sealed cartridge
+    units whose life is governed by seal and grease failure rather than
+    subsurface fatigue, and because they see cornering thrust loads that a
+    purely radial P does not represent.
+
+    maintenance_neglect acts as an a_ISO-style contamination/lubrication factor.
     """
-    # Base field life (hours) — calibrated to fleet replacement intervals.
-    # Factor-of-2 increase vs prior values: service intervals target ~0.7 wear_index
-    # at end of life (stage 2), with only overheated/neglected trucks reaching stage 3.
-    base = np.where(vehicle_class == "heavy_duty_j1939", 26000,
-           np.where(vehicle_class == "medium_duty", 17000,
-           np.where(vehicle_class == "light_duty_truck", 8000,
-           np.where(vehicle_class == "cargo_van", 9000, 5000))))
-    # Physics-derived load effect: overloading reduces life, light loads extend it
-    load_factor = np.clip(1.0 - (payload_ratio - 0.5) * 0.4 - grade_pct * 0.02, 0.4, 1.3)
-    # Maintenance effect: neglect cuts life through contamination & improper greasing
-    maint_factor = np.clip(1.0 - maintenance_neglect * 0.55, 0.30, 1.0)
-    return np.clip(base * load_factor * maint_factor, 800, 50000)
+    C = np.maximum(bearing_C_kn, 1.0)
+    # Equivalent dynamic load: static radial load plus a grade-induced dynamic
+    # allowance (load transfer + tractive reaction on a climb). Kept separate
+    # from the instantaneous radial load used for friction heat in _hub_temps —
+    # ISO 281's P is a duty-equivalent load, not an instantaneous one.
+    P = np.maximum(load_per_bearing_kn, 0.5) * (1.0 + np.clip(grade_pct, 0, 12) * 0.015)
+    n = np.maximum(bearing_rpm, 1.0)
+    L10_h = (C / P) ** (10.0 / 3.0) * 1e6 / (60.0 * n)
+    a_iso = np.clip(1.0 - maintenance_neglect * 0.55, 0.30, 1.0)
+    return np.clip(L10_h * np.maximum(a_field, 0.01) * a_iso, 800, 80000)
 
 
 
@@ -477,8 +527,20 @@ def _hub_temps(ambient_c: np.ndarray, speed_kph: np.ndarray,
     T_hub = T_ambient + Q_gen / (h_conv × A_surface)
     Worn / spalling bearings have higher friction coefficient.
     """
-    r_bearing = 0.065          # m, typical hub bearing radius
-    A_surface = 0.04           # m², heat dissipation area
+    r_bearing = 0.065          # m, hub bearing bore radius (Class 8 ~130 mm bore)
+    # Effective heat-dissipation area of the whole wheel end, NOT the bearing.
+    # Friction heat leaves through the hub flange, brake drum/rotor, and wheel
+    # disc; a Class 8 brake drum alone is ~0.3 m² of outer surface. The prior
+    # value of 0.04 m² was silently compensating for a bearing load that was
+    # 9.81x too small (mass in kg was divided by 1000 and labelled kN without
+    # ever multiplying by g). Load is now a true force in newtons, so this
+    # lumped area carries its own physically defensible value and the friction
+    # coefficient below can stay at published tapered-roller values.
+    # Written as 0.04 * g rather than a rounded literal so the calibration
+    # provenance stays explicit and cannot drift away from the load term: the
+    # ratio F / (h*A) is then identical to the pre-fix value, which is the
+    # regression check for this change (hub temps unchanged to float precision).
+    A_surface = 0.04 * _G_MPS2   # m², lumped effective area of the wheel end
     # Convective heat transfer coefficient rises with vehicle speed
     h_conv    = 8.0 + 0.22 * np.clip(speed_kph, 0, 130)
     # tire_circ_m is circumference (NOT radius); omega = (v_mps / circ_m) * 2π
@@ -486,7 +548,12 @@ def _hub_temps(ambient_c: np.ndarray, speed_kph: np.ndarray,
     # No minimum clamp on rev/s — zero speed means zero rotation, zero friction heat.
     omega     = np.clip(speed_kph / 3.6 / np.maximum(circ_m, 0.5), 0.0, 20.0) * (2 * np.pi)
     # Friction coefficient: healthy ≈ 0.0015, worn ≈ 0.004-0.008, failing ≈ 0.008-0.012
-    # Real tapered roller bearing range: 0.001-0.012 depending on condition
+    # Real tapered roller bearing range: 0.001-0.012 depending on condition.
+    # These are the PUBLISHED values and are deliberately left alone. Dividing
+    # them by 9.81 to absorb the gravity fix (the obvious move) would put mu at
+    # 1.5e-4, an order of magnitude below any real rolling-element bearing, and
+    # would simply relocate the unit error from the force term to the friction
+    # term. The lumped dissipation area above absorbs it instead.
     mu_base   = 0.0015 + wear_index * 0.003
     mu_fl     = mu_base * np.clip(1 + rng.normal(0, 0.04, rows), 0.80, 1.30)
     mu_fr     = mu_base * np.clip(1 + rng.normal(0, 0.04, rows), 0.80, 1.30)
@@ -893,9 +960,16 @@ def generate_mixed_fleet_data(
 
     # ── Oil physics ───────────────────────────────────────────────────────────
     oil_viscosity  = _walther_viscosity(oil_temp)
-    oil_film_ratio = _oil_film_ratio(oil_viscosity, oil_temp, rpm, engine_load_pct,
+    lubrication_regime = _lubrication_regime_index(oil_viscosity, oil_temp, rpm, engine_load_pct,
                                       np.clip(engine_hours / 50000, 0, 2))
-    oil_tbn_val    = _oil_tbn(engine_hours, oil_temp, maintenance_neglect)
+    # Oil is drained on a service interval, so TBN must reset with it — the same
+    # pattern miles_since_service uses for bearings below and age % interval uses
+    # for batteries. Neglected fleets stretch the interval, maintained fleets
+    # shorten it slightly.
+    oil_drain_interval_h = _phys(vehicle_class, "oil_drain_h") * np.clip(
+        1.0 + maintenance_neglect * 0.60 - (1.0 - maintenance_neglect) * 0.10, 0.85, 1.70)
+    hours_since_oil_change = engine_hours % np.maximum(oil_drain_interval_h, 100.0)
+    oil_tbn_val    = _oil_tbn(hours_since_oil_change, oil_temp, maintenance_neglect)
 
     # Oil pressure: pump output minus bearing clearance losses
     oil_pressure   = np.clip(
@@ -915,13 +989,27 @@ def generate_mixed_fleet_data(
     avg_speed_mph       = np.where(heavy, 38, np.where(car, 31, 27))
     engine_hours_bearing = miles_since_service / avg_speed_mph
 
-    l10             = _l10_hours_field(vehicle_class, payload_ratio, road_grade_pct, maintenance_neglect)
+    # Radial load per wheel end, as a FORCE. mass_kg [kg] x load share [-] is a
+    # mass, so converting to kN requires g; the previous expression divided by
+    # 1000 and labelled the result kN, which reported tonnes and understated the
+    # bearing load by 9.81x. See _hub_temps for how the dissipation term was
+    # absorbing that error.
+    load_share       = np.clip(0.14 + payload_ratio * 0.06, 0.10, 0.30)
+    load_per_bearing = mass_kg * load_share * _G_MPS2 / 1000.0           # kN
+
+    # Bearing rotational speed at the class's average road speed, consistent
+    # with engine_hours_bearing above (which is also duty-averaged, not
+    # instantaneous). ISO 281 life is a cumulative-revolutions quantity.
+    avg_speed_kph_b  = avg_speed_mph * 1.609344
+    bearing_rpm      = (avg_speed_kph_b / 3.6 / np.maximum(tire_circ_m, 0.5)) * 60.0
+
+    l10             = _l10_hours_field(
+        bearing_C_kn, load_per_bearing, bearing_rpm, road_grade_pct,
+        _phys(vehicle_class, "bearing_a_field"), maintenance_neglect)
     # Temperature above 90°C hub temp accelerates fatigue (grease breakdown)
     temp_factor     = np.clip(1.0 + np.maximum(0, engine_temp - 95) * 0.025, 1.0, 2.5)
     wear_index      = np.clip(engine_hours_bearing / np.maximum(l10, 100) * temp_factor, 0, 3.0)
     spall_stage     = _spall_stage(wear_index)
-
-    load_per_bearing = mass_kg * np.clip(0.14 + payload_ratio * 0.06, 0.10, 0.30) / 1000  # kN
 
     hub_fl, hub_fr, hub_rl, hub_rr = _hub_temps(
         ambient_temp_c, speed_kph, load_per_bearing, wear_index, rng, rows,
@@ -1145,7 +1233,7 @@ def generate_mixed_fleet_data(
             + 0.9 * maintenance_neglect
             + 0.7 * (oil_pressure < np.where(heavy, 22, 18))
             + 0.6 * (oil_tbn_val < 2.5)          # depleted oil = wear failure
-            + 0.5 * (oil_film_ratio < 0.30)       # boundary lubrication
+            + 0.5 * (lubrication_regime < 0.30)       # boundary lubrication
         ),
         "hub_bearing": (
             -7.2
@@ -1258,7 +1346,7 @@ def generate_mixed_fleet_data(
         "egr_cooler_fouling":    np.round(egr_fouling, 4),
         # v4 oil
         "oil_viscosity_cst":     np.round(oil_viscosity, 2),
-        "oil_film_thickness_ratio": np.round(oil_film_ratio, 4),
+        "lubrication_regime_index": np.round(lubrication_regime, 4),
         "oil_tbn":               np.round(oil_tbn_val, 3),
         # v4 bearings
         "bearing_wear_index":    np.round(wear_index, 4),

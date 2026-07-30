@@ -30,9 +30,9 @@ REPO_ROOT = pathlib.Path(__file__).parents[2]
 sys.path.insert(0, str(REPO_ROOT / "backend"))
 sys.path.insert(0, str(REPO_ROOT / "fleet_ai"))
 
-from app.ml.pretrained import _oil_film_ratio as scalar_oil_film_ratio
+from app.ml.pretrained import _lubrication_regime_index as scalar_oil_film_ratio
 from app.ml.pretrained import _oil_density
-from training.fleet_simulation import _oil_film_ratio as vec_oil_film_ratio
+from training.fleet_simulation import _lubrication_regime_index as vec_oil_film_ratio
 from training.fleet_simulation import _oil_density_arr
 
 # ── helpers ───────────────────────────────────────────────────────────────────

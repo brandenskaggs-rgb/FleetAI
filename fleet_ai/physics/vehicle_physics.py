@@ -22,7 +22,9 @@ rpm_bsfc_opt  rpm      RPM at peak BSFC efficiency
 load_bsfc_opt -        load fraction at peak BSFC efficiency (0–1)
 therm_mass    kJ/°C    engine thermal mass
 batt_ah       Ah       battery capacity
-bearing_C_kn  kN       basic dynamic bearing load rating
+bearing_C_kn  kN       basic dynamic bearing load rating (ISO 281 C)
+bearing_a_field -      ISO 281 -> field-life reconciliation factor (see below)
+oil_drain_h   h        oil drain interval in engine hours
 dpf_cap_g     g        DPF ash capacity (0 = no DPF)
 rpm_idle      rpm      warm idle RPM
 turbo_pr_max  -        maximum turbocharger pressure ratio
@@ -51,6 +53,8 @@ VEHICLE_SPECS: dict[str, dict] = {
         "batt_ah":       200,
         "alt_kw":        3.5,
         "bearing_C_kn":  380,
+        "bearing_a_field": 1.06,
+        "oil_drain_h":     1000.0,
         "dpf_cap_g":     7000,
         "rpm_idle":      650,
         "turbo_pr_max":  3.2,
@@ -72,6 +76,8 @@ VEHICLE_SPECS: dict[str, dict] = {
         "batt_ah":       110,
         "alt_kw":        2.2,
         "bearing_C_kn":  180,
+        "bearing_a_field": 0.168,
+        "oil_drain_h":     650.0,
         "dpf_cap_g":     3500,
         "rpm_idle":      700,
         "turbo_pr_max":  2.8,
@@ -93,6 +99,8 @@ VEHICLE_SPECS: dict[str, dict] = {
         "batt_ah":       70,
         "alt_kw":        1.4,
         "bearing_C_kn":  50,
+        "bearing_a_field": 0.162,
+        "oil_drain_h":     350.0,
         "dpf_cap_g":     0,
         "rpm_idle":      750,
         "turbo_pr_max":  1.5,
@@ -114,6 +122,8 @@ VEHICLE_SPECS: dict[str, dict] = {
         "batt_ah":       75,
         "alt_kw":        1.6,
         "bearing_C_kn":  55,
+        "bearing_a_field": 0.222,
+        "oil_drain_h":     350.0,
         "dpf_cap_g":     0,
         "rpm_idle":      750,
         "turbo_pr_max":  1.6,
@@ -135,6 +145,8 @@ VEHICLE_SPECS: dict[str, dict] = {
         "batt_ah":       55,
         "alt_kw":        1.0,
         "bearing_C_kn":  25,
+        "bearing_a_field": 0.074,
+        "oil_drain_h":     300.0,
         "dpf_cap_g":     0,
         "rpm_idle":      800,
         "turbo_pr_max":  1.3,
@@ -151,6 +163,8 @@ PHYS_KEY_ORDER: list[str] = [
     "engine_kw", "bsfc_min", "rpm_bsfc_opt", "load_bsfc_opt",
     "therm_mass", "batt_ah", "alt_kw", "bearing_C_kn", "dpf_cap_g",
     "rpm_idle", "turbo_pr_max", "stoich_afr", "oil_cap_l",
+    # appended — order above is positional, new keys must go at the end
+    "bearing_a_field", "oil_drain_h",
 ]
 
 # Class name → integer code (must match VEHICLE_CLASS_CODES in fleet_simulation)
@@ -182,6 +196,14 @@ def inference_specs(class_code: int) -> dict:
         "alt_kw":      s["alt_kw"],
         "dpf":         s["dpf"],
         "tire_circ_m": s["tire_circ_m"],
+        # Bearing life + oil condition. Inference recomputes both from live
+        # telemetry and MUST use the same parameters as training — these were
+        # previously hardcoded separately in pretrained.py and had drifted
+        # (different L10 bases, different oil drain intervals, and a
+        # maintenance-neglect term with the sign inverted).
+        "bearing_C_kn":    s["bearing_C_kn"],
+        "bearing_a_field": s["bearing_a_field"],
+        "oil_drain_h":     s["oil_drain_h"],
     }
 
 

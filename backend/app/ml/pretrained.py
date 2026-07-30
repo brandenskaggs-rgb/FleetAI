@@ -99,7 +99,7 @@ PRETRAINED_FEATURE_COLUMNS = [
     # v4 — thermal
     "thermal_lag", "heat_soak_delta_c", "egr_cooler_fouling",
     # v4 — oil / lubrication
-    "oil_viscosity_cst", "oil_film_thickness_ratio", "oil_tbn",
+    "oil_viscosity_cst", "lubrication_regime_index", "oil_tbn",
     # v4 — bearing & hub
     "bearing_wear_index", "bearing_spall_stage",
     "hub_temp_fl_c", "hub_temp_fr_c", "hub_temp_rl_c", "hub_temp_rr_c",
@@ -137,11 +137,11 @@ if _REGISTRY_LOADED:
 else:
     # Fallback inline table (kept in sync manually — check registry if values differ)
     _PHYS_SPECS = {
-        0: {"mass": 36000, "A": 9.4,  "Cd": 0.60, "Crr": 0.0065, "eng_kw": 450, "alt_kw": 3.5, "dpf": True,  "tire_circ_m": 3.20},
-        1: {"mass": 12000, "A": 6.8,  "Cd": 0.65, "Crr": 0.0070, "eng_kw": 200, "alt_kw": 2.2, "dpf": True,  "tire_circ_m": 2.90},
-        2: {"mass":  3800, "A": 3.3,  "Cd": 0.45, "Crr": 0.0080, "eng_kw": 290, "alt_kw": 1.4, "dpf": False, "tire_circ_m": 2.20},
-        3: {"mass":  4500, "A": 4.2,  "Cd": 0.52, "Crr": 0.0078, "eng_kw": 220, "alt_kw": 1.6, "dpf": False, "tire_circ_m": 2.30},
-        4: {"mass":  1600, "A": 2.2,  "Cd": 0.30, "Crr": 0.0085, "eng_kw": 130, "alt_kw": 1.0, "dpf": False, "tire_circ_m": 1.95},
+        0: {"mass": 36000, "A": 9.4,  "Cd": 0.60, "Crr": 0.0065, "eng_kw": 450, "alt_kw": 3.5, "dpf": True,  "tire_circ_m": 3.20, "bearing_C_kn": 380, "bearing_a_field": 1.06, "oil_drain_h": 1000.0},
+        1: {"mass": 12000, "A": 6.8,  "Cd": 0.65, "Crr": 0.0070, "eng_kw": 200, "alt_kw": 2.2, "dpf": True,  "tire_circ_m": 2.90, "bearing_C_kn": 180, "bearing_a_field": 0.168, "oil_drain_h": 650.0},
+        2: {"mass":  3800, "A": 3.3,  "Cd": 0.45, "Crr": 0.0080, "eng_kw": 290, "alt_kw": 1.4, "dpf": False, "tire_circ_m": 2.20, "bearing_C_kn": 50, "bearing_a_field": 0.162, "oil_drain_h": 350.0},
+        3: {"mass":  4500, "A": 4.2,  "Cd": 0.52, "Crr": 0.0078, "eng_kw": 220, "alt_kw": 1.6, "dpf": False, "tire_circ_m": 2.30, "bearing_C_kn": 55, "bearing_a_field": 0.222, "oil_drain_h": 350.0},
+        4: {"mass":  1600, "A": 2.2,  "Cd": 0.30, "Crr": 0.0085, "eng_kw": 130, "alt_kw": 1.0, "dpf": False, "tire_circ_m": 1.95, "bearing_C_kn": 25, "bearing_a_field": 0.074, "oil_drain_h": 300.0},
     }
 
 # Fleet-average defaults for features not derivable from live telemetry
@@ -197,7 +197,7 @@ def _oil_density(oil_temp_c: float) -> float:
     return max(750.0, min(950.0, 875.0 - 0.65 * (oil_temp_c - 15.0)))
 
 
-def _oil_film_ratio(
+def _lubrication_regime_index(
     viscosity_cst: float,
     oil_temp_c: float,
     rpm: float,
@@ -210,7 +210,11 @@ def _oil_film_ratio(
 
     This is NOT a physical film-thickness calculation.  It is a normalized
     dimensionless health indicator calibrated for SAE 15W-40 journal bearings.
-    Named 'oil_film_thickness_ratio' in the feature set for historical reasons.
+    Exposed as 'lubrication_regime_index'. This is NOT the tribological film
+    thickness ratio lambda = h_min / composite roughness, whose regime
+    boundaries (<1 boundary, 1-3 mixed, >3-4 full film) are a different
+    quantity on a different scale. Do not compare this 0-1 index against
+    published lambda thresholds; they only share a name.
 
     Parameters
     ----------
@@ -254,40 +258,74 @@ def _oil_film_ratio(
 
 
 def _oil_tbn_estimate(engine_hours: float, oil_temp_c: float,
-                      maintenance_neglect: float) -> float:
+                      maintenance_neglect: float,
+                      oil_drain_h: float = 1000.0) -> float:
     """
-    Arrhenius TBN depletion.  Fresh oil = 10, depleted = 0.
-    Rate doubles per 10 °C above 95 °C baseline.
+    Arrhenius TBN depletion within the current oil charge. Fresh oil = 10.
+    Rate doubles per 10 °C above the 95 °C reference.
+
+    Must match _oil_tbn in fleet_ai/training/fleet_simulation.py exactly. It
+    previously did not: this side used rate 0.0025 (5x the training rate), a
+    flat 300 h drain interval instead of the per-class value, a neglect
+    multiplier of 0.5 instead of 2.0, and — the substantive error — SHORTENED
+    the drain interval as maintenance_neglect rose. Neglecting maintenance
+    means skipping oil changes, so the interval must lengthen. Training and
+    inference disagreeing on a feature this way is the same divergence class as
+    the leaked-vs-applied sensor noise: the model learns one function and is
+    served another.
     """
     T_excess = max(0.0, oil_temp_c - 95.0)
-    rate = 0.0025 * (2.0 ** (T_excess / 10.0)) * (1.0 + maintenance_neglect * 0.5)
-    oil_change_interval = max(200.0, 300.0 * (1.0 - maintenance_neglect * 0.6))
-    hrs_since_change = engine_hours % max(oil_change_interval, 50.0)
-    return max(0.0, min(10.0, 10.0 * math.exp(-rate * hrs_since_change)))
+    rate = 0.00050 * (2.0 ** (T_excess / 10.0)) * (1.0 + maintenance_neglect * 2.0)
+    interval = max(oil_drain_h, 1.0) * min(max(
+        1.0 + maintenance_neglect * 0.60 - (1.0 - maintenance_neglect) * 0.10, 0.85), 1.70)
+    hrs_since_change = engine_hours % max(interval, 100.0)
+    return max(0.0, min(10.0, 10.0 * math.exp(-rate * max(hrs_since_change, 0.0))))
 
 
 def _bearing_wear(odometer_miles: float, engine_hours: float, vehicle_class_code: int,
                   payload_ratio: float, maintenance_neglect: float,
-                  engine_temp_c: float) -> tuple[float, float]:
+                  engine_temp_c: float, road_grade_pct: float = 0.0) -> tuple[float, float]:
     """
-    Field-calibrated hub bearing wear index and spall stage.
-    L10 base (hours) calibrated to fleet replacement mileage intervals.
+    Hub bearing wear index and spall stage from ISO 281 rating life.
+
+        L10  = (C / P) ** (10/3) * 1e6 revolutions   (roller bearing exponent)
+        L10h = L10 / (60 n), then x a_field x a_ISO
+
+    Must match _l10_hours_field in fleet_ai/training/fleet_simulation.py. This
+    side previously used the superseded model: hardcoded L10 bases, a LINEAR
+    load factor, and no reference to the bearing's basic dynamic load rating at
+    all. It also disagreed with training on average road speed for medium duty
+    (32 vs 27 mph) and on service intervals for cargo van and passenger car
+    (160k/100k vs 140k), so wear_index diverged even before the load model did.
     """
-    bases = {0: 26000, 1: 17000, 2: 8000, 3: 9000, 4: 5000}
-    service_mi = {0: 480000, 1: 300000, 2: 140000, 3: 160000, 4: 100000}
-    avg_mph  = {0: 38, 1: 32, 2: 27, 3: 27, 4: 31}
+    specs     = _PHYS_SPECS.get(vehicle_class_code, _PHYS_SPECS[0])
+    mass_kg   = float(specs["mass"])
+    circ_m    = float(specs["tire_circ_m"])
+    C_kn      = float(specs.get("bearing_C_kn", 380))
+    a_field   = float(specs.get("bearing_a_field", 1.0))
 
-    l10_base  = bases.get(vehicle_class_code, 13000)
-    svc_mi    = service_mi.get(vehicle_class_code, 200000)
-    speed_mph = avg_mph.get(vehicle_class_code, 30)
+    # Service interval and duty-average speed — values mirror training's
+    # np.where(heavy, ...) ladder exactly, including 140k for van and car.
+    service_mi = {0: 480000, 1: 300000, 2: 140000, 3: 140000, 4: 140000}
+    avg_mph    = {0: 38, 1: 27, 2: 27, 3: 27, 4: 31}
+    svc_mi     = service_mi.get(vehicle_class_code, 140000)
+    speed_mph  = avg_mph.get(vehicle_class_code, 27)
 
-    load_factor  = max(0.4, min(1.3, 1.0 - (payload_ratio - 0.5) * 0.4))
+    # Radial load per wheel end as a FORCE (kN). mass x share is a mass; the
+    # conversion needs g. Training omitted g here for a long time and the
+    # resulting 9.81x understatement was absorbed by the hub dissipation term.
+    load_share = max(0.10, min(0.30, 0.14 + payload_ratio * 0.06))
+    P_kn = mass_kg * load_share * 9.80665 / 1000.0
+    P_kn = max(P_kn, 0.5) * (1.0 + max(0.0, min(road_grade_pct, 12.0)) * 0.015)
+
+    bearing_rpm = (speed_mph * 1.609344 / 3.6 / max(circ_m, 0.5)) * 60.0
+    l10_iso = (C_kn / P_kn) ** (10.0 / 3.0) * 1e6 / (60.0 * max(bearing_rpm, 1.0))
     maint_factor = max(0.3, min(1.0, 1.0 - maintenance_neglect * 0.55))
-    l10 = max(800.0, l10_base * load_factor * maint_factor)
+    l10 = max(800.0, min(80000.0, l10_iso * max(a_field, 0.01) * maint_factor))
 
     # Use modulo so service resets wear (as in simulation)
-    svc_interval_adj = max(40000.0, svc_mi * max(0.5, 1.0 + (1.0 - maintenance_neglect) * 0.25
-                                                  - maintenance_neglect * 0.15))
+    svc_interval_adj = max(40000.0, svc_mi * max(0.50, min(1.40,
+        1.0 + (1.0 - maintenance_neglect) * 0.25 - maintenance_neglect * 0.15)))
     miles_since = odometer_miles % svc_interval_adj
     hrs_bearing  = miles_since / max(speed_mph, 1.0)
 
@@ -513,14 +551,15 @@ class PretrainedScorer:
         oil_viscosity = _walther_viscosity(oil_temp)
         # Wear proxy matches training: engine_hours/50000, clamped to [0, 2]
         _wear_proxy = min(2.0, max(0.0, engine_hours / 50_000.0))
-        oil_film_ratio = _oil_film_ratio(oil_viscosity, oil_temp, rpm,
+        oil_film_ratio = _lubrication_regime_index(oil_viscosity, oil_temp, rpm,
                                          engine_load_pct, _wear_proxy)
-        oil_tbn = _oil_tbn_estimate(engine_hours, oil_temp, maintenance_neglect)
+        oil_tbn = _oil_tbn_estimate(engine_hours, oil_temp, maintenance_neglect,
+                                    float(specs.get("oil_drain_h", 1000.0)))
 
         # ── v4 Physics: bearing & hub ────────────────────────────────────────
         wear_index, spall_stage = _bearing_wear(
             odometer_miles, engine_hours, vehicle_class_code,
-            payload_ratio, maintenance_neglect, engine_temp)
+            payload_ratio, maintenance_neglect, engine_temp, grade_pct)
         # Hub temps: if physical sensors available use them; else estimate from wear index
         hub_fl = _cm("hubTempFL", -1.0)
         hub_fr = _cm("hubTempFR", -1.0)
@@ -530,11 +569,20 @@ class PretrainedScorer:
             # Estimate from physics: Q_gen = mu × F × omega × r / (h_conv × A)
             mu_est = 0.0015 + wear_index * 0.003
             h_conv = 8.0 + 0.22 * min(vehicle_speed_kph, 130.0)
-            omega  = max(0.0, vehicle_speed_kph / 3.6 / specs["tire_circ_m"]) * (2 * math.pi)
-            load_n = specs["mass"] * max(0.10, 0.14 + payload_ratio * 0.06)
+            # Clip rev/s at 20 and guard the circumference, matching training.
+            omega  = min(20.0, max(0.0, vehicle_speed_kph / 3.6
+                                   / max(specs["tire_circ_m"], 0.5))) * (2 * math.pi)
+            # Load as a real force, and the same lumped wheel-end area training
+            # uses (0.04 * g). Both sides previously omitted g here and carried
+            # A = 0.04; the two changes cancel, so this estimate is numerically
+            # unchanged while the intermediates become physical. Share is now
+            # clipped at both ends (0.10-0.30) as training does — the upper
+            # clamp was missing here.
+            load_share_i = min(0.30, max(0.10, 0.14 + payload_ratio * 0.06))
+            load_n = specs["mass"] * load_share_i * 9.80665
             Q_w    = mu_est * load_n * omega * 0.065
-            hub_est = min(200.0, ambient + Q_w / max(0.1, h_conv * 0.04))
-            hub_fl = hub_fr = hub_rl = hub_rr = hub_est
+            hub_est = min(200.0, ambient + Q_w / max(0.1, h_conv * 0.04 * 9.80665))
+            hub_fl = hub_fr = hub_rl = hub_rr = max(ambient, hub_est)
 
         # ── v4 Physics: DPF / emissions ──────────────────────────────────────
         dpf_ash = _dpf_ash(engine_hours, vehicle_class_code, maintenance_neglect, is_diesel)
@@ -639,6 +687,13 @@ class PretrainedScorer:
             "egr_cooler_fouling":     egr_fouling,
             # v4 oil
             "oil_viscosity_cst":      oil_viscosity,
+            "lubrication_regime_index": oil_film_ratio,
+            # Compatibility alias: the matrix is built from the SAVED bundle's
+            # feature-name list, and any model trained before the rename still
+            # asks for "oil_film_thickness_ratio". Without this key that lookup
+            # would miss and silently fall back to a fleet-average default,
+            # dropping a real feature. Safe to delete once every deployed
+            # bundle reports lubrication_regime_index.
             "oil_film_thickness_ratio": oil_film_ratio,
             "oil_tbn":                oil_tbn,
             # v4 bearing
