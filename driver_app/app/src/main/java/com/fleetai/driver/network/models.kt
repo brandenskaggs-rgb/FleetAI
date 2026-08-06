@@ -79,7 +79,11 @@ data class PairingClaimResponse(
     val status: String,
     val assignmentId: String? = null,
     val deviceId: String? = null,
-    val deviceLabel: String? = null
+    val deviceLabel: String? = null,
+    // Device session token, returned once on a successful claim. ApiClient
+    // sends it as `Authorization: Bearer` on every later request; telemetry
+    // ingest and vehicle reads now require it.
+    val deviceToken: String? = null
 )
 
 data class TelemetryIngestRequest(

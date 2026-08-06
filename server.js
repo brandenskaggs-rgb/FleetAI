@@ -3518,15 +3518,21 @@ app.get("/api/diagnostics", (req, res) => {
     time: new Date().toISOString(),
     version: APP_VERSION,
     baseUrl,
-    env: {
-      NODE_ENV: process.env.NODE_ENV || "development",
-      AI_ENABLED,
-      SETUP_ALLOWED,
-      PORT,
-      ALERTS_ENABLED,
-      OPENAI_EXPLANATIONS_ENABLED,
-      API_TOKEN_SET: Boolean(API_TOKEN)
-    },
+    // Configuration state is reconnaissance material in production — notably
+    // SETUP_ALLOWED, which tells an attacker whether the first-admin bootstrap
+    // endpoint is still live. Outside production it stays visible because it is
+    // genuinely useful while developing.
+    env: IS_PROD
+      ? { NODE_ENV: "production" }
+      : {
+          NODE_ENV: process.env.NODE_ENV || "development",
+          AI_ENABLED,
+          SETUP_ALLOWED,
+          PORT,
+          ALERTS_ENABLED,
+          OPENAI_EXPLANATIONS_ENABLED,
+          API_TOKEN_SET: Boolean(API_TOKEN)
+        },
     modules: {
       advisor: true,
       billing: true,
@@ -3538,18 +3544,23 @@ app.get("/api/diagnostics", (req, res) => {
   });
 });
 
-app.get("/api/diagnostics/routes", (req, res) => {
+// Route inventory — operator-gated (was public).
+app.get("/api/diagnostics/routes", requireEmployeeOrCustomerApi, (req, res) => {
   const routes = collectRoutes().filter((route) => route.path.startsWith("/api"));
   res.json({ ok: true, routes });
 });
 
-app.get("/api/debug/routes", (req, res) => {
-  res.json({
-    cwd: process.cwd(),
-    dirname: __dirname,
-    port: PORT,
-    routes: collectRoutes()
-  });
+// Reconnaissance surface: this returned the server's filesystem paths and a
+// complete route inventory to anyone, unauthenticated, in production. Now
+// operator-gated, and the filesystem paths are only ever exposed outside
+// production.
+app.get("/api/debug/routes", requireEmployeeOrCustomerApi, (req, res) => {
+  const payload = { port: PORT, routes: collectRoutes() };
+  if (!IS_PROD) {
+    payload.cwd = process.cwd();
+    payload.dirname = __dirname;
+  }
+  res.json(payload);
 });
 
 app.use("/api", (req, res) => {

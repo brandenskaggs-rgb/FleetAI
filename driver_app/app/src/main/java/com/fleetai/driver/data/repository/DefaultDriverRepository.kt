@@ -90,6 +90,12 @@ class DefaultDriverRepository(
         if (response is PairingClaimResponse && response.assignmentId != null) {
             preferences.saveAssignment(response.assignmentId)
         }
+        // Persist the device session token so ApiClient's interceptor can
+        // authenticate subsequent calls. Without this the app pairs and then
+        // gets 401 on telemetry ingest.
+        if (response is PairingClaimResponse && !response.deviceToken.isNullOrBlank()) {
+            preferences.saveDeviceToken(response.deviceToken)
+        }
     }
 
     override suspend fun getVehicles(tenantId: String): List<Vehicle> {

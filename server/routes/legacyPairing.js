@@ -83,8 +83,25 @@ function registerLegacyPairingRoutes(app, deps) {
       .replace(/[^A-Z0-9]/g, "");
   }
 
-  function createDriverAuthToken() {
-    return `drv_${crypto.randomBytes(24).toString("hex")}`;
+  // Non-secret projection of a pairing for operator-facing reads. rowToPairing
+  // includes driverPin, so any response built straight from it leaks the PIN.
+  // Anything shown to a dashboard goes through here.
+  function publicPairingView(pairing) {
+    if (!pairing) return null;
+    return {
+      id: pairing.id,
+      vehicleId: pairing.vehicleId,
+      driverId: pairing.driverId,
+      deviceId: pairing.deviceId,
+      deviceLabel: pairing.deviceLabel,
+      orgId: pairing.orgId,
+      status: pairing.status,
+      expiresAt: pairing.expiresAt,
+      claimedAt: pairing.claimedAt,
+      revokedAt: pairing.revokedAt,
+      createdAt: pairing.createdAt,
+      hasDriverPin: Boolean(pairing.driverPin)
+    };
   }
 
   function driverDisplayName(driver) {
@@ -299,8 +316,12 @@ function registerLegacyPairingRoutes(app, deps) {
       });
       log("[PAIR-CLAIM] success", { pairingCode: updated.pairingCode, deviceId: updated.deviceId, assignmentId: updated.id });
       pushPairingDebug(pairingDebug.claims, { time: nowIso(), pairingCode: updated.pairingCode, deviceId: updated.deviceId, status: updated.status, assignmentId: updated.id });
+      // Issue the device session token. This is the ONLY point it is ever
+      // returned in full — only its hash is persisted. Claiming again (e.g.
+      // re-pairing a replacement tablet) mints a new one and invalidates the old.
+      const deviceToken = await db.issueDeviceToken(updated.id);
       const [vehicle, driver] = await Promise.all([db.getVehicleByVehicleId(updated.vehicleId), db.getDriverByDriverId(updated.driverId)]);
-      res.json({ ok: true, pairingCode: updated.pairingCode, driverPin: updated.driverPin, pinExpiresAt: updated.driverPinExpiresAt, assignmentId: updated.id, deviceId: updated.deviceId, deviceLabel: updated.deviceLabel, serverTime: nowIso(), vehicle: { vehicleId: updated.vehicleId, name: vehicle?.unitName || "" }, driver: { driverId: updated.driverId, name: driverDisplayName(driver) }, vehicleId: updated.vehicleId, driverId: updated.driverId, status: updated.status, ...(debugMode ? { debug: { normalized: input, route: req.path } } : {}) });
+      res.json({ ok: true, deviceToken, pairingCode: updated.pairingCode, driverPin: updated.driverPin, pinExpiresAt: updated.driverPinExpiresAt, assignmentId: updated.id, deviceId: updated.deviceId, deviceLabel: updated.deviceLabel, serverTime: nowIso(), vehicle: { vehicleId: updated.vehicleId, name: vehicle?.unitName || "" }, driver: { driverId: updated.driverId, name: driverDisplayName(driver) }, vehicleId: updated.vehicleId, driverId: updated.driverId, status: updated.status, ...(debugMode ? { debug: { normalized: input, route: req.path } } : {}) });
     } catch (err) {
       next(err);
     }
@@ -350,9 +371,14 @@ function registerLegacyPairingRoutes(app, deps) {
     }
   });
 
-  app.post("/pairings/generate", handlePairingGenerate);
-  app.post("/api/pairings/generate", handlePairingGenerate);
-  app.post("/api/pairing/generate", handlePairingGenerate);
+  // These three are aliases of the SAME privileged handler as /api/pair-code
+  // below and were registered with no auth at all: an unauthenticated caller
+  // could mint a pairing code for any vehicle+driver and read the driver PIN
+  // straight out of the response. Verified by probe: /api/pair-code returned
+  // 401 while these reached the database and returned 404.
+  app.post("/pairings/generate", requireEmployeeOrCustomerApi, handlePairingGenerate);
+  app.post("/api/pairings/generate", requireEmployeeOrCustomerApi, handlePairingGenerate);
+  app.post("/api/pairing/generate", requireEmployeeOrCustomerApi, handlePairingGenerate);
   app.post("/api/pair-code", requireEmployeeOrCustomerApi, handlePairCodeGenerate);
   app.post("/api/pair-code/generate", requireEmployeeOrCustomerApi, handlePairCodeGenerate);
   app.post("/api/pair-code/replace", requireEmployeeOrCustomerApi, handlePairCodeReplace);
@@ -367,8 +393,10 @@ function registerLegacyPairingRoutes(app, deps) {
   app.post("/api/pairing/claim-device", pairingClaimLimiter, handlePairingClaim);
   app.post("/pairing/claim-device", pairingClaimLimiter, handlePairingClaim);
 
-  app.get("/pairings/active", handlePairingsActive);
-  app.get("/api/pairings/active", handlePairingsActive);
+  // Returned pending pairings — pairing code AND driver PIN included — with no
+  // credentials. Operator-only now.
+  app.get("/pairings/active", requireEmployeeOrCustomerApi, handlePairingsActive);
+  app.get("/api/pairings/active", requireEmployeeOrCustomerApi, handlePairingsActive);
 
   app.post("/auth/driverLogin", pairingClaimLimiter, async (req, res, next) => {
     const { companyCode, driverPin } = req.body || {};
@@ -392,12 +420,24 @@ function registerLegacyPairingRoutes(app, deps) {
       const resolvedTenantId = (org?.companyCode ? normalizeCompanyCode(org.companyCode) : null)
         || normalizeCompanyCode(pairing.orgId || "ORG_DEFAULT")
         || normalizedCompanyCode;
+      // The token returned here used to be a fresh random string that was
+      // never stored and never verified — the Android client sent it as a
+      // bearer token and no route checked it. It is now a real device session
+      // bound to this pairing, so it can actually authorise later requests.
+      // Requires the pairing to be claimed; PIN alone does not grant a session.
+      if (pairing.status !== "active") {
+        return res.status(409).json({
+          error: "DEVICE_NOT_PAIRED",
+          message: "Claim the pairing code on this device before signing in."
+        });
+      }
+      const token = await db.issueDeviceToken(pairing.id);
       res.json({
         tenantId: resolvedTenantId,
         driverId: driver.driverId,
         vehicleId: pairing.vehicleId,
         pairingCode: pairing.pairingCode,
-        token: createDriverAuthToken(),
+        token,
         driverName: driverDisplayName(driver) || driver.driverId
       });
     } catch (err) {
@@ -410,7 +450,7 @@ function registerLegacyPairingRoutes(app, deps) {
     app.handle(req, res, next);
   });
 
-  app.post("/api/pairing/create", async (req, res, next) => {
+  app.post("/api/pairing/create", requireEmployeeOrCustomerApi, async (req, res, next) => {
     const { vehicleId, driverId } = req.body || {};
     if (!vehicleId || !driverId) return res.status(400).json({ error: "vehicleId and driverId required" });
     try {
@@ -424,38 +464,29 @@ function registerLegacyPairingRoutes(app, deps) {
     }
   });
 
-  app.post("/api/pairing/activate", async (req, res, next) => {
-    const pairingId = req.body?.pairingId || "";
-    const pairingCode = normalizePairingCode(req.body?.pairingCode || req.body?.code || "");
-    const deviceId = sanitizeString(req.body?.deviceId || req.body?.device_id || "", 120);
-    const deviceLabel = sanitizeString(req.body?.deviceLabel || req.body?.deviceName || req.body?.device_name || "", 120);
-    if ((!pairingId && !pairingCode) || !deviceId) {
-      return res.status(400).json({ ok: false, error: "pairingId or pairingCode and deviceId required" });
-    }
-    try {
-      const pairing = pairingId ? await db.findPairingById(pairingId) : await db.findPairingByCode(pairingCode);
-      if (!pairing) return res.status(404).json({ ok: false, error: "Invalid pairing" });
-      if (isExpired(pairing.expiresAt)) {
-        await db.updatePairing(pairing.id, { status: "expired" });
-        return res.status(410).json({ ok: false, error: "Expired code" });
-      }
-      const updated = await db.updatePairing(pairing.id, {
-        status: "active",
-        deviceId,
-        deviceLabel: deviceLabel || pairing.deviceLabel || "",
-        claimedAt: nowIso()
-      });
-      res.json({ ok: true, pairing: updated });
-    } catch (err) {
-      next(err);
-    }
-  });
+  // REMOVED: POST /api/pairing/activate
+  //
+  // This was an unauthenticated second door onto the same state transition as
+  // /api/pairings/claim — it took a pairing code plus a deviceId and flipped
+  // the pairing to "active" WITHOUT ever checking the driver PIN, while the
+  // claim handler carefully enforces it (401 PIN_REQUIRED / PIN_INVALID). Any
+  // party holding only a pairing code could bypass the PIN entirely by calling
+  // this route instead, which made the PIN decorative.
+  //
+  // Devices must use POST /api/pairings/claim, which validates the PIN, is rate
+  // limited, and now issues a device session token. No client in this repo
+  // referenced /api/pairing/activate (tablet and Android both claim), so this
+  // is a removal rather than a redirect.
 
-  app.get("/api/pairing/status", async (req, res, next) => {
+  // Operator-facing pairing status. Was unauthenticated and returned the whole
+  // pairing row, which includes driverPin (see rowToPairing in server/db.js) —
+  // anyone who could guess a vehicleId could read that truck's driver PIN.
+  // Now operator-gated AND stripped to non-secret fields.
+  app.get("/api/pairing/status", requireEmployeeOrCustomerApi, async (req, res, next) => {
     try {
       const vehicleId = sanitizeString(req.query.vehicleId || "", 80);
       const pairing = await db.getActivePairingForVehicle(vehicleId);
-      res.json({ ok: true, pairing: pairing || null });
+      res.json({ ok: true, pairing: publicPairingView(pairing) });
     } catch (err) {
       next(err);
     }

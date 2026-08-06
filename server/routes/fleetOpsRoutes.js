@@ -1,5 +1,7 @@
 const db = require("../db");
 
+const { requireOperatorOrDevice: buildOperatorOrDevice, requireDevice } = require("../middleware/deviceAuth");
+
 function registerFleetOpsRoutes(app, deps) {
   const {
     readData,
@@ -16,6 +18,9 @@ function registerFleetOpsRoutes(app, deps) {
     storeNormalizedSnapshot,
     normalizeMetrics
   } = deps;
+
+  // Accepts either an operator session or a paired-device token.
+  const requireOperatorOrDevice = buildOperatorOrDevice(requireEmployeeOrCustomerApi);
 
   // Resolves the acting org for a request: explicit orgId (session/route/body/query)
   // wins; otherwise falls back to the logged-in user's own orgId from Postgres.
@@ -199,16 +204,40 @@ function registerFleetOpsRoutes(app, deps) {
     }
   });
 
-  app.post("/api/telemetry/ingest", async (req, res, next) => {
+  // Telemetry ingest. Was completely unauthenticated with no ownership check on
+  // vehicleId, so anyone could inject fabricated readings for any truck — those
+  // flow into triggerTelemetryPipeline and the ML scorer, which means an
+  // attacker could manufacture alerts or, worse, mask a developing failure.
+  //
+  // A paired device now authenticates with its session token, and the vehicle
+  // is taken FROM THE PAIRING, never from the request body: a device can only
+  // ever report for the truck it was paired to. Operators may still ingest
+  // (backfills, integrations) and for them the body value is honoured.
+  app.post("/api/telemetry/ingest", requireOperatorOrDevice, async (req, res, next) => {
     try {
       const payload = req.body || {};
-      const vehicleId = sanitizeString(payload.vehicleId || payload.vehicle_id || "", 80);
+      const bodyVehicleId = sanitizeString(payload.vehicleId || payload.vehicle_id || "", 80);
+      const vehicleId = req.device ? req.device.vehicleId : bodyVehicleId;
+      if (!vehicleId) {
+        return res.status(400).json({ ok: false, error: "vehicle_id required" });
+      }
+      if (req.device && bodyVehicleId && bodyVehicleId !== req.device.vehicleId) {
+        return res.status(403).json({
+          ok: false,
+          error: "VEHICLE_MISMATCH",
+          message: "This device is not paired to that vehicle."
+        });
+      }
       const metrics = normalizeMetrics(payload.metrics || payload.data || payload);
       const ts = payload.ts || nowIso();
       const snapshot = {
         vehicleId,
-        driverId: sanitizeString(payload.driverId || payload.driver_id || "", 80),
-        deviceId: sanitizeString(payload.deviceId || payload.device_id || "", 120),
+        driverId: req.device
+          ? (req.device.driverId || "")
+          : sanitizeString(payload.driverId || payload.driver_id || "", 80),
+        deviceId: req.device
+          ? (req.device.deviceId || "")
+          : sanitizeString(payload.deviceId || payload.device_id || "", 120),
         ts,
         metrics
       };
@@ -223,9 +252,11 @@ function registerFleetOpsRoutes(app, deps) {
     }
   });
 
-  app.get("/api/telemetry", async (req, res, next) => {
+  app.get("/api/telemetry", requireOperatorOrDevice, async (req, res, next) => {
     try {
-      const vehicleId = sanitizeString(req.query.vehicle_id || req.query.vehicleId || "", 80);
+      const vehicleId = req.device
+        ? req.device.vehicleId
+        : sanitizeString(req.query.vehicle_id || req.query.vehicleId || "", 80);
       if (!vehicleId) return res.status(400).json({ error: "vehicle_id required" });
       const cached = telemetryLatest.get(vehicleId);
       if (cached) return res.json(cached);
@@ -238,11 +269,22 @@ function registerFleetOpsRoutes(app, deps) {
     }
   });
 
-  app.get("/api/telemetry/latest", async (req, res, next) => {
+  // Was public. With no vehicleId it returned `items` = EVERY vehicle's latest
+  // telemetry across ALL orgs — a cross-tenant leak in a multi-tenant product.
+  // A device may only read its own vehicle; the fleet-wide listing is operator
+  // only.
+  app.get("/api/telemetry/latest", requireOperatorOrDevice, async (req, res, next) => {
     try {
-      const vehicleId = sanitizeString(req.query.vehicleId || req.query.vehicle_id || "", 80);
-      if (vehicleId) {
-        const cached = telemetryLatest.get(vehicleId);
+      const requested = sanitizeString(req.query.vehicleId || req.query.vehicle_id || "", 80);
+      if (req.device) {
+        if (requested && requested !== req.device.vehicleId) {
+          return res.status(403).json({ ok: false, error: "VEHICLE_MISMATCH" });
+        }
+        const own = telemetryLatest.get(req.device.vehicleId);
+        return res.json({ ok: true, data: own || null });
+      }
+      if (requested) {
+        const cached = telemetryLatest.get(requested);
         return res.json({ ok: true, data: cached || null });
       }
       const latest = Array.from(telemetryLatest.values()).sort((a, b) => new Date(b.ts || 0) - new Date(a.ts || 0));
@@ -252,7 +294,8 @@ function registerFleetOpsRoutes(app, deps) {
     }
   });
 
-  app.get("/api/telemetry/active", (req, res) => {
+  // Fleet-wide telemetry dump — operator only (was public).
+  app.get("/api/telemetry/active", requireEmployeeOrCustomerApi, (req, res) => {
     const items = Array.from(telemetryLatest.values()).sort((a, b) => new Date(b.ts || 0) - new Date(a.ts || 0));
     res.json({ ok: true, data: items, count: items.length, lastSeen: getTelemetryLastSeen() });
   });
@@ -262,7 +305,10 @@ function registerFleetOpsRoutes(app, deps) {
     res.json({ ok: true, status: state.status, lastSampleAt: state.lastSampleAt, ageMs: state.ageMs, subscribers: telemetrySubscribers.size });
   });
 
-  app.get("/api/telemetry/stream", (req, res) => {
+  // SSE feed of all telemetry — was public, so anyone could subscribe to the
+  // whole fleet in real time. EventSource cannot set headers, so the device
+  // token may also arrive as ?deviceToken= (see middleware/deviceAuth.js).
+  app.get("/api/telemetry/stream", requireOperatorOrDevice, (req, res) => {
     res.writeHead(200, {
       "Content-Type": "text/event-stream",
       "Cache-Control": "no-cache, no-store, must-revalidate",

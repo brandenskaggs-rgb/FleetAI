@@ -859,8 +859,54 @@ async function updatePairing(id, patch = {}) {
   if (patch.deviceLabel !== undefined) data.deviceLabel = patch.deviceLabel;
   if (patch.expiresAt !== undefined) data.expiresAt = patch.expiresAt ? new Date(patch.expiresAt) : null;
   if (patch.claimedAt !== undefined) data.claimedAt = patch.claimedAt ? new Date(patch.claimedAt) : null;
+  if (patch.deviceTokenHash !== undefined) data.deviceTokenHash = patch.deviceTokenHash;
+  if (patch.deviceTokenIssuedAt !== undefined) {
+    data.deviceTokenIssuedAt = patch.deviceTokenIssuedAt ? new Date(patch.deviceTokenIssuedAt) : null;
+  }
   const row = await getPrisma().pairing.update({ where: { id }, data });
   return rowToPairing(row);
+}
+
+// ── Device sessions ───────────────────────────────────────────────────────────
+// A paired tablet/app proves identity with a bearer token issued at claim time.
+// Only the hash is persisted; the raw token is shown to the device exactly once.
+
+function hashDeviceToken(rawToken) {
+  return crypto.createHash("sha256").update(String(rawToken || ""), "utf8").digest("hex");
+}
+
+// Issues a fresh token, invalidating any previous one for this pairing
+// (re-pairing a device revokes the old device's access).
+async function issueDeviceToken(pairingId) {
+  const raw = `dev_${crypto.randomBytes(32).toString("hex")}`;
+  await getPrisma().pairing.update({
+    where: { id: pairingId },
+    data: { deviceTokenHash: hashDeviceToken(raw), deviceTokenIssuedAt: new Date() }
+  });
+  return raw;
+}
+
+// Resolves a bearer token to its pairing. Returns null unless the pairing is
+// still active and unexpired, so revoking or expiring a pairing immediately
+// kills the device's access without a separate session store.
+async function findPairingByDeviceToken(rawToken) {
+  const token = String(rawToken || "");
+  if (!token.startsWith("dev_")) return null;
+  const row = await getPrisma().pairing.findUnique({
+    where: { deviceTokenHash: hashDeviceToken(token) }
+  });
+  if (!row) return null;
+  if (row.status !== "active") return null;
+  if (row.revokedAt) return null;
+  if (row.expiresAt && new Date(row.expiresAt).getTime() <= Date.now()) return null;
+  return rowToPairing(row);
+}
+
+async function revokeDeviceToken(pairingId) {
+  await getPrisma().pairing.update({
+    where: { id: pairingId },
+    data: { deviceTokenHash: null, deviceTokenIssuedAt: null }
+  });
 }
 
 // Pending/active pairings for the SAME vehicle+driver pair — used by
@@ -1009,6 +1055,10 @@ async function syncMlArtifactsFromDisk(modelDir) {
 module.exports = {
   getPrisma,
   makeId,
+  hashDeviceToken,
+  issueDeviceToken,
+  findPairingByDeviceToken,
+  revokeDeviceToken,
   insertTelemetrySample,
   getSamplesForVehicle,
   getSampleCountForVehicle,

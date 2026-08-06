@@ -236,6 +236,15 @@ model Pairing {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
+  // Device session. Issued once when a tablet/app successfully claims this
+  // pairing (code + PIN), and presented as `Authorization: Bearer <token>` on
+  // every later device request. Only the SHA-256 hash is stored, so a database
+  // read cannot recover a usable token. Before this existed, /auth/driverLogin
+  // handed out a random string that was never persisted and never checked by
+  // anything — device "sessions" carried no authority at all.
+  deviceTokenHash     String?   @unique
+  deviceTokenIssuedAt DateTime?
+
   vehicle Vehicle? @relation(fields: [vehicleId], references: [vehicleId])
   driver  Driver?  @relation(fields: [driverId], references: [driverId])
   org     Org?     @relation(fields: [orgId], references: [id])

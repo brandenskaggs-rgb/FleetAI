@@ -677,6 +677,7 @@
   <script>
     const STORAGE_KEYS = {
       apiBase: "fleetai.driver.apiBase",
+      deviceToken: "fleetai.driver.deviceToken",
       duty: "fleetai.driver.duty",
       logs: "fleetai.driver.logs",
       chat: "fleetai.driver.chat",
@@ -756,7 +757,15 @@
     }
 
     async function fetchJson(path, options = {}) {
-      const response = await fetch(resolveApiUrl(path), options);
+      // Attach the device session token issued at pairing. Telemetry and
+      // vehicle reads are device-authenticated now; without this the tablet
+      // gets 401 after pairing.
+      const token = readStorage(STORAGE_KEYS.deviceToken, "");
+      const opts = { ...options };
+      if (token) {
+        opts.headers = { ...(opts.headers || {}), Authorization: `Bearer ${token}` };
+      }
+      const response = await fetch(resolveApiUrl(path), opts);
       const text = await response.text();
       let payload = null;
       try { payload = text ? JSON.parse(text) : {}; } catch (err) { payload = null; }
@@ -1029,6 +1038,7 @@
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload)
         });
+        if (data.token) writeStorage(STORAGE_KEYS.deviceToken, data.token);
         state.driverName = data.driverName || data.driver?.name || "Driver signed in";
         state.vehicleId = data.vehicleId || data.vehicle_id || state.vehicleId;
         state.companyName = data.companyName || companyCode;
@@ -1065,6 +1075,7 @@
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(body)
           });
+          if (data.deviceToken) writeStorage(STORAGE_KEYS.deviceToken, data.deviceToken);
           state.vehicleId = data.vehicleId || data.vehicle_id || data.paired_vehicle_id || state.vehicleId;
           renderHero();
           setFeedback("pairFeedback", "Device paired successfully.", "good");

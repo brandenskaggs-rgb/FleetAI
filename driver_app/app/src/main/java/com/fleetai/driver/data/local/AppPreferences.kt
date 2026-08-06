@@ -41,6 +41,12 @@ class AppPreferences(private val context: Context) {
     val demoMode: Flow<Boolean> = context.appDataStore.data.map { it[demoModeKey] ?: false }
     val obdDeviceAddress: Flow<String> = context.appDataStore.data.map { it[obdAddressKey] ?: "" }
 
+    /** Stores only the bearer token — used after a pairing claim, which
+     *  establishes the device session without a full driver login. */
+    suspend fun saveDeviceToken(token: String) {
+        context.appDataStore.edit { prefs -> prefs[tokenKey] = token }
+    }
+
     suspend fun saveSession(tenantId: String, driverId: String, token: String, driverName: String) {
         context.appDataStore.edit { prefs ->
             prefs[tenantIdKey] = tenantId
