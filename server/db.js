@@ -1058,9 +1058,81 @@ async function syncMlArtifactsFromDisk(modelDir) {
   return result;
 }
 
+
+// ─── Diagnostic scans ─────────────────────────────────────────────────────────
+// One row per on-board diagnostic run, including clean scans — a scan that
+// found nothing is evidence the truck was checked, which matters for a DVIR
+// trail. Codes are stored already decoded so a manager reading history is not
+// dependent on the catalog still holding an entry that has since been revised.
+
+async function insertDiagnosticScan({ vehicleId, orgId, driverId, deviceId, source, scannedAt, codes, summary } = {}) {
+  await ensureVehicleStub(vehicleId);
+  const row = await getPrisma().diagnosticScan.create({
+    data: {
+      orgId: orgId || null,
+      vehicleId,
+      driverId: driverId || null,
+      deviceId: deviceId || null,
+      source: source || "device",
+      scannedAt: toDate(scannedAt),
+      severity: summary?.severity || "info",
+      driveability: summary?.driveability || "ok",
+      codeCount: Array.isArray(codes) ? codes.length : 0,
+      codes: codes || [],
+      summary: summary || {}
+    },
+    select: { id: true }
+  });
+  return row.id;
+}
+
+function rowToDiagnosticScan(row) {
+  return {
+    id: row.id,
+    orgId: row.orgId,
+    vehicleId: row.vehicleId,
+    driverId: row.driverId,
+    deviceId: row.deviceId,
+    source: row.source,
+    severity: row.severity,
+    driveability: row.driveability,
+    codeCount: row.codeCount,
+    codes: Array.isArray(row.codes) ? row.codes : [],
+    summary: row.summary || {},
+    scannedAt: row.scannedAt instanceof Date ? row.scannedAt.toISOString() : row.scannedAt,
+    createdAt: row.createdAt instanceof Date ? row.createdAt.toISOString() : row.createdAt
+  };
+}
+
+async function listDiagnosticScans(vehicleId, { limit = 20 } = {}) {
+  const rows = await getPrisma().diagnosticScan.findMany({
+    where: { vehicleId },
+    orderBy: { scannedAt: "desc" },
+    take: limit
+  });
+  return rows.map(rowToDiagnosticScan);
+}
+
+// Fleet-wide view for the manager dashboard: most recent scan per vehicle that
+// still needs attention, worst first.
+async function listOpenDiagnosticScans(orgId, { limit = 50 } = {}) {
+  const rows = await getPrisma().diagnosticScan.findMany({
+    where: {
+      ...(orgId ? { orgId } : {}),
+      severity: { in: ["critical", "warning"] }
+    },
+    orderBy: [{ severity: "asc" }, { scannedAt: "desc" }],
+    take: limit
+  });
+  return rows.map(rowToDiagnosticScan);
+}
+
 module.exports = {
   getPrisma,
   makeId,
+  insertDiagnosticScan,
+  listDiagnosticScans,
+  listOpenDiagnosticScans,
   hashDeviceToken,
   issueDeviceToken,
   findPairingByDeviceToken,

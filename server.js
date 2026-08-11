@@ -23,6 +23,7 @@ const { registerSystemStatusRoutes } = require("./server/routes/systemStatus");
 const { registerLegacyPairingRoutes } = require("./server/routes/legacyPairing");
 const { registerAuthRoutes } = require("./server/routes/authRoutes");
 const { registerFleetOpsRoutes } = require("./server/routes/fleetOpsRoutes");
+const { registerDiagnosticsRoutes } = require("./server/routes/diagnosticsRoutes");
 const { registerSolutionRoutes } = require("./server/routes/solutionRoutes");
 const { registerInternalMlApiRoutes } = require("./server/routes/internalMlApiRoutes");
 const { registerMlRoutes } = require("./server/routes/mlRoutes");
@@ -968,6 +969,16 @@ registerFleetOpsRoutes(app, {
   triggerTelemetryPipeline,
   storeNormalizedSnapshot,
   normalizeMetrics
+});
+
+// On-board diagnostics: CAN sensor visibility + fault-code scanning, with any
+// non-informational scan raising an Alert and a fleet-manager Notification.
+registerDiagnosticsRoutes(app, {
+  requireEmployeeOrCustomerApi: (req, res, next) => requireEmployeeOrCustomerApi(req, res, next),
+  sanitizeString,
+  nowIso,
+  telemetryLatest,
+  log: console.log
 });
 
 // Registered before registerSolutionRoutes so its cost-analytics/driver-scores

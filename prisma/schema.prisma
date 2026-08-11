@@ -97,6 +97,7 @@ model Org {
   paymentMethod   PaymentMethod?
   tenantSettings  TenantSettings?
   fleetAddon      FleetAddon?
+  diagnosticScans DiagnosticScan[]
 
   @@index([status])
 }
@@ -194,6 +195,7 @@ model Vehicle {
   workOrders         WorkOrder[]
   events             Event[]
   pairings           Pairing[]
+  diagnosticScans    DiagnosticScan[]
 
   @@index([orgId])
 }
@@ -776,4 +778,32 @@ model ApiKey {
 
   @@index([keyHash])
   @@index([orgId])
+}
+
+// Persisted on-board diagnostic scan. One row per scan run — including clean
+// scans, which are evidence that the truck was checked and found healthy.
+// Codes and summary are stored already-decoded so a manager's history view does
+// not depend on the catalog still containing an entry that has since changed.
+model DiagnosticScan {
+  id         String   @id @default(cuid())
+  orgId      String?
+  vehicleId  String
+  driverId   String?
+  deviceId   String?
+  source     String   @default("device")   // device | operator
+  scannedAt  DateTime
+  // Worst severity across the scan, denormalized so the fleet list can sort and
+  // filter without opening the JSON payload of every row.
+  severity   String   @default("info")
+  driveability String @default("ok")       // ok | limp | stop
+  codeCount  Int      @default(0)
+  codes      Json     @default("[]")
+  summary    Json     @default("{}")
+  createdAt  DateTime @default(now())
+
+  vehicle Vehicle? @relation(fields: [vehicleId], references: [vehicleId])
+  org     Org?     @relation(fields: [orgId], references: [id])
+
+  @@index([vehicleId, scannedAt])
+  @@index([orgId, severity])
 }

@@ -8,35 +8,36 @@
   <style>
 
     :root {
-      color-scheme: dark;
-      --bg: #F6F8FC;
-      --bg-alt: #0d1a2f;
-      --panel: #FFFFFF;
-      --panel-soft: rgba(16, 30, 54, 0.78);
-      --line: rgba(146, 177, 255, 0.14);
-      --line-strong: rgba(146, 177, 255, 0.26);
-      --text: #0A1628;
-      --muted: #65738B;
-      --blue: #58a6ff;
-      --blue-strong: #2f7eea;
-      --green: #33d39b;
-      --amber: #ffb84d;
-      --red: #ff6c7f;
-      --shadow: 0 22px 60px rgba(0, 0, 0, 0.35);
-      --radius: 18px;
-      --radius-sm: 12px;
-      --font-body: "Inter", system-ui, sans-serif;
-      --font-display: "Space Grotesk", "Inter", system-ui, sans-serif;
+      /* Adopted verbatim from ui/fleetai-dashboard.html so the cab and the
+         office are visibly the same product. The tablet previously declared
+         light tokens while body still painted a hardcoded navy gradient, so it
+         rendered as dark-navy with light-surface text values — the mismatch
+         that made it look like a different app. */
+      color-scheme: light;
+      --bg:#F6F8FC; --surface2:#EDF1F8; --panel:#FFFFFF; --panel2:#F6F8FC;
+      --border:#DCE3EF; --text:#0A1628; --muted:#65738B;
+      --primary:#1F5EFF; --primary-dark:#1748C7; --primary-soft:rgba(31,94,255,.10);
+      --good:#0F9F63; --warn:#B76A0B; --bad:#C7362F;
+      --good-soft:rgba(15,159,99,.10); --warn-soft:rgba(183,106,11,.10); --bad-soft:rgba(199,54,47,.09);
+      --shadow:0 28px 90px rgba(15,23,42,.12);
+      --shadow2:0 1px 2px rgba(15,23,42,.025),0 18px 46px rgba(15,23,42,.07);
+      --hover:rgba(15,23,42,.045); --row:rgba(15,23,42,.035);
+      --input:rgba(15,23,42,.045); --divider:rgba(15,23,42,.06);
+      --radius:10px; --radius-sm:6px;
+      --font-body:Archivo,'Segoe UI',system-ui,sans-serif;
+      --font-display:Archivo,'Segoe UI',system-ui,sans-serif;
+      --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+
+      /* Aliases kept so existing rules in this file keep resolving. */
+      --bg-alt:var(--surface2); --panel-soft:var(--panel2);
+      --line:var(--border); --line-strong:var(--border);
+      --blue:var(--primary); --blue-strong:var(--primary-dark);
+      --green:var(--good); --amber:var(--warn); --red:var(--bad);
     }
 
     * { box-sizing: border-box; }
     html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--text); font-family: var(--font-body); }
-    body {
-      background:
-        radial-gradient(circle at top left, rgba(88,166,255,0.22), transparent 30%),
-        radial-gradient(circle at top right, rgba(51,211,155,0.12), transparent 28%),
-        linear-gradient(180deg, #07111f 0%, #091523 38%, #060d18 100%);
-    }
+    body { background: var(--bg); }
 
     button, input, textarea { font: inherit; }
     button { cursor: pointer; }
@@ -56,8 +57,8 @@
       justify-content: space-between;
       padding: 18px 18px 14px;
       backdrop-filter: blur(16px);
-      background: rgba(7, 17, 31, 0.7);
-      border-bottom: 1px solid rgba(146, 177, 255, 0.08);
+      background: rgba(255,255,255,.86);
+      border-bottom: 1px solid var(--border);
     }
 
     .brand {
@@ -94,7 +95,7 @@
     .iconBtn {
       border-radius: 999px;
       border: 1px solid var(--line);
-      background: rgba(255,255,255,0.03);
+      background: var(--panel2);
       color: var(--muted);
       min-height: 40px;
     }
@@ -136,7 +137,7 @@
     }
 
     .panel {
-      background: linear-gradient(180deg, rgba(15, 29, 54, 0.94) 0%, rgba(10, 20, 38, 0.94) 100%);
+      background: var(--panel);
       border: 1px solid var(--line);
       border-radius: var(--radius);
       box-shadow: var(--shadow);
@@ -201,8 +202,8 @@
     .metric {
       padding: 14px;
       border-radius: 16px;
-      border: 1px solid rgba(146, 177, 255, 0.12);
-      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      background: var(--panel2);
       min-height: 94px;
     }
 
@@ -238,7 +239,7 @@
       font-size: 12px;
       font-weight: 700;
       border: 1px solid var(--line);
-      background: rgba(255,255,255,0.03);
+      background: var(--panel2);
       color: var(--muted);
     }
 
@@ -255,8 +256,8 @@
     .telemetryCard {
       border-radius: 16px;
       padding: 14px;
-      border: 1px solid rgba(146,177,255,0.12);
-      background: rgba(255,255,255,0.025);
+      border: 1px solid var(--border);
+      background: var(--panel2);
       min-height: 110px;
     }
 
@@ -272,8 +273,8 @@
     .listItem {
       border-radius: 16px;
       padding: 14px;
-      border: 1px solid rgba(146,177,255,0.12);
-      background: rgba(255,255,255,0.025);
+      border: 1px solid var(--border);
+      background: var(--panel2);
       display: grid;
       gap: 8px;
     }
@@ -300,7 +301,7 @@
       border: 1px solid var(--line);
       border-radius: 14px;
       padding: 14px 12px;
-      background: rgba(255,255,255,0.025);
+      background: var(--panel2);
       color: var(--text);
       text-align: left;
       font-weight: 700;
@@ -411,7 +412,84 @@
     }
 
     .bubble.user .bubbleBody { background: linear-gradient(180deg, #58a6ff 0%, #2f7eea 100%); color: #04111f; }
-    .bubble.ai .bubbleBody { background: rgba(255,255,255,0.05); border: 1px solid rgba(146,177,255,0.12); }
+    .bubble.ai .bubbleBody { background: rgba(255,255,255,0.05); border: 1px solid var(--border); }
+
+
+    /* ── Sensors + diagnostics ─────────────────────────────────────────── */
+    .navBadge {
+      display:inline-grid; place-items:center; min-width:18px; height:18px;
+      margin-left:6px; padding:0 5px; border-radius:999px;
+      background:var(--bad); color:#fff; font-size:11px; font-weight:800;
+      font-family:var(--mono);
+    }
+    .sensorGroup { margin-top:14px; }
+    .sensorGroupName {
+      font-family:var(--mono); font-size:11px; font-weight:600;
+      letter-spacing:.09em; text-transform:uppercase; color:var(--muted);
+      padding-bottom:8px; border-bottom:1px solid var(--border); margin-bottom:4px;
+    }
+    .sensorRow {
+      display:grid; grid-template-columns:1fr auto auto; gap:12px; align-items:center;
+      /* 56px min touch target — gloved hands, moving cab */
+      min-height:56px; padding:10px 2px; border-bottom:1px solid var(--divider);
+    }
+    .sensorName { font-size:14px; font-weight:600; color:var(--text); }
+    .sensorSrc  { font-family:var(--mono); font-size:11px; color:var(--muted); margin-top:3px; }
+    .sensorVal  { font-family:var(--mono); font-size:17px; font-weight:600; text-align:right; white-space:nowrap; }
+    .sensorVal .u { font-size:12px; color:var(--muted); margin-left:3px; }
+    .pill {
+      font-family:var(--mono); font-size:10.5px; font-weight:600; letter-spacing:.05em;
+      text-transform:uppercase; padding:4px 8px; border-radius:var(--radius-sm); white-space:nowrap;
+    }
+    .pill.nominal     { color:var(--good); background:var(--good-soft); }
+    .pill.watch       { color:var(--warn); background:var(--warn-soft); }
+    .pill.critical    { color:var(--bad);  background:var(--bad-soft); }
+    .pill.unknown,
+    .pill.unsupported { color:var(--muted); background:var(--panel2); }
+    .sensorRow.is-unsupported { opacity:.55; }
+
+    .verdict { border-radius:var(--radius); padding:16px; margin-bottom:14px; border:1px solid var(--border); }
+    .verdict.stop { background:var(--bad-soft);  border-color:var(--bad); }
+    .verdict.limp { background:var(--warn-soft); border-color:var(--warn); }
+    .verdict.ok   { background:var(--good-soft); border-color:var(--good); }
+    .verdictHead  { font-family:var(--font-display); font-size:19px; font-weight:700; }
+    .verdict.stop .verdictHead { color:var(--bad); }
+    .verdict.limp .verdictHead { color:var(--warn); }
+    .verdict.ok   .verdictHead { color:var(--good); }
+    .verdictBody  { margin-top:6px; font-size:14px; line-height:1.55; color:var(--text); }
+
+    .codeCard {
+      border:1px solid var(--border); border-left-width:4px; border-radius:var(--radius);
+      padding:14px; margin-bottom:10px; background:var(--panel);
+    }
+    .codeCard.critical { border-left-color:var(--bad); }
+    .codeCard.warning  { border-left-color:var(--warn); }
+    .codeCard.info,
+    .codeCard.unknown  { border-left-color:var(--muted); }
+    .codeTop  { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+    .codeId   { font-family:var(--mono); font-size:13px; font-weight:600; color:var(--text); }
+    .codeName { margin-top:7px; font-size:15px; font-weight:600; }
+    .codeMode { margin-top:4px; font-size:13px; color:var(--muted); line-height:1.5; }
+    .codeMeta { margin-top:8px; font-family:var(--mono); font-size:11px; color:var(--muted); }
+    .histRow  {
+      display:flex; align-items:center; justify-content:space-between; gap:10px;
+      min-height:48px; padding:8px 2px; border-bottom:1px solid var(--divider); font-size:13px;
+    }
+    .histWhen { font-family:var(--mono); font-size:12px; color:var(--muted); }
+    .emptyNote { padding:18px 2px; color:var(--muted); font-size:14px; }
+
+    /* Isaac's ELD locks the screen while the truck is moving. Same idea: the
+       driver can still SEE state, but interaction is blocked above 8 km/h. */
+    .drivingLock {
+      position:fixed; inset:0; z-index:60; display:grid; place-items:center;
+      background:rgba(10,22,40,.72); backdrop-filter:blur(3px); padding:24px; text-align:center;
+    }
+    .drivingLock .card {
+      background:var(--panel); border-radius:var(--radius); padding:26px; max-width:420px;
+      box-shadow:var(--shadow);
+    }
+    .drivingLock h3 { font-family:var(--font-display); font-size:21px; margin:0 0 8px; }
+    .drivingLock p  { color:var(--muted); font-size:14px; line-height:1.55; margin:0; }
 
     .bottomNav {
       position: fixed;
@@ -618,11 +696,59 @@
           </div>
         </div>
       </section>
+
+      <!-- ── Sensors ─────────────────────────────────────────────────────
+           Every signal the platform can read off this truck's bus. Signals the
+           bus does not expose are listed too, marked unsupported: "this truck
+           cannot report DPF soot" is something the driver needs to know, and a
+           silently shorter list hides it. -->
+      <section class="panel view hidden" data-view="sensors">
+        <div class="section">
+          <div class="sectionHead">
+            <div>
+              <div class="sectionTitle">CAN bus sensors</div>
+              <div class="sectionMeta" id="sensorMeta">Reading from the vehicle gateway…</div>
+            </div>
+            <button class="dutyButton" id="refreshSensorsBtn" type="button">Refresh</button>
+          </div>
+          <div class="chipRow" id="sensorCounts"></div>
+          <div id="sensorGroups"></div>
+          <div class="feedback" id="sensorFeedback"></div>
+        </div>
+      </section>
+
+      <!-- ── Diagnostics ─────────────────────────────────────────────────
+           Motive does not show fault codes in its driver app at all — they are
+           dashboard-only. Putting the decoded fault in the cab, with an
+           unambiguous driveability verdict, is the point of this screen. Every
+           scan is reported to the fleet manager automatically. -->
+      <section class="panel view hidden" data-view="diagnostics">
+        <div class="section">
+          <div class="sectionHead">
+            <div>
+              <div class="sectionTitle">On-board diagnostics</div>
+              <div class="sectionMeta" id="diagMeta">No scan run yet on this device.</div>
+            </div>
+            <button class="dutyButton" id="runScanBtn" type="button">Run scan</button>
+          </div>
+
+          <div id="diagVerdict"></div>
+          <div id="diagCodes"></div>
+
+          <div class="sectionHead" style="margin-top:6px">
+            <div class="sectionTitle" style="font-size:13px">Recent scans</div>
+          </div>
+          <div id="diagHistory"></div>
+          <div class="feedback" id="diagFeedback"></div>
+        </div>
+      </section>
     </main>
 
     <nav class="bottomNav">
       <button class="navBtn active" data-target="home">Home</button>
       <button class="navBtn" data-target="vehicle">Vehicle</button>
+      <button class="navBtn" data-target="sensors">Sensors</button>
+      <button class="navBtn" data-target="diagnostics">Diagnostics<span class="navBadge hidden" id="diagNavBadge"></span></button>
       <button class="navBtn" data-target="logbook">Logbook</button>
       <button class="navBtn" data-target="assistant">Advisor</button>
     </nav>
@@ -856,6 +982,230 @@
       text.textContent = label;
     }
 
+
+    // ── Sensors ──────────────────────────────────────────────────────────────
+    function sensorStateLabel(st) {
+      return { nominal: "OK", watch: "Watch", critical: "Check now",
+               unknown: "No data", unsupported: "Not on bus" }[st] || st;
+    }
+
+    function escapeHtml(value) {
+      return String(value == null ? "" : value)
+        .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+    }
+
+    function formatDateTime(ts) {
+      if (!ts) return "--";
+      const d = new Date(ts);
+      if (Number.isNaN(d.getTime())) return "--";
+      return d.toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+    }
+
+    function renderSensors(view) {
+      const groupsEl = $("sensorGroups");
+      const countsEl = $("sensorCounts");
+      if (!view || !Array.isArray(view.readings)) {
+        groupsEl.innerHTML = '<div class="emptyNote">No sensor data yet. Pair the device and start the engine.</div>';
+        countsEl.innerHTML = "";
+        return;
+      }
+      const c = view.counts || {};
+      countsEl.innerHTML = [
+        '<span class="chip">' + (c.reporting || 0) + ' reporting</span>',
+        c.watch ? '<span class="chip warn">' + c.watch + ' watch</span>' : "",
+        c.critical ? '<span class="chip bad">' + c.critical + ' critical</span>' : "",
+        c.unsupported ? '<span class="chip">' + c.unsupported + ' not on bus</span>' : ""
+      ].filter(Boolean).join("");
+
+      const byGroup = new Map();
+      for (const r of view.readings) {
+        if (!byGroup.has(r.group)) byGroup.set(r.group, []);
+        byGroup.get(r.group).push(r);
+      }
+      const groupLabel = {};
+      (view.groups || []).forEach(function (g) { groupLabel[g.key] = g.label; });
+
+      // Live signals first within a group, dead ones last — the driver should
+      // not scroll past unsupported signals to reach real readings.
+      const order = function (a, b) {
+        return (a.state === "unsupported") - (b.state === "unsupported")
+          || a.label.localeCompare(b.label);
+      };
+
+      const parts = [];
+      byGroup.forEach(function (rows, key) {
+        const rowHtml = rows.sort(order).map(function (r) {
+          const src = (r.spn ? "SPN " + r.spn : "") + (r.spn && r.pid ? " · " : "") + (r.pid ? "PID " + escapeHtml(r.pid) : "");
+          const val = r.value == null ? "--" : escapeHtml(String(r.value));
+          const unit = r.unit ? '<span class="u">' + escapeHtml(r.unit) + "</span>" : "";
+          return '<div class="sensorRow' + (r.state === "unsupported" ? " is-unsupported" : "") + '">'
+            + '<div><div class="sensorName">' + escapeHtml(r.label) + "</div>"
+            + '<div class="sensorSrc">' + src + "</div></div>"
+            + '<div class="sensorVal">' + val + unit + "</div>"
+            + '<span class="pill ' + r.state + '">' + sensorStateLabel(r.state) + "</span>"
+            + "</div>";
+        }).join("");
+        parts.push('<div class="sensorGroup"><div class="sensorGroupName">'
+          + escapeHtml(groupLabel[key] || key) + "</div>" + rowHtml + "</div>");
+      });
+      groupsEl.innerHTML = parts.join("");
+    }
+
+    async function refreshSensors() {
+      setFeedback("sensorFeedback", "");
+      try {
+        const data = await fetchJson("/api/diagnostics/sensors");
+        state.sensors = data;
+        $("sensorMeta").textContent = data.capturedAt
+          ? (data.stale ? "Last reading" : "Live") + " · " + formatTime(data.capturedAt)
+          : "Waiting for the first reading from this vehicle.";
+        renderSensors(data);
+      } catch (err) {
+        setFeedback("sensorFeedback", err.message || "Could not read sensors.", "bad");
+      }
+    }
+
+    // ── Diagnostics ──────────────────────────────────────────────────────────
+    function renderVerdict(summary, guidance) {
+      const el = $("diagVerdict");
+      if (!summary || !guidance) { el.innerHTML = ""; return; }
+      const tone = summary.driveability === "stop" ? "stop"
+                 : summary.driveability === "limp" ? "limp" : "ok";
+      el.innerHTML = '<div class="verdict ' + tone + '">'
+        + '<div class="verdictHead">' + escapeHtml(guidance.headline) + "</div>"
+        + '<div class="verdictBody">' + escapeHtml(guidance.detail) + "</div></div>";
+    }
+
+    function renderCodes(codes) {
+      const el = $("diagCodes");
+      if (!Array.isArray(codes) || !codes.length) {
+        el.innerHTML = '<div class="emptyNote">No fault codes found on the last scan.</div>';
+        return;
+      }
+      const rank = { critical: 0, warning: 1, unknown: 2, info: 3 };
+      el.innerHTML = codes.slice().sort(function (a, b) {
+        return (rank[a.severity] == null ? 9 : rank[a.severity]) - (rank[b.severity] == null ? 9 : rank[b.severity]);
+      }).map(function (c) {
+        const pill = c.severity === "critical" ? "critical" : c.severity === "warning" ? "watch" : "unknown";
+        const meta = escapeHtml(c.protocol)
+          + (c.system ? " · " + escapeHtml(c.system) : "")
+          + (c.occurrenceCount != null ? " · seen " + c.occurrenceCount + "x" : "")
+          + (c.known ? "" : " · not in catalog");
+        return '<div class="codeCard ' + c.severity + '">'
+          + '<div class="codeTop"><span class="codeId">' + escapeHtml(c.code) + "</span>"
+          + '<span class="pill ' + pill + '">' + escapeHtml(c.severity) + "</span></div>"
+          + '<div class="codeName">' + escapeHtml(c.parameter) + "</div>"
+          + (c.failureMode ? '<div class="codeMode">' + escapeHtml(c.failureMode) + "</div>" : "")
+          + '<div class="codeMeta">' + meta + "</div></div>";
+      }).join("");
+    }
+
+    function renderDiagBadge(summary) {
+      const badge = $("diagNavBadge");
+      if (!badge) return;
+      const n = summary ? (summary.criticalCount || 0) + (summary.warningCount || 0) : 0;
+      badge.textContent = n > 9 ? "9+" : String(n);
+      badge.classList.toggle("hidden", n === 0);
+    }
+
+    function renderHistory(scans) {
+      const el = $("diagHistory");
+      if (!Array.isArray(scans) || !scans.length) {
+        el.innerHTML = '<div class="emptyNote">No previous scans recorded.</div>';
+        return;
+      }
+      el.innerHTML = scans.map(function (sc) {
+        const label = sc.codeCount === 0 ? "Clean scan"
+          : sc.codeCount + " code" + (sc.codeCount === 1 ? "" : "s");
+        const pill = sc.severity === "critical" ? "critical" : sc.severity === "warning" ? "watch" : "nominal";
+        return '<div class="histRow"><div><div>' + label + "</div>"
+          + '<div class="histWhen">' + escapeHtml(formatDateTime(sc.scannedAt))
+          + " · " + escapeHtml(sc.source || "device") + "</div></div>"
+          + '<span class="pill ' + pill + '">' + escapeHtml(sc.severity || "info") + "</span></div>";
+      }).join("");
+    }
+
+    async function loadDiagnostics() {
+      try {
+        const results = await Promise.all([
+          fetchJson("/api/diagnostics/latest"),
+          fetchJson("/api/diagnostics/scans?limit=10")
+        ]);
+        const latest = results[0];
+        const history = results[1];
+        const scan = latest.scan;
+        if (scan) {
+          $("diagMeta").textContent = "Last scan " + formatDateTime(scan.scannedAt);
+          renderVerdict(scan.summary, latest.guidance);
+          renderCodes(scan.codes);
+          renderDiagBadge(scan.summary);
+        } else {
+          $("diagMeta").textContent = "No scan run yet on this vehicle.";
+          renderVerdict(null, null);
+          renderCodes([]);
+          renderDiagBadge(null);
+        }
+        renderHistory(history.scans);
+      } catch (err) {
+        setFeedback("diagFeedback", err.message || "Could not load diagnostics.", "bad");
+      }
+    }
+
+    async function runDiagnosticScan() {
+      const btn = $("runScanBtn");
+      btn.disabled = true;
+      btn.textContent = "Scanning…";
+      setFeedback("diagFeedback", "Reading fault codes from the vehicle…");
+      try {
+        // The gateway supplies raw codes; the tablet forwards them and the
+        // server decodes. Decoding server-side keeps the driver's view and the
+        // fleet manager's view identical, and lets the catalog be corrected
+        // without shipping a new tablet build.
+        const codes = Array.isArray(state.pendingScanCodes) ? state.pendingScanCodes : [];
+        const data = await fetchJson("/api/diagnostics/scan", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ codes: codes })
+        });
+        renderVerdict(data.summary, data.guidance);
+        renderCodes(data.codes);
+        renderDiagBadge(data.summary);
+        $("diagMeta").textContent = "Last scan " + formatDateTime(data.scannedAt);
+        setFeedback("diagFeedback",
+          data.reportedToFleet
+            ? "Scan complete. Your fleet manager has been notified."
+            : "Scan complete. No faults found.",
+          data.reportedToFleet ? "warn" : "good");
+        loadDiagnostics();
+      } catch (err) {
+        setFeedback("diagFeedback", err.message || "Scan failed.", "bad");
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Run scan";
+      }
+    }
+
+    // ── Driving lock ─────────────────────────────────────────────────────────
+    // ISAAC's ELD locks the screen while the truck is moving. Same principle
+    // here: still readable, not interactive, above 8 km/h.
+    const DRIVING_LOCK_KPH = 8;
+    function applyDrivingLock(speedKph) {
+      const moving = Number(speedKph) > DRIVING_LOCK_KPH;
+      let el = document.getElementById("drivingLock");
+      if (moving && !el) {
+        el = document.createElement("div");
+        el.id = "drivingLock";
+        el.className = "drivingLock";
+        el.innerHTML = '<div class="card"><h3>Screen locked while moving</h3>'
+          + "<p>Fleet AI locks the display above " + DRIVING_LOCK_KPH
+          + " km/h so you can keep your eyes on the road. It unlocks automatically when you stop.</p></div>";
+        document.body.appendChild(el);
+      } else if (!moving && el) {
+        el.remove();
+      }
+    }
+
     function openSetup() { $("setupSheet").classList.remove("hidden"); }
     function closeSetup() { $("setupSheet").classList.add("hidden"); }
 
@@ -867,6 +1217,10 @@
       document.querySelectorAll(".navBtn").forEach((btn) => {
         btn.classList.toggle("active", btn.getAttribute("data-target") === nextView);
       });
+      // Load each panel on first open rather than on boot — a cab tablet on a
+      // weak cellular link should not fetch screens the driver never visits.
+      if (nextView === "sensors") refreshSensors();
+      if (nextView === "diagnostics") loadDiagnostics();
     }
 
     function formatNumber(value, digits = 0) {
@@ -1006,6 +1360,9 @@
       const coolant = firstMetric(metrics, ["coolant_temp", "coolantTemp"]);
       const battery = firstMetric(metrics, ["battery_v", "batteryVoltage"]);
       const speed = firstMetric(metrics, ["speed", "vehicleSpeed"]);
+      // Engage/release the driving lock from the same telemetry that renders
+      // the chips, so the lock tracks real road speed rather than a timer.
+      applyDrivingLock(speed);
       const chipData = [
         coolant != null && coolant > 220 ? ["Coolant high", "bad"] : ["Coolant stable", "good"],
         battery != null && battery < 12.0 ? ["Battery low", "bad"] : ["Battery normal", "good"],
@@ -1245,6 +1602,8 @@
         setFeedback("authFeedback", next ? `Saved server ${next}` : "Using current site origin.", "good");
       });
       $("refreshVehicleBtn").addEventListener("click", refreshVehicleData);
+      $("refreshSensorsBtn").addEventListener("click", refreshSensors);
+      $("runScanBtn").addEventListener("click", runDiagnosticScan);
       $("addLogBtn").addEventListener("click", () => {
         const text = $("logNote").value.trim();
         if (!text) {
