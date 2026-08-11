@@ -750,10 +750,40 @@
       return raw.replace(/\/$/, "");
     }
 
+    // Any value written to the apiBase key redirected EVERY request — including
+    // the company code and driver PIN posted at login — to an arbitrary host.
+    // On a shared cab tablet that is a credential-exfiltration path requiring
+    // nothing but access to the settings panel or localStorage.
+    //
+    // An override is still supported (staging, self-hosted, LAN testing) but it
+    // must be same-origin or an explicitly allowed host, and must be https
+    // unless it is loopback. Anything else is ignored and the request falls
+    // back to a relative path against the origin serving this page.
+    const API_BASE_ALLOWLIST = [
+      "fleetaiops.com",
+      "www.fleetaiops.com"
+    ];
+
+    function isAllowedApiBase(raw) {
+      if (!raw) return false;
+      let url;
+      try { url = new URL(raw, window.location.origin); } catch (err) { return false; }
+      const host = url.hostname.toLowerCase();
+      const isLoopback = host === "localhost" || host === "127.0.0.1" || host === "[::1]"; // checkhosts:allow security-allowlist-not-a-request-target
+      if (url.protocol !== "https:" && !isLoopback) return false;
+      if (host === window.location.hostname.toLowerCase()) return true;
+      if (isLoopback) return true;
+      return API_BASE_ALLOWLIST.includes(host);
+    }
+
     function resolveApiUrl(path) {
-      const base = normalizeBase(readStorage(STORAGE_KEYS.apiBase, ""));
-      if (!base) return path;
-      return `${base}${path.startsWith("/") ? path : `/${path}`}`;
+      const raw = normalizeBase(readStorage(STORAGE_KEYS.apiBase, ""));
+      if (!raw) return path;
+      if (!isAllowedApiBase(raw)) {
+        console.warn("[fleetai] ignoring disallowed API base:", raw);
+        return path;
+      }
+      return `${raw}${path.startsWith("/") ? path : `/${path}`}`;
     }
 
     async function fetchJson(path, options = {}) {
@@ -771,21 +801,44 @@
       try { payload = text ? JSON.parse(text) : {}; } catch (err) { payload = null; }
       if (!response.ok) {
         const message = payload && (payload.message || payload.error || payload.code) ? (payload.message || payload.error || payload.code) : `HTTP ${response.status}`;
-        throw new Error(message);
+        // Attach the status so tryJson can tell a definitive server verdict
+        // apart from "this alias does not exist here".
+        const httpError = new Error(message);
+        httpError.status = response.status;
+        httpError.payload = payload;
+        throw httpError;
       }
       return payload;
     }
 
+    // Walks a list of candidate paths (the API has several aliases) and returns
+    // the first success.
+    //
+    // Previously this swallowed every failure and rethrew only the LAST one, so
+    // a meaningful 401/409/410 from the correct path was reported as whatever
+    // the final fallback happened to say — usually a generic 404. That is why
+    // pairing failures surfaced as an unhelpful "Server error" with no clue
+    // which step actually failed.
+    //
+    // Now: a definitive answer from the server (auth, conflict, gone, or a
+    // deliberate client error) is surfaced immediately rather than being
+    // masked by a later fallback, and if every path genuinely 404s the most
+    // informative error is reported instead of the last.
     async function tryJson(paths, options = {}) {
-      let lastError = null;
+      const errors = [];
       for (const path of paths) {
         try {
           return await fetchJson(path, options);
         } catch (err) {
-          lastError = err;
+          errors.push(err);
+          // A real verdict about THIS request — stop and report it.
+          if (err && err.status && err.status !== 404 && err.status !== 405) {
+            throw err;
+          }
         }
       }
-      throw lastError || new Error("Request failed");
+      const informative = errors.find((e) => e && e.status && e.status !== 404) || errors[0];
+      throw informative || new Error("Request failed");
     }
 
     function setFeedback(id, message, tone = "") {
@@ -1184,6 +1237,10 @@
       $("pairDeviceBtn").addEventListener("click", handlePairDevice);
       $("saveApiBtn").addEventListener("click", () => {
         const next = normalizeBase($("apiBaseInput").value);
+        if (next && !isAllowedApiBase(next)) {
+          setFeedback("authFeedback", "That API server is not allowed. Use the same site, an approved Fleet AI host, or a local address over HTTPS.", "bad");
+          return;
+        }
         writeStorage(STORAGE_KEYS.apiBase, next);
         setFeedback("authFeedback", next ? `Saved server ${next}` : "Using current site origin.", "good");
       });

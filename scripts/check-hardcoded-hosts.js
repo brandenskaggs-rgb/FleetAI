@@ -30,12 +30,23 @@ function walk(dir, results) {
   }
 }
 
+// The point of this check is to stop a developer's server address being baked
+// into shipped UI, where it would silently break in production. That is not the
+// same thing as code which *names* loopback in order to make a decision about
+// it — an allowlist that permits http only for localhost, for instance, must
+// mention localhost to do its job.
+//
+// A line may opt out with a trailing `checkhosts:allow <reason>` comment. The
+// reason is mandatory so an exemption cannot be added silently.
+const ALLOW_MARKER = /checkhosts:allow\s+\S+/;
+
 function scanFile(filePath) {
   const content = fs.readFileSync(filePath, "utf8");
   const lines = content.split(/\r?\n/);
   const hits = [];
   for (let i = 0; i < lines.length; i += 1) {
     const line = lines[i];
+    if (ALLOW_MARKER.test(line)) continue;
     for (const pattern of PATTERNS) {
       if (pattern.test(line)) {
         hits.push({ line: i + 1, text: line.trim(), pattern: pattern.toString() });

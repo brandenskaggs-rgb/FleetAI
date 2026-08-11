@@ -809,6 +809,12 @@ function rowToPairing(row) {
     orgId: row.orgId,
     status: row.status,
     expiresAt: expiresAtIso,
+    // Deliberately the same instant as expiresAt — the PIN has no independent
+    // lifetime. The separate field name is kept because the Android app and
+    // tablet both read it, but callers must not infer that the PIN outlives, or
+    // expires before, the pairing itself. In practice the PIN stops mattering
+    // earlier than either: once the pairing is claimed its status becomes
+    // "active" and the claim handler no longer consults the PIN at all.
     driverPinExpiresAt: expiresAtIso,
     claimedAt: row.claimedAt instanceof Date ? row.claimedAt.toISOString() : row.claimedAt,
     revokedAt: row.revokedAt instanceof Date ? row.revokedAt.toISOString() : row.revokedAt,

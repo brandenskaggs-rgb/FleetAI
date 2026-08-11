@@ -2741,9 +2741,14 @@ function buildFallbackExplanation(event) {
 }
 
 function generateDigits(length) {
+  // crypto.randomInt, not Math.random: these digits become pairing codes and
+  // driver PINs — security tokens that gate a device onto a real vehicle.
+  // Math.random is a non-cryptographic PRNG whose output is predictable from
+  // prior values, which would let an attacker anticipate the next issued code
+  // rather than having to brute force it against the rate limiter.
   let out = "";
   for (let i = 0; i < length; i += 1) {
-    out += Math.floor(Math.random() * 10);
+    out += crypto.randomInt(0, 10);
   }
   return out;
 }

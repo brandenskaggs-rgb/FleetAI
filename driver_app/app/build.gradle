@@ -17,7 +17,18 @@ android {
 
         // Set FLEETAI_BASE_URL in gradle.properties or via -PFLEETAI_BASE_URL=https://...
         // to point the driver app at your Fleet AI server (e.g. the Railway deployment).
-        def baseUrl = project.findProperty("FLEETAI_BASE_URL") ?: "https://your-fleet-ai.up.railway.app"
+        def baseUrl = project.findProperty("FLEETAI_BASE_URL") ?: "https://fleetaiops.com"
+        // Cleartext is denied by res/xml/network_security_config.xml except for
+        // loopback, so a plain-http base would fail at runtime rather than
+        // silently sending the driver PIN and device token unencrypted. Catch
+        // it at build time instead, where it is obvious.
+        if (!baseUrl.startsWith("https://")
+                && !baseUrl.startsWith("http://localhost")
+                && !baseUrl.startsWith("http://127.0.0.1")
+                && !baseUrl.startsWith("http://10.0.2.2")) {
+            throw new GradleException(
+                "FLEETAI_BASE_URL must use https:// (or be a loopback address for local development). Got: ${baseUrl}")
+        }
         buildConfigField "String", "BASE_URL", "\"${baseUrl}\""
     }
 

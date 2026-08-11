@@ -1,4 +1,29 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  Cleartext HTTP is denied by default.
+
+  The previous config was `<base-config cleartextTrafficPermitted="true"/>`,
+  which permitted plain HTTP to ANY host for the whole app. Combined with a
+  placeholder default BASE_URL, a misconfigured build would send the company
+  code, driver PIN and device session token over an unencrypted connection —
+  readable by anyone on the same truck-stop or depot wifi.
+
+  Cleartext is now allowed only for loopback and private-range addresses, so a
+  developer can still point a debug build at a laptop on the LAN, while any
+  build talking to a real server is forced onto TLS.
+-->
 <network-security-config>
-    <base-config cleartextTrafficPermitted="true" />
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+
+    <!-- Local development targets only. These are not routable on the internet. -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">localhost</domain>
+        <domain includeSubdomains="false">127.0.0.1</domain>
+        <!-- Android emulator's alias for the host machine -->
+        <domain includeSubdomains="false">10.0.2.2</domain>
+    </domain-config>
 </network-security-config>

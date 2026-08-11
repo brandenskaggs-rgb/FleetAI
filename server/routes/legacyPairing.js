@@ -104,17 +104,51 @@ function registerLegacyPairingRoutes(app, deps) {
     };
   }
 
+  // Constant-time PIN comparison. `!==` short-circuits on the first differing
+  // character, so response time leaks how many leading digits were correct —
+  // which turns a 6-digit PIN into roughly 60 guesses instead of a million.
+  // The rate limiter made that hard to exploit; it should not be the only
+  // thing standing in the way.
+  function timingSafeEquals(a, b) {
+    const bufA = Buffer.from(String(a ?? ""), "utf8");
+    const bufB = Buffer.from(String(b ?? ""), "utf8");
+    // timingSafeEqual throws on length mismatch, which would itself leak length.
+    // Hash both sides to a fixed width first, then compare.
+    const hashA = crypto.createHash("sha256").update(bufA).digest();
+    const hashB = crypto.createHash("sha256").update(bufB).digest();
+    return crypto.timingSafeEqual(hashA, hashB);
+  }
+
   function driverDisplayName(driver) {
     if (!driver) return "";
     return `${driver.firstName || ""} ${driver.lastName || ""}`.trim();
   }
 
-  // Builds the field set for a new pairing. pairingCode is a single
-  // generateDigits(6) call with no uniqueness check here — handlePairCodeGenerate
-  // overwrites it with a collision-checked code afterward; handlePairCodeReplace
-  // does not (this asymmetry matches the original implementation exactly).
-  function createPairingFields({ vehicleId, driverId, orgId }) {
-    const pairingCode = generateDigits(6);
+  // Allocates a pairing code that is not currently in use.
+  //
+  // The previous loop ran `while (inUse && attempts < 5)` and then used
+  // whatever code it last produced — so on five consecutive collisions it
+  // issued a DUPLICATE. findPairingByCode does findFirst, so a duplicate means
+  // a device claiming that code can be bound to the wrong vehicle. It also only
+  // guarded the generate path; handlePairCodeReplace created codes with no
+  // uniqueness check at all.
+  //
+  // Now: more attempts, and a hard failure instead of a silent collision. A
+  // caller seeing PAIRING_CODE_ALLOCATION_FAILED can retry; a driver sent to
+  // the wrong truck cannot.
+  async function allocateUniquePairingCode(maxAttempts = 12) {
+    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+      const candidate = generateDigits(6);
+      if (!(await db.isPairingCodeInUse(candidate))) return candidate;
+    }
+    const err = new Error("Could not allocate an unused pairing code");
+    err.code = "PAIRING_CODE_ALLOCATION_FAILED";
+    throw err;
+  }
+
+  // Builds the field set for a new pairing. The caller supplies a code that has
+  // already been checked for uniqueness — both creation paths now do this.
+  function createPairingFields({ vehicleId, driverId, orgId, pairingCode }) {
     const driverPin = generateDriverPin();
     const expiresAt = new Date(Date.now() + 24 * 60 * 60000).toISOString();
     return {
@@ -152,15 +186,8 @@ function registerLegacyPairingRoutes(app, deps) {
         replacedAssignmentId = replacedAssignmentId || p.id;
       }
 
-      let pairingCode;
-      let attempts = 0;
-      do {
-        pairingCode = generateDigits(6);
-        attempts += 1;
-      } while (await db.isPairingCodeInUse(pairingCode) && attempts < 5);
-
-      const fields = createPairingFields({ vehicleId, driverId, orgId: req.body?.orgId });
-      fields.pairingCode = pairingCode;
+      const pairingCode = await allocateUniquePairingCode();
+      const fields = createPairingFields({ vehicleId, driverId, orgId: req.body?.orgId, pairingCode });
       const pairing = await db.createPairing(fields);
 
       const payload = {
@@ -222,7 +249,8 @@ function registerLegacyPairingRoutes(app, deps) {
       for (const p of toReplace) {
         await db.updatePairing(p.id, { status: "replaced", expiresAt: now });
       }
-      const fields = createPairingFields({ vehicleId, driverId, orgId: req.body?.orgId });
+      const pairingCode = await allocateUniquePairingCode();
+      const fields = createPairingFields({ vehicleId, driverId, orgId: req.body?.orgId, pairingCode });
       const pairing = await db.createPairing(fields);
       res.json({
         ok: true,
@@ -300,7 +328,7 @@ function registerLegacyPairingRoutes(app, deps) {
           pushPairingDebug(pairingDebug.claims, { time: nowIso(), pairingCode: pairing.pairingCode, deviceId: input.deviceId, status: "pin_required" });
           return res.status(401).json({ ok: false, error: "PIN_REQUIRED", message: "Driver PIN required to claim this pairing.", ...(debugMode ? { debug: { normalized: input } } : {}) });
         }
-        if (input.driverPin !== pairing.driverPin) {
+        if (!timingSafeEquals(input.driverPin, pairing.driverPin)) {
           log("[PAIR-CLAIM] pin_mismatch", { pairingCode: pairing.pairingCode, deviceId: input.deviceId });
           pushPairingDebug(pairingDebug.claims, { time: nowIso(), pairingCode: pairing.pairingCode, deviceId: input.deviceId, status: "pin_mismatch" });
           return res.status(401).json({ ok: false, error: "PIN_INVALID", message: "Driver PIN does not match.", ...(debugMode ? { debug: { normalized: input } } : {}) });
@@ -398,7 +426,7 @@ function registerLegacyPairingRoutes(app, deps) {
   app.get("/pairings/active", requireEmployeeOrCustomerApi, handlePairingsActive);
   app.get("/api/pairings/active", requireEmployeeOrCustomerApi, handlePairingsActive);
 
-  app.post("/auth/driverLogin", pairingClaimLimiter, async (req, res, next) => {
+  async function handleDriverLogin(req, res, next) {
     const { companyCode, driverPin } = req.body || {};
     const normalizedCompanyCode = normalizeCompanyCode(companyCode);
     const normalizedDriverPin = sanitizeString(driverPin || "", 20).replace(/\D+/g, "").slice(0, 6);
@@ -443,12 +471,16 @@ function registerLegacyPairingRoutes(app, deps) {
     } catch (err) {
       next(err);
     }
-  });
+  }
 
-  app.post("/api/auth/driverLogin", (req, res, next) => {
-    req.url = "/auth/driverLogin";
-    app.handle(req, res, next);
-  });
+  // Both aliases register the same handler directly. This previously mutated
+  // req.url and called app.handle() to re-enter the router, which re-ran the
+  // ENTIRE middleware stack for the second path — including pairingClaimLimiter,
+  // so a single login consumed two of the caller's ten allowed attempts per
+  // minute and could rate-limit a legitimate driver at half the intended
+  // threshold.
+  app.post("/auth/driverLogin", pairingClaimLimiter, handleDriverLogin);
+  app.post("/api/auth/driverLogin", pairingClaimLimiter, handleDriverLogin);
 
   app.post("/api/pairing/create", requireEmployeeOrCustomerApi, async (req, res, next) => {
     const { vehicleId, driverId } = req.body || {};
@@ -456,7 +488,8 @@ function registerLegacyPairingRoutes(app, deps) {
     try {
       const [vehicle, driver] = await Promise.all([db.getVehicleByVehicleId(vehicleId), db.getDriverByDriverId(driverId)]);
       if (!vehicle || !driver) return res.status(404).json({ error: "Vehicle or driver not found" });
-      const fields = createPairingFields({ vehicleId, driverId, orgId: req.body?.orgId });
+      const pairingCode = await allocateUniquePairingCode();
+      const fields = createPairingFields({ vehicleId, driverId, orgId: req.body?.orgId, pairingCode });
       const pairing = await db.createPairing(fields);
       res.json({ ok: true, pairingId: pairing.id, pairingCode: pairing.pairingCode, driverPin: pairing.driverPin, expiresAt: pairing.expiresAt });
     } catch (err) {
