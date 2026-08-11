@@ -1,7 +1,7 @@
 -- On-board diagnostic scans. One row per scan run, including clean scans
 -- (evidence the truck was checked). Codes/summary stored already-decoded so
 -- historical rows do not depend on the current catalog contents.
-CREATE TABLE "DiagnosticScan" (
+CREATE TABLE IF NOT EXISTS "DiagnosticScan" (
     "id" TEXT NOT NULL,
     "orgId" TEXT,
     "vehicleId" TEXT NOT NULL,
@@ -18,10 +18,14 @@ CREATE TABLE "DiagnosticScan" (
     CONSTRAINT "DiagnosticScan_pkey" PRIMARY KEY ("id")
 );
 
-CREATE INDEX "DiagnosticScan_vehicleId_scannedAt_idx" ON "DiagnosticScan"("vehicleId", "scannedAt");
-CREATE INDEX "DiagnosticScan_orgId_severity_idx" ON "DiagnosticScan"("orgId", "severity");
+CREATE INDEX IF NOT EXISTS "DiagnosticScan_vehicleId_scannedAt_idx" ON "DiagnosticScan"("vehicleId", "scannedAt");
+CREATE INDEX IF NOT EXISTS "DiagnosticScan_orgId_severity_idx" ON "DiagnosticScan"("orgId", "severity");
 
-ALTER TABLE "DiagnosticScan" ADD CONSTRAINT "DiagnosticScan_vehicleId_fkey"
-    FOREIGN KEY ("vehicleId") REFERENCES "Vehicle"("vehicleId") ON DELETE SET NULL ON UPDATE CASCADE;
-ALTER TABLE "DiagnosticScan" ADD CONSTRAINT "DiagnosticScan_orgId_fkey"
-    FOREIGN KEY ("orgId") REFERENCES "Org"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "DiagnosticScan" ADD CONSTRAINT "DiagnosticScan_vehicleId_fkey"
+        FOREIGN KEY ("vehicleId") REFERENCES "Vehicle"("vehicleId") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN
+    ALTER TABLE "DiagnosticScan" ADD CONSTRAINT "DiagnosticScan_orgId_fkey"
+        FOREIGN KEY ("orgId") REFERENCES "Org"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;

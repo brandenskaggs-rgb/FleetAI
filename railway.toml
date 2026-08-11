@@ -1,4 +1,17 @@
+# Start command is declared HERE explicitly.
+#
+# Railway was falling back to package.json "start", which ran
+# `prisma db push` — a prototyping command that diffs the schema straight onto
+# the database, keeps no history, cannot roll back, and IGNORES the entire
+# prisma/migrations folder. Three files disagreed about how to boot
+# (package.json, Procfile, and this one) and the wrong one silently won, so
+# every migration written for this project was decorative and the 2026-08-11
+# deploy failed outright when db push refused to add a unique constraint.
+#
+# migrate deploy applies the tracked migrations in order and is the correct
+# production path.
 [deploy]
+startCommand = "npx prisma migrate deploy && node server.js"
 healthcheckPath = "/api/health"
 healthcheckTimeout = 30
 restartPolicyType = "on_failure"
