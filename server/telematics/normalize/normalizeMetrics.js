@@ -1,11 +1,57 @@
 const { fToC, mphToKph, milesToKm, gphToLph } = require("./units");
 
+// True when an object carries at least one recognised reading key. Used to tell
+// a wrapper object ({ metrics: {...} }) apart from a flat reading map, without
+// guessing from structure alone.
+const READING_KEYS = [
+  "rpm", "engineLoadPct", "engine_load", "torquePct",
+  "coolantTempC", "coolantTempF", "oilTempC", "oilTempF",
+  "intakeAirTempC", "intakeAirTempF", "mafGramsPerSec", "maf",
+  "fuelRateLph", "fuelRateGph", "throttlePosPct",
+  "stft1", "shortTermFuelTrim", "ltft1", "longTermFuelTrim",
+  "batteryVoltageV", "batteryVoltage",
+  "speedKph", "speedMph", "odometerKm", "odometerMiles",
+  "engineHours", "fuelLevelPct",
+  "egtC", "dpfSootLoadPct", "regenActive"
+];
+
+function hasAnyReading(obj) {
+  if (!obj || typeof obj !== "object") return false;
+  return READING_KEYS.some((k) => obj[k] !== undefined);
+}
+
 function normalizeMetrics(input) {
-  const decoded = input.decoded || {};
-  const metrics = decoded.metrics || decoded || {};
-  const dtc = decoded.dtc || {};
-  const meta = decoded.meta || {};
-  const protocol = String(input.protocol || "UNKNOWN").toUpperCase();
+  const src = input || {};
+
+  // Accept three shapes, because three different callers produce three
+  // different ones and only the first used to work:
+  //
+  //   1. { decoded: { metrics, dtc, meta } }   gateway/OEM ingestion
+  //   2. { metrics, dtc, meta }                server-side callers
+  //   3. { rpm: 1450, speedKph: 95, ... }      a FLAT reading map — what the
+  //                                            Android tablet actually posts
+  //
+  // The previous expression was:
+  //     const decoded = input.decoded || {};
+  //     const metrics = decoded.metrics || decoded || {};
+  //
+  // For shape 3, input.decoded is undefined so decoded became {}. `{}` is
+  // truthy, so `decoded.metrics || decoded` short-circuited to that empty
+  // object and the caller's readings were never looked at. Every field came
+  // back null. That silently emptied the entire tablet -> backend -> dashboard
+  // telemetry path: /api/telemetry/ingest passes payload.metrics straight in,
+  // so a truck streaming real OBD-II data produced an all-null snapshot and the
+  // fleet manager saw a connected vehicle reporting nothing.
+  const decoded = (src.decoded && typeof src.decoded === "object") ? src.decoded : null;
+  const metrics =
+    (decoded && decoded.metrics && typeof decoded.metrics === "object") ? decoded.metrics
+    : (decoded && hasAnyReading(decoded)) ? decoded
+    : (src.metrics && typeof src.metrics === "object") ? src.metrics
+    : src;
+
+  const dtc = (decoded && decoded.dtc) || src.dtc || {};
+  const meta = (decoded && decoded.meta) || src.meta || {};
+  const protocol = String(src.protocol || (decoded && decoded.protocol) || "UNKNOWN").toUpperCase();
 
   const engine = {
     rpm: metrics.rpm ?? null,

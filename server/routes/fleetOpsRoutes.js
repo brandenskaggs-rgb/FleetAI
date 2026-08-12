@@ -229,7 +229,11 @@ function registerFleetOpsRoutes(app, deps) {
         });
       }
       const metrics = normalizeMetrics(payload.metrics || payload.data || payload);
-      const ts = payload.ts || nowIso();
+      // The Android tablet sends `timestamp`; only `ts` was read, so every
+      // reading was stamped with server receive time instead of the moment it
+      // came off the bus. Over a cellular link that is seconds of skew on data
+      // whose whole value is when it happened.
+      const ts = payload.ts || payload.timestamp || nowIso();
       const snapshot = {
         vehicleId,
         driverId: req.device
@@ -239,13 +243,29 @@ function registerFleetOpsRoutes(app, deps) {
           ? (req.device.deviceId || "")
           : sanitizeString(payload.deviceId || payload.device_id || "", 120),
         ts,
-        metrics
+        metrics,
+        // Link state from the tablet: lets the dashboard tell "reporting
+        // normally" apart from "tablet online but OBD adapter unplugged",
+        // which otherwise both look like silence.
+        obdConnected: payload.obdConnected !== undefined ? Boolean(payload.obdConnected) : null,
+        lastObdPacketAt: payload.lastObdPacketAt || null,
+        protocol: sanitizeString(payload.protocol || "", 24) || null
       };
       if (vehicleId) {
         telemetryLatest.set(vehicleId, snapshot);
       }
       await storeNormalizedSnapshot({ vehicleId, driverId: snapshot.driverId, deviceId: snapshot.deviceId, ts, metrics });
       await triggerTelemetryPipeline({ vehicleId, driverId: snapshot.driverId, deviceId: snapshot.deviceId, ts, metrics });
+
+      // Fan out to the fleet manager's dashboard in real time. Resolved from
+      // the pairing for a device, otherwise looked up from the vehicle, so a
+      // snapshot is only ever delivered inside its owning organisation.
+      let snapshotOrgId = req.device ? (req.device.orgId || null) : null;
+      if (!snapshotOrgId) {
+        snapshotOrgId = await db.getVehicleOrgId(vehicleId).catch(() => null);
+      }
+      broadcastTelemetry(snapshot, snapshotOrgId);
+
       res.json({ ok: true, stored: true, snapshot });
     } catch (err) {
       next(err);
@@ -305,6 +325,44 @@ function registerFleetOpsRoutes(app, deps) {
     res.json({ ok: true, status: state.status, lastSampleAt: state.lastSampleAt, ageMs: state.ageMs, subscribers: telemetrySubscribers.size });
   });
 
+
+  // Push a snapshot to every entitled live subscriber.
+  //
+  // This did not exist. /api/telemetry/stream added subscribers to the set and
+  // sent them a hello plus a heartbeat every 15s, but NOTHING ever wrote
+  // telemetry to them — so the dashboard connected, displayed "Connected", and
+  // received only heartbeats forever. The tablet -> backend -> dashboard
+  // real-time path terminated one hop short of the screen.
+  //
+  // Delivery is filtered by the scope captured at subscribe time, so a device
+  // only ever receives its own vehicle and an operator only receives vehicles
+  // belonging to their organisation.
+  function broadcastTelemetry(snapshot, orgId) {
+    if (!snapshot || !telemetrySubscribers.size) return;
+    const frame = `data: ${JSON.stringify(snapshot)}\n\n`;
+    for (const sub of telemetrySubscribers) {
+      const scope = sub.__fleetScope;
+      if (scope) {
+        if (scope.kind === "device" && scope.vehicleId !== snapshot.vehicleId) continue;
+        // An operator with no resolvable org sees nothing rather than
+        // everything: failing closed is the correct default for a leak that
+        // would otherwise be silent.
+        if (scope.kind === "operator") {
+          if (!scope.orgId) continue;
+          if (orgId && scope.orgId !== orgId) continue;
+          if (!orgId) continue;
+        }
+      } else {
+        continue;
+      }
+      try {
+        sub.write(frame);
+      } catch (_) {
+        telemetrySubscribers.delete(sub);
+      }
+    }
+  }
+
   // SSE feed of all telemetry — was public, so anyone could subscribe to the
   // whole fleet in real time. EventSource cannot set headers, so the device
   // token may also arrive as ?deviceToken= (see middleware/deviceAuth.js).
@@ -312,9 +370,27 @@ function registerFleetOpsRoutes(app, deps) {
     res.writeHead(200, {
       "Content-Type": "text/event-stream",
       "Cache-Control": "no-cache, no-store, must-revalidate",
-      Connection: "keep-alive"
+      Connection: "keep-alive",
+      // Proxies buffer text/event-stream by default, holding events until the
+      // buffer fills — the stream looks connected and silent.
+      "X-Accel-Buffering": "no"
     });
-    res.write(`event: hello\ndata: ${JSON.stringify({ ok: true, now: nowIso() })}\n\n`);
+    if (typeof res.flushHeaders === "function") res.flushHeaders();
+
+    // Scope the subscription. A device sees only the truck it is paired to; an
+    // operator sees only their own organisation's vehicles. Without this the
+    // feed is fleet-wide across every tenant — the same cross-tenant leak the
+    // REST telemetry routes had.
+    res.__fleetScope = req.device
+      ? { kind: "device", vehicleId: req.device.vehicleId, orgId: req.device.orgId || null }
+      : { kind: "operator", vehicleId: null, orgId: null };
+    if (!req.device) {
+      resolveRequestOrgId(req)
+        .then((orgId) => { res.__fleetScope.orgId = orgId || null; })
+        .catch(() => {});
+    }
+
+    res.write(`event: hello\ndata: ${JSON.stringify({ ok: true, now: nowIso(), scope: res.__fleetScope.kind })}\n\n`);
     telemetrySubscribers.add(res);
     const heartbeat = setInterval(() => {
       try {
