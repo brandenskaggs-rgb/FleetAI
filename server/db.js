@@ -898,7 +898,10 @@ async function issueDeviceToken(pairingId) {
 async function findPairingByDeviceToken(rawToken) {
   const token = String(rawToken || "");
   if (!token.startsWith("dev_")) return null;
-  const row = await getPrisma().pairing.findUnique({
+  // findFirst, not findUnique: deviceTokenHash is indexed but not declared
+  // unique (see prisma/schema.prisma for why). Functionally identical here —
+  // the hash of 32 random bytes identifies exactly one row.
+  const row = await getPrisma().pairing.findFirst({
     where: { deviceTokenHash: hashDeviceToken(token) }
   });
   if (!row) return null;

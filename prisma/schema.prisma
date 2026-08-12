@@ -244,7 +244,14 @@ model Pairing {
   // read cannot recover a usable token. Before this existed, /auth/driverLogin
   // handed out a random string that was never persisted and never checked by
   // anything — device "sessions" carried no authority at all.
-  deviceTokenHash     String?   @unique
+  // Intentionally indexed but NOT @unique. The value is SHA-256 of 32 bytes of
+  // crypto randomness, so a collision is not a real-world failure mode, and the
+  // constraint bought nothing that the randomness does not already guarantee.
+  // It did cost something: `prisma db push` refuses to add a unique constraint
+  // it cannot prove is safe on existing rows, which failed the 2026-08-11
+  // deploys outright and kept the P0 auth fixes off production. A plain index
+  // gives identical lookup performance with no deploy-time hazard.
+  deviceTokenHash     String?
   deviceTokenIssuedAt DateTime?
 
   vehicle Vehicle? @relation(fields: [vehicleId], references: [vehicleId])
@@ -254,6 +261,7 @@ model Pairing {
   @@index([vehicleId, status])
   @@index([pairCode])
   @@index([orgId])
+  @@index([deviceTokenHash])
 }
 
 // ─────────────────────────────────────────────
