@@ -1130,9 +1130,58 @@ async function listOpenDiagnosticScans(orgId, { limit = 50 } = {}) {
   return rows.map(rowToDiagnosticScan);
 }
 
+
+// ─── Events (HOS duty status, and other vehicle-scoped occurrences) ──────────
+// The Event model stores its body in `metricsSnapshot` and its time in
+// `detectedAt`; callers pass a friendlier {payload, createdAt} and the mapping
+// happens here so route code is not coupled to those column names.
+
+async function insertEvent({ orgId, vehicleId, type, severity, payload, createdAt, dedupeKey } = {}) {
+  await ensureVehicleStub(vehicleId);
+  const row = await getPrisma().event.create({
+    data: {
+      orgId: orgId || null,
+      vehicleId,
+      type,
+      severity: severity || "info",
+      dedupeKey: dedupeKey || null,
+      detectedAt: toDate(createdAt),
+      metricsSnapshot: payload || {}
+    },
+    select: { id: true }
+  });
+  return row.id;
+}
+
+function rowToEvent(row) {
+  return {
+    id: row.id,
+    orgId: row.orgId,
+    vehicleId: row.vehicleId,
+    type: row.type,
+    severity: row.severity,
+    status: row.status,
+    payload: row.metricsSnapshot || {},
+    createdAt: row.detectedAt instanceof Date ? row.detectedAt.toISOString() : row.detectedAt
+  };
+}
+
+async function listEventsForVehicle(vehicleId, { type = null, limit = 100 } = {}) {
+  const where = { vehicleId };
+  if (type) where.type = type;
+  const rows = await getPrisma().event.findMany({
+    where,
+    orderBy: { detectedAt: "desc" },
+    take: limit
+  });
+  return rows.map(rowToEvent);
+}
+
 module.exports = {
   getPrisma,
   makeId,
+  insertEvent,
+  listEventsForVehicle,
   insertDiagnosticScan,
   listDiagnosticScans,
   listOpenDiagnosticScans,

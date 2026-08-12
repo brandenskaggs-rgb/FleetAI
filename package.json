@@ -31,7 +31,9 @@
     "verify": "npm run preflight && npm run audit:links",
     "launch:check": "node scripts/validate-config.js && node tools/preflight-check.js && node scripts/ui-smoke.js && node scripts/check-dashboard-pairing.js && node scripts/check-hardcoded-hosts.js && node tools/link-audit.js",
     "tag:known-good": "node tools/print-tag-instructions.js",
-    "test:chain": "node tests/telemetry-chain.test.js"
+    "test:chain": "node tests/telemetry-chain.test.js",
+    "test:contract": "node tests/driver-app-contract.test.js",
+    "test:integration": "node tests/telemetry-chain.test.js && node tests/driver-app-contract.test.js"
   },
   "keywords": [],
   "author": "",
