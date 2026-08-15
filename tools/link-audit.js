@@ -5,10 +5,26 @@ const ROOT = process.cwd();
 
 function listHtmlFiles() {
   const results = [];
+  const ignoredDirs = new Set([
+    "node_modules",
+    ".git",
+    ".gradle",
+    ".pytest_cache",
+    ".vs",
+    "build",
+    "dist",
+    "coverage"
+  ]);
   function walk(dir) {
     const base = path.basename(dir);
-    if (base === "node_modules" || base === ".git" || base === ".gradle" || base === "build") return;
-    const entries = fs.readdirSync(dir, { withFileTypes: true });
+    if (ignoredDirs.has(base)) return;
+    let entries = [];
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch (err) {
+      if (err && (err.code === "EPERM" || err.code === "EACCES" || err.code === "ENOENT")) return;
+      throw err;
+    }
     entries.forEach((e) => {
       const p = path.join(dir, e.name);
       if (e.isDirectory()) walk(p);

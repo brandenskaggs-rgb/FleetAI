@@ -1,9 +1,9 @@
 <svg width="160" height="160" viewBox="0 0 160 160" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
   <title id="title">Fleet AI mark</title>
-  <desc id="desc">A minimal blue road and signal mark for Fleet AI.</desc>
-  <rect width="160" height="160" rx="36" fill="#1F5EFF"/>
-  <path d="M39 98.8C39 90.6 45.6 84 53.8 84H78.3C88.2 84 97.5 79.1 103 70.9L119.2 46.8H138L114.8 81.3C106.6 93.5 92.9 100.8 78.2 100.8H39V98.8Z" fill="white"/>
-  <path d="M39 121.8C39 113.6 45.6 107 53.8 107H91.7C101.6 107 110.9 102.1 116.4 93.9L123.7 83H142.5L128.2 104.3C120 116.5 106.3 123.8 91.6 123.8H39V121.8Z" fill="#10233F"/>
-  <path d="M39 75.8C39 67.6 45.6 61 53.8 61H68.9C78.8 61 88.1 56.1 93.6 47.9L98.4 40.8H117.2L105.4 58.3C97.2 70.5 83.5 77.8 68.8 77.8H39V75.8Z" fill="white" fill-opacity=".68"/>
-  <circle cx="124" cy="45" r="12" fill="#14B873"/>
+  <desc id="desc">A simple geometric Fleet AI mark made from forward-leaning signal bars.</desc>
+  <rect width="160" height="160" rx="28" fill="#174EA6"/>
+  <path d="M43 42H118L108 58H33L43 42Z" fill="white"/>
+  <path d="M52 70H107L97 86H42L52 70Z" fill="white" fill-opacity=".88"/>
+  <path d="M61 98H96L86 114H51L61 98Z" fill="white" fill-opacity=".76"/>
+  <path d="M100 42H122L86 114H64L100 42Z" fill="#8DB7FF"/>
 </svg>

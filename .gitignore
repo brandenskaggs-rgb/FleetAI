@@ -15,6 +15,7 @@ server/sessions.json.tmp
 server/logs/
 server/state/
 /tmp/fleetai_test_cookie.txt
+/tmp-*.png
 
 # Python artifacts and local model binaries
 **/__pycache__/

@@ -1,409 +1,1243 @@
 <!doctype html>
-<html lang="en" data-theme="light-blue">
+<html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Fleet AI — Fleet Reliability &amp; Maintenance Operations</title>
-  <meta name="description" content="Fleet AI learns each vehicle's normal operating baseline, catches the drift while the truck is still running, and hands your shop a ranked list of what to pull first." />
-  <link rel="stylesheet" href="css/fonts.css?v=20260729b" />
-  <link rel="stylesheet" href="css/site-tokens.css?v=20260729b" />
-  <link rel="stylesheet" href="css/site-theme.css?v=20260729b" />
-  <link rel="stylesheet" href="css/site-components.css?v=20260729b" />
-  <link rel="stylesheet" href="css/site-layout.css?v=20260729b" />
-  <link rel="stylesheet" href="css/landing.css?v=20260729b" />
-  <link rel="preload" as="image" href="assets/images/hero-truck-1600.webp"
-        imagesrcset="assets/images/hero-truck-800.webp 800w, assets/images/hero-truck-1200.webp 1200w, assets/images/hero-truck-1600.webp 1600w" />
-  <script>try{document.documentElement.dataset.theme="light-blue";}catch(e){}</script>
-</head>
-<body class="lp">
+  <title>Fleet AI - Predictive Fleet Maintenance Platform</title>
+  <meta name="description" content="Fleet AI learns each vehicle's normal telemetry baseline, detects mechanical drift, and turns risk into prioritized maintenance action before downtime takes over." />
+  <link rel="stylesheet" href="css/fonts.css?v=20260813" />
+  <link rel="preload" as="image" href="assets/images/fleetai-highway-semi-fleet.png" />
+  <style>
+    :root {
+      --bg: #f5f7fa;
+      --paper: #ffffff;
+      --paper-soft: #eef3f8;
+      --ink: #071426;
+      --muted: #5f6f83;
+      --soft: #8795a8;
+      --line: rgba(20, 35, 57, .09);
+      --blue: #174ea6;
+      --blue-dark: #0f3b7c;
+      --amber: #f0a536;
+      --green: #158f5d;
+      --red: #cf3f3f;
+      --shadow: 0 18px 48px rgba(15, 34, 58, .11);
+      --shadow-soft: 0 10px 30px rgba(15, 34, 58, .075);
+      --radius: 22px;
+      --radius-sm: 13px;
+      --font: Archivo, Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
 
-  <header class="siteHeader siteHeader--over">
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at 14% 0%, rgba(23, 78, 166, .06), transparent 30rem),
+        linear-gradient(180deg, #fbfcfe 0%, var(--bg) 48%, #ffffff 100%);
+      color: var(--ink);
+      font-family: var(--font);
+      font-size: 15px;
+      line-height: 1.55;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+
+    img { max-width: 100%; display: block; }
+    a { color: inherit; text-decoration: none; }
+    button, input, textarea, select { font: inherit; }
+    .container { width: min(1180px, calc(100% - 40px)); margin: 0 auto; }
+
+    .siteHeader {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      background: rgba(251, 252, 254, .84);
+      backdrop-filter: blur(22px);
+    }
+
+    .siteHeader__row {
+      height: 74px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 22px;
+    }
+
+    .wordmark {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 850;
+      letter-spacing: -.02em;
+      color: #09192d;
+    }
+
+    .wordmark img { width: 31px; height: 31px; }
+    .wordmark span { font-size: 17px; }
+    .brandAI { color: var(--blue); }
+
+    .siteNav {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 720;
+    }
+
+    .siteNav a {
+      padding: 9px 11px;
+      border-radius: 7px;
+      transition: background .18s ease, color .18s ease;
+    }
+
+    .siteNav a:hover { background: rgba(24, 93, 220, .07); color: var(--ink); }
+
+    .siteActions { display: flex; align-items: center; gap: 10px; }
+    .navToggle { display: none; }
+
+    .btn {
+      --btn-bg: transparent;
+      --btn-color: var(--ink);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 9px;
+      min-height: 42px;
+      padding: 0 16px;
+      border: 0;
+      border-radius: 7px;
+      background: var(--btn-bg);
+      color: var(--btn-color);
+      font-size: 13px;
+      font-weight: 780;
+      white-space: nowrap;
+      cursor: pointer;
+      transition: transform .18s ease, background .18s ease, box-shadow .18s ease;
+    }
+
+    .btn svg { width: 16px; height: 16px; stroke-width: 2.2; }
+    .btn:hover { transform: translateY(-1px); }
+    .btn.primary {
+      --btn-bg: var(--blue);
+      --btn-color: #fff;
+      box-shadow: 0 14px 30px rgba(24, 93, 220, .22);
+    }
+    .btn.primary:hover { background: var(--blue-dark); }
+    .btn.ghost { color: var(--muted); }
+    .btn.ghost:hover { background: rgba(7, 20, 38, .055); color: var(--ink); }
+    .btn.dark {
+      --btn-bg: var(--blue-dark);
+      --btn-color: #fff;
+      box-shadow: 0 10px 24px rgba(23, 78, 166, .18);
+    }
+
+    .hero {
+      position: relative;
+      padding: 62px 0 34px;
+      overflow: hidden;
+    }
+
+    .heroGrid {
+      display: grid;
+      grid-template-columns: minmax(0, .92fr) minmax(420px, 1.08fr);
+      gap: 44px;
+      align-items: center;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 18px;
+      color: var(--green);
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .11em;
+      text-transform: uppercase;
+    }
+
+    .eyebrow::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-radius: 7px;
+      background: currentColor;
+      box-shadow: 0 0 0 5px rgba(21, 143, 93, .12);
+    }
+
+    h1, h2, h3, p { margin-top: 0; }
+    h1 {
+      margin-bottom: 22px;
+      max-width: 760px;
+      font-size: clamp(42px, 5.6vw, 68px);
+      line-height: .98;
+      letter-spacing: -.052em;
+      font-weight: 900;
+    }
+
+    h1 span { color: var(--blue); }
+    .heroLead {
+      max-width: 660px;
+      margin-bottom: 26px;
+      color: #344458;
+      font-size: clamp(17px, 1.6vw, 19px);
+      line-height: 1.48;
+      letter-spacing: -.015em;
+    }
+
+    .heroActions { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 34px; }
+
+    .proofRow {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      max-width: 660px;
+    }
+
+    .proofItem {
+      padding: 14px 0;
+    }
+
+    .proofItem strong {
+      display: block;
+      margin-bottom: 3px;
+      color: var(--ink);
+      font-size: 20px;
+      line-height: 1;
+      letter-spacing: -.04em;
+    }
+
+    .proofItem span { color: var(--muted); font-size: 13px; }
+
+    .heroVisual {
+      position: relative;
+      min-height: 520px;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+      isolation: isolate;
+      background: #dfe7f0;
+    }
+
+    .heroVisual img {
+      width: 100%;
+      height: 100%;
+      min-height: 520px;
+      object-fit: cover;
+      object-position: 58% center;
+    }
+
+    .heroVisual::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(90deg, rgba(246, 248, 251, .88) 0%, rgba(246, 248, 251, .24) 38%, rgba(7, 20, 38, .06) 100%),
+        linear-gradient(180deg, transparent 50%, rgba(7, 20, 38, .18) 100%);
+      z-index: 1;
+    }
+
+    .riskFloat {
+      position: absolute;
+      left: 22px;
+      bottom: 22px;
+      z-index: 2;
+      width: min(360px, calc(100% - 44px));
+      padding: 18px;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, .88);
+      backdrop-filter: blur(18px);
+      box-shadow: 0 18px 50px rgba(7, 20, 38, .2);
+    }
+
+    .riskFloat__top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 14px;
+    }
+
+    .riskFloat__label {
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .11em;
+      text-transform: uppercase;
+    }
+
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 10px;
+      border-radius: 7px;
+      background: rgba(240, 165, 54, .16);
+      color: #9a5d00;
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .riskUnit {
+      margin-bottom: 9px;
+      font-size: 22px;
+      line-height: 1.12;
+      letter-spacing: -.04em;
+      font-weight: 880;
+    }
+
+    .riskEvidence {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .signalRail {
+      padding: 18px 0 64px;
+    }
+
+    .signalRail__inner {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 1px;
+      overflow: hidden;
+      border-radius: 10px;
+      background: rgba(15, 34, 58, .08);
+      box-shadow: var(--shadow-soft);
+    }
+
+    .signalCell {
+      padding: 22px 24px;
+      background: rgba(255, 255, 255, .78);
+    }
+
+    .signalCell span {
+      display: block;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+    }
+
+    .signalCell strong {
+      display: block;
+      margin-top: 8px;
+      font-size: 28px;
+      line-height: 1;
+      letter-spacing: -.045em;
+    }
+
+    .section {
+      padding: 76px 0;
+    }
+
+    .section.soft {
+      background: linear-gradient(180deg, rgba(238, 243, 248, .74), rgba(255, 255, 255, .92));
+    }
+
+    .sectionHeader {
+      max-width: 760px;
+      margin-bottom: 34px;
+    }
+
+    .sectionHeader.center {
+      margin-left: auto;
+      margin-right: auto;
+      text-align: center;
+    }
+
+    .kicker {
+      margin-bottom: 12px;
+      color: var(--blue);
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 750;
+      letter-spacing: .11em;
+      text-transform: uppercase;
+    }
+
+    h2 {
+      margin-bottom: 16px;
+      font-size: clamp(32px, 3.4vw, 48px);
+      line-height: 1.04;
+      letter-spacing: -.045em;
+      font-weight: 900;
+    }
+
+    .sectionHeader p,
+    .splitCopy p {
+      color: #3b4c62;
+      font-size: 17px;
+      line-height: 1.65;
+      letter-spacing: -.01em;
+    }
+
+    .engineGrid {
+      display: grid;
+      grid-template-columns: minmax(0, .86fr) minmax(360px, 1.14fr);
+      gap: 38px;
+      align-items: start;
+    }
+
+    .engineSteps {
+      display: grid;
+      gap: 16px;
+    }
+
+    .step {
+      display: grid;
+      grid-template-columns: 44px 1fr;
+      gap: 14px;
+      align-items: start;
+      padding: 4px 0;
+    }
+
+    .stepIcon,
+    .pillarIcon {
+      display: grid;
+      place-items: center;
+      width: 44px;
+      height: 44px;
+      border-radius: 8px;
+      background: #eef5ff;
+      color: var(--blue);
+      box-shadow: inset 0 0 0 1px rgba(24, 93, 220, .04);
+    }
+
+    .stepIcon svg,
+    .pillarIcon svg { width: 22px; height: 22px; stroke-width: 2; }
+
+    .step h3 {
+      margin: 2px 0 5px;
+      font-size: 18px;
+      line-height: 1.2;
+      letter-spacing: -.025em;
+    }
+
+    .step p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .modelCard {
+      position: relative;
+      overflow: hidden;
+      padding: 26px;
+      border-radius: 12px;
+      background: #fff;
+      color: var(--ink);
+      box-shadow: var(--shadow-soft);
+    }
+
+    .modelCard::before {
+      content: "";
+      position: absolute;
+      width: 360px;
+      height: 360px;
+      right: -160px;
+      top: -170px;
+      border-radius: 7px;
+      background: radial-gradient(circle, rgba(23, 78, 166, .12), transparent 70%);
+    }
+
+    .modelCard__head {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      margin-bottom: 22px;
+    }
+
+    .modelCard__head span {
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+    }
+
+    .modelRows { position: relative; display: grid; gap: 10px; }
+
+    .modelRow {
+      display: grid;
+      grid-template-columns: 116px 1fr 70px;
+      gap: 14px;
+      align-items: center;
+      padding: 13px 14px;
+      border-radius: 8px;
+      background: #f2f5f9;
+    }
+
+    .modelRow strong { font-size: 13px; }
+    .bar {
+      height: 8px;
+      overflow: hidden;
+      border-radius: 7px;
+      background: #e1e8f0;
+    }
+
+    .bar i {
+      display: block;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--green), var(--amber), var(--red));
+    }
+
+    .modelRow em {
+      color: var(--muted);
+      font-style: normal;
+      font-family: var(--mono);
+      font-size: 12px;
+      text-align: right;
+    }
+
+    .previewGrid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.05fr) minmax(320px, .95fr);
+      gap: 36px;
+      align-items: center;
+    }
+
+    .productFrame {
+      padding: 18px;
+      border-radius: 12px;
+      background: #fff;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .opsMock {
+      min-height: 620px;
+      display: grid;
+      grid-template-columns: 118px minmax(0, 1fr) 156px;
+      gap: 10px;
+      padding: 16px;
+      border-radius: 8px;
+      background: #f4f7fb;
+      color: var(--ink);
+    }
+
+    .opsMock__side,
+    .opsMock__rail,
+    .opsMock__main,
+    .opsMock__panel {
+      border-radius: 7px;
+      background: #fff;
+      box-shadow: 0 8px 24px rgba(15, 34, 58, .06);
+    }
+
+    .opsMock__side {
+      padding: 14px;
+      display: grid;
+      align-content: start;
+      gap: 10px;
+    }
+
+    .opsMock__brand {
+      height: 28px;
+      margin-bottom: 8px;
+      color: var(--blue);
+      font-weight: 850;
+      font-size: 13px;
+    }
+
+    .opsMock__nav {
+      height: 24px;
+      border-radius: 5px;
+      background: #eef3f8;
+    }
+
+    .opsMock__nav.active { background: rgba(23, 78, 166, .12); }
+
+    .opsMock__main {
+      padding: 18px;
+      display: grid;
+      gap: 14px;
+    }
+
+    .opsMock__title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 4px;
+    }
+
+    .opsMock__title strong {
+      font-size: 17px;
+      letter-spacing: -.03em;
+    }
+
+    .opsMock__search {
+      width: 210px;
+      height: 26px;
+      border-radius: 5px;
+      background: #eef3f8;
+    }
+
+    .opsMock__metrics {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+
+    .opsMock__metric {
+      min-height: 72px;
+      padding: 10px;
+      border-radius: 7px;
+      background: #f7f9fc;
+    }
+
+    .opsMock__metric span,
+    .opsMock__table th,
+    .opsMock__railLabel {
+      display: block;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    .opsMock__metric strong {
+      display: block;
+      margin-top: 8px;
+      font-size: 22px;
+      line-height: 1;
+      letter-spacing: -.04em;
+    }
+
+    .opsMock__table {
+      width: 100%;
+      border-collapse: collapse;
+      overflow: hidden;
+      border-radius: 7px;
+      background: #fff;
+    }
+
+    .opsMock__table th,
+    .opsMock__table td {
+      padding: 11px 9px;
+      text-align: left;
+      border-bottom: 1px solid rgba(7, 20, 38, .055);
+      font-size: 10px;
+    }
+
+    .opsMock__bar {
+      width: 62px;
+      height: 7px;
+      border-radius: 99px;
+      background: #e7edf5;
+      overflow: hidden;
+    }
+
+    .opsMock__bar i {
+      display: block;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, #f59e0b, #ef4444);
+    }
+
+    .opsMock__lower {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .opsMock__panel {
+      min-height: 134px;
+      padding: 14px;
+      background: #f7f9fc;
+    }
+
+    .opsMock__rail {
+      padding: 12px;
+      display: grid;
+      align-content: start;
+      gap: 12px;
+    }
+
+    .opsMock__advisor {
+      padding: 12px;
+      border-radius: 7px;
+      background: #f4f7fb;
+      font-size: 11px;
+      color: #3f5066;
+    }
+
+    .opsMock__cta {
+      height: 30px;
+      border-radius: 5px;
+      background: var(--blue);
+    }
+
+    .maintenanceImage {
+      overflow: hidden;
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+      background:
+        linear-gradient(90deg, rgba(7, 20, 38, .08), rgba(7, 20, 38, 0)),
+        url("assets/images/fleetai-highway-semi-fleet.png") center / cover no-repeat,
+        #dfe8f2;
+    }
+
+    .maintenanceImage img {
+      width: 100%;
+      aspect-ratio: 16 / 10;
+      object-fit: cover;
+      opacity: 0;
+    }
+
+    .proofList {
+      display: grid;
+      gap: 14px;
+      margin-top: 24px;
+    }
+
+    .proofLine {
+      display: flex;
+      align-items: flex-start;
+      gap: 11px;
+      color: #33465c;
+      font-size: 15px;
+    }
+
+    .proofLine svg {
+      flex: 0 0 auto;
+      width: 20px;
+      height: 20px;
+      margin-top: 2px;
+      color: var(--green);
+      stroke-width: 2.4;
+    }
+
+    .pillarGrid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 18px;
+    }
+
+    .pillar {
+      min-height: 280px;
+      padding: 25px;
+      border-radius: 10px;
+      background: var(--paper);
+      box-shadow: var(--shadow-soft);
+    }
+
+    .pillar h3 {
+      margin: 18px 0 11px;
+      font-size: 21px;
+      line-height: 1.16;
+      letter-spacing: -.035em;
+    }
+
+    .pillar p {
+      margin-bottom: 17px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .solutionList {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .solutionList li {
+      padding: 7px 10px;
+      border-radius: 7px;
+      background: #f1f5f9;
+      color: #43536a;
+      font-size: 12px;
+      font-weight: 720;
+    }
+
+    .roiBand {
+      display: grid;
+      grid-template-columns: .8fr 1.2fr;
+      gap: 28px;
+      align-items: center;
+      padding: 38px;
+      border-radius: 12px;
+      background: #fff;
+      color: var(--ink);
+      box-shadow: var(--shadow-soft);
+    }
+
+    .roiBand h2 { color: var(--ink); }
+    .roiBand p { color: var(--muted); }
+    .roiStats {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .roiStat {
+      padding: 20px;
+      border-radius: 9px;
+      background: #f4f7fb;
+    }
+
+    .roiStat strong {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--ink);
+      font-size: 32px;
+      line-height: 1;
+      letter-spacing: -.05em;
+    }
+
+    .roiStat span {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .cta {
+      padding: 86px 0 96px;
+    }
+
+    .ctaPanel {
+      position: relative;
+      overflow: hidden;
+      padding: clamp(34px, 6vw, 66px);
+      border-radius: 12px;
+      background:
+        linear-gradient(135deg, rgba(24, 93, 220, .10), transparent 38%),
+        #ffffff;
+      box-shadow: var(--shadow);
+      text-align: center;
+    }
+
+    .ctaPanel h2 {
+      max-width: 780px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .ctaPanel p {
+      max-width: 680px;
+      margin: 0 auto 26px;
+      color: var(--muted);
+      font-size: 18px;
+    }
+
+    .footer {
+      padding: 34px 0 42px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .footerGrid {
+      display: flex;
+      justify-content: space-between;
+      gap: 20px;
+      padding-top: 20px;
+      box-shadow: inset 0 1px 0 var(--line);
+    }
+
+    .footerLinks {
+      display: flex;
+      gap: 18px;
+      flex-wrap: wrap;
+    }
+
+    .footerLinks a:hover { color: var(--ink); }
+
+    @media (max-width: 980px) {
+      .siteNav {
+        position: fixed;
+        left: 20px;
+        right: 20px;
+        top: 74px;
+        display: none;
+        flex-direction: column;
+        align-items: stretch;
+        padding: 12px;
+        border-radius: 9px;
+        background: rgba(255, 255, 255, .96);
+        box-shadow: var(--shadow);
+      }
+
+      .siteNav.is-open { display: flex; }
+      .navToggle {
+        display: inline-flex;
+        width: 42px;
+        height: 42px;
+        align-items: center;
+        justify-content: center;
+        border: 0;
+        border-radius: 7px;
+        background: rgba(7, 20, 38, .06);
+        color: var(--ink);
+      }
+
+      .siteActions .btn.ghost { display: none; }
+      .hero { padding-top: 42px; }
+      .heroGrid,
+      .engineGrid,
+      .previewGrid,
+      .roiBand {
+        grid-template-columns: 1fr;
+      }
+
+      .heroVisual,
+      .heroVisual img { min-height: 430px; }
+      .opsMock {
+        grid-template-columns: 1fr;
+        min-height: 0;
+      }
+      .opsMock__side,
+      .opsMock__rail {
+        display: none;
+      }
+      .signalRail__inner,
+      .pillarGrid,
+      .roiStats {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    @media (max-width: 680px) {
+      .container { width: min(100% - 28px, 1180px); }
+      .siteActions .btn.primary { display: none; }
+      .hero { padding-top: 34px; }
+      h1 { font-size: clamp(40px, 15vw, 58px); }
+      .heroLead { font-size: 17px; }
+      .proofRow,
+      .signalRail__inner,
+      .pillarGrid,
+      .roiStats {
+        grid-template-columns: 1fr;
+      }
+
+      .section { padding: 62px 0; }
+      .heroVisual,
+      .heroVisual img { min-height: 360px; }
+      .riskFloat {
+        left: 14px;
+        right: 14px;
+        bottom: 14px;
+        width: auto;
+      }
+
+      .modelRow {
+        grid-template-columns: 86px 1fr 52px;
+        gap: 10px;
+      }
+
+      .opsMock {
+        padding: 10px;
+      }
+
+      .opsMock__main {
+        padding: 12px;
+      }
+
+      .opsMock__metrics,
+      .opsMock__lower {
+        grid-template-columns: 1fr;
+      }
+
+      .opsMock__search {
+        display: none;
+      }
+
+      .roiBand { padding: 26px; }
+      .footerGrid { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <header class="siteHeader">
     <div class="container siteHeader__row">
-      <a class="wordmark" href="index.html">
-        <img class="wordmark__mark" src="assets/brand/fleet-ai-mark.svg" alt="" width="26" height="26" />
-        <span><span class="brandFleet">Fleet</span><span class="brandAI">AI</span></span>
+      <a class="wordmark" href="index.html" aria-label="Fleet AI home">
+        <img src="assets/brand/fleet-ai-mark.svg" alt="" width="31" height="31" />
+        <span><span>Fleet</span><span class="brandAI">AI</span></span>
       </a>
-      <nav class="siteNav" id="siteNav">
-        <a href="product.html">Product</a>
-        <a href="pricing.html">Pricing</a>
-        <a href="developers.html">Developers</a>
-        <a href="security.html">Security</a>
+      <nav class="siteNav" id="siteNav" aria-label="Main navigation">
+        <a href="product.html">Reliability OS</a>
+        <a href="#engine">Prediction Layer</a>
+        <a href="#solutions">Fleet Stack</a>
+        <a href="security.html">Trust</a>
         <a href="about.html">Company</a>
       </nav>
       <div class="siteActions">
-        <a class="siteSignIn" href="login.html">Sign in</a>
-        <a class="btn primary" href="request-demo.html">Request demo</a>
-        <button class="navToggle" id="navToggle" type="button" aria-label="Menu" aria-controls="siteNav">&#9776;</button>
+        <a class="btn ghost" href="login.html">Sign in</a>
+        <a class="btn primary" href="request-demo.html">
+          Book demo
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>
+        </a>
+        <button class="navToggle" id="navToggle" type="button" aria-label="Open menu" aria-controls="siteNav" aria-expanded="false">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h16"/></svg>
+        </button>
       </div>
     </div>
   </header>
 
   <main>
-    <!-- ── Hero ─────────────────────────────────────────────────────── -->
-    <section class="lp-hero">
-      <div class="lp-hero__plate">
-        <img src="assets/images/hero-truck-1600.webp"
-             srcset="assets/images/hero-truck-800.webp 800w,
-                     assets/images/hero-truck-1200.webp 1200w,
-                     assets/images/hero-truck-1600.webp 1600w"
-             sizes="100vw"
-             alt="A Class 8 tractor running at dusk with its front axle, suspension and wheel ends overlaid by a live diagnostic wireframe, and an amber fault marker at the steer axle."
-             width="1600" height="902" fetchpriority="high" decoding="async" />
-      </div>
-
-      <div class="container lp-hero__inner">
-        <div class="lp-hero__copy">
-          <div class="lp-hero__eyebrow">
-            <span class="label label--diag lp-live">Live telemetry</span>
-            <span class="rule"></span>
+    <section class="hero">
+      <div class="container heroGrid">
+        <div>
+          <div class="eyebrow">Predictive fleet maintenance</div>
+          <h1>Predictive maintenance intelligence for <span>modern fleets.</span></h1>
+          <p class="heroLead">Fleet AI unifies vehicle telemetry, risk scoring, inspections, and service planning so operators can identify maintenance risk earlier and coordinate action with confidence.</p>
+          <div class="heroActions">
+            <a class="btn primary" href="request-demo.html">
+              Book an executive briefing
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M8 2v4"/><path d="M16 2v4"/><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18"/><path d="m9 15 2 2 4-5"/></svg>
+            </a>
+            <a class="btn ghost" href="#engine">
+              Review the platform
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg>
+            </a>
           </div>
-          <h1>The failure is already happening. <em>You just can't see it yet.</em></h1>
-          <p class="lp-hero__lede">
-            Fleet AI reads every unit against its own operating baseline while
-            it's still on the road — and flags the drift weeks before it turns
-            into a road call.
-          </p>
-          <div class="lp-hero__ctas">
-            <a class="btn primary lg" href="request-demo.html">Schedule a live demo</a>
-            <a class="btn ghost lg" href="product.html">See the platform</a>
+          <div class="proofRow" aria-label="Fleet AI platform highlights">
+            <div class="proofItem"><strong>10k</strong><span>vehicle baseline profiles across fleet classes</span></div>
+            <div class="proofItem"><strong>31</strong><span>operational modules aligned to fleet reliability</span></div>
+            <div class="proofItem"><strong>15+</strong><span>telemetry signal families supported</span></div>
           </div>
         </div>
-      </div>
-    </section>
 
-    <!-- Readout rail: the values behind the wireframe in the frame above -->
-    <section class="lp-rail">
-      <div class="container lp-rail__inner">
-        <div class="lp-rail__cell">
-          <span class="lp-rail__k">Unit</span>
-          <span class="lp-rail__v">2701</span>
-          <span class="lp-rail__sub">Cascadia · long-haul</span>
-        </div>
-        <div class="lp-rail__cell">
-          <span class="lp-rail__k">Coolant</span>
-          <span class="lp-rail__v is-watch">+4.1&deg;C</span>
-          <span class="lp-rail__sub">over 30-day baseline</span>
-        </div>
-        <div class="lp-rail__cell">
-          <span class="lp-rail__k">Lead time</span>
-          <span class="lp-rail__v is-diag">7 days</span>
-          <span class="lp-rail__sub">before thermostat failure</span>
-        </div>
-        <div class="lp-rail__cell">
-          <span class="lp-rail__k">Signals</span>
-          <span class="lp-rail__v">15</span>
-          <span class="lp-rail__sub">streaming now</span>
-        </div>
-      </div>
-    </section>
-
-    <!-- ── Baselines ────────────────────────────────────────────────── -->
-    <section class="lp-section" id="solutions">
-      <div class="container lp-split">
-        <div class="lp-split__copy">
-          <span class="label label--diag">Vehicle baselines</span>
-          <h2 class="lp-h2">Every vehicle gets its own normal.</h2>
-          <p class="lp-body">
-            A Class 8 Cascadia running long-haul does not behave like a Transit
-            cargo van on city routes. Fleet AI builds an individual baseline for
-            each unit from how it actually operates — not industry averages.
-          </p>
-          <p class="lp-body">
-            When a unit drifts outside its own range — coolant behavior,
-            voltage, RPM, oil pressure, fuel — it surfaces with the exact
-            readings that triggered it.
-          </p>
-        </div>
-
-        <figure class="lp-trace">
-          <figcaption class="lp-trace__head">
-            <span class="lp-trace__unit">UNIT 2701 · COOLANT TEMP · 30 DAY</span>
-            <span class="state state--watch">Flagged</span>
+        <figure class="heroVisual" aria-label="Fleet AI fleet reliability highway visual">
+          <img src="assets/images/fleetai-highway-semi-fleet.png" alt="Modern semi trucks driving on an interstate highway in morning light." width="1792" height="1024" fetchpriority="high" decoding="async" />
+          <figcaption class="riskFloat">
+            <div class="riskFloat__top">
+              <span class="riskFloat__label">Risk queue</span>
+              <span class="status">36 hr window</span>
+            </div>
+            <div class="riskUnit">Cooling variance detected on Unit 2701</div>
+            <p class="riskEvidence">Coolant trend, RPM stability, and load correlation moved outside this truck's learned operating range.</p>
           </figcaption>
-
-          <svg class="lp-trace__svg" viewBox="0 0 580 250" role="img"
-               aria-label="Coolant temperature for Unit 2701 holds its 88 to 92 degree baseline for 22 days, then drifts above the band on day 23 and is flagged, reaching 96.3 degrees by day 30.">
-            <defs>
-              <linearGradient id="lpTraceGrad" x1="0" y1="0" x2="1" y2="0">
-                <stop offset="0%"   stop-color="#4FD8C4" />
-                <stop offset="62%"  stop-color="#4FD8C4" />
-                <stop offset="78%"  stop-color="#F5A623" />
-                <stop offset="100%" stop-color="#FF5F52" />
-              </linearGradient>
-              <filter id="lpGlow" x="-20%" y="-40%" width="140%" height="180%">
-                <feGaussianBlur stdDeviation="3.2" result="b" />
-                <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
-              </filter>
-            </defs>
-
-            <!-- this unit's learned normal band -->
-            <rect x="46" y="110" width="510" height="40" fill="rgba(79,216,196,.07)" />
-            <line x1="46" y1="110" x2="556" y2="110" stroke="#4FD8C4" stroke-width="1" stroke-dasharray="3 4" opacity=".45" />
-            <line x1="46" y1="150" x2="556" y2="150" stroke="#4FD8C4" stroke-width="1" stroke-dasharray="3 4" opacity=".45" />
-            <line x1="46" y1="190" x2="556" y2="190" stroke="rgba(150,180,215,.22)" stroke-width="1" />
-
-            <g font-family="IBM Plex Mono, monospace" font-size="9" fill="#71869E">
-              <text x="8" y="73">96&#176;C</text>
-              <text x="8" y="113">92&#176;C</text>
-              <text x="8" y="153">88&#176;C</text>
-              <text x="46" y="207">DAY 1</text>
-              <text x="404" y="207">DAY 23</text>
-              <text x="520" y="207">DAY 30</text>
-              <text x="52" y="127" fill="#4FD8C4" font-size="8.5" letter-spacing="1" opacity=".8">BASELINE</text>
-            </g>
-
-            <polyline class="lp-trace__line" fill="none" stroke="url(#lpTraceGrad)"
-                      stroke-width="2.25" stroke-linejoin="round" stroke-linecap="round"
-                      filter="url(#lpGlow)"
-                      points="46,138 64,129 81,135 99,126 116,140 134,124 152,132 169,128 187,137 204,125 222,131 240,139 257,127 275,134 292,130 310,138 328,126 345,133 363,129 380,136 398,128 416,121 433,114 451,106 468,99 486,92 504,88 521,81 539,74 556,67" />
-
-            <g class="lp-trace__flag">
-              <line x1="451" y1="106" x2="451" y2="190" stroke="#F5A623" stroke-width="1" stroke-dasharray="2 3" opacity=".55" />
-              <circle cx="451" cy="106" r="9" fill="#F5A623" opacity=".16" />
-              <circle cx="451" cy="106" r="3.5" fill="#F5A623" />
-              <g font-family="IBM Plex Mono, monospace" font-size="9.5" font-weight="600">
-                <text x="322" y="52" fill="#F5A623">FLAGGED &#183; DAY 23</text>
-                <text x="322" y="66" fill="#71869E" font-weight="400">+4.1&#176;C over baseline</text>
-              </g>
-              <text x="470" y="62" font-family="IBM Plex Mono, monospace" font-size="9.5"
-                    font-weight="600" fill="#FF5F52">96.3&#176;C</text>
-            </g>
-          </svg>
-
-          <div class="lp-trace__foot">
-            <span>DETECTED 7 DAYS BEFORE FAILURE</span>
-            <span class="lp-live">15 SIGNALS</span>
-          </div>
         </figure>
       </div>
     </section>
 
-    <!-- ── Risk queue ───────────────────────────────────────────────── -->
-    <section class="lp-section lp-section--raised">
-      <div class="container lp-split lp-split--flip">
-        <div class="lp-split__copy">
-          <span class="label label--diag">Risk queue</span>
-          <h2 class="lp-h2">Your shop gets a list, not a wall of data.</h2>
-          <p class="lp-body">
-            Fleet AI doesn't send every alert — it ranks units by urgency,
-            available service window, and likely impact. Your team sees what to
-            pull first and why, with the evidence behind each call.
-          </p>
-          <p class="lp-body">
-            Dispatchers, drivers, and the shop work from the same queue. A unit
-            flagged today becomes a scheduled work order before it becomes a
-            road call.
-          </p>
+    <section class="signalRail" aria-label="Telemetry readout">
+      <div class="container signalRail__inner">
+        <div class="signalCell"><span>Vehicle profile</span><strong>Heavy-duty</strong></div>
+        <div class="signalCell"><span>Primary protocol</span><strong>J1939</strong></div>
+        <div class="signalCell"><span>Confidence state</span><strong>Calibrating</strong></div>
+        <div class="signalCell"><span>Action path</span><strong>Schedule</strong></div>
+      </div>
+    </section>
+
+    <section class="section" id="engine">
+      <div class="container engineGrid">
+        <div class="sectionHeader">
+          <div class="kicker">The ML engine</div>
+          <h2>Risk scoring before fault-code dependency.</h2>
+          <p>Fault codes are late-stage evidence. Fleet AI evaluates each unit against vehicle-class priors and its own operating baseline so developing risk can be reviewed earlier.</p>
         </div>
 
-        <div class="lp-queue">
-          <div class="lp-queue__head">
-            <span class="lp-queue__title">Risk queue</span>
-            <span class="label">3 units need attention</span>
+        <div class="modelCard" aria-label="Machine learning signal model">
+          <div class="modelCard__head">
+            <span>Subsystem drift model</span>
+            <span>simulation-backed priors</span>
           </div>
-          <div class="lp-queue__scroll">
-            <table>
-              <thead>
-                <tr>
-                  <th scope="col">Unit</th>
-                  <th scope="col">Risk</th>
-                  <th scope="col">Window</th>
-                  <th scope="col">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td><span class="lp-queue__unit">TRUCK 2701</span><span class="lp-queue__sub">Cooling system</span></td>
-                  <td><span class="state state--critical">High</span></td>
-                  <td class="lp-queue__win">36 hrs</td>
-                  <td>Schedule inspection</td>
-                </tr>
-                <tr>
-                  <td><span class="lp-queue__unit">VAN 044</span><span class="lp-queue__sub">Charging / electrical</span></td>
-                  <td><span class="state state--watch">Medium</span></td>
-                  <td class="lp-queue__win">2 days</td>
-                  <td>Battery load test</td>
-                </tr>
-                <tr>
-                  <td><span class="lp-queue__unit">UNIT 118</span><span class="lp-queue__sub">Fuel system</span></td>
-                  <td><span class="state state--nominal">Watch</span></td>
-                  <td class="lp-queue__win">Monitor</td>
-                  <td>Review route pattern</td>
-                </tr>
-              </tbody>
-            </table>
+          <div class="modelRows">
+            <div class="modelRow"><strong>Cooling</strong><div class="bar"><i style="width:86%"></i></div><em>high</em></div>
+            <div class="modelRow"><strong>Charging</strong><div class="bar"><i style="width:42%"></i></div><em>watch</em></div>
+            <div class="modelRow"><strong>Fuel</strong><div class="bar"><i style="width:26%"></i></div><em>stable</em></div>
+            <div class="modelRow"><strong>DPF</strong><div class="bar"><i style="width:61%"></i></div><em>rising</em></div>
+          </div>
+        </div>
+
+        <div class="engineSteps">
+          <article class="step">
+            <div class="stepIcon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M4 17V7"/><path d="M8 17V7"/><path d="M12 17V7"/><path d="M16 17V7"/><path d="M20 17V7"/><path d="M2 12h20"/></svg></div>
+            <div><h3>Baseline each unit</h3><p>Fleet AI starts with pretrained vehicle-class priors, then calibrates toward the behavior of each actual vehicle.</p></div>
+          </article>
+          <article class="step">
+            <div class="stepIcon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="m3 17 6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg></div>
+            <div><h3>Detect mechanical drift</h3><p>Temperature, voltage, RPM, load, fuel, emissions, and driving conditions are evaluated together instead of as isolated alerts.</p></div>
+          </article>
+          <article class="step">
+            <div class="stepIcon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="m3 6 .01 0"/><path d="m3 12 .01 0"/><path d="m3 18 .01 0"/></svg></div>
+            <div><h3>Rank the work</h3><p>The output is a maintenance queue with risk level, failure window, evidence, and recommended next action.</p></div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section soft">
+      <div class="container previewGrid">
+        <div class="productFrame" aria-label="Fleet AI dashboard preview">
+          <div class="opsMock">
+            <aside class="opsMock__side" aria-hidden="true">
+              <div class="opsMock__brand">FleetAI</div>
+              <div class="opsMock__nav active"></div>
+              <div class="opsMock__nav"></div>
+              <div class="opsMock__nav"></div>
+              <div class="opsMock__nav"></div>
+              <div class="opsMock__nav active"></div>
+              <div class="opsMock__nav"></div>
+              <div class="opsMock__nav"></div>
+            </aside>
+            <div class="opsMock__main">
+              <div class="opsMock__title">
+                <strong>Reliability Operations</strong>
+                <div class="opsMock__search"></div>
+              </div>
+              <div class="opsMock__metrics">
+                <div class="opsMock__metric"><span>Fleet health</span><strong>87</strong></div>
+                <div class="opsMock__metric"><span>Risk review</span><strong>18</strong></div>
+                <div class="opsMock__metric"><span>Service due</span><strong>36</strong></div>
+                <div class="opsMock__metric"><span>Signal quality</span><strong>98%</strong></div>
+              </div>
+              <table class="opsMock__table" aria-hidden="true">
+                <thead><tr><th>Unit</th><th>System</th><th>Risk</th><th>Window</th><th>Action</th></tr></thead>
+                <tbody>
+                  <tr><td>Unit 2701</td><td>Cooling</td><td><div class="opsMock__bar"><i style="width:92%"></i></div></td><td>36 hrs</td><td>Schedule</td></tr>
+                  <tr><td>LAM-734</td><td>Air</td><td><div class="opsMock__bar"><i style="width:84%"></i></div></td><td>May 14</td><td>Review</td></tr>
+                  <tr><td>USX-908</td><td>Battery</td><td><div class="opsMock__bar"><i style="width:76%"></i></div></td><td>May 15</td><td>Schedule</td></tr>
+                  <tr><td>VAN-118</td><td>Brakes</td><td><div class="opsMock__bar"><i style="width:64%"></i></div></td><td>Next route</td><td>Monitor</td></tr>
+                </tbody>
+              </table>
+              <div class="opsMock__lower">
+                <div class="opsMock__panel"><span class="opsMock__railLabel">Signal drift</span></div>
+                <div class="opsMock__panel"><span class="opsMock__railLabel">Service plan</span></div>
+              </div>
+            </div>
+            <aside class="opsMock__rail" aria-hidden="true">
+              <span class="opsMock__railLabel">Fleet Advisor</span>
+              <div class="opsMock__advisor">Cooling risk is rising across load-adjusted temperature and RPM stability.</div>
+              <div class="opsMock__advisor">Recommended action: schedule inspection before next long-haul route.</div>
+              <div class="opsMock__cta"></div>
+            </aside>
+          </div>
+        </div>
+        <div class="splitCopy">
+          <div class="kicker">Operations console</div>
+          <h2>A reliability command center for fleet operations.</h2>
+          <p>The workspace is organized around decisions: which unit needs review, what evidence supports the score, when service can be scheduled, and what operations needs to know.</p>
+          <div class="proofList">
+            <div class="proofLine"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg><span>Predictive risk queue with component-level evidence.</span></div>
+            <div class="proofLine"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg><span>Maintenance planning tied to service windows and operational impact.</span></div>
+            <div class="proofLine"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg><span>Fleet Advisor explains the signal instead of hiding behind a score.</span></div>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- ── Signal monitor ───────────────────────────────────────────── -->
-    <section class="lp-section">
-      <div class="container lp-split">
-        <div class="lp-split__copy">
-          <span class="label label--diag">Evidence, not alerts</span>
-          <h2 class="lp-h2">Every flag shows its work.</h2>
-          <p class="lp-body">
-            A score on its own doesn't get a truck into a bay. Each flagged unit
-            arrives with the subsystem, the readings that moved, how far they
-            moved, and what to do about it.
-          </p>
-          <p class="lp-body">
-            That's the difference between an alert your team learns to ignore
-            and a work order they can act on.
-          </p>
-        </div>
-
-        <div class="lp-readout">
-          <div class="lp-readout__head">
-            <span class="lp-trace__unit">SIGNAL MONITOR &#183; UNIT 2701</span>
-            <span class="label lp-live">Live</span>
-          </div>
-          <div class="lp-readout__row">
-            <div>
-              <div class="lp-readout__name">Coolant temperature</div>
-              <div class="lp-readout__val">+4.1&#176;C over 30-day baseline &#183; 3rd cycle</div>
-            </div>
-            <span class="state state--critical">Inspect</span>
-          </div>
-          <div class="lp-readout__row">
-            <div>
-              <div class="lp-readout__name">Battery voltage under load</div>
-              <div class="lp-readout__val">Sag pattern suggests charging system wear</div>
-            </div>
-            <span class="state state--watch">Schedule</span>
-          </div>
-          <div class="lp-readout__row">
-            <div>
-              <div class="lp-readout__name">Fuel consumption rate</div>
-              <div class="lp-readout__val">Within range for current route and load</div>
-            </div>
-            <span class="state state--nominal">Nominal</span>
-          </div>
-          <div class="lp-readout__row">
-            <div>
-              <div class="lp-readout__name">Oil pressure</div>
-              <div class="lp-readout__val">Stable &#183; no deviation from duty cycle</div>
-            </div>
-            <span class="state state--nominal">Nominal</span>
+    <section class="section">
+      <div class="container previewGrid">
+        <div class="splitCopy">
+          <div class="kicker">Prediction to maintenance</div>
+          <h2>Prediction moves into service planning.</h2>
+          <p>A risk score only matters when teams can act on it. Fleet AI connects prediction output to inspections, work queues, parts inventory, dispatch visibility, and maintenance history.</p>
+          <div class="proofList">
+            <div class="proofLine"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M8 2v4"/><path d="M16 2v4"/><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18"/></svg><span>Schedule preventative maintenance before the next high-risk route.</span></div>
+            <div class="proofLine"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M3 7h18"/><path d="M6 7v13"/><path d="M18 7v13"/><path d="M8 12h8"/></svg><span>Track inspections, service records, parts, recalls, and DOT-ready workflows.</span></div>
           </div>
         </div>
+        <figure class="maintenanceImage">
+          <img src="assets/images/fleetai-highway-semi-fleet.png" alt="Semi trucks driving on a highway, representing active fleet operations." width="1792" height="1024" decoding="async" />
+        </figure>
       </div>
     </section>
 
-    <!-- ── Platform ─────────────────────────────────────────────────── -->
-    <section class="lp-section lp-section--raised">
+    <section class="section soft" id="solutions">
       <div class="container">
-        <span class="label label--diag">31 connected solutions</span>
-        <h2 class="lp-h2" style="max-width:20ch">One platform for your entire operation.</h2>
-        <p class="lp-body" style="max-width:58ch;margin-bottom:48px">
-          Organized around how fleet operators actually work — not a feature
-          wall. Every module connects back to keeping vehicles running and
-          service teams informed.
-        </p>
+        <div class="sectionHeader center">
+          <div class="kicker">Platform coverage</div>
+          <h2>A connected system for reliability operations.</h2>
+          <p>Fleet AI connects monitoring, maintenance, dispatch, compliance, driver workflows, cost visibility, and integrations so reliability decisions can move through one operating system.</p>
+        </div>
 
-        <div class="lp-modules">
-          <div class="lp-module">
-            <h3>Risk &amp; reliability</h3>
-            <ul>
-              <li>Early fault detection</li><li>Vehicle health scoring</li>
-              <li>Fault code analysis</li><li>Risk queue and service planner</li>
-              <li>Evidence summaries</li>
+        <div class="pillarGrid">
+          <article class="pillar">
+            <div class="pillarIcon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg></div>
+            <h3>Prediction and telemetry</h3>
+            <p>Find developing mechanical issues before they turn into downtime.</p>
+            <ul class="solutionList">
+              <li>Breakdown prediction</li><li>Live telemetry</li><li>Risk scoring</li><li>DTC analysis</li><li>Alerts</li>
             </ul>
-          </div>
-          <div class="lp-module">
-            <h3>Fleet operations</h3>
-            <ul>
-              <li>Fleet registry</li><li>Live map and geofences</li>
-              <li>Dispatch board</li><li>Driver messaging</li>
-              <li>Route and asset context</li>
+          </article>
+          <article class="pillar">
+            <div class="pillarIcon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="m3 6 .01 0"/><path d="m3 12 .01 0"/><path d="m3 18 .01 0"/></svg></div>
+            <h3>Maintenance and shop control</h3>
+            <p>Turn risk into scheduled inspections, parts decisions, and work orders.</p>
+            <ul class="solutionList">
+              <li>PM scheduling</li><li>Work orders</li><li>Service logs</li><li>Parts</li><li>Recalls</li>
             </ul>
-          </div>
-          <div class="lp-module">
-            <h3>Service management</h3>
-            <ul>
-              <li>Work orders and service queue</li><li>Maintenance history</li>
-              <li>Parts room and reorder alerts</li><li>Recall watch</li>
-              <li>Preventive planner</li>
+          </article>
+          <article class="pillar">
+            <div class="pillarIcon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M12 21s7-5 7-11a7 7 0 1 0-14 0c0 6 7 11 7 11Z"/><circle cx="12" cy="10" r="2"/></svg></div>
+            <h3>Dispatch and fleet context</h3>
+            <p>Keep routes, vehicles, cameras, and location context aligned with service needs.</p>
+            <ul class="solutionList">
+              <li>Dispatch</li><li>GPS tracking</li><li>Geofencing</li><li>Cameras</li><li>Route planning</li>
             </ul>
-          </div>
-          <div class="lp-module">
-            <h3>Driver &amp; safety</h3>
-            <ul>
-              <li>Driver roster and scoring</li><li>Coaching queue</li>
-              <li>Camera review</li><li>DVIRs</li><li>HOS visibility</li>
+          </article>
+          <article class="pillar">
+            <div class="pillarIcon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M20 13c0 5-3.5 7.5-8 9-4.5-1.5-8-4-8-9V5l8-3 8 3v8Z"/><path d="m9 12 2 2 4-5"/></svg></div>
+            <h3>Compliance support</h3>
+            <p>Capture the records operators need without pretending software replaces human responsibility.</p>
+            <ul class="solutionList">
+              <li>DVIR</li><li>DOT status</li><li>HOS support</li><li>Audit export</li><li>Documents</li>
             </ul>
-          </div>
-          <div class="lp-module">
-            <h3>Compliance</h3>
-            <ul>
-              <li>Inspection center</li><li>DOT-ready workflows</li>
-              <li>Audit packages</li><li>Document readiness</li>
-              <li>Hours-status visibility</li>
+          </article>
+          <article class="pillar">
+            <div class="pillarIcon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+            <h3>Drivers and people</h3>
+            <p>Connect behavior, assignments, inspections, and communication in one workflow.</p>
+            <ul class="solutionList">
+              <li>Driver roster</li><li>Safety scoring</li><li>Messages</li><li>Assignments</li><li>Coaching</li>
             </ul>
-          </div>
-          <div class="lp-module">
-            <h3>Cost &amp; integrations</h3>
-            <ul>
-              <li>Fuel activity</li><li>Spend analytics</li>
-              <li>Executive reporting</li><li>Alert routing</li><li>Webhooks</li>
+          </article>
+          <article class="pillar">
+            <div class="pillarIcon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M4 19V5"/><path d="M4 19h16"/><path d="m8 15 3-3 3 2 5-7"/></svg></div>
+            <h3>Finance and integrations</h3>
+            <p>See the cost impact and connect Fleet AI to the systems your operation already uses.</p>
+            <ul class="solutionList">
+              <li>Fuel cost</li><li>Expenses</li><li>Reports</li><li>Webhooks</li><li>API access</li>
             </ul>
-          </div>
+          </article>
         </div>
       </div>
     </section>
 
-    <!-- ── Evidence ─────────────────────────────────────────────────── -->
-    <section class="lp-section">
-      <div class="container">
-        <span class="label label--diag">Validated across 6.7M test records</span>
-        <h2 class="lp-h2" style="max-width:22ch;margin-bottom:48px">What the numbers actually mean.</h2>
-
-        <div class="lp-evidence">
-          <div class="lp-evidence__card">
-            <div class="lp-evidence__n">93%</div>
-            <div class="lp-evidence__k">Maintenance precision</div>
-            <p class="lp-evidence__d">
-              Every flagged vehicle includes the specific readings that triggered
-              it, the affected subsystem, and a recommended action — not just a
-              score.
-            </p>
-          </div>
-          <div class="lp-evidence__card">
-            <div class="lp-evidence__n">7&#8211;21d</div>
-            <div class="lp-evidence__k">Early warning window</div>
-            <p class="lp-evidence__d">
-              Typical lead time before a developing fault reaches the point of
-              failure, based on sensor drift patterns across duty cycles and
-              vehicle types.
-            </p>
-          </div>
-          <div class="lp-evidence__card">
-            <div class="lp-evidence__n">99.8%</div>
-            <div class="lp-evidence__k">Accuracy, all vehicle types</div>
-            <p class="lp-evidence__d">
-              Tested across cargo van, light truck, medium duty, passenger, and
-              Class 8 with a 0.12% false positive rate over 6.7 million
-              validation records.
-            </p>
-          </div>
+    <section class="section">
+      <div class="container roiBand">
+        <div>
+          <div class="kicker">Pilot validation</div>
+          <h2>Validate prediction quality on real vehicles.</h2>
+          <p>Fleet AI should earn trust with evidence. Pilot fleets can compare predictions against inspections, repairs, downtime events, and maintenance outcomes.</p>
+        </div>
+        <div class="roiStats">
+          <div class="roiStat"><strong>7-21</strong><span>day visibility target for detectable early-risk patterns</span></div>
+          <div class="roiStat"><strong>A-F</strong><span>vehicle health grades with evidence behind each score</span></div>
+          <div class="roiStat"><strong>Real</strong><span>operator approval before action is taken</span></div>
         </div>
       </div>
     </section>
 
-    <!-- ── Close ────────────────────────────────────────────────────── -->
-    <section class="lp-close">
-      <div class="container">
-        <span class="label label--diag">Pilot program</span>
-        <h2>See what's hiding in your fleet.</h2>
-        <p>
-          Connect a few vehicles and we'll walk the risk queue together — what
-          got flagged, what triggered it, and what it means for your next
-          service window.
-        </p>
-        <div class="lp-close__ctas">
-          <a class="btn primary lg" href="request-demo.html">Book a live demo</a>
-          <a class="btn ghost lg" href="pilot.html">Pilot program</a>
+    <section class="cta">
+      <div class="container ctaPanel">
+        <div class="kicker">Enterprise pilot</div>
+        <h2>Evaluate Fleet AI against live telemetry and measurable maintenance outcomes.</h2>
+        <p>Start with a focused pilot built around fleet class, route profile, telemetry quality, and the maintenance outcomes your leadership team needs to measure.</p>
+        <div class="heroActions" style="justify-content:center;margin-bottom:0">
+          <a class="btn primary" href="request-demo.html">
+            Book demo
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>
+          </a>
+          <a class="btn ghost" href="pilot.html">View pilot program</a>
         </div>
       </div>
     </section>
@@ -411,31 +1245,41 @@
 
   <footer class="footer">
     <div class="container footerGrid">
-      <div class="footerCol footerBrand">
-        <div class="wordmark"><span class="brandFleet">Fleet</span><span class="brandAI">AI</span></div>
-        <div class="footerMeta">&copy; 2026 Fleet AI</div>
+      <div>
+        <a class="wordmark" href="index.html">
+          <img src="assets/brand/fleet-ai-mark.svg" alt="" width="28" height="28" />
+          <span><span>Fleet</span><span class="brandAI">AI</span></span>
+        </a>
+        <div>© 2026 Fleet AI. Predictive maintenance recommendations; humans decide.</div>
       </div>
-      <div class="footerCol">
-        <h4>Product</h4>
-        <a href="product.html">Product</a>
+      <nav class="footerLinks" aria-label="Footer navigation">
+        <a href="product.html">Reliability OS</a>
         <a href="pricing.html">Pricing</a>
-        <a href="pilot.html">Pilot Program</a>
-      </div>
-      <div class="footerCol">
-        <h4>Company</h4>
-        <a href="security.html">Security</a>
-        <a href="about.html">About</a>
-        <a href="request-demo.html">Contact</a>
-        <a href="employee-login.html" title="For Fleet AI staff only">Operations Console</a>
-      </div>
-      <div class="footerCol">
-        <h4>Legal</h4>
-        <a href="legal/privacy.html">Privacy Policy</a>
-        <a href="legal/terms.html">Terms</a>
-      </div>
+        <a href="developers.html">Developers</a>
+        <a href="security.html">Trust</a>
+        <a href="legal/privacy.html">Privacy</a>
+      </nav>
     </div>
   </footer>
 
-  <script src="js/site.js"></script>
+  <script>
+    (() => {
+      const button = document.getElementById("navToggle");
+      const nav = document.getElementById("siteNav");
+      if (!button || !nav) return;
+      button.addEventListener("click", () => {
+        const open = nav.classList.toggle("is-open");
+        button.setAttribute("aria-expanded", String(open));
+        button.setAttribute("aria-label", open ? "Close menu" : "Open menu");
+      });
+      nav.addEventListener("click", (event) => {
+        if (event.target.closest("a")) {
+          nav.classList.remove("is-open");
+          button.setAttribute("aria-expanded", "false");
+          button.setAttribute("aria-label", "Open menu");
+        }
+      });
+    })();
+  </script>
 </body>
 </html>
