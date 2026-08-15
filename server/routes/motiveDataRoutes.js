@@ -8,8 +8,23 @@
  */
 
 const motiveClient = require("../services/motiveClient");
+const db = require("../db");
 
 function registerMotiveDataRoutes(app, { requireEmployeeOrCustomerApi, readData, sanitizeString }) {
+
+  async function customerVehicleScope(req) {
+    if (!req.customer?.orgId) return null;
+    return db.listVehicles({ orgId: req.customer.orgId });
+  }
+
+  function purchaseMatchesVehicle(purchase, vehicle) {
+    const externalId = String(purchase.vehicle?.id || "");
+    const vin = String(purchase.vehicle?.vin || "").toUpperCase();
+    return Boolean(
+      (vehicle.motiveId && String(vehicle.motiveId) === externalId)
+      || (vehicle.vin && String(vehicle.vin).toUpperCase() === vin)
+    );
+  }
 
   // ── Fuel Events ─────────────────────────────────────────────────────────────
   async function handleFuelEvents(req, res) {
@@ -18,10 +33,18 @@ function registerMotiveDataRoutes(app, { requireEmployeeOrCustomerApi, readData,
       return res.json({ ok: true, data: [] });
     }
     try {
+      const scopedVehicles = await customerVehicleScope(req);
+      if (scopedVehicles && vehicleId && !scopedVehicles.some((vehicle) => vehicle.vehicleId === vehicleId || vehicle.motiveId === vehicleId)) {
+        return res.status(403).json({ ok: false, error: "cross_org_vehicle_denied" });
+      }
       const params = {};
-      if (vehicleId) params.vehicle_ids = vehicleId;
+      const selectedVehicle = scopedVehicles?.find((vehicle) => vehicle.vehicleId === vehicleId || vehicle.motiveId === vehicleId);
+      if (vehicleId) params.vehicle_ids = selectedVehicle?.motiveId || vehicleId;
       const purchases = await motiveClient.getFuelPurchases(params);
-      const data = purchases.map((p) => ({
+      const visiblePurchases = scopedVehicles
+        ? purchases.filter((purchase) => scopedVehicles.some((vehicle) => purchaseMatchesVehicle(purchase, vehicle)))
+        : purchases;
+      const data = visiblePurchases.map((p) => ({
         date: p.purchased_at || null,
         vehicleId: String(p.vehicle?.id || vehicleId || ""),
         vehicleName: p.vehicle?.number || p.vehicle?.vin || vehicleId || "--",
@@ -48,12 +71,14 @@ function registerMotiveDataRoutes(app, { requireEmployeeOrCustomerApi, readData,
       return next();
     }
     try {
-      const [purchases, localData] = await Promise.all([
+      const [allPurchases, scopedVehicles] = await Promise.all([
         motiveClient.getFuelPurchases(),
-        readData()
+        customerVehicleScope(req)
       ]);
-
-      const localVehicles = Array.isArray(localData.vehicles) ? localData.vehicles : [];
+      const localVehicles = scopedVehicles || await db.listVehicles();
+      const purchases = scopedVehicles
+        ? allPurchases.filter((purchase) => scopedVehicles.some((vehicle) => purchaseMatchesVehicle(purchase, vehicle)))
+        : allPurchases;
 
       // Aggregate fuel cost per Motive vehicle ID
       const byVehicle = new Map();
@@ -76,7 +101,7 @@ function registerMotiveDataRoutes(app, { requireEmployeeOrCustomerApi, readData,
 
       const data = Array.from(byVehicle.values()).map((v) => {
         // Try to match to local vehicle for Fleet AI vehicleId
-        const local = localVehicles.find((lv) => lv.motiveId === v.motiveVehicleId);
+        const local = localVehicles.find((lv) => String(lv.motiveId || "") === v.motiveVehicleId);
         return {
           vehicleId: local?.vehicleId || v.motiveVehicleId,
           vehicleName: local?.unitName || v.vehicleName,
@@ -114,9 +139,14 @@ function registerMotiveDataRoutes(app, { requireEmployeeOrCustomerApi, readData,
         end_date: now.toISOString().slice(0, 10)
       });
 
+      const scopedDrivers = req.customer?.orgId ? await db.listDrivers({ orgId: req.customer.orgId }) : null;
+      const visibleIdleEvents = scopedDrivers
+        ? idleEvents.filter((event) => scopedDrivers.some((driver) => driver.motiveId && String(driver.motiveId) === String(event.driver?.id || "")))
+        : idleEvents;
+
       // Aggregate idle minutes per driver
       const byDriver = new Map();
-      for (const evt of idleEvents) {
+      for (const evt of visibleIdleEvents) {
         const driverId = String(evt.driver?.id || "unknown");
         if (!byDriver.has(driverId)) {
           byDriver.set(driverId, {

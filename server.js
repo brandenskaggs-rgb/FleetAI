@@ -32,6 +32,7 @@ const { registerPartnerRoutes } = require("./server/routes/partnerRoutes");
 const { registerFeedbackRoutes } = require("./server/routes/feedbackRoutes");
 const { registerMotiveWebhookRoutes } = require("./server/routes/motiveWebhookReceiver");
 const { registerMotiveOAuthRoutes } = require("./server/routes/motiveOAuthRoutes");
+const { requireDevice } = require("./server/middleware/deviceAuth");
 const { registerMotiveDataRoutes } = require("./server/routes/motiveDataRoutes");
 const motiveOAuth = require("./server/services/motiveOAuth");
 const { registerAdminRoutes, normalizeOrgStatus, normalizeLeadStatus, defaultBilling, defaultBillingSettings, defaultPaymentMethod, defaultFeatures } = require("./server/routes/adminRoutes");
@@ -1046,15 +1047,16 @@ registerMotiveOAuthRoutes(app, {
   getSession
 });
 
-app.post("/api/telemetry/snapshot", validateBody(schemas.telemetrySnapshot), (req, res) => {
+app.post("/api/telemetry/snapshot", requireDevice, validateBody(schemas.telemetrySnapshot), (req, res) => {
   (async () => {
     const payload = req.body || {};
-    const vehicleId = sanitizeString(payload.vehicleId || "", 80);
-    if (!vehicleId) {
-      return res.status(400).json({ error: "vehicleId required" });
+    const requestedVehicleId = sanitizeString(payload.vehicleId || "", 80);
+    const vehicleId = req.device.vehicleId;
+    if (requestedVehicleId && requestedVehicleId !== vehicleId) {
+      return res.status(403).json({ ok: false, error: "VEHICLE_MISMATCH" });
     }
     const data = await readData();
-    const orgId = resolveOrgIdForVehicle(data, vehicleId);
+    const orgId = req.device.orgId;
     const ts = payload.timestamp || nowIso();
     const pids = payload.pids || {};
     const decodedMetrics = {
@@ -1074,8 +1076,8 @@ app.post("/api/telemetry/snapshot", validateBody(schemas.telemetrySnapshot), (re
       vehicleId
     });
     storeNormalizedSnapshot(data, normalized, {
-      driverId: sanitizeString(payload.driverId || "", 80) || null,
-      deviceId: sanitizeString(payload.deviceId || "", 80) || null,
+      driverId: req.device.driverId || null,
+      deviceId: req.device.deviceId || null,
       rawPids: pids,
       derivedMetrics: {},
       odometerMiles: parseNumberField(payload.odometer || null),
@@ -1089,16 +1091,20 @@ app.post("/api/telemetry/snapshot", validateBody(schemas.telemetrySnapshot), (re
   });
 });
 
-app.post("/api/alerts", (req, res) => {
+app.post("/api/alerts", requireDevice, (req, res) => {
   (async () => {
     const payload = req.body || {};
-    const vehicleId = sanitizeString(payload.vehicleId || "", 80);
+    const requestedVehicleId = sanitizeString(payload.vehicleId || "", 80);
+    const vehicleId = req.device.vehicleId;
     const message = sanitizeString(payload.message || "", 400);
-    if (!vehicleId || !message) {
-      return res.status(400).json({ error: "vehicleId and message required" });
+    if (requestedVehicleId && requestedVehicleId !== vehicleId) {
+      return res.status(403).json({ ok: false, error: "VEHICLE_MISMATCH" });
+    }
+    if (!message) {
+      return res.status(400).json({ error: "message required" });
     }
     const data = await readData();
-    const orgId = resolveOrgIdForVehicle(data, vehicleId);
+    const orgId = req.device.orgId;
     const severity = sanitizeString(payload.severity || "info", 20);
     const notification = {
       id: makeId("NOTIF"),
@@ -1122,7 +1128,7 @@ app.post("/api/alerts", (req, res) => {
   });
 });
 
-app.get("/api/vehicle/dtcs", (req, res) => {
+app.get("/api/vehicle/dtcs", requireEmployeeOrCustomerApi, (req, res) => {
   res.json({ dtcs: [] });
 });
 

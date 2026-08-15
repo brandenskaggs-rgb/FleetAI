@@ -1,89 +1,111 @@
 const http = require("http");
 const https = require("https");
-const db = require("../server/db");
 
-function request(url, method, body) {
+function request(url, method = "GET", body = null, cookie = "") {
   return new Promise((resolve, reject) => {
     const parsed = new URL(url);
     const client = parsed.protocol === "https:" ? https : http;
     const payload = body ? JSON.stringify(body) : "";
-    const req = client.request(
-      {
-        method,
-        hostname: parsed.hostname,
-        port: parsed.port,
-        path: parsed.pathname + parsed.search,
-        headers: {
-          "Content-Type": "application/json",
-          "Content-Length": Buffer.byteLength(payload)
-        }
-      },
-      (res) => {
-        let data = "";
-        res.on("data", (chunk) => { data += chunk; });
-        res.on("end", () => resolve({ status: res.statusCode, body: data }));
-      }
-    );
+    const headers = { Accept: "application/json" };
+    if (payload) {
+      headers["Content-Type"] = "application/json";
+      headers["Content-Length"] = Buffer.byteLength(payload);
+    }
+    if (cookie) headers.Cookie = cookie;
+    const req = client.request({
+      method,
+      hostname: parsed.hostname,
+      port: parsed.port,
+      path: parsed.pathname + parsed.search,
+      headers
+    }, (res) => {
+      let raw = "";
+      res.on("data", (chunk) => { raw += chunk; });
+      res.on("end", () => {
+        let json = null;
+        try { json = raw ? JSON.parse(raw) : {}; } catch (_) {}
+        resolve({ status: res.statusCode, headers: res.headers, json, raw });
+      });
+    });
     req.on("error", reject);
     if (payload) req.write(payload);
     req.end();
   });
 }
 
-async function loadIds() {
-  const [vehicles, drivers] = await Promise.all([db.listVehicles(), db.listDrivers()]);
-  const vehicleId = vehicles[0]?.vehicleId;
-  const driverId = drivers[0]?.driverId;
-  if (!vehicleId || !driverId) {
-    throw new Error("No vehicles/drivers found in the database — create at least one of each first");
+function cookieFrom(response) {
+  const values = response.headers["set-cookie"] || [];
+  return values.map((value) => value.split(";")[0]).join("; ");
+}
+
+function requireStatus(response, expected, label) {
+  if (response.status !== expected) {
+    throw new Error(`${label} returned ${response.status}: ${response.json?.error || "unexpected_response"}`);
   }
-  return { vehicleId, driverId };
 }
 
 (async () => {
-  const base = process.env.FLEETAI_BASE_URL || "http://localhost:3000";
-  const { vehicleId, driverId } = await loadIds();
+  const base = (process.env.FLEETAI_BASE_URL || "http://localhost:3000").replace(/\/+$/, "");
+  const email = process.env.FLEETAI_SMOKE_EMAIL || process.env.CUSTOMER_EMAIL || "";
+  const password = process.env.FLEETAI_SMOKE_PASSWORD || process.env.CUSTOMER_PASSWORD || "";
+  if (!email || !password) throw new Error("Set FLEETAI_SMOKE_EMAIL and FLEETAI_SMOKE_PASSWORD");
 
-  console.log("[SELFTEST] base", base);
-  console.log("[SELFTEST] using", { vehicleId, driverId });
+  const login = await request(`${base}/api/auth/customer/login`, "POST", { email, password });
+  requireStatus(login, 200, "customer login");
+  const cookie = cookieFrom(login);
+  if (!cookie) throw new Error("customer login did not issue a session cookie");
 
-  const gen = await request(`${base}/api/pairings/generate`, "POST", { vehicleId, driverId, replaceActive: true });
-  console.log("[SELFTEST] generate", gen.status, gen.body.slice(0, 300));
-  if (gen.status !== 200) process.exit(1);
-  let code;
-  try {
-    const json = JSON.parse(gen.body);
-    code = json.pairingCode || json.pairCode || json.code;
-  } catch (err) {
-    console.error("[SELFTEST] failed to parse generate response");
-    process.exit(1);
-  }
-  if (!code) {
-    console.error("[SELFTEST] no pairing code returned");
-    process.exit(1);
-  }
+  const [vehiclesResponse, driversResponse] = await Promise.all([
+    request(`${base}/api/vehicles`, "GET", null, cookie),
+    request(`${base}/api/drivers`, "GET", null, cookie)
+  ]);
+  requireStatus(vehiclesResponse, 200, "vehicle list");
+  requireStatus(driversResponse, 200, "driver list");
+  const vehicleId = vehiclesResponse.json?.[0]?.vehicleId;
+  const driverId = driversResponse.json?.[0]?.driverId;
+  if (!vehicleId || !driverId) throw new Error("The customer organization needs at least one vehicle and driver");
 
-  const claimVariants = [
-    { url: `${base}/api/pairings/claim`, body: { code, device_id: "SELFTEST_DEVICE", device_name: "SelfTest" } },
-    { url: `${base}/api/pairing/claim`, body: { pairingCode: code, deviceId: "SELFTEST_DEVICE", deviceLabel: "SelfTest" } },
-    { url: `${base}/pairings/claim`, body: { pair_code: code, uuid: "SELFTEST_DEVICE" } }
-  ];
+  const generated = await request(`${base}/api/pairings/generate`, "POST", { vehicleId, driverId }, cookie);
+  requireStatus(generated, 200, "pairing generation");
+  const pairingCode = generated.json?.pairingCode;
+  const driverPin = generated.json?.driverPin;
+  if (!pairingCode || !driverPin) throw new Error("pairing generation omitted the code or driver PIN");
 
-  for (const variant of claimVariants) {
-    const res = await request(variant.url, "POST", variant.body);
-    console.log("[SELFTEST] claim", variant.url, res.status, res.body.slice(0, 300));
-  }
+  const missingPin = await request(`${base}/api/pairings/claim`, "POST", {
+    pairingCode,
+    deviceId: "SELFTEST_DEVICE_MISSING_PIN",
+    deviceLabel: "Self-test"
+  });
+  requireStatus(missingPin, 401, "claim without PIN");
+  if (missingPin.json?.error !== "PIN_REQUIRED") throw new Error("claim without PIN did not return PIN_REQUIRED");
 
-  // Idempotent claim same device should succeed
-  const re = await request(`${base}/api/pairings/claim`, "POST", { code, device_id: "SELFTEST_DEVICE", device_label: "SelfTestAgain" });
-  console.log("[SELFTEST] claim same device", re.status, re.body.slice(0, 200));
+  const claim = await request(`${base}/api/pairings/claim`, "POST", {
+    pairingCode,
+    driverPin,
+    deviceId: "SELFTEST_DEVICE",
+    deviceLabel: "Self-test"
+  });
+  requireStatus(claim, 200, "pairing claim");
+  if (!claim.json?.deviceToken) throw new Error("pairing claim did not issue a device token");
 
-  // Conflict with different device
-  const conflict = await request(`${base}/api/pairings/claim`, "POST", { code, device_id: "OTHER_DEVICE", device_label: "Other" });
-  console.log("[SELFTEST] claim other device", conflict.status, conflict.body.slice(0, 200));
+  const sameDevice = await request(`${base}/api/pairings/claim`, "POST", {
+    pairingCode,
+    driverPin,
+    deviceId: "SELFTEST_DEVICE",
+    deviceLabel: "Self-test repeat"
+  });
+  requireStatus(sameDevice, 200, "same-device claim");
 
-  console.log("[SELFTEST] done");
+  const otherDevice = await request(`${base}/api/pairings/claim`, "POST", {
+    pairingCode,
+    driverPin,
+    deviceId: "SELFTEST_OTHER_DEVICE",
+    deviceLabel: "Self-test conflict"
+  });
+  requireStatus(otherDevice, 409, "different-device claim");
+
+  console.log("[pairing-selftest] PASS: authenticated generation, PIN enforcement, claim, idempotency, conflict");
 })().catch((err) => {
-  console.error("[SELFTEST] error", err.message);
-  process.exit(1);
+  console.error("[pairing-selftest] FAIL:", err.message);
+  process.exitCode = 1;
 });

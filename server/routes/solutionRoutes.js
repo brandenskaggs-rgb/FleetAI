@@ -48,6 +48,16 @@ function registerSolutionRoutes(app, deps) {
     return !orgId || sanitizeString(item?.orgId || "", 80) === orgId;
   }
 
+  function denyCustomerOrgMismatch(req, res, targetOrgId) {
+    const customerOrgId = sanitizeString(req.customer?.orgId || "", 80);
+    const normalizedTarget = sanitizeString(targetOrgId || "", 80);
+    if (customerOrgId && (!normalizedTarget || customerOrgId !== normalizedTarget)) {
+      res.status(403).json({ ok: false, error: "cross_org_access_denied" });
+      return true;
+    }
+    return false;
+  }
+
   function findVehicle(data, orgId, vehicleId) {
     const id = sanitizeString(vehicleId || "", 80);
     if (!id) return null;
@@ -367,6 +377,7 @@ function registerSolutionRoutes(app, deps) {
         name,
         quantityOnHand: Math.max(0, parseNumberField(req.body?.quantityOnHand ?? req.body?.qty, 0) || 0),
         reorderAt: Math.max(0, parseNumberField(req.body?.reorderAt, 0) || 0),
+        unitCost: Math.max(0, parseNumberField(req.body?.unitCost, 0) || 0),
         vendor: sanitizeString(req.body?.vendor || "", 180),
         lastOrderedAt: req.body?.lastOrderedAt ? parseDateValue(req.body.lastOrderedAt) : null,
         notes: sanitizeString(req.body?.notes || "", 800),
@@ -480,6 +491,7 @@ function registerSolutionRoutes(app, deps) {
       data.recalls = Array.isArray(data.recalls) ? data.recalls : [];
       const recall = data.recalls.find((r) => r.id === req.params.id);
       if (!recall) return res.status(404).json({ error: "Recall not found" });
+      if (denyCustomerOrgMismatch(req, res, recall.orgId)) return;
       const allowed = ["open", "in_progress", "resolved"];
       if (req.body.status) recall.status = normalizeStatus(req.body.status, allowed, recall.status);
       if (req.body.notes) recall.notes = sanitizeString(req.body.notes, 500);
@@ -609,6 +621,9 @@ function registerSolutionRoutes(app, deps) {
     try {
       const data = await ensureCollections(await readData());
       data.webhooks = Array.isArray(data.webhooks) ? data.webhooks : [];
+      const webhook = data.webhooks.find((item) => item.id === req.params.id);
+      if (!webhook) return res.status(404).json({ error: "Webhook not found" });
+      if (denyCustomerOrgMismatch(req, res, webhook.orgId)) return;
       const before = data.webhooks.length;
       data.webhooks = data.webhooks.filter((w) => w.id !== req.params.id);
       if (data.webhooks.length === before) return res.status(404).json({ error: "Webhook not found" });
@@ -700,12 +715,13 @@ function registerSolutionRoutes(app, deps) {
         }
       }
       const vehicles = data.vehicles.filter((v) => matchesOrg(v, orgId));
-      const positions = vehicles.map((v, i) => {
+      const positions = vehicles.map((v) => {
         const vid = v.vehicleId || v.id;
         const snap = latestByVehicle[vid];
         const metrics = snap?.metrics || snap?.signals || {};
-        const lat = parseNumberField(metrics.latitude || metrics.lat, null) || (39.7392 + i * 0.04);
-        const lon = parseNumberField(metrics.longitude || metrics.lon, null) || (-104.9903 + i * 0.05);
+        const lat = parseNumberField(metrics.latitude ?? metrics.lat, null);
+        const lon = parseNumberField(metrics.longitude ?? metrics.lon, null);
+        if (lat === null || lon === null) return null;
         return {
           vehicleId: vid,
           vehicleName: sanitizeString(v.unitName || v.name || vid, 120),
@@ -716,7 +732,7 @@ function registerSolutionRoutes(app, deps) {
           engineOn: Boolean(snap),
           updatedAt: snap?.timestamp || null
         };
-      });
+      }).filter(Boolean);
       res.json({ ok: true, data: positions });
     } catch (err) { next(err); }
   });
@@ -754,6 +770,9 @@ function registerSolutionRoutes(app, deps) {
     try {
       const data = await ensureCollections(await readData());
       data.alertSubscriptions = Array.isArray(data.alertSubscriptions) ? data.alertSubscriptions : [];
+      const subscription = data.alertSubscriptions.find((item) => item.id === req.params.id);
+      if (!subscription) return res.status(404).json({ error: "Subscription not found" });
+      if (denyCustomerOrgMismatch(req, res, subscription.orgId)) return;
       const before = data.alertSubscriptions.length;
       data.alertSubscriptions = data.alertSubscriptions.filter((s) => s.id !== req.params.id);
       if (data.alertSubscriptions.length === before) return res.status(404).json({ error: "Subscription not found" });
@@ -925,11 +944,12 @@ function registerSolutionRoutes(app, deps) {
       if (!toDriverId) return res.status(400).json({ error: "driverId required" });
       if (!body) return res.status(400).json({ error: "message body required" });
       const driver = findDriver(data, orgId, toDriverId);
+      if (!driver) return res.status(404).json({ error: "Driver not found in this organization" });
       const msg = {
         id: makeId("MSG"),
         orgId,
         toDriverId,
-        driverName: driver ? (personName(driver) || driver.driverId || toDriverId) : toDriverId,
+        driverName: personName(driver) || driver.driverId || toDriverId,
         fromRole: req.customer ? "dispatcher" : "employee",
         body,
         sentAt: nowIso(),

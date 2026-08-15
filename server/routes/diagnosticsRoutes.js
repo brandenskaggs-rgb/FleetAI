@@ -41,7 +41,25 @@ function registerDiagnosticsRoutes(app, deps) {
   // pairing; an operator may name one.
   function resolveVehicleId(req) {
     if (req.device) return req.device.vehicleId;
-    return sanitizeString(req.query.vehicleId || req.body?.vehicleId || "", 80);
+    return sanitizeString(req.params?.vehicleId || req.query.vehicleId || req.body?.vehicleId || "", 80);
+  }
+
+  async function authorizeVehicle(req, res) {
+    const vehicleId = resolveVehicleId(req);
+    if (!vehicleId) {
+      res.status(400).json({ ok: false, error: "vehicleId required" });
+      return null;
+    }
+    const orgId = req.device?.orgId || await db.getVehicleOrgId(vehicleId, "").catch(() => "");
+    if (!orgId) {
+      res.status(404).json({ ok: false, error: "vehicle_not_found" });
+      return null;
+    }
+    if (req.customer?.orgId && req.customer.orgId !== orgId) {
+      res.status(403).json({ ok: false, error: "cross_org_vehicle_denied" });
+      return null;
+    }
+    return { vehicleId, orgId };
   }
 
   // ── Sensor catalog ─────────────────────────────────────────────────────────
@@ -66,8 +84,9 @@ function registerDiagnosticsRoutes(app, deps) {
   // needs, and a silently shorter list hides it.
   app.get("/api/diagnostics/sensors", requireOperatorOrDevice, async (req, res, next) => {
     try {
-      const vehicleId = resolveVehicleId(req);
-      if (!vehicleId) return res.status(400).json({ ok: false, error: "vehicleId required" });
+      const scope = await authorizeVehicle(req, res);
+      if (!scope) return;
+      const { vehicleId } = scope;
 
       const snapshot = telemetryLatest.get(vehicleId) || null;
       // telemetryLatest holds the normalized shape written by the ingest route.
@@ -93,8 +112,9 @@ function registerDiagnosticsRoutes(app, deps) {
   // are guaranteed to agree because they are the same computation.
   app.post("/api/diagnostics/scan", requireOperatorOrDevice, async (req, res, next) => {
     try {
-      const vehicleId = resolveVehicleId(req);
-      if (!vehicleId) return res.status(400).json({ ok: false, error: "vehicleId required" });
+      const scope = await authorizeVehicle(req, res);
+      if (!scope) return;
+      const { vehicleId, orgId } = scope;
 
       const rawCodes = Array.isArray(req.body?.codes) ? req.body.codes : [];
       if (rawCodes.length > 200) {
@@ -107,7 +127,6 @@ function registerDiagnosticsRoutes(app, deps) {
       const scannedAt = nowIso();
       const source = req.device ? "device" : "operator";
 
-      const orgId = req.device?.orgId || (await db.getVehicleOrgId(vehicleId).catch(() => null)) || null;
       const driverId = req.device?.driverId || sanitizeString(req.body?.driverId || "", 80) || null;
 
       // Persist the scan itself so a manager can see history, not just the
@@ -167,8 +186,9 @@ function registerDiagnosticsRoutes(app, deps) {
   // ── Scan history ───────────────────────────────────────────────────────────
   app.get("/api/diagnostics/scans", requireOperatorOrDevice, async (req, res, next) => {
     try {
-      const vehicleId = resolveVehicleId(req);
-      if (!vehicleId) return res.status(400).json({ ok: false, error: "vehicleId required" });
+      const scope = await authorizeVehicle(req, res);
+      if (!scope) return;
+      const { vehicleId } = scope;
       const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 20, 1), 100);
       const scans = await db.listDiagnosticScans(vehicleId, { limit });
       res.json({ ok: true, vehicleId, scans });
@@ -180,8 +200,9 @@ function registerDiagnosticsRoutes(app, deps) {
   // Latest scan only — what the tablet shows on open.
   app.get("/api/diagnostics/latest", requireOperatorOrDevice, async (req, res, next) => {
     try {
-      const vehicleId = resolveVehicleId(req);
-      if (!vehicleId) return res.status(400).json({ ok: false, error: "vehicleId required" });
+      const scope = await authorizeVehicle(req, res);
+      if (!scope) return;
+      const { vehicleId } = scope;
       const scans = await db.listDiagnosticScans(vehicleId, { limit: 1 });
       const latest = scans[0] || null;
       res.json({
@@ -202,9 +223,9 @@ function registerDiagnosticsRoutes(app, deps) {
   // operator-authorised event rather than something a tablet can do silently.
   app.post("/api/diagnostics/clear", requireEmployeeOrCustomerApi, async (req, res, next) => {
     try {
-      const vehicleId = sanitizeString(req.body?.vehicleId || "", 80);
-      if (!vehicleId) return res.status(400).json({ ok: false, error: "vehicleId required" });
-      const orgId = (await db.getVehicleOrgId(vehicleId).catch(() => null)) || null;
+      const scope = await authorizeVehicle(req, res);
+      if (!scope) return;
+      const { vehicleId, orgId } = scope;
       await db.logAudit({
         orgId,
         event: "DIAGNOSTIC_CODES_CLEAR_REQUESTED",
@@ -220,6 +241,30 @@ function registerDiagnosticsRoutes(app, deps) {
       next(err);
     }
   });
+
+  async function handleDtcHistory(req, res, next) {
+    try {
+      const scope = await authorizeVehicle(req, res);
+      if (!scope) return;
+      const scans = await db.listDiagnosticScans(scope.vehicleId, { limit: 100 });
+      const rows = scans.flatMap((scan) => (scan.codes || []).map((code) => ({
+        scanId: scan.id,
+        vehicleId: scope.vehicleId,
+        code: code.code || "",
+        description: code.parameter || code.description || "",
+        severity: code.severity || scan.severity || "unknown",
+        firstSeen: scan.scannedAt,
+        lastSeen: scan.scannedAt,
+        source: scan.source
+      })));
+      res.json({ ok: true, data: rows });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  app.get("/api/dtc-history", requireEmployeeOrCustomerApi, handleDtcHistory);
+  app.get("/api/vehicles/:vehicleId/dtc-history", requireEmployeeOrCustomerApi, handleDtcHistory);
 }
 
 module.exports = { registerDiagnosticsRoutes };

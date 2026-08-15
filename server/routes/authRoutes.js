@@ -1,6 +1,7 @@
 const { getPrisma } = require("../db");
 const { validateBody, schemas } = require("../middleware/validate");
 const pgSessionStore = require("../pgSessionStore");
+const { loginLimiter } = require("../middleware/rateLimiter");
 
 function registerAuthRoutes(app, deps) {
   const {
@@ -201,8 +202,8 @@ function registerAuthRoutes(app, deps) {
     return handleEmployeeLogin(req, res);
   }
 
-  app.post("/api/auth/customer/login", validateBody(schemas.login), (req, res, next) => { setNoStore(res); return handleCustomerLogin(req, res, next); });
-  app.post("/api/auth/org/login", validateBody(schemas.login), (req, res, next) => { setNoStore(res); return handleCustomerLogin(req, res, next); });
+  app.post("/api/auth/customer/login", loginLimiter, validateBody(schemas.login), (req, res, next) => { setNoStore(res); return handleCustomerLogin(req, res, next); });
+  app.post("/api/auth/org/login", loginLimiter, validateBody(schemas.login), (req, res, next) => { setNoStore(res); return handleCustomerLogin(req, res, next); });
   ["/api/auth/login", "/api/auth/login-customer", "/api/customer/login"].forEach((route) => {
     app.all(route, (req, res) => sendRemovedRoute(res, "/api/auth/customer/login"));
   });
@@ -385,8 +386,8 @@ function registerAuthRoutes(app, deps) {
     res.json({ ok: true });
   });
 
-  app.all("/api/employee/login", handleEmployeeLoginRoute);
-  app.all("/api/auth/employee/login", handleEmployeeLoginRoute);
+  app.all("/api/employee/login", loginLimiter, handleEmployeeLoginRoute);
+  app.all("/api/auth/employee/login", loginLimiter, handleEmployeeLoginRoute);
   ["/api/login", "/api/employee-login"].forEach((route) => {
     app.all(route, (req, res) => sendRemovedRoute(res, "/api/auth/employee/login"));
   });

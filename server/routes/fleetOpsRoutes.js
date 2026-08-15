@@ -39,6 +39,26 @@ function registerFleetOpsRoutes(app, deps) {
     return "";
   }
 
+  function denyCustomerOrgMismatch(req, res, targetOrgId) {
+    const customerOrgId = sanitizeString(req.customer?.orgId || "", 80);
+    const normalizedTarget = sanitizeString(targetOrgId || "", 80);
+    if (customerOrgId && (!normalizedTarget || customerOrgId !== normalizedTarget)) {
+      res.status(403).json({ ok: false, error: "cross_org_access_denied" });
+      return true;
+    }
+    return false;
+  }
+
+  async function telemetryItemsForRequest(req, items) {
+    if (!req.customer?.orgId) return items;
+    const customerOrgId = sanitizeString(req.customer.orgId, 80);
+    const scoped = await Promise.all(items.map(async (item) => {
+      const orgId = await db.getVehicleOrgId(item?.vehicleId, "").catch(() => "");
+      return orgId === customerOrgId ? item : null;
+    }));
+    return scoped.filter(Boolean);
+  }
+
   async function handleListVehicles(req, res, next) {
     try {
       const orgId = await resolveRequestOrgId(req);
@@ -94,6 +114,7 @@ function registerFleetOpsRoutes(app, deps) {
       if (!existing || (orgId && existing.orgId && existing.orgId !== orgId)) {
         return res.status(404).json({ error: "Vehicle not found" });
       }
+      if (denyCustomerOrgMismatch(req, res, existing.orgId)) return;
       const removed = await db.deleteVehicleByVehicleId(vehicleId);
       await db.logAudit({ orgId: existing.orgId, event: "VEHICLE_DELETED", detail: vehicleId });
       return res.json({ ok: true, data: removed });
@@ -155,6 +176,7 @@ function registerFleetOpsRoutes(app, deps) {
       if (!existing || (orgId && existing.orgId && existing.orgId !== orgId)) {
         return res.status(404).json({ error: "Driver not found" });
       }
+      if (denyCustomerOrgMismatch(req, res, existing.orgId)) return;
       const removed = await db.deleteDriverByDriverId(driverId);
       await db.logAudit({ orgId: existing.orgId, event: "DRIVER_DELETED", detail: driverId });
       return res.json({ ok: true, data: removed });
@@ -191,9 +213,10 @@ function registerFleetOpsRoutes(app, deps) {
     }
   });
 
-  app.get("/api/pairing/options", async (req, res, next) => {
+  app.get("/api/pairing/options", requireEmployeeOrCustomerApi, async (req, res, next) => {
     try {
-      const orgId = sanitizeString(req.query.orgId || "", 80);
+      const orgId = await resolveRequestOrgId(req);
+      if (!orgId && req.customer) return res.status(403).json({ ok: false, error: "org_scope_required" });
       const [vehicles, drivers] = await Promise.all([
         db.listVehicles({ orgId: orgId || undefined }),
         db.listDrivers({ orgId: orgId || undefined })
@@ -227,6 +250,15 @@ function registerFleetOpsRoutes(app, deps) {
           error: "VEHICLE_MISMATCH",
           message: "This device is not paired to that vehicle."
         });
+      }
+      if (!req.device) {
+        const vehicleOrgId = await db.getVehicleOrgId(vehicleId, "");
+        if (denyCustomerOrgMismatch(req, res, vehicleOrgId)) return;
+        const bodyDriverId = sanitizeString(payload.driverId || payload.driver_id || "", 80);
+        if (bodyDriverId && req.customer) {
+          const driver = await db.getDriverByDriverId(bodyDriverId);
+          if (!driver || denyCustomerOrgMismatch(req, res, driver.orgId)) return;
+        }
       }
       const metrics = normalizeMetrics(payload.metrics || payload.data || payload);
       // The Android tablet sends `timestamp`; only `ts` was read, so every
@@ -278,6 +310,10 @@ function registerFleetOpsRoutes(app, deps) {
         ? req.device.vehicleId
         : sanitizeString(req.query.vehicle_id || req.query.vehicleId || "", 80);
       if (!vehicleId) return res.status(400).json({ error: "vehicle_id required" });
+      if (!req.device) {
+        const vehicleOrgId = await db.getVehicleOrgId(vehicleId, "");
+        if (denyCustomerOrgMismatch(req, res, vehicleOrgId)) return;
+      }
       const cached = telemetryLatest.get(vehicleId);
       if (cached) return res.json(cached);
       const data = await readData();
@@ -304,10 +340,13 @@ function registerFleetOpsRoutes(app, deps) {
         return res.json({ ok: true, data: own || null });
       }
       if (requested) {
+        const vehicleOrgId = await db.getVehicleOrgId(requested, "");
+        if (denyCustomerOrgMismatch(req, res, vehicleOrgId)) return;
         const cached = telemetryLatest.get(requested);
         return res.json({ ok: true, data: cached || null });
       }
-      const latest = Array.from(telemetryLatest.values()).sort((a, b) => new Date(b.ts || 0) - new Date(a.ts || 0));
+      const allLatest = Array.from(telemetryLatest.values()).sort((a, b) => new Date(b.ts || 0) - new Date(a.ts || 0));
+      const latest = await telemetryItemsForRequest(req, allLatest);
       res.json({ ok: true, data: latest[0] || null, items: latest });
     } catch (err) {
       next(err);
@@ -315,15 +354,66 @@ function registerFleetOpsRoutes(app, deps) {
   });
 
   // Fleet-wide telemetry dump — operator only (was public).
-  app.get("/api/telemetry/active", requireEmployeeOrCustomerApi, (req, res) => {
-    const items = Array.from(telemetryLatest.values()).sort((a, b) => new Date(b.ts || 0) - new Date(a.ts || 0));
-    res.json({ ok: true, data: items, count: items.length, lastSeen: getTelemetryLastSeen() });
+  app.get("/api/telemetry/active", requireEmployeeOrCustomerApi, async (req, res, next) => {
+    try {
+      const allItems = Array.from(telemetryLatest.values()).sort((a, b) => new Date(b.ts || 0) - new Date(a.ts || 0));
+      const items = await telemetryItemsForRequest(req, allItems);
+      res.json({ ok: true, data: items, count: items.length, lastSeen: getTelemetryLastSeen() });
+    } catch (err) {
+      next(err);
+    }
   });
 
   app.get("/api/telemetry/health", (req, res) => {
     const state = getTelemetryState();
     res.json({ ok: true, status: state.status, lastSampleAt: state.lastSampleAt, ageMs: state.ageMs, subscribers: telemetrySubscribers.size });
   });
+
+  const historyMetricPaths = {
+    rpm: ["engine.rpm", "rpm"],
+    speed: ["vehicle.speedKph", "speedKph", "speed"],
+    coolant_temp: ["engine.coolantTempC", "coolantTempC", "coolant_temp"],
+    battery_voltage: ["electrical.batteryVoltageV", "batteryVoltageV", "battery_voltage"],
+    engine_load: ["engine.engineLoadPct", "engineLoadPct", "engine_load"],
+    fuel_level: ["fuel.fuelLevelPct", "fuelLevelPct", "fuel_level"]
+  };
+
+  function metricValue(metrics, paths) {
+    for (const path of paths) {
+      const value = path.split(".").reduce((current, key) => current == null ? undefined : current[key], metrics);
+      if (value !== undefined && value !== null) return value;
+    }
+    return null;
+  }
+
+  async function handleTelemetryHistory(req, res, next) {
+    try {
+      const vehicleId = sanitizeString(req.params?.vehicleId || req.query.vehicleId || req.query.vehicle_id || "", 80);
+      if (!vehicleId) return res.status(400).json({ ok: false, error: "vehicleId required" });
+      const vehicleOrgId = await db.getVehicleOrgId(vehicleId, "");
+      if (!vehicleOrgId) return res.status(404).json({ ok: false, error: "vehicle_not_found" });
+      if (denyCustomerOrgMismatch(req, res, vehicleOrgId)) return;
+      const metric = sanitizeString(req.query.metric || "rpm", 40);
+      const paths = historyMetricPaths[metric];
+      if (!paths) return res.status(400).json({ ok: false, error: "unsupported_metric" });
+      const rangeMs = { "1h": 3600000, "6h": 21600000, "24h": 86400000, "7d": 604800000 }[req.query.range] || 86400000;
+      const samples = await db.getSamplesForVehicle(vehicleId, { limit: 5000, since: new Date(Date.now() - rangeMs) });
+      const data = samples.map((sample) => ({
+        id: sample.id,
+        vehicleId,
+        timestamp: sample.ts,
+        metric,
+        value: metricValue(sample.metrics || {}, paths),
+        quality: sample.raw?.quality || "normalized"
+      })).filter((sample) => sample.value !== null);
+      res.json({ ok: true, data });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  app.get("/api/telemetry/history", requireEmployeeOrCustomerApi, handleTelemetryHistory);
+  app.get("/api/vehicles/:vehicleId/metrics/history", requireEmployeeOrCustomerApi, handleTelemetryHistory);
 
 
   // Push a snapshot to every entitled live subscriber.

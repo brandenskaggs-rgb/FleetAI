@@ -7,7 +7,20 @@ const { mergePythonAndNodePrediction } = require("../lib/mlMerge");
 const { predictionLimiter, defaultLimiter } = require("../middleware/rateLimiter");
 
 function registerMlRoutes(app, deps) {
-  const { requireEmployeeOrCustomerApi, readData, resolveOrgIdForVehicle } = deps;
+  const { requireEmployeeOrCustomerApi } = deps;
+
+  async function resolveVehicleOrg(req, res, vehicleId) {
+    const orgId = await sqliteDb.getVehicleOrgId(vehicleId, "");
+    if (!orgId) {
+      res.status(404).json({ ok: false, error: "vehicle_not_found" });
+      return null;
+    }
+    if (req.customer?.orgId && req.customer.orgId !== orgId) {
+      res.status(403).json({ ok: false, error: "cross_org_vehicle_denied" });
+      return null;
+    }
+    return orgId;
+  }
 
   app.get("/api/ml/service/status", requireEmployeeOrCustomerApi, async (req, res) => {
     try {
@@ -30,7 +43,7 @@ function registerMlRoutes(app, deps) {
     try {
       const states = await sqliteDb.getAllModelStates();
       const orgId = req.customer?.orgId || null;
-      const filtered = orgId ? states.filter((s) => !s.orgId || s.orgId === orgId) : states;
+      const filtered = orgId ? states.filter((s) => s.orgId === orgId) : states;
       return res.json({ ok: true, data: filtered });
     } catch (err) {
       return res.status(500).json({ ok: false, error: err.message });
@@ -51,11 +64,8 @@ function registerMlRoutes(app, deps) {
     try {
       const vehicleId = sanitizeString(req.body?.vehicleId || req.query.vehicleId, 120);
       if (!vehicleId) return res.status(400).json({ ok: false, error: "vehicleId required" });
-      const data = await readData();
-      const orgId = resolveOrgIdForVehicle(data, vehicleId);
-      if (req.customer && req.customer.orgId && req.customer.orgId !== orgId) {
-        return res.status(403).json({ ok: false, error: "cross_org_vehicle_denied" });
-      }
+      const orgId = await resolveVehicleOrg(req, res, vehicleId);
+      if (!orgId) return;
       const samples = await sqliteDb.getSamplesForVehicle(vehicleId, { limit: 5000 });
       const jsPrediction = ml.computeFullPrediction(samples, vehicleId);
       const caps = (await sqliteDb.getVehicleCapabilities(vehicleId)) || {};
@@ -101,11 +111,8 @@ function registerMlRoutes(app, deps) {
   app.get("/api/vehicles/:vehicleId/prediction", requireEmployeeOrCustomerApi, predictionLimiter, async (req, res) => {
     try {
       const { vehicleId } = req.params;
-      const data = await readData();
-      const orgId = resolveOrgIdForVehicle(data, vehicleId);
-      if (req.customer && req.customer.orgId && req.customer.orgId !== orgId) {
-        return res.status(403).json({ ok: false, error: "cross_org_vehicle_denied" });
-      }
+      const orgId = await resolveVehicleOrg(req, res, vehicleId);
+      if (!orgId) return;
       const samples = await sqliteDb.getSamplesForVehicle(vehicleId, { limit: 5000 });
       const jsPrediction = ml.computeFullPrediction(samples, vehicleId);
       const caps = (await sqliteDb.getVehicleCapabilities(vehicleId)) || {};
@@ -147,11 +154,8 @@ function registerMlRoutes(app, deps) {
   app.get("/api/vehicles/:vehicleId/report", requireEmployeeOrCustomerApi, async (req, res) => {
     try {
       const { vehicleId } = req.params;
-      const data = await readData();
-      const orgId = resolveOrgIdForVehicle(data, vehicleId);
-      if (req.customer && req.customer.orgId && req.customer.orgId !== orgId) {
-        return res.status(403).json({ ok: false, error: "cross_org_vehicle_denied" });
-      }
+      const orgId = await resolveVehicleOrg(req, res, vehicleId);
+      if (!orgId) return;
       const report = await sqliteDb.getLatestAiReport(vehicleId);
       if (!report) return res.status(404).json({ ok: false, error: "No report found" });
       return res.json({ ok: true, data: report });
@@ -163,11 +167,8 @@ function registerMlRoutes(app, deps) {
   app.post("/api/vehicles/:vehicleId/report/generate", requireEmployeeOrCustomerApi, async (req, res) => {
     try {
       const { vehicleId } = req.params;
-      const data = await readData();
-      const orgId = resolveOrgIdForVehicle(data, vehicleId);
-      if (req.customer && req.customer.orgId && req.customer.orgId !== orgId) {
-        return res.status(403).json({ ok: false, error: "cross_org_vehicle_denied" });
-      }
+      const orgId = await resolveVehicleOrg(req, res, vehicleId);
+      if (!orgId) return;
       const samples = await sqliteDb.getSamplesForVehicle(vehicleId, { limit: 5000 });
       const prediction = ml.computeFullPrediction(samples, vehicleId);
       await sqliteDb.upsertModelState(prediction);
@@ -182,11 +183,8 @@ function registerMlRoutes(app, deps) {
   app.get("/api/vehicles/:vehicleId/capabilities", requireEmployeeOrCustomerApi, async (req, res) => {
     try {
       const { vehicleId } = req.params;
-      const data = await readData();
-      const orgId = resolveOrgIdForVehicle(data, vehicleId);
-      if (req.customer && req.customer.orgId && req.customer.orgId !== orgId) {
-        return res.status(403).json({ ok: false, error: "cross_org_vehicle_denied" });
-      }
+      const orgId = await resolveVehicleOrg(req, res, vehicleId);
+      if (!orgId) return;
       const caps = await sqliteDb.getVehicleCapabilities(vehicleId);
       return res.json({ ok: true, data: caps || null });
     } catch (err) {
@@ -197,11 +195,8 @@ function registerMlRoutes(app, deps) {
   app.get("/api/vehicles/:vehicleId/alerts", requireEmployeeOrCustomerApi, async (req, res) => {
     try {
       const { vehicleId } = req.params;
-      const data = await readData();
-      const orgId = resolveOrgIdForVehicle(data, vehicleId);
-      if (req.customer && req.customer.orgId && req.customer.orgId !== orgId) {
-        return res.status(403).json({ ok: false, error: "cross_org_vehicle_denied" });
-      }
+      const orgId = await resolveVehicleOrg(req, res, vehicleId);
+      if (!orgId) return;
       const unresolved = req.query.unresolved === "true";
       const alerts = await sqliteDb.getAlertsForVehicle(vehicleId, { limit: 50, unresolvedOnly: unresolved });
       return res.json({ ok: true, data: alerts });
@@ -212,6 +207,11 @@ function registerMlRoutes(app, deps) {
 
   app.post("/api/alerts/:alertId/ack", requireEmployeeOrCustomerApi, async (req, res) => {
     try {
+      const alert = await sqliteDb.getAlertById(req.params.alertId);
+      if (!alert) return res.status(404).json({ ok: false, error: "alert_not_found" });
+      if (req.customer?.orgId && req.customer.orgId !== alert.orgId) {
+        return res.status(403).json({ ok: false, error: "cross_org_alert_denied" });
+      }
       await sqliteDb.ackAlert(req.params.alertId);
       return res.json({ ok: true });
     } catch (err) {
@@ -221,6 +221,11 @@ function registerMlRoutes(app, deps) {
 
   app.post("/api/alerts/:alertId/resolve", requireEmployeeOrCustomerApi, async (req, res) => {
     try {
+      const alert = await sqliteDb.getAlertById(req.params.alertId);
+      if (!alert) return res.status(404).json({ ok: false, error: "alert_not_found" });
+      if (req.customer?.orgId && req.customer.orgId !== alert.orgId) {
+        return res.status(403).json({ ok: false, error: "cross_org_alert_denied" });
+      }
       await sqliteDb.resolveAlert(req.params.alertId);
       return res.json({ ok: true });
     } catch (err) {

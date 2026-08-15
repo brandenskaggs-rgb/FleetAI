@@ -116,7 +116,10 @@ async function getModelState(vehicleId) {
 
 async function getAllModelStates() {
   const rows = await getPrisma().modelState.findMany({ orderBy: { updatedAt: "desc" } });
-  return rows.map((r) => r.state);
+  return rows.map((r) => Object.assign({}, r.state || {}, {
+    vehicleId: r.state?.vehicleId || r.vehicleId,
+    orgId: r.state?.orgId || r.orgId || null
+  }));
 }
 
 // ─── Alerts ───────────────────────────────────────────────────────────────────
@@ -176,6 +179,12 @@ async function getAlertsForOrg(orgId, { limit = 100, unresolvedOnly = false } = 
     take: limit
   });
   return rows.map(rowToAlert);
+}
+
+async function getAlertById(id) {
+  if (!id) return null;
+  const row = await getPrisma().alert.findUnique({ where: { id } });
+  return row ? rowToAlert(row) : null;
 }
 
 async function ackAlert(id) {
@@ -1198,6 +1207,7 @@ module.exports = {
   insertAlert,
   getAlertsForVehicle,
   getAlertsForOrg,
+  getAlertById,
   ackAlert,
   resolveAlert,
   insertAiReport,

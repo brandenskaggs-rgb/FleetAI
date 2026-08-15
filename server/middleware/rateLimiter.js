@@ -1,4 +1,4 @@
-const rateLimit = require("express-rate-limit");
+const { rateLimit, ipKeyGenerator } = require("express-rate-limit");
 const { RedisStore } = require("rate-limit-redis");
 const { createClient } = require("redis");
 
@@ -27,36 +27,28 @@ async function initRedis() {
 const redisReady = initRedis().catch(() => {});
 
 function createRateLimiter({ windowMs = 60000, max = 100, keyPrefix = "rl" } = {}) {
-  // Outer fn so the limiter is created after Redis has had a chance to connect
-  let _limiter = null;
-
-  function getLimiter() {
-    if (_limiter) return _limiter;
-    const store = (_redisReady && _redisClient)
-      ? new RedisStore({ sendCommand: (...args) => _redisClient.sendCommand(args), prefix: keyPrefix })
-      : undefined; // express-rate-limit built-in in-memory fallback
-    _limiter = rateLimit({
-      windowMs,
-      max,
-      standardHeaders: true,
-      legacyHeaders: false,
-      keyGenerator: (req) => `${keyPrefix}:${req.headers["x-api-key"] || req.ip}`,
-      store,
-      handler: (req, res) => {
-        res.status(429).json({
-          success: false,
-          error: { code: "RATE_LIMITED", message: "Too many requests. Please slow down." },
-          timestamp: new Date().toISOString()
-        });
-      }
-    });
-    return _limiter;
-  }
-
-  return (req, res, next) => getLimiter()(req, res, next);
+  const store = (_redisReady && _redisClient)
+    ? new RedisStore({ sendCommand: (...args) => _redisClient.sendCommand(args), prefix: keyPrefix })
+    : undefined; // express-rate-limit built-in in-memory fallback
+  return rateLimit({
+    windowMs,
+    max,
+    standardHeaders: true,
+    legacyHeaders: false,
+    keyGenerator: (req) => `${keyPrefix}:${req.headers["x-api-key"] || ipKeyGenerator(req.ip)}`,
+    store,
+    handler: (req, res) => {
+      res.status(429).json({
+        success: false,
+        error: { code: "RATE_LIMITED", message: "Too many requests. Please slow down." },
+        timestamp: new Date().toISOString()
+      });
+    }
+  });
 }
 
 const defaultLimiter = createRateLimiter({ windowMs: 60000, max: 100, keyPrefix: "api" });
 const predictionLimiter = createRateLimiter({ windowMs: 60000, max: 30, keyPrefix: "pred" });
+const loginLimiter = createRateLimiter({ windowMs: 15 * 60000, max: 10, keyPrefix: "auth-login" });
 
-module.exports = { createRateLimiter, defaultLimiter, predictionLimiter, redisReady };
+module.exports = { createRateLimiter, defaultLimiter, predictionLimiter, loginLimiter, redisReady };
