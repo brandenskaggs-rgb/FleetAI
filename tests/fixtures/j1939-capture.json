@@ -1,0 +1,21 @@
+{
+  "vehicleId": "REPLAY_TRUCK_001",
+  "orgId": "REPLAY_ORG",
+  "protocol": "J1939",
+  "adapter": {
+    "transport": "USB_SLCAN",
+    "protocol": "J1939",
+    "manufacturer": "Fleet AI test fixture",
+    "product": "Recorded CAN replay",
+    "listenOnly": true,
+    "bitrate": 250000,
+    "connectorProfile": "BENCH_HARNESS"
+  },
+  "timestamp": "2026-08-14T12:00:00.000Z",
+  "frames": [
+    { "id": 217056256, "data": [0, 0, 0, 224, 46, 255, 255, 255], "timestamp": "2026-08-14T12:00:00.000Z" },
+    { "id": 419360256, "data": [130, 255, 255, 255, 255, 255, 255, 255], "timestamp": "2026-08-14T12:00:00.050Z" },
+    { "id": 419361280, "data": [244, 1, 255, 255, 255, 255, 255, 255], "timestamp": "2026-08-14T12:00:00.100Z" },
+    { "id": 419351040, "data": [0, 0, 110, 0, 0, 3, 255, 255], "timestamp": "2026-08-14T12:00:00.150Z" }
+  ]
+}

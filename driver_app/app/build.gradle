@@ -102,6 +102,13 @@ dependencies {
     implementation 'androidx.room:room-ktx:2.6.1'
     ksp 'androidx.room:room-compiler:2.6.1'
 
+    // USB serial transport for documented SLCAN/Lawicel CAN adapters. This
+    // supplies userspace FTDI, CP210x, CH34x, PL2303 and CDC-ACM drivers, so
+    // rooted tablets or manufacturer-specific kernel drivers are not needed.
+    implementation 'com.github.mik3y:usb-serial-for-android:3.10.0'
+
+    testImplementation 'junit:junit:4.13.2'
+
     // Firebase Cloud Messaging — push notifications to the driver.
     //
     // NOT CONFIGURED. There is no app/google-services.json and the

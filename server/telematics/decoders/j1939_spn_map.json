@@ -3,7 +3,7 @@
   "84":  { "metric": "speedKph",               "scale": 0.00390625,"offset": 0,    "unit": "kph"  },
   "110": { "metric": "coolantTempC",            "scale": 1,         "offset": -40,  "unit": "C"    },
   "175": { "metric": "oilTempC",                "scale": 1,         "offset": -40,  "unit": "C"    },
-  "158": { "metric": "batteryVoltageV",         "scale": 0.05,      "offset": 0,    "unit": "V"    },
+  "168": { "metric": "batteryVoltageV",         "scale": 0.05,      "offset": 0,    "unit": "V"    },
   "92":  { "metric": "engineLoadPct",           "scale": 0.4,       "offset": 0,    "unit": "%"    },
   "183": { "metric": "fuelRateLph",             "scale": 0.05,      "offset": 0,    "unit": "L/h"  },
   "247": { "metric": "engineHours",             "scale": 0.05,      "offset": 0,    "unit": "h"    },

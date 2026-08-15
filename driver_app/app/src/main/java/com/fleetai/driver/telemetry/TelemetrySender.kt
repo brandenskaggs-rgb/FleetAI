@@ -1,15 +1,21 @@
 package com.fleetai.driver.telemetry
 
-import android.util.Log
+import com.fleetai.driver.AppGraph
+import com.fleetai.driver.j1939.CanFrame
+import com.fleetai.driver.j1939.J1939DecodeResult
+import com.fleetai.driver.j1939.UsbJ1939Diagnostics
 import com.fleetai.driver.network.ApiClient
+import com.fleetai.driver.network.CanFrameDto
+import com.fleetai.driver.network.TelemetryAdapterDto
 import com.fleetai.driver.network.TelemetryIngestRequest
+import com.fleetai.driver.network.TelemetryDtcDto
 import java.time.Instant
+import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -27,97 +33,188 @@ class TelemetrySender(
         val lastError: String = "",
         val supportedPidCount: Int = 0,
         val dongleMac: String = "",
-        val errors: Int = 0
+        val errors: Int = 0,
+        val protocol: String = "NONE",
+        val rawFrameCount: Long = 0,
+        val queuedBatches: Int = 0,
+        val bitrate: Int? = null,
+        val bytesReceived: Long = 0,
+        val rejectedRecords: Long = 0,
+        val reconnectCount: Int = 0,
+        val busSilenceMs: Long = 0,
+        val connectorProfile: String = "UNKNOWN"
     )
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     @Volatile private var job: Job? = null
     @Volatile var debug = DebugState()
         private set
-
     private val latestMetrics = ConcurrentHashMap<String, Any?>()
-    @Volatile private var latestObdConnected = false
-    @Volatile private var latestObdPacketAt = 0L
+    private val latestFrames = ConcurrentHashMap<String, CanFrameDto>()
+    private val activeDtcs = ConcurrentHashMap.newKeySet<String>()
+    private val latestMeta = ConcurrentHashMap<String, Any?>()
+    @Volatile private var latestConnected = false
+    @Volatile private var latestPacketAt = 0L
     @Volatile private var cachedVin: String? = null
+    @Volatile private var activeProtocol = "OBD2"
+    @Volatile private var adapterMetadata: TelemetryAdapterDto? = null
     private val heartbeatKey = "heartbeatMs"
 
-    fun start() {
+    fun start(protocol: String = "OBD2", adapter: TelemetryAdapterDto? = null) {
         stop()
+        activeProtocol = protocol.uppercase()
+        adapterMetadata = adapter
         latestMetrics.clear()
-        latestObdConnected = obd.isConnected()
-        latestObdPacketAt = 0L
-        debug = debug.copy(lastError = "")
+        latestFrames.clear()
+        activeDtcs.clear()
+        latestMeta.clear()
+        latestConnected = if (activeProtocol == "OBD2") obd.isConnected() else false
+        latestPacketAt = 0L
+        debug = debug.copy(lastError = "", protocol = activeProtocol, supportedPidCount = 0)
         job = scope.launch {
-            val api = ApiClient.api
-            try {
-                val supported = obd.discoverSupportedPids()
-                debug = debug.copy(supportedPidCount = supported.size)
-            } catch (ex: Exception) {
-                debug = debug.copy(lastError = ex.message ?: "discover_pid_error", errors = debug.errors + 1)
-            }
-            try {
-                cachedVin = obd.readVin()
-            } catch (_: Exception) {
-                cachedVin = null
-            }
+            if (activeProtocol == "OBD2") discoverObdCapabilities()
             while (isActive) {
-                val metrics = latestMetrics.toMutableMap()
-                val obdConnected = latestObdConnected
-                cachedVin?.let { metrics["vin"] = it }
-                metrics[heartbeatKey] = System.currentTimeMillis()
-                val vehicleId = resolveVehicleId()
-                val deviceId = resolveDeviceId()
-                if (!vehicleId.isNullOrBlank() && (metrics.isNotEmpty() || obdConnected)) {
-                    try {
-                        val now = Instant.now().toString()
-                        val lastPacketAt = if (latestObdPacketAt > 0L) {
-                            Instant.ofEpochMilli(latestObdPacketAt).toString()
-                        } else {
-                            now
-                        }
-                        api.ingestTelemetry(
-                            TelemetryIngestRequest(
-                                vehicleId = vehicleId,
-                                driverId = resolveDriverId(),
-                                deviceId = deviceId,
-                                protocol = if (debug.supportedPidCount > 0) "OBD2" else "J1939",
-                                timestamp = now,
-                                metrics = metrics,
-                                obdConnected = obdConnected,
-                                lastObdPacketAt = lastPacketAt
-                            )
-                        )
-                        debug = debug.copy(lastSendAt = System.currentTimeMillis(), lastError = "")
-                    } catch (ex: Exception) {
-                        debug = debug.copy(lastError = ex.message ?: "send_error", errors = debug.errors + 1)
-                        Log.d("FleetAI", "[TEL] send error ${ex.message}")
-                    }
-                }
-                delay(1000)
+                enqueueCurrentBatch()
+                delay(UPLOAD_INTERVAL_MS)
             }
+        }
+    }
+
+    private suspend fun discoverObdCapabilities() {
+        try {
+            val supported = obd.discoverSupportedPids()
+            debug = debug.copy(supportedPidCount = supported.size)
+        } catch (error: Exception) {
+            debug = debug.copy(lastError = error.message ?: "discover_pid_error", errors = debug.errors + 1)
+        }
+        cachedVin = runCatching { obd.readVin() }.getOrNull()
+    }
+
+    private suspend fun enqueueCurrentBatch() {
+        val metrics = latestMetrics.toMutableMap()
+        cachedVin?.let { metrics["vin"] = it }
+        metrics[heartbeatKey] = System.currentTimeMillis()
+        val frames = drainFrameSample()
+        val vehicleId = resolveVehicleId()
+        if (vehicleId.isNullOrBlank() || (metrics.size == 1 && frames.isEmpty() && !latestConnected)) return
+        val capturedAt = if (latestPacketAt > 0L) Instant.ofEpochMilli(latestPacketAt) else Instant.now()
+        val request = TelemetryIngestRequest(
+            batchId = UUID.randomUUID().toString(),
+            vehicleId = vehicleId,
+            driverId = resolveDriverId(),
+            deviceId = resolveDeviceId(),
+            protocol = activeProtocol,
+            timestamp = capturedAt.toString(),
+            metrics = metrics,
+            frames = frames,
+            dtc = TelemetryDtcDto(active = activeDtcs.toList().sorted()),
+            meta = latestMeta.toMap(),
+            adapter = adapterMetadata,
+            obdConnected = latestConnected,
+            lastObdPacketAt = capturedAt.toString()
+        )
+        try {
+            AppGraph.telemetryOutbox.enqueue(request)
+            val result = AppGraph.telemetryOutbox.flush(ApiClient.api)
+            debug = debug.copy(
+                lastSendAt = if (result.sent > 0) System.currentTimeMillis() else debug.lastSendAt,
+                lastError = if (result.failed == 0) "" else "Telemetry queued for retry",
+                queuedBatches = result.remaining
+            )
+        } catch (error: Exception) {
+            debug = debug.copy(
+                lastError = error.message ?: "telemetry_queue_error",
+                errors = debug.errors + 1
+            )
         }
     }
 
     fun updateSnapshot(metrics: Map<String, Double?>, obdConnected: Boolean, packetAt: Long = System.currentTimeMillis()) {
         latestMetrics.clear()
-        metrics.forEach { (key, value) ->
-            if (value != null) {
-                latestMetrics[key] = value
-            }
+        metrics.forEach { (key, value) -> if (value != null && value.isFinite()) latestMetrics[key] = value }
+        latestConnected = obdConnected
+        latestPacketAt = packetAt
+        if (metrics.isNotEmpty()) debug = debug.copy(lastObdReadAt = packetAt)
+    }
+
+    fun updateJ1939Frame(frame: CanFrame) {
+        val timestamp = Instant.ofEpochMilli(frame.capturedAtEpochMs).toString()
+        // Coalesce by CAN identifier between uploads. This retains every
+        // observed PGN/source while bounding cellular and local storage load.
+        val key = when (frame.pgn) {
+            60160 -> "${frame.id}:${frame.data.firstOrNull()?.toInt()?.and(0xff) ?: 0}:${frame.capturedAtEpochMs / UPLOAD_INTERVAL_MS}"
+            60416 -> "${frame.id}:cm:${frame.capturedAtEpochMs / UPLOAD_INTERVAL_MS}"
+            else -> frame.id.toString()
         }
-        latestObdConnected = obdConnected
-        latestObdPacketAt = packetAt
-        if (metrics.isNotEmpty()) {
-            debug = debug.copy(lastObdReadAt = packetAt)
+        latestFrames[key] = CanFrameDto(
+            id = frame.id,
+            data = frame.data.map { it.toInt() and 0xff },
+            timestamp = timestamp,
+            extended = frame.extended,
+            priority = frame.priority,
+            pgn = frame.pgn,
+            sourceAddress = frame.sourceAddress,
+            destinationAddress = frame.destinationAddress
+        )
+        latestConnected = true
+        latestPacketAt = frame.capturedAtEpochMs
+        debug = debug.copy(rawFrameCount = debug.rawFrameCount + 1, lastObdReadAt = frame.capturedAtEpochMs)
+    }
+
+    fun updateJ1939TransportDiagnostics(
+        diagnostics: UsbJ1939Diagnostics,
+        connectorProfile: String
+    ) {
+        val silence = if (diagnostics.lastFrameAtEpochMs > 0) {
+            (System.currentTimeMillis() - diagnostics.lastFrameAtEpochMs).coerceAtLeast(0)
+        } else {
+            0
         }
+        debug = debug.copy(
+            bitrate = diagnostics.bitrate,
+            bytesReceived = diagnostics.bytesReceived,
+            rejectedRecords = diagnostics.rejectedRecords,
+            reconnectCount = diagnostics.reconnectCount,
+            busSilenceMs = silence,
+            connectorProfile = connectorProfile,
+            lastError = diagnostics.lastError.ifBlank { debug.lastError }
+        )
+        latestMeta["captureBitrate"] = diagnostics.bitrate
+        latestMeta["captureBytes"] = diagnostics.bytesReceived
+        latestMeta["captureRejectedRecords"] = diagnostics.rejectedRecords
+        latestMeta["captureReconnectCount"] = diagnostics.reconnectCount
+        latestMeta["captureBusSilenceMs"] = silence
+        latestMeta["connectorProfile"] = connectorProfile
+    }
+
+    fun updateAdapter(adapter: TelemetryAdapterDto) {
+        adapterMetadata = adapter
+    }
+
+    fun updateJ1939Decode(result: J1939DecodeResult) {
+        if (result.pgn == 65226) {
+            activeDtcs.clear()
+            activeDtcs.addAll(result.activeDtcs)
+        }
+        result.vin?.let { latestMeta["vin"] = it }
+        result.pgn?.let { latestMeta["lastPgn"] = it }
+    }
+
+    private fun drainFrameSample(): List<CanFrameDto> {
+        val selected = latestFrames.entries.sortedBy { it.key }.take(MAX_FRAMES_PER_BATCH)
+        selected.forEach { latestFrames.remove(it.key, it.value) }
+        return selected.map { it.value }
     }
 
     fun stop() {
         val current = job ?: return
         job = null
         current.cancel()
-        scope.launch {
-            runCatching { current.cancelAndJoin() }
-        }
+        scope.launch { runCatching { current.cancelAndJoin() } }
+    }
+
+    companion object {
+        private const val UPLOAD_INTERVAL_MS = 2_000L
+        private const val MAX_FRAMES_PER_BATCH = 256
     }
 }

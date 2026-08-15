@@ -6,6 +6,8 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.fleetai.driver.data.model.ThemeMode
+import com.fleetai.driver.j1939.J1939BusProfile
+import com.fleetai.driver.j1939.J1939ConnectorProfile
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -24,6 +26,8 @@ class AppPreferences(private val context: Context) {
     private val themeKey = stringPreferencesKey("theme_mode")
     private val demoModeKey = booleanPreferencesKey("demo_mode")
     private val obdAddressKey = stringPreferencesKey("obd_device_address")
+    private val j1939BusProfileKey = stringPreferencesKey("j1939_bus_profile")
+    private val j1939ConnectorProfileKey = stringPreferencesKey("j1939_connector_profile")
 
     val tenantId: Flow<String> = context.appDataStore.data.map { it[tenantIdKey] ?: "" }
     val driverId: Flow<String> = context.appDataStore.data.map { it[driverIdKey] ?: "" }
@@ -40,6 +44,12 @@ class AppPreferences(private val context: Context) {
     }
     val demoMode: Flow<Boolean> = context.appDataStore.data.map { it[demoModeKey] ?: false }
     val obdDeviceAddress: Flow<String> = context.appDataStore.data.map { it[obdAddressKey] ?: "" }
+    val j1939BusProfile: Flow<J1939BusProfile> = context.appDataStore.data.map {
+        J1939BusProfile.fromStored(it[j1939BusProfileKey])
+    }
+    val j1939ConnectorProfile: Flow<J1939ConnectorProfile> = context.appDataStore.data.map {
+        J1939ConnectorProfile.fromStored(it[j1939ConnectorProfileKey])
+    }
 
     /** Stores only the bearer token — used after a pairing claim, which
      *  establishes the device session without a full driver login. */
@@ -126,5 +136,13 @@ class AppPreferences(private val context: Context) {
         context.appDataStore.edit { prefs ->
             prefs.remove(obdAddressKey)
         }
+    }
+
+    suspend fun setJ1939BusProfile(profile: J1939BusProfile) {
+        context.appDataStore.edit { prefs -> prefs[j1939BusProfileKey] = profile.name }
+    }
+
+    suspend fun setJ1939ConnectorProfile(profile: J1939ConnectorProfile) {
+        context.appDataStore.edit { prefs -> prefs[j1939ConnectorProfileKey] = profile.name }
     }
 }

@@ -42,6 +42,9 @@ function normalizeMetricName(name) {
     boost_pressure: "boostPressureKpa",
     transmission_temp: "transmissionTempC",
     oil_pressure: "engineOilPressureKpa",
+    engine_oil_level: "engineOilLevelPct",
+    fuel_level: "fuelLevelPct",
+    trip_distance: "tripDistanceKm",
     fuel_delivery_pressure: "fuelDeliveryPressureKpa",
     accelerator_pedal_position: "acceleratorPedalPosPct"
   };

@@ -49,3 +49,27 @@ interface VehicleDao {
     @Query("DELETE FROM vehicles WHERE tenantId = :tenantId")
     suspend fun clearVehicles(tenantId: String)
 }
+
+@Dao
+interface TelemetryOutboxDao {
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insert(item: TelemetryOutboxEntity): Long
+
+    @Query("SELECT * FROM telemetry_outbox WHERE nextAttemptEpochMs <= :now ORDER BY createdAtEpochMs LIMIT :limit")
+    suspend fun pending(now: Long, limit: Int = 50): List<TelemetryOutboxEntity>
+
+    @Query("DELETE FROM telemetry_outbox WHERE id = :id")
+    suspend fun delete(id: String)
+
+    @Query("UPDATE telemetry_outbox SET attemptCount = :attempts, nextAttemptEpochMs = :nextAttempt, lastError = :error WHERE id = :id")
+    suspend fun markFailed(id: String, attempts: Int, nextAttempt: Long, error: String)
+
+    @Query("SELECT COUNT(*) FROM telemetry_outbox")
+    suspend fun count(): Int
+
+    @Query("DELETE FROM telemetry_outbox WHERE createdAtEpochMs < :cutoff")
+    suspend fun deleteOlderThan(cutoff: Long)
+
+    @Query("DELETE FROM telemetry_outbox WHERE id IN (SELECT id FROM telemetry_outbox ORDER BY createdAtEpochMs DESC LIMIT -1 OFFSET :keepNewest)")
+    suspend fun trimToNewest(keepNewest: Int)
+}

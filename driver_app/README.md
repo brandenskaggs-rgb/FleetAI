@@ -2,6 +2,8 @@
 
 Fleet AI Driver is a tablet-first Android app for drivers. It provides a simple dashboard for duty status, daily logs, sensors, and notifications with offline-first storage.
 
+For Class 8 truck acquisition requirements, the supported adapter protocol, and the commissioning checklist, see [`../docs/J1939-HARDWARE-INTEGRATION.md`](../docs/J1939-HARDWARE-INTEGRATION.md).
+
 ## Open in Android Studio
 - Open Android Studio and select the `driver_app/` folder.
 - Let Gradle sync complete.

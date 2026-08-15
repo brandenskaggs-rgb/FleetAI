@@ -1,6 +1,7 @@
 package com.fleetai.driver.data.local
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
 @Entity(tableName = "hos_events")
@@ -37,4 +38,14 @@ data class VehicleEntity(
     val vin: String,
     val make: String,
     val model: String
+)
+
+@Entity(tableName = "telemetry_outbox", indices = [Index("nextAttemptEpochMs")])
+data class TelemetryOutboxEntity(
+    @PrimaryKey val id: String,
+    val payloadJson: String,
+    val createdAtEpochMs: Long,
+    val nextAttemptEpochMs: Long,
+    val attemptCount: Int,
+    val lastError: String
 )

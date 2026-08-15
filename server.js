@@ -965,6 +965,7 @@ registerDriverAppRoutes(app, { sanitizeString, nowIso, log: console.log });
 
 registerFleetOpsRoutes(app, {
   readData,
+  writeData,
   sanitizeString,
   parseNumberField,
   nowIso,
@@ -2341,6 +2342,7 @@ function buildSnapshotFromNormalized(normalized, extra) {
   const engine = normalized.engine || {};
   const vehicle = normalized.vehicle || {};
   const electrical = normalized.electrical || {};
+  const environment = normalized.environment || {};
   const dtcActive = Array.isArray(normalized.dtc?.active) ? normalized.dtc.active : [];
   const dtcCodes = dtcActive.map((d) => d.code).filter(Boolean);
   return {
@@ -2358,6 +2360,10 @@ function buildSnapshotFromNormalized(normalized, extra) {
     coolantTemp: engine.coolantTempC ?? null,
     batteryVoltage: electrical.batteryVoltageV ?? null,
     engineLoad: engine.engineLoadPct ?? null,
+    engineOilPressureKpa: engine.engineOilPressureKpa ?? null,
+    fuelDeliveryPressureKpa: engine.fuelDeliveryPressureKpa ?? null,
+    engineOilLevelPct: engine.engineOilLevelPct ?? null,
+    actualTorquePct: engine.actualTorquePct ?? null,
     maf: engine.mafGramsPerSec ?? null,
     rpm: engine.rpm ?? null,
     stft1: engine.stft1 ?? null,
@@ -2365,6 +2371,11 @@ function buildSnapshotFromNormalized(normalized, extra) {
     intakeAirTemp: engine.intakeAirTempC ?? null,
     speedKph: vehicle.speedKph ?? null,
     fuelLevelPct: vehicle.fuelLevelPct ?? null,
+    fuelRateLph: engine.fuelRateLph ?? null,
+    instantFuelEconomyKmPerL: vehicle.instantFuelEconomyKmPerL ?? null,
+    ambientTempC: environment.ambientTempC ?? null,
+    barometricPressureKpa: environment.barometricPressureKpa ?? null,
+    egtC: normalized.emissions?.egtC ?? null,
     sourceProtocol: normalized.sourceProtocol || "UNKNOWN",
     vin: normalized.meta?.vin || null
   };
@@ -2399,6 +2410,11 @@ function addTelemetryRecordsFromNormalized(data, snapshot) {
   if (snapshot.fuelLevelPct != null) toRecord("fuel_level", snapshot.fuelLevelPct, "%");
   if (snapshot.odometerMiles != null) toRecord("mileage", snapshot.odometerMiles, "mi");
   if (snapshot.engineHours != null) toRecord("engine_hours", snapshot.engineHours, "h");
+  if (snapshot.engineOilPressureKpa != null) toRecord("engine_oil_pressure", snapshot.engineOilPressureKpa, "kPa");
+  if (snapshot.fuelDeliveryPressureKpa != null) toRecord("fuel_delivery_pressure", snapshot.fuelDeliveryPressureKpa, "kPa");
+  if (snapshot.fuelRateLph != null) toRecord("fuel_rate", snapshot.fuelRateLph, "L/h");
+  if (snapshot.egtC != null) toRecord("exhaust_temp", snapshot.egtC, "C");
+  if (snapshot.ambientTempC != null) toRecord("ambient_temp", snapshot.ambientTempC, "C");
   storeTelemetryRecords(data, records);
 }
 

@@ -41,9 +41,10 @@ function decodeDmDtc(data) {
     const b0 = data[i];
     const b1 = data[i + 1];
     const b2 = data[i + 2];
-    const spn = ((b1 & 0xe0) << 11) | (b2 << 8) | b0;
-    const fmi = b1 & 0x1f;
-    const oc = b2 >> 5;
+    const b3 = data[i + 3];
+    const spn = b0 | (b1 << 8) | ((b2 & 0xe0) << 11);
+    const fmi = b2 & 0x1f;
+    const oc = b3 & 0x7f;
     dtcs.push({ spn, fmi, oc });
   }
   return dtcs;
@@ -60,14 +61,15 @@ class J1939Reassembler {
     const totalBytes = data[1] | (data[2] << 8);
     const totalPackets = data[3];
     const pgn = data[5] | (data[6] << 8) | (data[7] << 16);
-    const key = `${frame.source}-${pgn}`;
+    const key = `${frame.source}-${frame.destination ?? 255}`;
     if (control === 0x20 || control === 0x10) {
       this.sessions.set(key, {
         pgn,
         totalBytes,
         totalPackets,
         packets: new Array(totalPackets),
-        received: 0
+        received: 0,
+        startedAt: Date.now()
       });
     }
   }
@@ -76,11 +78,12 @@ class J1939Reassembler {
     const data = frame.data || [];
     const seq = data[0];
     const payload = data.slice(1);
-    for (const [key, session] of this.sessions.entries()) {
-      if (!session) continue;
+    const key = `${frame.source}-${frame.destination ?? 255}`;
+    const session = this.sessions.get(key);
+    if (session) {
       if (seq >= 1 && seq <= session.totalPackets) {
+        if (!session.packets[seq - 1]) session.received += 1;
         session.packets[seq - 1] = payload;
-        session.received += 1;
         if (session.received >= session.totalPackets) {
           const bytes = session.packets.flat().slice(0, session.totalBytes);
           this.sessions.delete(key);
@@ -96,12 +99,15 @@ function decodeFrame(frame, reassembler) {
   const canId = frame.id;
   const pgn = frame.pgn || extractPgn(canId);
   const data = frame.data || [];
+  const source = frame.source ?? (frame.id & 0xff);
+  const pf = (frame.id >> 16) & 0xff;
+  const destination = frame.destination ?? (pf < 240 ? ((frame.id >> 8) & 0xff) : 255);
   if (pgn === 60416) {
-    reassembler.handleTpCm({ data, source: frame.source || 0 });
+    reassembler.handleTpCm({ data, source, destination });
     return null;
   }
   if (pgn === 60160) {
-    return reassembler.handleTpDt({ data, source: frame.source || 0 });
+    return reassembler.handleTpDt({ data, source, destination });
   }
   return { pgn, data };
 }

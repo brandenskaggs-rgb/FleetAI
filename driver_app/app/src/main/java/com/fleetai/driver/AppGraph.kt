@@ -19,6 +19,7 @@ import com.fleetai.driver.ui.viewmodel.SessionViewModel
 import com.fleetai.driver.ui.viewmodel.SettingsViewModel
 import com.fleetai.driver.ui.viewmodel.StatusViewModel
 import com.fleetai.driver.ui.viewmodel.VehicleViewModel
+import com.fleetai.driver.telemetry.TelemetryOutbox
 
 object AppGraph {
     lateinit var repository: DriverRepository
@@ -27,12 +28,15 @@ object AppGraph {
         private set
     lateinit var appContext: Context
         private set
+    lateinit var telemetryOutbox: TelemetryOutbox
+        private set
 
     fun init(context: Context) {
         appContext = context.applicationContext
         preferences = AppPreferences(context)
         ApiClient.init(context, preferences)
         val db = DriverDatabase.create(context)
+        telemetryOutbox = TelemetryOutbox(db.telemetryOutboxDao())
         repository = DefaultDriverRepository(
             api = ApiClient.api,
             mockApi = MockApiService(),

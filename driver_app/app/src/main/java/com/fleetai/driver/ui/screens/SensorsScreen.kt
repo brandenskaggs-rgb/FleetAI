@@ -43,6 +43,8 @@ import com.fleetai.driver.AppGraph
 import com.fleetai.driver.data.model.SensorReading
 import com.fleetai.driver.data.model.SensorStatus
 import com.fleetai.driver.data.model.Trend
+import com.fleetai.driver.j1939.J1939BusProfile
+import com.fleetai.driver.j1939.J1939ConnectorProfile
 import com.fleetai.driver.ui.components.FleetButton
 import com.fleetai.driver.ui.components.FleetCard
 import com.fleetai.driver.ui.viewmodel.SensorViewModel
@@ -59,9 +61,12 @@ fun SensorsScreen(contentPadding: PaddingValues) {
     val readings by viewModel.readings.collectAsState()
     val debug by viewModel.debug.collectAsState()
     val unitPrefs by viewModel.unitPrefs.collectAsState()
+    val j1939BusProfile by viewModel.j1939BusProfile.collectAsState()
+    val j1939ConnectorProfile by viewModel.j1939ConnectorProfile.collectAsState()
     val context = LocalContext.current
     val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     val hasBluetooth = viewModel.hasBluetooth()
+    val usbAdapters = viewModel.usbAdapters()
 
     val requiredPermissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
         listOf(Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.BLUETOOTH_SCAN)
@@ -96,6 +101,15 @@ fun SensorsScreen(contentPadding: PaddingValues) {
             onToggleUnits = { viewModel.toggleUnits(tempF = !unitPrefs.tempF, speedMph = !unitPrefs.speedMph) }
         )
 
+        TruckNetworkPanel(
+            adapterCount = usbAdapters.size,
+            busProfile = j1939BusProfile,
+            connectorProfile = j1939ConnectorProfile,
+            onBusProfile = viewModel::setJ1939BusProfile,
+            onConnectorProfile = viewModel::setJ1939ConnectorProfile,
+            onConnect = viewModel::connectUsbJ1939
+        )
+
         if (!hasBluetooth) {
             FleetCard(modifier = Modifier.fillMaxWidth()) {
                 Text("Bluetooth is not available on this device.")
@@ -116,6 +130,56 @@ fun SensorsScreen(contentPadding: PaddingValues) {
 
         SensorGrid(readings = readings, isLandscape = isLandscape)
         RawDebugPanel(readings = readings, debug = debug)
+    }
+}
+
+@Composable
+private fun TruckNetworkPanel(
+    adapterCount: Int,
+    busProfile: J1939BusProfile,
+    connectorProfile: J1939ConnectorProfile,
+    onBusProfile: (J1939BusProfile) -> Unit,
+    onConnectorProfile: (J1939ConnectorProfile) -> Unit,
+    onConnect: () -> Unit
+) {
+    FleetCard(modifier = Modifier.fillMaxWidth()) {
+        Text("Truck Network", style = MaterialTheme.typography.titleLarge)
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(
+            if (adapterCount == 0) "Connect an approved USB SLCAN J1939 interface to the tablet."
+            else "$adapterCount USB J1939 interface${if (adapterCount == 1) "" else "s"} detected. Capture remains listen-only.",
+            style = MaterialTheme.typography.bodyMedium
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text("Bus speed", style = MaterialTheme.typography.labelLarge)
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            J1939BusProfile.entries.forEach { option ->
+                TextButton(onClick = { onBusProfile(option) }, modifier = Modifier.weight(1f)) {
+                    Text(
+                        option.label,
+                        color = if (option == busProfile) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+        Text("Truck connector", style = MaterialTheme.typography.labelLarge)
+        J1939ConnectorProfile.entries.chunked(3).forEach { rowOptions ->
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                rowOptions.forEach { option ->
+                    TextButton(onClick = { onConnectorProfile(option) }, modifier = Modifier.weight(1f)) {
+                        Text(
+                            option.label,
+                            color = if (option == connectorProfile) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+                repeat(3 - rowOptions.size) { Spacer(modifier = Modifier.weight(1f)) }
+            }
+        }
+        if (adapterCount > 0) {
+            Spacer(modifier = Modifier.height(4.dp))
+            FleetButton(text = "Verify and connect truck network", onClick = onConnect, modifier = Modifier.fillMaxWidth())
+        }
     }
 }
 
@@ -172,13 +236,22 @@ private fun ConnectionBanner(
             Text("Live Telemetry", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
             Text("Status: $status", style = MaterialTheme.typography.bodyMedium)
             Text("Saved dongle: ${savedDevice.ifBlank { "--" }}", style = MaterialTheme.typography.bodySmall)
-            // TODO: Add trip summary and last pairing metadata once backend exposes it.
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
-                StatusPill(label = "Bluetooth", good = status.contains("Connected", true))
-                StatusPill(label = "OBD", good = debug.lastObdReadAt > 0 && System.currentTimeMillis() - debug.lastObdReadAt < 3000)
+                StatusPill(label = debug.protocol, good = status.contains("Connected", true) || status.contains("live", true))
+                StatusPill(label = "Vehicle bus", good = debug.lastObdReadAt > 0 && System.currentTimeMillis() - debug.lastObdReadAt < 3000)
                 StatusPill(label = "Live", good = debug.lastSendAt > 0 && System.currentTimeMillis() - debug.lastSendAt < 3000)
             }
-            Text("Last update: ${debug.lastSendAt.toTime()} | Supported PIDs: ${debug.supportedPidCount}", style = MaterialTheme.typography.bodySmall)
+            Text(
+                "Last upload: ${debug.lastSendAt.toTime()} | PIDs: ${debug.supportedPidCount} | CAN frames: ${debug.rawFrameCount} | Queued: ${debug.queuedBatches}",
+                style = MaterialTheme.typography.bodySmall
+            )
+            if (debug.protocol == "J1939") {
+                Text(
+                    "Bus: ${debug.bitrate?.let { "${it / 1_000} kbit/s" } ?: "probing"} | Connector: ${debug.connectorProfile.replace('_', ' ')} | " +
+                        "Bytes: ${debug.bytesReceived} | Rejected records: ${debug.rejectedRecords} | Reconnects: ${debug.reconnectCount}",
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
             if (debug.lastError.isNotBlank()) {
                 Text("Last error: ${debug.lastError}", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
             }

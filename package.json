@@ -34,7 +34,9 @@
     "test:chain": "node tests/telemetry-chain.test.js",
     "test:contract": "node tests/driver-app-contract.test.js",
     "test:security": "node tests/security-boundary.test.js",
-    "test:integration": "node tests/telemetry-chain.test.js && node tests/driver-app-contract.test.js && node tests/security-boundary.test.js"
+    "test:j1939": "node tests/j1939-ingest.test.js",
+    "test:j1939:replay": "node scripts/replay-j1939-capture.js",
+    "test:integration": "node tests/telemetry-chain.test.js && node tests/j1939-ingest.test.js && node tests/telemetry-route.test.js && node tests/driver-app-contract.test.js && node tests/security-boundary.test.js"
   },
   "keywords": [],
   "author": "",

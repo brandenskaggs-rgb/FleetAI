@@ -4,18 +4,25 @@ import android.bluetooth.BluetoothDevice
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.core.content.ContextCompat
 import com.fleetai.driver.data.local.AppPreferences
 import com.fleetai.driver.data.model.SensorReading
 import com.fleetai.driver.data.model.SensorStatus
 import com.fleetai.driver.data.model.Trend
 import com.fleetai.driver.obd.ObdParser
 import com.fleetai.driver.obd.ObdService
+import com.fleetai.driver.j1939.UsbJ1939Transport
+import com.fleetai.driver.j1939.J1939BusProfile
+import com.fleetai.driver.j1939.J1939ConnectorProfile
+import com.fleetai.driver.telemetry.J1939Runtime
+import com.fleetai.driver.telemetry.J1939TelemetryService
 import com.fleetai.driver.telemetry.TelemetrySender
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -26,6 +33,7 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
     private data class PidReadResult(val value: Double?, val error: String?)
 
     private val obd = ObdService.manager
+    private val usbJ1939 = UsbJ1939Transport(com.fleetai.driver.AppGraph.appContext)
     private val sender = TelemetrySender(
         obd = obd,
         resolveVehicleId = { preferences.vehicleId.first().ifBlank { null } },
@@ -51,8 +59,16 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
     private val _unitPrefs = MutableStateFlow(UnitPrefs())
     val unitPrefs: StateFlow<UnitPrefs> = _unitPrefs
 
+    private val _j1939BusProfile = MutableStateFlow(J1939BusProfile.AUTO)
+    val j1939BusProfile: StateFlow<J1939BusProfile> = _j1939BusProfile
+
+    private val _j1939ConnectorProfile = MutableStateFlow(J1939ConnectorProfile.UNKNOWN)
+    val j1939ConnectorProfile: StateFlow<J1939ConnectorProfile> = _j1939ConnectorProfile
+
     private var pollJob: Job? = null
     private var debugJob: Job? = null
+    private var j1939RuntimeJob: Job? = null
+    private var j1939MetricsJob: Job? = null
     private val ema = mutableMapOf<String, Double>()
     private val history = mutableMapOf<String, MutableList<Double>>()
     private val lastGood = mutableMapOf<String, Pair<Double, Long>>()
@@ -63,6 +79,8 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
         viewModelScope.launch {
             _demoMode.value = preferences.demoMode.first()
             _savedDevice.value = preferences.obdDeviceAddress.first()
+            _j1939BusProfile.value = preferences.j1939BusProfile.first()
+            _j1939ConnectorProfile.value = preferences.j1939ConnectorProfile.first()
             if (_demoMode.value) {
                 _status.value = "Demo mode"
                 startDemo()
@@ -73,8 +91,29 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
         debugJob = viewModelScope.launch {
             // keep debug state flowing even if not connected
             while (isActive) {
-                _debug.value = sender.debug
+                _debug.value = if (J1939Runtime.state.value == J1939Runtime.State.STOPPED) {
+                    sender.debug
+                } else {
+                    J1939Runtime.debug.value.copy(protocol = "J1939", lastObdReadAt = J1939Runtime.lastFrameAt.value)
+                }
                 delay(1000)
+            }
+        }
+        j1939RuntimeJob = viewModelScope.launch {
+            J1939Runtime.state.collect { runtimeState ->
+                if (runtimeState != J1939Runtime.State.STOPPED) {
+                    _status.value = J1939Runtime.status.value
+                    _debug.value = _debug.value.copy(protocol = "J1939")
+                }
+            }
+        }
+        j1939MetricsJob = viewModelScope.launch {
+            J1939Runtime.metrics.collect { metrics ->
+                if (metrics.isNotEmpty()) {
+                    val timestamp = J1939Runtime.lastFrameAt.value
+                    _readings.value = buildJ1939Readings(metrics, timestamp)
+                    _debug.value = _debug.value.copy(protocol = "J1939", lastObdReadAt = timestamp)
+                }
             }
         }
     }
@@ -83,11 +122,41 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
 
     fun hasBluetooth(): Boolean = obd.hasBluetooth()
 
+    fun usbAdapters() = usbJ1939.attachedAdapters()
+
+    fun connectUsbJ1939() {
+        stopPolling(resetReadings = true)
+        sender.stop()
+        viewModelScope.launch { runCatching { obd.disconnect() } }
+        _status.value = "Connecting J1939 interface..."
+        ContextCompat.startForegroundService(
+            com.fleetai.driver.AppGraph.appContext,
+            J1939TelemetryService.startIntent(
+                com.fleetai.driver.AppGraph.appContext,
+                _j1939BusProfile.value,
+                _j1939ConnectorProfile.value
+            )
+        )
+    }
+
+    fun setJ1939BusProfile(profile: J1939BusProfile) {
+        _j1939BusProfile.value = profile
+        viewModelScope.launch { preferences.setJ1939BusProfile(profile) }
+    }
+
+    fun setJ1939ConnectorProfile(profile: J1939ConnectorProfile) {
+        _j1939ConnectorProfile.value = profile
+        viewModelScope.launch { preferences.setJ1939ConnectorProfile(profile) }
+    }
+
     fun toggleDemo(enabled: Boolean) {
         viewModelScope.launch {
             preferences.setDemoMode(enabled)
             _demoMode.value = enabled
             if (enabled) {
+                com.fleetai.driver.AppGraph.appContext.startService(
+                    J1939TelemetryService.stopIntent(com.fleetai.driver.AppGraph.appContext)
+                )
                 stopPolling(resetReadings = true)
                 runCatching { obd.disconnect() }
                 sender.stop()
@@ -104,6 +173,9 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
     fun connect(device: BluetoothDevice) {
         viewModelScope.launch {
             try {
+                com.fleetai.driver.AppGraph.appContext.startService(
+                    J1939TelemetryService.stopIntent(com.fleetai.driver.AppGraph.appContext)
+                )
                 stopPolling(resetReadings = true)
                 sender.stop()
                 _status.value = "Connecting..."
@@ -130,6 +202,9 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
     fun disconnect() {
         viewModelScope.launch {
             sender.stop()
+            com.fleetai.driver.AppGraph.appContext.startService(
+                J1939TelemetryService.stopIntent(com.fleetai.driver.AppGraph.appContext)
+            )
             runCatching { obd.disconnect() }
             _status.value = "Not connected"
             preferences.clearObdDeviceAddress()
@@ -254,21 +329,21 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
 
                 val unit = _unitPrefs.value
                 val coreReadings = listOfNotNull(
-                    buildReading("010C", "RPM", rpmValue, "rpm", now, unit, decimals = 0),
-                    buildReading("010D", "Speed", speedValue?.let { if (unit.speedMph) it * 0.621371 else it }, if (unit.speedMph) "mph" else "kph", now, unit, decimals = 0),
-                    buildReading("0105", "Coolant Temp", applyTempUnit(coolantValue, unit.tempF), if (unit.tempF) "F" else "C", now, unit),
-                    buildReading("010F", "Intake Temp", applyTempUnit(intakeValue, unit.tempF), if (unit.tempF) "F" else "C", now, unit),
-                    buildReading("0142", "Voltage", voltageValue, "V", now, unit, decimals = 2),
-                    buildReading("0104", "Engine Load", loadValue?.times(100)?.div(100.0), "%", now, unit),
-                    buildReading("010B", "MAP", mapValue, "kPa", now, unit),
-                    buildReading("0111", "Throttle", throttleValue, "%", now, unit)
+                    buildReading("010C", "RPM", rpmValue, "rpm", now, decimals = 0),
+                    buildReading("010D", "Speed", speedValue?.let { if (unit.speedMph) it * 0.621371 else it }, if (unit.speedMph) "mph" else "kph", now, decimals = 0),
+                    buildReading("0105", "Coolant Temp", applyTempUnit(coolantValue, unit.tempF), if (unit.tempF) "F" else "C", now),
+                    buildReading("010F", "Intake Temp", applyTempUnit(intakeValue, unit.tempF), if (unit.tempF) "F" else "C", now),
+                    buildReading("0142", "Voltage", voltageValue, "V", now, decimals = 2),
+                    buildReading("0104", "Engine Load", loadValue?.times(100)?.div(100.0), "%", now),
+                    buildReading("010B", "MAP", mapValue, "kPa", now),
+                    buildReading("0111", "Throttle", throttleValue, "%", now)
                 )
                 val advanced = listOfNotNull(
-                    buildReading("0110", "MAF", mafValue, "g/s", now, unit, decimals = 2),
-                    buildReading("012F", "Fuel Level", fuelLevelValue, "%", now, unit),
-                    buildReading("0133", "BARO", baroValue, "kPa", now, unit),
-                    buildReading("015C", "Oil Temp", applyTempUnit(oilTempValue, unit.tempF), if (unit.tempF) "F" else "C", now, unit),
-                    boost?.let { buildReading("BOOST", "Boost (Derived)", it, "psi", now, unit, derived = true, decimals = 2) }
+                    buildReading("0110", "MAF", mafValue, "g/s", now, decimals = 2),
+                    buildReading("012F", "Fuel Level", fuelLevelValue, "%", now),
+                    buildReading("0133", "BARO", baroValue, "kPa", now),
+                    buildReading("015C", "Oil Temp", applyTempUnit(oilTempValue, unit.tempF), if (unit.tempF) "F" else "C", now),
+                    boost?.let { buildReading("BOOST", "Boost (Derived)", it, "psi", now, derived = true, decimals = 2) }
                 )
                 _readings.value = coreReadings + advanced
                 if (lastReadError == null) {
@@ -329,6 +404,11 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
     override fun onCleared() {
         stopPolling(resetReadings = true)
         sender.stop()
+        j1939RuntimeJob?.cancel()
+        j1939RuntimeJob = null
+        j1939MetricsJob?.cancel()
+        j1939MetricsJob = null
+        usbJ1939.close()
         debugJob?.cancel()
         debugJob = null
         super.onCleared()
@@ -340,7 +420,6 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
         raw: Double?,
         unit: String,
         ts: Long,
-        prefs: UnitPrefs,
         derived: Boolean = false,
         decimals: Int = 1
     ): SensorReading {
@@ -408,5 +487,30 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
         val baroVal = baro ?: 101.3
         val boost = (map - baroVal) / 6.89476
         return if (boost < 0) 0.0 else boost
+    }
+
+    private fun buildJ1939Readings(metrics: Map<String, Double>, now: Long): List<SensorReading> {
+        val unit = _unitPrefs.value
+        data class Display(val key: String, val spn: String, val label: String, val unit: String, val decimals: Int = 1)
+        val displays = listOf(
+            Display("rpm", "SPN 190", "Engine Speed", "rpm", 0),
+            Display("speedKph", "SPN 84", "Road Speed", if (unit.speedMph) "mph" else "kph", 1),
+            Display("coolantTempC", "SPN 110", "Coolant Temperature", if (unit.tempF) "F" else "C"),
+            Display("oilTempC", "SPN 175", "Engine Oil Temperature", if (unit.tempF) "F" else "C"),
+            Display("engineOilPressureKpa", "SPN 100", "Engine Oil Pressure", "kPa"),
+            Display("fuelRateLph", "SPN 183", "Fuel Rate", "L/h", 2),
+            Display("fuelLevelPct", "SPN 96", "Fuel Level", "%"),
+            Display("batteryVoltageV", "SPN 168", "Battery Voltage", "V", 2),
+            Display("engineHours", "SPN 247", "Engine Hours", "h"),
+            Display("odometerKm", "SPN 245", "Total Distance", "km"),
+            Display("egtC", "SPN 173", "Exhaust Temperature", if (unit.tempF) "F" else "C"),
+            Display("ambientTempC", "SPN 171", "Ambient Temperature", if (unit.tempF) "F" else "C")
+        )
+        return displays.mapNotNull { display ->
+            var value = metrics[display.key] ?: return@mapNotNull null
+            if (display.key == "speedKph" && unit.speedMph) value *= 0.621371
+            if (display.key.endsWith("TempC") && unit.tempF) value = value * 9 / 5 + 32
+            buildReading(display.spn, display.label, value, display.unit, now, decimals = display.decimals)
+        }
     }
 }

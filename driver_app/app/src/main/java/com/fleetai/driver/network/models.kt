@@ -88,6 +88,7 @@ data class PairingClaimResponse(
 )
 
 data class TelemetryIngestRequest(
+    val batchId: String,
     val vehicleId: String,
     val driverId: String?,
     val deviceId: String,
@@ -95,7 +96,38 @@ data class TelemetryIngestRequest(
     val protocol: String = "OBD2",
     val timestamp: String,
     val metrics: Map<String, Any?>,
+    val frames: List<CanFrameDto> = emptyList(),
+    val dtc: TelemetryDtcDto = TelemetryDtcDto(),
+    val meta: Map<String, Any?> = emptyMap(),
+    val adapter: TelemetryAdapterDto? = null,
     val derivedMetrics: Map<String, Any?> = emptyMap(),
     val obdConnected: Boolean = true,
     val lastObdPacketAt: String = timestamp
+)
+
+data class TelemetryDtcDto(
+    val active: List<String> = emptyList(),
+    val pending: List<String> = emptyList()
+)
+
+data class CanFrameDto(
+    val id: Long,
+    val data: List<Int>,
+    val timestamp: String,
+    val extended: Boolean = true,
+    val priority: Int? = null,
+    val pgn: Int? = null,
+    val sourceAddress: Int? = null,
+    val destinationAddress: Int? = null
+)
+
+data class TelemetryAdapterDto(
+    val transport: String,
+    val protocol: String,
+    val manufacturer: String,
+    val product: String,
+    val serialNumber: String? = null,
+    val listenOnly: Boolean = true,
+    val bitrate: Int = 250000,
+    val connectorProfile: String = "UNKNOWN"
 )

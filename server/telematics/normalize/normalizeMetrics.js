@@ -12,7 +12,10 @@ const READING_KEYS = [
   "batteryVoltageV", "batteryVoltage",
   "speedKph", "speedMph", "odometerKm", "odometerMiles",
   "engineHours", "fuelLevelPct",
-  "egtC", "dpfSootLoadPct", "regenActive"
+  "egtC", "dpfSootLoadPct", "regenActive",
+  "engineOilPressureKpa", "fuelDeliveryPressureKpa", "engineOilLevelPct",
+  "actualTorquePct", "driverDemandTorquePct", "ambientTempC", "barometricPressureKpa",
+  "instantFuelEconomyKmPerL", "tripDistanceKm", "alternatorVoltageV"
 ];
 
 function hasAnyReading(obj) {
@@ -64,24 +67,37 @@ function normalizeMetrics(input) {
     fuelRateLph: metrics.fuelRateLph ?? (metrics.fuelRateGph != null ? gphToLph(metrics.fuelRateGph) : null),
     throttlePosPct: metrics.throttlePosPct ?? null,
     stft1: metrics.stft1 ?? metrics.shortTermFuelTrim ?? null,
-    ltft1: metrics.ltft1 ?? metrics.longTermFuelTrim ?? null
+    ltft1: metrics.ltft1 ?? metrics.longTermFuelTrim ?? null,
+    engineOilPressureKpa: metrics.engineOilPressureKpa ?? null,
+    fuelDeliveryPressureKpa: metrics.fuelDeliveryPressureKpa ?? null,
+    engineOilLevelPct: metrics.engineOilLevelPct ?? null,
+    actualTorquePct: metrics.actualTorquePct ?? null,
+    driverDemandTorquePct: metrics.driverDemandTorquePct ?? null
   };
 
   const electrical = {
-    batteryVoltageV: metrics.batteryVoltageV ?? metrics.batteryVoltage ?? null
+    batteryVoltageV: metrics.batteryVoltageV ?? metrics.batteryVoltage ?? null,
+    alternatorVoltageV: metrics.alternatorVoltageV ?? null
   };
 
   const vehicle = {
     speedKph: metrics.speedKph ?? (metrics.speedMph != null ? mphToKph(metrics.speedMph) : null),
     odometerKm: metrics.odometerKm ?? (metrics.odometerMiles != null ? milesToKm(metrics.odometerMiles) : null),
     engineHours: metrics.engineHours ?? null,
-    fuelLevelPct: metrics.fuelLevelPct ?? null
+    fuelLevelPct: metrics.fuelLevelPct ?? null,
+    tripDistanceKm: metrics.tripDistanceKm ?? null,
+    instantFuelEconomyKmPerL: metrics.instantFuelEconomyKmPerL ?? null
   };
 
   const emissions = {
     egtC: metrics.egtC ?? null,
     dpfSootLoadPct: metrics.dpfSootLoadPct ?? null,
     regenActive: metrics.regenActive ?? null
+  };
+
+  const environment = {
+    ambientTempC: metrics.ambientTempC ?? null,
+    barometricPressureKpa: metrics.barometricPressureKpa ?? metrics.baroKpa ?? null
   };
 
   const active = Array.isArray(dtc.active) ? dtc.active : [];
@@ -101,6 +117,7 @@ function normalizeMetrics(input) {
     electrical,
     vehicle,
     emissions,
+    environment,
     dtc: {
       active: active.map(toObj),
       pending: pending.map(toObj)
