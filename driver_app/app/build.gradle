@@ -102,6 +102,18 @@ dependencies {
     implementation 'androidx.room:room-ktx:2.6.1'
     ksp 'androidx.room:room-compiler:2.6.1'
 
+    // Firebase Cloud Messaging — push notifications to the driver.
+    //
+    // NOT CONFIGURED. There is no app/google-services.json and the
+    // com.google.gms.google-services plugin is not applied, so FirebaseApp
+    // never initialises: FleetMessagingService is declared in the manifest but
+    // can never receive a message. The app builds and runs correctly; push is
+    // simply inert, and nothing on the pairing / OBD / telemetry path depends
+    // on it.
+    //
+    // To enable: create a Firebase project, download google-services.json into
+    // driver_app/app/, add `id 'com.google.gms.google-services'` to the plugins
+    // block here and the matching classpath to the root build.gradle.
     implementation 'com.google.firebase:firebase-messaging:23.4.1'
 
     debugImplementation 'androidx.compose.ui:ui-tooling'

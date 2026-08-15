@@ -34,6 +34,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.fleetai.driver.ConnectActivity
 import com.fleetai.driver.ui.components.FleetButton
@@ -48,6 +49,7 @@ fun PairDeviceScreen(
 ) {
     val context = LocalContext.current
     var pairingCode by remember { mutableStateOf("") }
+    var driverPin by remember { mutableStateOf("") }
     var deviceLabel by remember { mutableStateOf("Fleet AI Tablet") }
     var statusMessage by remember { mutableStateOf("Enter the active pairing code from dispatch.") }
     var isSubmitting by remember { mutableStateOf(false) }
@@ -96,12 +98,23 @@ fun PairDeviceScreen(
                     OutlinedTextField(
                         value = pairingCode,
                         onValueChange = { raw ->
-                            pairingCode = raw.filter(Char::isLetterOrDigit).uppercase().take(6)
+                            pairingCode = raw.filter(Char::isDigit).take(6)
                         },
                         leadingIcon = { Icon(Icons.Default.Pin, contentDescription = null) },
                         label = { Text("Pairing code") },
                         singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = driverPin,
+                        onValueChange = { raw -> driverPin = raw.filter(Char::isDigit).take(6) },
+                        leadingIcon = { Icon(Icons.Default.AdminPanelSettings, contentDescription = null) },
+                        label = { Text("Driver PIN") },
+                        singleLine = true,
+                        visualTransformation = PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
                         modifier = Modifier.fillMaxWidth()
                     )
                     Spacer(modifier = Modifier.height(12.dp))
@@ -121,8 +134,12 @@ fun PairDeviceScreen(
                                 statusMessage = "Pairing code is required."
                                 return@FleetButton
                             }
+                            if (driverPin.length != 6) {
+                                statusMessage = "Enter the 6-digit driver PIN from dispatch."
+                                return@FleetButton
+                            }
                             isSubmitting = true
-                            sessionViewModel.claimPairing(pairingCode, deviceLabel) { success, message ->
+                            sessionViewModel.claimPairing(pairingCode, driverPin, deviceLabel) { success, message ->
                                 statusMessage = if (success) "Paired. Loading vehicle console." else message
                                 isSubmitting = false
                             }

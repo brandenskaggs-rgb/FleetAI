@@ -58,15 +58,16 @@ class DefaultDriverRepository(
         return session
     }
 
-    override suspend fun claimPairing(pairingCode: String, deviceId: String, deviceLabel: String) {
+    override suspend fun claimPairing(pairingCode: String, driverPin: String, deviceId: String, deviceLabel: String) {
         val useMock = preferences.demoMode.first()
         val response = if (useMock) {
-            mockApi.claimPairing(pairingCode, deviceId, deviceLabel)
+            mockApi.claimPairing(pairingCode, driverPin, deviceId, deviceLabel)
         } else {
             try {
                 api.claimPairing(
                     com.fleetai.driver.network.PairingClaimRequest(
                         pairingCode = pairingCode,
+                        driverPin = driverPin,
                         deviceId = deviceId,
                         deviceLabel = deviceLabel
                     )
@@ -74,6 +75,7 @@ class DefaultDriverRepository(
             } catch (ex: HttpException) {
                 val errorBody = ex.response()?.errorBody()?.string().orEmpty()
                 when (ex.code()) {
+                    401 -> throw IllegalArgumentException("invalid_pin")
                     404 -> throw IllegalArgumentException("invalid_code")
                     409 -> {
                         if (errorBody.contains("ALREADY_CLAIMED", ignoreCase = true)) {

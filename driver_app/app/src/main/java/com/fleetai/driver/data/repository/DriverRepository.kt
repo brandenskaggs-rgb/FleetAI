@@ -11,7 +11,7 @@ import com.fleetai.driver.data.model.Vehicle
 
 interface DriverRepository {
     suspend fun login(companyCode: String, driverPin: String): DriverSession
-    suspend fun claimPairing(pairingCode: String, deviceId: String, deviceLabel: String)
+    suspend fun claimPairing(pairingCode: String, driverPin: String, deviceId: String, deviceLabel: String)
     suspend fun getVehicles(tenantId: String): List<Vehicle>
     suspend fun bindVehicle(vehicleId: String): Boolean
 

@@ -31,9 +31,12 @@ class MockApiService {
         )
     }
 
-    fun claimPairing(pairingCode: String, deviceId: String, deviceLabel: String): PairingClaimResponse {
-        if (pairingCode.length != 6 || !pairingCode.all { it.isLetterOrDigit() }) {
+    fun claimPairing(pairingCode: String, driverPin: String, deviceId: String, deviceLabel: String): PairingClaimResponse {
+        if (pairingCode.length != 6 || !pairingCode.all { it.isDigit() }) {
             throw IllegalArgumentException("invalid")
+        }
+        if (driverPin.length != 6 || !driverPin.all { it.isDigit() }) {
+            throw IllegalArgumentException("invalid_pin")
         }
         if (pairingCode.uppercase() == "000000") {
             throw IllegalStateException("expired")

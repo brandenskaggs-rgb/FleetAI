@@ -69,6 +69,7 @@ data class DriverConfig(
 
 data class PairingClaimRequest(
     val pairingCode: String,
+    val driverPin: String,
     val deviceId: String,
     val deviceLabel: String
 )

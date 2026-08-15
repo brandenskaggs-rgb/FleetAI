@@ -90,16 +90,20 @@ class SessionViewModel(
         }
     }
 
-    fun claimPairing(pairingCode: String, deviceLabel: String, onResult: (Boolean, String) -> Unit) {
+    fun claimPairing(pairingCode: String, driverPin: String, deviceLabel: String, onResult: (Boolean, String) -> Unit) {
         viewModelScope.launch {
             if (pairingCode.length < 6) {
                 onResult(false, "Pairing code must be 6 characters.")
                 return@launch
             }
+            if (driverPin.length != 6) {
+                onResult(false, "Driver PIN must be 6 digits.")
+                return@launch
+            }
             try {
                 Log.d("FleetAI", "[PAIR] claim attempt")
                 val deviceId = preferences.ensureDeviceId()
-                repository.claimPairing(pairingCode, deviceId, deviceLabel)
+                repository.claimPairing(pairingCode, driverPin, deviceId, deviceLabel)
                 Log.d("FleetAI", "[PAIR] claim success")
                 onResult(true, "Device paired successfully.")
             } catch (ex: Exception) {
@@ -108,7 +112,7 @@ class SessionViewModel(
                     ex.message?.contains("expired", ignoreCase = true) == true ->
                         "Code expired. Ask dispatch to generate a new code."
                     ex.message?.contains("invalid", ignoreCase = true) == true ->
-                        "Invalid code. Check and try again."
+                        if (ex.message?.contains("pin", ignoreCase = true) == true) "Driver PIN is incorrect." else "Invalid code. Check and try again."
                     ex.message?.contains("already_claimed", ignoreCase = true) == true ->
                         "This device code is already claimed. Ask dispatch to issue a new code."
                     ex.message?.contains("conflict", ignoreCase = true) == true ->

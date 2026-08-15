@@ -606,6 +606,240 @@
         max-height: 88vh;
       }
     }
+
+    /* 2026 driver-tablet polish layer. Kept at the end so it upgrades the old
+       UI without changing the route/auth/pairing JavaScript contracts above. */
+    :root {
+      --bg:#F3F5F8;
+      --surface2:#E9EEF4;
+      --panel:#FFFFFF;
+      --panel2:#F7F9FC;
+      --border:rgba(17,31,52,.10);
+      --text:#111B2D;
+      --muted:#66758C;
+      --primary:#174EA6;
+      --primary-dark:#103A7A;
+      --primary-soft:rgba(23,78,166,.10);
+      --good:#158657;
+      --warn:#B15D05;
+      --bad:#C93232;
+      --good-soft:rgba(21,134,87,.10);
+      --warn-soft:rgba(177,93,5,.11);
+      --bad-soft:rgba(201,50,50,.10);
+      --shadow:0 14px 34px rgba(18,31,52,.09),0 1px 2px rgba(18,31,52,.04);
+      --shadow2:0 10px 28px rgba(18,31,52,.14);
+      --hover:rgba(17,31,52,.055);
+      --input:rgba(17,31,52,.055);
+      --divider:rgba(17,31,52,.075);
+      --radius:12px;
+      --radius-sm:8px;
+      --font-body:Inter,Archivo,'Segoe UI',system-ui,sans-serif;
+      --font-display:Inter,Archivo,'Segoe UI',system-ui,sans-serif;
+    }
+
+    body {
+      background:
+        linear-gradient(180deg, rgba(255,255,255,.58), rgba(255,255,255,0) 270px),
+        var(--bg);
+      font-size: 14px;
+      letter-spacing: 0;
+    }
+
+    .topbar {
+      padding: 16px 20px 12px;
+      background: rgba(243,245,248,.88);
+      border-bottom: 0;
+      box-shadow: 0 1px 0 rgba(17,31,52,.06);
+    }
+
+    .brandMark {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      color: var(--primary);
+      background: var(--panel);
+      box-shadow: var(--shadow);
+    }
+
+    .brandTitle { font-size: 15px; font-weight: 800; letter-spacing: -.01em; }
+    .brandSub { font-size: 12px; max-width: 48vw; }
+
+    .statusPill,
+    .iconBtn {
+      border: 0;
+      background: var(--panel);
+      box-shadow: 0 1px 2px rgba(18,31,52,.05);
+    }
+
+    .main {
+      padding: 18px 18px 96px;
+      gap: 16px;
+    }
+
+    .panel {
+      border: 0;
+      border-radius: 14px;
+      box-shadow: var(--shadow);
+    }
+
+    .hero {
+      padding: 22px;
+      background: linear-gradient(135deg, #FFFFFF 0%, #F7FAFE 100%);
+    }
+
+    .hero::after { display: none; }
+    .eyebrow { font-size: 10px; letter-spacing: .16em; margin-bottom: 12px; }
+    .heroName { font-size: clamp(28px, 6vw, 40px); letter-spacing: -.03em; }
+    .heroMeta { font-size: 14px; max-width: 620px; }
+
+    .dutyButton,
+    .btn.primary {
+      background: var(--primary);
+      color: #fff;
+      box-shadow: 0 9px 20px rgba(23,78,166,.22);
+    }
+
+    .heroMetrics { gap: 10px; }
+    .metric,
+    .telemetryCard,
+    .listItem,
+    .dutyOption {
+      border: 0;
+      border-radius: 12px;
+      background: var(--panel2);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.72);
+    }
+
+    .metric { min-height: 104px; padding: 16px; }
+    .metricLabel,
+    .telemetryCard strong,
+    .field label {
+      font-size: 10.5px;
+      letter-spacing: .12em;
+      font-weight: 800;
+    }
+
+    .metricValue {
+      font-size: clamp(28px, 5.6vw, 36px);
+      letter-spacing: -.03em;
+    }
+
+    .section { padding: 20px; gap: 16px; }
+    .sectionTitle { font-size: 16px; font-weight: 800; letter-spacing: -.01em; }
+    .sectionMeta { font-size: 13px; }
+
+    .chip,
+    .pill,
+    .navBadge {
+      border: 0;
+      border-radius: 999px;
+    }
+
+    .telemetryCard { min-height: 118px; padding: 16px; }
+    .telemetryCard .value { font-size: 28px; letter-spacing: -.025em; }
+    .telemetryCard .hint,
+    .listItemText,
+    .empty,
+    .helper,
+    .feedback {
+      font-size: 13px;
+    }
+
+    .list { gap: 8px; }
+    .listItem { padding: 15px 16px; }
+    .listItemTitle { font-size: 14.5px; }
+
+    .field input,
+    .composer textarea {
+      border: 0;
+      border-radius: 10px;
+      background: var(--input);
+      color: var(--text);
+      min-height: 48px;
+      font-size: 15px;
+    }
+
+    .field input:focus,
+    .composer textarea:focus {
+      box-shadow: 0 0 0 3px rgba(23,78,166,.16);
+    }
+
+    .btn {
+      border: 0;
+      border-radius: 10px;
+      background: var(--panel2);
+      min-height: 48px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.76);
+    }
+
+    .bubbleBody { border-radius: 14px; }
+    .bubble.user .bubbleBody { background: var(--primary); color: #fff; }
+    .bubble.ai .bubbleBody { border: 0; background: var(--panel2); }
+
+    .sensorGroupName { border-bottom: 0; padding-bottom: 4px; }
+    .sensorRow { border-bottom-color: var(--divider); padding: 12px 2px; }
+    .verdict {
+      border: 0;
+      border-radius: 12px;
+      box-shadow: inset 4px 0 0 currentColor;
+    }
+    .codeCard {
+      border: 0;
+      border-radius: 12px;
+      background: var(--panel2);
+      box-shadow: inset 4px 0 0 var(--muted);
+    }
+    .codeCard.critical { box-shadow: inset 4px 0 0 var(--bad); }
+    .codeCard.warning { box-shadow: inset 4px 0 0 var(--warn); }
+
+    .bottomNav {
+      left: 16px;
+      right: 16px;
+      bottom: 16px;
+      border: 0;
+      border-radius: 18px;
+      padding: 7px;
+      background: rgba(255,255,255,.92);
+      box-shadow: 0 18px 52px rgba(18,31,52,.20);
+    }
+
+    .navBtn { border-radius: 12px; min-height: 58px; }
+    .navBtn.active {
+      color: #fff;
+      background: var(--primary);
+      box-shadow: 0 8px 18px rgba(23,78,166,.18);
+    }
+
+    .sheet { background: rgba(17,31,52,.38); }
+    .sheetCard {
+      border: 0;
+      border-radius: 22px 22px 0 0;
+      padding: 22px 22px 30px;
+      box-shadow: 0 -18px 58px rgba(18,31,52,.18);
+    }
+
+    .sheetTitle { font-size: 22px; font-weight: 800; letter-spacing: -.025em; }
+
+    @media (min-width: 860px) {
+      .main { max-width: 1040px; padding-top: 24px; }
+      .sheetCard { max-width: 620px; border-radius: 18px; }
+    }
+
+    @media (max-width: 520px) {
+      .topbar { padding: 14px 12px 12px; gap: 10px; }
+      .brand { gap: 10px; flex: 1; }
+      .brandText { max-width: 145px; }
+      .brandSub { display: none; }
+      .topbarRight { gap: 8px; }
+      .statusPill { min-height: 40px; padding: 0 10px; }
+      .iconBtn { width: 40px; min-width: 40px; }
+      .main { padding-left: 14px; padding-right: 14px; }
+      .hero { padding: 20px; }
+      .heroRow { align-items: flex-start; }
+      .dutyButton { max-width: 86px; white-space: normal; line-height: 1.05; padding: 10px 13px; }
+      .heroMetrics { gap: 10px; }
+      .metric { padding: 14px; }
+    }
   </style>
 </head>
 <body>
@@ -615,7 +849,7 @@
         <div class="brandMark">FA</div>
         <div class="brandText">
           <div class="brandTitle">Fleet AI Driver</div>
-          <div class="brandSub" id="brandSub">Launch console for live driver operations</div>
+          <div class="brandSub" id="brandSub">Cab tablet for live route operations</div>
         </div>
       </div>
       <div class="topbarRight">
@@ -627,11 +861,11 @@
     <main class="main">
       <section class="panel view" data-view="home">
         <div class="hero">
-          <div class="eyebrow">Driver status</div>
+          <div class="eyebrow">Today in cab</div>
           <div class="heroRow">
             <div>
               <div class="heroName" id="driverName">Unpaired tablet</div>
-              <div class="heroMeta" id="driverMeta">Sign in with your company code and driver PIN, then claim a pairing code for this device.</div>
+              <div class="heroMeta" id="driverMeta">Sign in with your company code and driver PIN, then pair this tablet to the assigned vehicle.</div>
             </div>
             <button class="dutyButton" id="dutyBadge">Off Duty</button>
           </div>
@@ -799,7 +1033,7 @@
       <div class="sheetHead">
         <div>
           <div class="sheetTitle">Device setup</div>
-          <div class="sectionMeta">Connect this tablet to the right fleet and vehicle</div>
+          <div class="sectionMeta">Use the code and driver PIN generated from the Fleet AI dashboard</div>
         </div>
         <button class="iconBtn" id="closeSetupBtn" aria-label="Close setup">&times;</button>
       </div>
@@ -828,6 +1062,10 @@
           <input id="pairCodeInput" type="text" placeholder="Enter six-digit pairing code" />
         </div>
         <div class="field">
+          <label for="pairClaimPinInput">Driver PIN for pairing</label>
+          <input id="pairClaimPinInput" type="password" inputmode="numeric" autocomplete="one-time-code" placeholder="Enter the driver PIN from dispatch" />
+        </div>
+        <div class="field">
           <label for="deviceLabelInput">Tablet label</label>
           <input id="deviceLabelInput" type="text" placeholder="Example: Tablet 01" />
         </div>
@@ -835,7 +1073,7 @@
           <button class="btn primary" id="pairDeviceBtn">Pair this device</button>
         </div>
         <div class="feedback" id="pairFeedback"></div>
-        <div class="helper">The tablet stores its own device ID locally. Pairing links that device to the assigned truck without storing any password in the browser.</div>
+        <div class="helper">Pairing stores a device session token on this tablet. It does not store the driver PIN after the claim request completes.</div>
       </div>
     </div>
   </div>
@@ -1409,7 +1647,7 @@
       $("updateSub").textContent = relativeTime(state.lastTelemetryAt);
       $("alertValue").textContent = String((state.alerts || []).length);
       $("alertSub").textContent = state.alerts.length ? "Needs driver attention" : "No active warning feed";
-      $("brandSub").textContent = state.vehicleId ? `Vehicle ${state.vehicleId}` : "Launch console for live driver operations";
+      $("brandSub").textContent = state.vehicleId ? `Vehicle ${state.vehicleId}` : "Cab tablet for live route operations";
     }
 
     function renderDuty() {
@@ -1572,17 +1810,23 @@
 
     async function handlePairDevice() {
       const pairingCode = $("pairCodeInput").value.trim();
+      const driverPin = $("pairClaimPinInput").value.trim();
       const deviceLabel = $("deviceLabelInput").value.trim() || "Fleet AI Tablet";
       if (!pairingCode) {
         setFeedback("pairFeedback", "Pairing code is required.", "bad");
         return;
       }
+      if (!driverPin) {
+        setFeedback("pairFeedback", "Driver PIN is required to pair this tablet.", "bad");
+        return;
+      }
       setFeedback("pairFeedback", "Claiming pairing code…");
       const deviceId = getDeviceId();
       const bodies = [
-        { pairingCode, deviceId, deviceLabel },
-        { code: pairingCode, device_id: deviceId, label: deviceLabel }
+        { pairingCode, driverPin, deviceId, deviceLabel },
+        { code: pairingCode, pin: driverPin, device_id: deviceId, device_label: deviceLabel }
       ];
+      let lastError = null;
       for (const body of bodies) {
         try {
           const data = await tryJson([
@@ -1600,9 +1844,12 @@
           closeSetup();
           await refreshVehicleData();
           return;
-        } catch (err) {}
+        } catch (err) {
+          lastError = err;
+          if (err && err.status && err.status !== 404 && err.status !== 405) break;
+        }
       }
-      setFeedback("pairFeedback", "Unable to claim pairing code. Double-check the code and server URL.", "bad");
+      setFeedback("pairFeedback", lastError?.message || "Unable to claim pairing code. Double-check the code, PIN, and server URL.", "bad");
     }
 
     async function refreshVehicleData() {

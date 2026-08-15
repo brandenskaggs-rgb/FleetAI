@@ -19,44 +19,44 @@
       --display:Archivo,'Segoe UI',system-ui,sans-serif;
       --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
     }
-    html[data-theme="dark"]{
-      --bg:#111827; --surface2:#172033; --panel:#1f2a3d; --panel2:#26344b;
-      --border:rgba(99,118,163,.45); --text:#F4F7FF; --muted:#A4B1D4;
-      --primary:#5B8CFF;--primary-dark:#3F73F0;--primary-soft:rgba(91,140,255,.18);
-      --good:#2bdc9b; --warn:#ffb020; --bad:#ff5c5c;
-      --shadow:0 22px 70px rgba(0,0,0,.36); --shadow2:0 12px 34px rgba(0,0,0,.26);
-      --hover:rgba(255,255,255,.045); --row:rgba(255,255,255,.035); --input:rgba(255,255,255,.065); --divider:rgba(255,255,255,.055);
-    }
     *{box-sizing:border-box}
     body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font);font-size:14px;line-height:1.5;overflow:hidden}
     button,input,select,textarea{font:inherit}
     button{cursor:pointer}
     a{color:inherit}
-    .app{height:100vh;display:grid;grid-template-columns:264px minmax(0,1fr);background:radial-gradient(900px 420px at 50% -15%,rgba(31,94,255,.08),transparent 65%),var(--bg);transition:grid-template-columns .22s ease}
+    .app{height:100vh;display:grid;grid-template-columns:246px minmax(0,1fr);background:var(--bg);transition:grid-template-columns .22s ease}
     .app.nav-collapsed{grid-template-columns:0 minmax(0,1fr)}
-    .sidebar{height:100vh;overflow:auto;padding:18px 14px;background:color-mix(in srgb,var(--panel) 92%,var(--bg));transition:opacity .2s ease,transform .2s ease}
+    .sidebar{height:100vh;overflow:auto;padding:18px 12px;background:var(--panel);transition:opacity .2s ease,transform .2s ease}
     .app.nav-collapsed .sidebar{opacity:0;transform:translateX(-18px);pointer-events:none}
     .brand{display:flex;gap:10px;align-items:center;padding:7px 8px 18px}
-    .logo{width:36px;height:36px;border-radius:12px;background:#fff;display:grid;place-items:center;box-shadow:0 12px 24px rgba(31,94,255,.16);overflow:hidden}
+    .logo{width:34px;height:34px;border-radius:4px;background:#fff;display:grid;place-items:center;overflow:hidden}
     .logo img{width:36px;height:36px;display:block}
     .brand h1{margin:0;font:700 17px/1 var(--display);letter-spacing:-.2px}
     .brand p{margin:4px 0 0;color:var(--muted);font-size:12px}
-    .navGroup{margin:14px 0}
+    .navGroup{margin:16px 0}
     .navGroupLabel{margin:0 8px 7px;color:var(--muted);font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:.9px;text-transform:uppercase;opacity:.8}
-    .nav button{width:100%;height:38px;border:0;border-radius:11px;background:transparent;color:var(--muted);display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 10px;font-size:13px;font-weight:750;text-align:left}
+    .nav button{width:100%;height:36px;border:0;border-radius:4px;background:transparent;color:var(--muted);display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 10px;font-size:13px;font-weight:700;text-align:left}
     .nav button:hover{background:var(--hover);color:var(--text)}
     .nav button.active{background:var(--primary-soft);color:var(--text);box-shadow:inset 3px 0 0 var(--primary)}
     .navMain{display:flex;align-items:center;gap:9px;min-width:0}
-    .navIcon{width:22px;height:22px;border-radius:8px;background:var(--panel2);color:var(--primary);display:grid;place-items:center;font-size:12px;font-weight:900;flex:0 0 auto}
-    .nav button.active .navIcon{background:#fff;box-shadow:0 8px 18px rgba(31,94,255,.12)}
+    .navIcon{display:none}
     .navName{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     .tag,.pill,.chip{border:0;background:var(--panel2);color:var(--muted);border-radius:999px;font-size:11px;font-weight:800;padding:3px 9px;white-space:nowrap}
     .tag.new{background:rgba(22,163,74,.12);color:#15803d}
     .pill.good{color:var(--good);background:color-mix(in srgb,var(--good) 14%,transparent)}
     .pill.warn{color:var(--warn);background:color-mix(in srgb,var(--warn) 14%,transparent)}
     .pill.bad{color:var(--bad);background:color-mix(in srgb,var(--bad) 14%,transparent)}
-    .note{border:0;border-radius:8px;background:var(--panel2);color:var(--muted);font-size:13px;padding:14px;margin:14px 2px}
-    .main{height:100vh;min-width:0;overflow:auto;padding:0 32px 36px}
+    .note{border:0;border-radius:4px;background:var(--panel2);color:var(--muted);font-size:12px;padding:12px;margin:12px 2px}
+    .pairingResult{display:none;margin:16px 0 4px;padding:16px;border-radius:12px;background:linear-gradient(135deg,var(--primary-soft),var(--panel2));box-shadow:inset 3px 0 0 var(--primary)}
+    .pairingResult.show{display:block}
+    .pairingCodes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px}
+    .pairingCodeBox{background:var(--panel);border-radius:12px;padding:14px;box-shadow:var(--shadow2)}
+    .pairingCodeLabel{font-family:var(--mono);font-size:10px;letter-spacing:.85px;text-transform:uppercase;color:var(--muted);font-weight:700}
+    .pairingCodeValue{margin-top:5px;font-family:var(--mono);font-size:26px;line-height:1;font-weight:800;letter-spacing:1px;color:var(--text)}
+    .pairingMiniActions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+    .pairingTableBlock{margin-top:18px}
+    .pairingTableBlock h4{margin:0 0 8px;font:800 13px/1 var(--display);letter-spacing:-.1px}
+    .main{height:100vh;min-width:0;overflow:auto;padding:0 clamp(20px,3vw,48px) 48px}
     .app-header{position:sticky;top:0;z-index:20;background:color-mix(in srgb,var(--bg) 90%,transparent);backdrop-filter:blur(20px);display:grid;grid-template-columns:minmax(210px,1fr) minmax(180px,340px) max-content;align-items:center;gap:14px;padding:18px 0 14px;box-shadow:none}
     .crumb{min-width:0}
     .crumb h2{margin:0;font:700 21px/1.05 var(--display);letter-spacing:-.25px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -65,7 +65,7 @@
     .search:focus{box-shadow:0 0 0 2px color-mix(in srgb,var(--primary) 34%,transparent)}
     .headerActions{display:flex;align-items:center;justify-content:flex-end;gap:6px;min-width:0;white-space:nowrap}
     .headerActions .chip{background:transparent;padding:0 4px;color:var(--muted)}
-    .btn{min-height:36px;border:0;border-radius:10px;background:transparent;color:var(--text);padding:0 11px;font-size:13px;font-weight:800;white-space:nowrap}
+    .btn{min-height:36px;border:0;border-radius:4px;background:transparent;color:var(--text);padding:0 12px;font-size:13px;font-weight:700;white-space:nowrap}
     .btn:hover{background:var(--hover)}
     .btn.primary{background:var(--primary);color:#fff;box-shadow:0 8px 18px color-mix(in srgb,var(--primary) 18%,transparent)}
     .btn.primary:hover{background:var(--primary-dark)}
@@ -76,31 +76,31 @@
     .subHeader{display:none}
     .topTab{height:29px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--muted);font-size:12px;font-weight:800;padding:0 8px;white-space:nowrap}
     .topTab.active{color:var(--text);border-bottom-color:var(--primary)}
-    .viewHeader{padding:30px 0 18px}
-    .viewHeader h2{margin:0;font:700 38px/1.02 var(--display);letter-spacing:-.8px}
-    .viewHeader p{margin:10px 0 0;color:var(--muted);font-size:15px}
+    .viewHeader{padding:28px 0 18px}
+    .viewHeader h2{margin:0;font:700 29px/1.08 var(--display);letter-spacing:-.35px}
+    .viewHeader p{margin:7px 0 0;color:var(--muted);font-size:14px}
     .section{display:block}.section.hide{display:none}
     .grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px}.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}.grid4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px}
-    .card,.opsPanel{background:var(--panel);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow2);overflow:hidden}
+    .card,.opsPanel{background:var(--panel);border:0;border-radius:4px;box-shadow:0 1px 2px rgba(15,23,42,.04),0 8px 24px rgba(15,23,42,.045);overflow:hidden}
     .cardHead,.opsPanel__head{min-height:62px;padding:20px 22px 8px;display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
     .cardHead h3,.opsPanel__title{margin:0;font:700 16px/1.2 var(--display)}
     .cardMeta,.opsPanel__meta{margin-top:5px;color:var(--muted);font-size:12px}
     .cardBody,.opsPanel__body{padding:18px 22px 22px}
-    .overviewHero{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(320px,.65fr);gap:18px;margin-bottom:18px}
-    .heroPanel{background:var(--steel-deep,#0A1628);color:#fff;border-radius:12px;padding:28px;box-shadow:0 28px 70px rgba(16,24,40,.18);position:relative;overflow:hidden}
-    .heroPanel:after{content:"";position:absolute;right:-90px;top:-90px;width:220px;height:220px;border-radius:999px;background:rgba(31,94,255,.22)}
-    .heroPanel h3{position:relative;margin:0;font:700 28px/1.05 var(--display);letter-spacing:-.6px;max-width:620px}
-    .heroPanel p{position:relative;color:rgba(255,255,255,.76);max-width:680px;margin:12px 0 0;font-size:15px}
-    .heroPanel .sectionActions{position:relative;margin-top:24px}
-    .heroPanel .btn{color:#fff}.heroPanel .btn.primary{background:#fff;color:#101828;box-shadow:none}
-    .planPanel{background:var(--panel);border-radius:12px;padding:24px;box-shadow:var(--shadow2)}
+    .overviewHero{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(300px,.65fr);gap:18px;margin-bottom:18px}
+    .heroPanel{background:var(--panel);color:var(--text);border-radius:4px;padding:26px 28px;box-shadow:0 1px 2px rgba(15,23,42,.04),0 8px 24px rgba(15,23,42,.045)}
+    .heroPanel:after{content:none}
+    .heroPanel h3{margin:0;font:700 22px/1.16 var(--display);letter-spacing:-.25px;max-width:680px}
+    .heroPanel p{color:var(--muted);max-width:760px;margin:10px 0 0;font-size:14px}
+    .heroPanel .sectionActions{margin-top:20px}
+    .heroPanel .btn{color:var(--text)}.heroPanel .btn.primary{background:var(--primary);color:#fff;box-shadow:none}
+    .planPanel{background:var(--panel);border-radius:4px;padding:22px 24px;box-shadow:0 1px 2px rgba(15,23,42,.04),0 8px 24px rgba(15,23,42,.045)}
     .planPanel h3{margin:0 0 14px;font:700 18px/1.2 var(--display)}
     .planItem{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;padding:12px 0;box-shadow:inset 0 -1px 0 var(--divider)}
     .planItem:last-child{box-shadow:none}.planDot{width:10px;height:10px;border-radius:999px;background:var(--primary)}
     .commandStrip{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px;margin-bottom:18px}
-    .commandMetric{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:24px;box-shadow:var(--shadow2)}
+    .commandMetric{background:var(--panel);border:0;border-radius:4px;padding:20px 22px;box-shadow:0 1px 2px rgba(15,23,42,.04),0 8px 24px rgba(15,23,42,.04)}
     .commandMetric__label{color:var(--muted);font-family:var(--mono);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.85px}
-    .commandMetric__value{font:700 44px/1 var(--display);margin:12px 0;color:var(--text);letter-spacing:-1.6px;font-variant-numeric:tabular-nums}
+    .commandMetric__value{font:700 34px/1 var(--display);margin:10px 0;color:var(--text);letter-spacing:-.5px;font-variant-numeric:tabular-nums}
     .commandMetric__value.good{color:var(--good)}.commandMetric__value.warn{color:var(--warn)}.commandMetric__value.bad{color:var(--bad)}
     .commandMetric__sub{color:var(--muted);font-size:13px}
     .tableWrap{overflow:auto}
@@ -111,10 +111,11 @@
     .table tbody tr:hover td{background:var(--hover)}
     .form-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;align-items:end}
     .form-group{display:flex;flex-direction:column;gap:7px}.form-label{color:var(--muted);font-size:12px;font-weight:800}
-    .form-input,.form-select,textarea{width:100%;min-height:38px;border:0;border-radius:10px;background:var(--input);color:var(--text);padding:9px 12px;outline:none;font-size:13px}
+    .form-input,.form-select,textarea{width:100%;min-height:38px;border:0;border-radius:4px;background:var(--input);color:var(--text);padding:9px 12px;outline:none;font-size:13px}
     .form-input:focus,.form-select:focus,textarea:focus{box-shadow:0 0 0 2px color-mix(in srgb,var(--primary) 34%,transparent)}
+    .inspectionChecklist{border:0;margin:20px 0;padding:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px 18px}.inspectionChecklist legend{font-weight:700;margin-bottom:10px}.inspectionChecklist label{display:flex;align-items:center;gap:7px;color:var(--muted);font-size:13px}.inspectionChecklist input{accent-color:var(--primary)}
     textarea{min-height:78px;resize:vertical}.sectionActions{display:flex;gap:8px;flex-wrap:wrap}.muted{color:var(--muted)}.mono{font-family:var(--mono)}
-    .scheduleList{display:grid;gap:10px}.scheduleItem{display:flex;gap:10px;align-items:center;justify-content:space-between;border:0;border-radius:14px;padding:14px 12px;background:var(--panel2)}.scheduleDate{font-family:var(--mono);color:var(--primary)}
+    .scheduleList{display:grid;gap:8px}.scheduleItem{display:flex;gap:10px;align-items:center;justify-content:space-between;border:0;border-radius:3px;padding:13px 12px;background:var(--panel2)}.scheduleDate{font-family:var(--mono);color:var(--primary)}
     .bar{height:8px;background:var(--surface2);border-radius:999px;overflow:hidden}.bar span{display:block;height:100%;background:var(--primary);border-radius:999px}
     .skeleton{height:48px;border-radius:12px;background:linear-gradient(90deg,var(--panel2),color-mix(in srgb,var(--panel2) 60%,var(--border)),var(--panel2));background-size:200% 100%;animation:shimmer 1.1s linear infinite}@keyframes shimmer{to{background-position:-200% 0}}
     .inlineError{margin-top:9px;color:var(--muted);font-size:12px}.inlineError strong{color:var(--warn)}
@@ -122,14 +123,15 @@
     .mapShell{position:relative}.mapHud{position:absolute;left:12px;top:12px;z-index:500;background:color-mix(in srgb,var(--panel) 84%,transparent);backdrop-filter:blur(14px);border-radius:12px;padding:10px;box-shadow:var(--shadow2)}
     .cameraGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.cameraTile{min-height:170px;display:grid;place-items:center;text-align:center;border:0;border-radius:var(--r-lg);background:radial-gradient(circle at 50% 25%,var(--primary-soft),transparent 12rem),linear-gradient(180deg,var(--panel),var(--panel2));box-shadow:inset 0 0 40px rgba(255,255,255,.03),var(--shadow2)}
     .opsAdvisorDock{position:fixed;right:18px;bottom:18px;z-index:1000;width:360px;max-width:calc(100vw - 36px)}
-    .advisorPanel{display:none;background:var(--panel);border:0;border-radius:var(--r-lg);box-shadow:var(--shadow);overflow:hidden;margin-bottom:10px}
+    #btnAdvisorToggle{display:block;margin-left:auto}
+    .advisorPanel{display:none;background:var(--panel);border:0;border-radius:4px;box-shadow:var(--shadow);overflow:hidden;margin-bottom:10px}
     .opsAdvisorDock.open .advisorPanel{display:block}
     .advisorThread{height:250px;overflow:auto;padding:12px;display:grid;gap:10px}.msg{padding:10px;border-radius:12px;background:var(--panel2);color:var(--text)}.msg.user{background:var(--primary-soft)}
     .advisorForm{display:flex;gap:8px;padding:12px}
     .advisorForm input{flex:1}
-    .mobileOnly{display:none}
-    @media (max-width:1180px){.app-header{grid-template-columns:1fr auto}.search{display:none}.headerActions{grid-column:2}.overviewHero,.grid4,.commandStrip{grid-template-columns:repeat(2,minmax(0,1fr))}.grid3,.cameraGrid{grid-template-columns:1fr 1fr}}
-    @media (max-width:760px){body{overflow:auto}.app{height:auto;min-height:100vh;grid-template-columns:0 minmax(0,1fr)}.sidebar{position:fixed;z-index:60;width:264px;opacity:0;transform:translateX(-18px);pointer-events:none}.app.nav-collapsed .sidebar{display:none}.app:not(.nav-collapsed) .sidebar{display:block;opacity:1;transform:none;pointer-events:auto}.main{grid-column:2;height:auto;padding:0 16px 96px}.app-header{display:flex;flex-wrap:wrap}.headerActions{flex-wrap:wrap;justify-content:flex-start}.headerActions .chip{display:none}.overviewHero,.grid2,.grid3,.grid4,.commandStrip,.form-grid,.cameraGrid{grid-template-columns:1fr}.viewHeader h2{font-size:30px}.mobileOnly{display:inline-flex}}
+    .srOnly{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}.mobileOnly{display:none}
+    @media (max-width:1180px){.app-header{grid-template-columns:1fr auto}.search{display:none}.headerActions{grid-column:2}.overviewHero,.grid4,.commandStrip{grid-template-columns:repeat(2,minmax(0,1fr))}.grid3,.cameraGrid{grid-template-columns:1fr 1fr}.inspectionChecklist{grid-template-columns:repeat(2,minmax(0,1fr))}}
+    @media (max-width:760px){body{overflow:auto}.app{height:auto;min-height:100vh;grid-template-columns:0 minmax(0,1fr)}.sidebar{position:fixed;z-index:60;width:264px;opacity:0;transform:translateX(-18px);pointer-events:none}.app.nav-collapsed .sidebar{display:none}.app:not(.nav-collapsed) .sidebar{display:block;opacity:1;transform:none;pointer-events:auto}.main{grid-column:2;height:auto;padding:0 16px 96px}.app-header{display:flex;flex-wrap:wrap;gap:8px;padding:14px 0 10px}.crumb{width:100%}.crumb p{display:none}.headerActions{width:100%;display:flex;flex-wrap:nowrap;justify-content:flex-start;gap:2px}.headerActions .chip,#btnAddTeamMember,#btnExportReport{display:none!important}.headerActions .btn{padding:0 9px}.overviewHero,.grid2,.grid3,.grid4,.commandStrip,.form-grid,.cameraGrid{grid-template-columns:1fr}.viewHeader{padding:20px 0 14px}.viewHeader h2{font-size:27px}.viewHeader p{font-size:13px}.heroPanel,.planPanel{padding:22px}.inspectionChecklist{grid-template-columns:1fr}.opsAdvisorDock{right:12px;bottom:12px;max-width:calc(100vw - 24px)}.mobileOnly{display:inline-flex}}
   </style>
 </head>
 <body>
@@ -177,19 +179,19 @@
       <section id="view-dashboard" class="section">
         <div class="overviewHero">
           <div class="heroPanel">
-            <h3>Turn live vehicle signals into the next best maintenance decision.</h3>
-            <p>Fleet AI watches sensor drift, fault codes, inspections, service work, and dispatch context so operators know which units to pull, when to schedule work, and why each vehicle was flagged.</p>
+            <h3>Review the fleet exceptions that need an operator decision.</h3>
+            <p>Model-backed risk, current signal coverage, inspections, and service records appear here only when their source data is available.</p>
             <div class="sectionActions">
               <button class="btn primary" data-route="health-risk" type="button">Review Risk Queue</button>
-              <button class="btn" data-route="maintenance" type="button">Plan Service</button>
+              <button class="btn" data-route="telemetry" type="button">Inspect Signals</button>
               <button class="btn" data-route="advisor" type="button">Ask Advisor</button>
             </div>
           </div>
           <div class="planPanel">
-            <h3>Today's operating focus</h3>
-            <div class="planItem"><span class="planDot"></span><div><strong>Prioritize risk exceptions</strong><div class="muted">Start with units outside baseline.</div></div><span class="chip">Now</span></div>
-            <div class="planItem"><span class="planDot" style="background:var(--warn)"></span><div><strong>Schedule inspection windows</strong><div class="muted">Convert high risk into shop time.</div></div><span class="chip">Next</span></div>
-            <div class="planItem"><span class="planDot" style="background:var(--good)"></span><div><strong>Keep dispatch informed</strong><div class="muted">Flag jobs affected by service holds.</div></div><span class="chip">Live</span></div>
+            <h3>Data readiness</h3>
+            <div class="planItem"><span class="planDot"></span><div><strong>Vehicle registry</strong><div class="muted">Units available to this workspace</div></div><span class="chip" id="readinessVehicles">--</span></div>
+            <div class="planItem"><span class="planDot" style="background:var(--warn)"></span><div><strong>Prediction coverage</strong><div class="muted">Units with a stored model state</div></div><span class="chip" id="readinessModels">--</span></div>
+            <div class="planItem"><span class="planDot" style="background:var(--good)"></span><div><strong>Current exceptions</strong><div class="muted">Risk records requiring review</div></div><span class="chip" id="readinessRisks">--</span></div>
           </div>
         </div>
         <div class="commandStrip">
@@ -200,8 +202,8 @@
         </div>
         <div class="opsPanel"><div class="opsPanel__head"><div><h3 class="opsPanel__title">Risk Queue</h3><div class="opsPanel__meta">Vehicles sorted by urgency, drift, and service impact</div></div><button class="btn" data-route="health-risk">Open Reliability Monitor</button></div><div class="opsPanel__body tableWrap"><table class="table"><thead><tr><th>Unit</th><th>System</th><th>Risk</th><th>Window</th><th>Recommended action</th></tr></thead><tbody id="riskQueueBody"><tr><td colspan="5"><div class="skeleton"></div></td></tr></tbody></table></div></div>
         <div class="grid2" style="margin-top:14px">
-          <div class="card"><div class="cardHead"><div><h3>Sensor Drift</h3><div class="cardMeta">30-day trend per signal — red lines are drifting outside baseline</div></div></div><div class="cardBody" id="driftPanel"></div></div>
-          <div class="card"><div class="cardHead"><div><h3>Service Plan</h3><div class="cardMeta">Next work windows generated from active risks</div></div></div><div class="cardBody"><div class="scheduleList" id="scheduleList"></div></div></div>
+          <div class="card"><div class="cardHead"><div><h3>Model Evidence</h3><div class="cardMeta">Signals and factors returned by the active prediction model</div></div></div><div class="cardBody" id="driftPanel"></div></div>
+          <div class="card"><div class="cardHead"><div><h3>Service Plan</h3><div class="cardMeta">Scheduled work from connected maintenance records</div></div></div><div class="cardBody"><div class="scheduleList" id="scheduleList"></div></div></div>
         </div>
       </section>
 
@@ -267,7 +269,7 @@
     const $ = (id) => document.getElementById(id);
     const state = {
       activeRoute:"dashboard", user:null, orgId:"", vehicles:[], drivers:[], selectedVehicleId:"",
-      selectedDriver:"", telemetryRows:[], msgSse:null, telemetrySse:null, gpsTimer:null, leafletMap:null,
+      selectedDriver:"", telemetryRows:[], telemetryLastAt:0, telemetryFreshnessTimer:null, msgSse:null, telemetrySse:null, gpsTimer:null, leafletMap:null,
       mapMarkers:[], cache:{}, advisor:[]
     };
     const routes = [
@@ -342,7 +344,7 @@
       document.querySelectorAll("[data-route]").forEach(btn => btn.addEventListener("click", () => setHashRoute(btn.dataset.route)));
     }
     function routeFromHash(){ const h = location.hash.replace("#","").trim(); return h || "dashboard"; }
-    function setHashRoute(route){ history.replaceState(null,"","#"+route); renderRoute(route); }
+    function setHashRoute(route){ history.replaceState(null,"","#"+route); if(window.matchMedia("(max-width:760px)").matches){$("app").classList.add("nav-collapsed");$("btnToggleNav").textContent="Show nav";} renderRoute(route); }
     function safeInvoke(name,...args){ if(typeof window[name] === "function") window[name](...args); }
     window.safeInvoke = safeInvoke;
     function renderRoute(route){
@@ -370,6 +372,8 @@
     function err(id,msg){ const el=$(id); if(el) el.innerHTML = msg ? `<strong>Unable to load:</strong> ${esc(msg)}` : ""; }
     function rowsEmpty(cols,text){ return `<tr><td colspan="${cols}" class="muted">${esc(text)}</td></tr>`; }
     function csvDownload(name, rows){ const csv = rows.map(r => r.map(v => `"${String(v??"").replaceAll('"','""')}"`).join(",")).join("\n"); const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"})); a.download=name; a.click(); URL.revokeObjectURL(a.href); }
+    function exportVisibleTable(route=state.activeRoute){ const table=document.querySelector(`#view-${CSS.escape(route)} table`); if(!table){err(route+"Error","No table is available for this view.");return;} const rows=[...table.querySelectorAll("tr")].map(row=>[...row.querySelectorAll("th,td")].map(cell=>cell.textContent.trim())).filter(row=>row.some(Boolean)); csvDownload(`fleet-ai-${route}.csv`,rows); }
+    function filterActiveView(query){ const section=$("view-"+state.activeRoute); if(!section)return; const normalized=query.trim().toLowerCase(); section.querySelectorAll("tbody tr").forEach(row=>{row.hidden=Boolean(normalized)&&!row.textContent.toLowerCase().includes(normalized);}); }
     async function authInit(){
       try{
         const data = await apiGet(["/api/me","/api/auth/whoami","/api/auth/me"]);
@@ -396,44 +400,26 @@
     window.renderPairingSelects = renderPairingSelects;
     async function loadDashboard(){
       await loadFleetManagement();
-      let health=[]; try{ health = unwrap(await apiGet("/api/ml/state")); }catch(_){ health = state.vehicles.map((v,i)=>({vehicleId:v.vehicleId||v.id,vehicleName:v.unitName||v.name||v.vehicleId||v.id,healthScore:88-i*7,component:["Cooling","Charging","DPF"][i%3],risk:i%3===0?"High":i%3===1?"Medium":"Low"})); }
-      $("kpiUptime").textContent = health.length ? Math.round(health.reduce((s,h)=>s+Number(h.healthScore||82),0)/health.length) : "--";
+      let health=[]; try{ health = unwrap(await apiGet("/api/ml/state")); }catch(_){}
+      const scored = health.filter(h=>Number.isFinite(Number(h.healthScore)));
+      $("kpiUptime").textContent = scored.length ? Math.round(scored.reduce((s,h)=>s+Number(h.healthScore),0)/scored.length) : "--";
       $("kpiActions").textContent = health.filter(h=>Number(h.healthScore||100)<75 || String(h.risk||"").toLowerCase()==="high").length;
-      $("kpiAvoided").textContent = state.cache.maintenance?.length || "--"; $("kpiROI").textContent = state.vehicles.length ? `${Math.min(state.vehicles.length, health.length || 0)}/${state.vehicles.length}` : "--";
-      $("riskQueueBody").innerHTML = health.slice(0,8).map(h=>`<tr><td>${esc(h.vehicleName||h.vehicleId)}</td><td>${esc(h.component||"Powertrain")}</td><td>${riskPill(h.risk||scoreRisk(h.healthScore))}</td><td>${esc(h.window||"24-72 hrs")}</td><td>${esc(h.action||"Schedule inspection")}</td></tr>`).join("") || rowsEmpty(5,"No active predictive risks.");
-      const driftSignals = [
-        {label:"Coolant temperature", pts:[72,72,73,74,75,76,78,77,80,83], warn:true},
-        {label:"Battery voltage",     pts:[12.6,12.5,12.6,12.5,12.4,12.3,12.4,12.2,12.1,12.0], warn:true},
-        {label:"Fuel consumption",    pts:[8.2,8.1,8.3,8.2,8.2,8.1,8.2,8.3,8.2,8.2], warn:false},
-        {label:"Oil pressure",        pts:[65,66,65,65,64,65,66,65,65,65], warn:false},
-      ];
-      $("driftPanel").innerHTML = driftSignals.map(({label,pts,warn})=>{
-        const W=240,H=52,pad=4;
-        const lo=Math.min(...pts),hi=Math.max(...pts),span=hi-lo||1;
-        const ys=pts.map(p=>pad+(1-(p-lo)/span)*(H-pad*2));
-        const xs=pts.map((_,i)=>pad+i/(pts.length-1)*(W-pad*2));
-        const line=xs.map((x,i)=>i===0?`M${x},${ys[i]}`:`C${(x+xs[i-1])/2},${ys[i-1]} ${(x+xs[i-1])/2},${ys[i]} ${x},${ys[i]}`).join(" ");
-        const area=`${line} L${xs[xs.length-1]},${H} L${xs[0]},${H} Z`;
-        const col=warn?"#DC2626":"#2563EB";
-        const uid=label.replace(/\s+/g,"");
-        return `<div style="padding:14px 0;border-bottom:1px solid var(--divider)">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-            <span style="font-size:13px;font-weight:700">${label}</span>
-            <span style="font-size:11px;font-weight:800;color:${col}">${warn?"▲ Drifting":"● Stable"}</span>
-          </div>
-          <svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" role="img" aria-label="${label} signal trend" style="display:block;overflow:visible">
-            <defs>
-              <linearGradient id="g${uid}" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stop-color="${col}" stop-opacity="0.18"/>
-                <stop offset="100%" stop-color="${col}" stop-opacity="0"/>
-              </linearGradient>
-            </defs>
-            <path d="${area}" fill="url(#g${uid})"/>
-            <path d="${line}" fill="none" stroke="${col}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-        </div>`;
-      }).join("");
-      $("scheduleList").innerHTML = ["Cooling inspection","Battery load test","PM service","Tire pressure audit"].map((x,i)=>`<div class="scheduleItem"><div><b>${x}</b><div class="muted">Assigned to service queue</div></div><div class="scheduleDate">${i+1}d</div></div>`).join("");
+      $("kpiAvoided").textContent = Array.isArray(state.cache.maintenance) ? state.cache.maintenance.length : "--";
+      $("kpiROI").textContent = state.vehicles.length ? `${health.length}/${state.vehicles.length}` : "--";
+      $("readinessVehicles").textContent=String(state.vehicles.length);
+      $("readinessModels").textContent=String(health.length);
+      $("readinessRisks").textContent=$("kpiActions").textContent;
+      $("riskQueueBody").innerHTML = health.slice(0,8).map(h=>`<tr><td>${esc(h.vehicleName||h.vehicleId||"Unknown unit")}</td><td>${esc(h.component||h.subsystem||"Not identified")}</td><td>${riskPill(h.risk||scoreRisk(h.healthScore))}</td><td>${esc(h.failureWindow||h.window||"Not estimated")}</td><td>${esc(h.recommendedAction||h.action||"Review model evidence")}</td></tr>`).join("") || rowsEmpty(5,"No model-backed risk records are available.");
+      const driftSignals = health.flatMap(h=>{
+        const factors = h.topFeatures || h.evidence || h.featureContributions || [];
+        return Array.isArray(factors) ? factors.slice(0,3).map(item=>({
+          label: typeof item === "string" ? item : item.name||item.feature||item.metric||"Model factor",
+          vehicle: h.vehicleName||h.vehicleId||"Unknown unit",
+          value: typeof item === "object" ? item.value??item.impact??item.contribution??"--" : ""
+        })) : [];
+      }).slice(0,6);
+      $("driftPanel").innerHTML = driftSignals.length ? driftSignals.map(item=>`<div class="scheduleItem"><div><b>${esc(item.label)}</b><div class="muted">${esc(item.vehicle)}</div></div><span class="chip">${esc(item.value)}</span></div>`).join("") : `<div class="muted">No feature evidence has been returned by the active model.</div>`;
+      $("scheduleList").innerHTML = `<div class="muted">No maintenance schedule API is connected. Fleet AI will not invent service dates.</div>`;
     }
     window.loadDashboard = loadDashboard;
     function scoreRisk(score){ score=Number(score); return score<60?"High":score<78?"Medium":"Low"; }
@@ -445,9 +431,9 @@
       catch(e){ $(route+"Rows").innerHTML = rowsEmpty(heads.length,"No records available."); err(route+"Error",e.message); }
     }
     async function loadFuelEvents(){ if(!state.selectedVehicleId){ genericPanel("fuel-events","Fuel Activity","Detected and manual refuel records",`<div class="muted">Select or register a vehicle to review fuel events.</div>`); return; } await loadSimpleTable("fuel-events","Fuel Activity","Detected and manual refuel records",["/api/fuel/events?vehicleId="+encodeURIComponent(state.selectedVehicleId),"/api/fuel-events?vehicleId="+encodeURIComponent(state.selectedVehicleId)],["Date","Vehicle","Gallons","Cost","Location"],r=>`<tr><td>${esc((r.date||r.createdAt||"").slice(0,10))}</td><td>${esc(r.vehicleName||r.vehicleId||"--")}</td><td>${num(r.gallons||r.volume)}</td><td>$${num(r.cost||r.totalCost,"0")}</td><td>${esc(r.location||"Yard")}</td></tr>`,"No fuel events have been recorded."); }
-    async function loadHealthRisk(){ await loadSimpleTable("health-risk","ML Health Scores","Lowest scores require first action",["/api/ml/state"],["Vehicle","Score","Flags","Last Seen"],r=>`<tr><td>${esc(r.vehicleName||r.vehicleId)}</td><td>${riskPill(r.healthScore??"--")}</td><td>${esc((r.flags||r.anomalyFlags||["baseline drift"]).join ? (r.flags||r.anomalyFlags||["baseline drift"]).join(", ") : r.flags||"baseline drift")}</td><td>${esc(r.lastSeen||r.updatedAt||"--")}</td></tr>`,"No health scores are available yet."); }
+    async function loadHealthRisk(){ await loadSimpleTable("health-risk","ML Health Scores","Lowest scores require first action",["/api/ml/state"],["Vehicle","Score","Flags","Last Seen"],r=>{const flags=r.flags||r.anomalyFlags||[];return `<tr><td>${esc(r.vehicleName||r.vehicleId)}</td><td>${riskPill(r.healthScore??"--")}</td><td>${esc(Array.isArray(flags)?flags.join(", "):(flags||"No anomaly flags"))}</td><td>${esc(r.lastSeen||r.updatedAt||"--")}</td></tr>`;},"No health scores are available yet."); }
     async function loadDtcHistory(){ const v=encodeURIComponent(state.selectedVehicleId||""); if(!v){ genericPanel("dtc-history","Diagnostic Codes","Stored OBD-II and J1939 fault codes",`<div class="muted">Select or register a vehicle to review fault codes.</div>`); return; } await loadSimpleTable("dtc-history","Diagnostic Codes","Stored OBD-II and J1939 fault codes",[`/api/vehicles/${v}/dtc-history`,`/api/dtc-history?vehicleId=${v}`],["Code","Description","Severity","First Seen","Last Seen"],r=>`<tr><td class="mono">${esc(r.code)}</td><td>${esc(r.description||r.text||"Diagnostic code captured")}</td><td>${riskPill(r.severity||"Info")}</td><td>${esc(r.firstSeen||r.ts||"--")}</td><td>${esc(r.lastSeen||r.ts||"--")}</td></tr>`,"No DTC records for the selected vehicle."); }
-    async function loadAlerts(){ await loadSimpleTable("alerts","Alert Queue","Active and historical fleet alerts",["/api/ml/alerts"],["Vehicle","Type","Severity","Time","Message"],r=>`<tr><td>${esc(r.vehicleId||r.unit||"--")}</td><td>${esc(r.type||r.title||"Alert")}</td><td>${riskPill(r.severity||r.sev||"Info")}</td><td>${esc(r.time||r.createdAt||"--")}</td><td>${esc(r.message||r.desc||"--")} <button class="btn ghost" data-ack="${esc(r.id||"")}">Acknowledge</button></td></tr>`,"No fleet alerts are active."); }
+    async function loadAlerts(){ await loadSimpleTable("alerts","Alert Queue","Active and historical fleet alerts",["/api/ml/alerts"],["Vehicle","Type","Severity","Time","Message"],r=>`<tr><td>${esc(r.vehicleId||r.unit||"--")}</td><td>${esc(r.type||r.title||"Alert")}</td><td>${riskPill(r.severity||r.sev||"Info")}</td><td>${esc(r.time||r.createdAt||"--")}</td><td>${esc(r.message||r.desc||"--")} ${r.id&&!r.acknowledged?`<button class="btn ghost" data-ack="${esc(r.id)}">Acknowledge</button>`:""}</td></tr>`,"No fleet alerts are active."); document.querySelectorAll("[data-ack]").forEach(button=>button.onclick=async()=>{button.disabled=true;try{await apiPost(`/api/alerts/${encodeURIComponent(button.dataset.ack)}/ack`,{});await loadAlerts();pollAlertCount();}catch(e){err("alertsError",e.message);button.disabled=false;}}); }
     async function loadSafetyEvents(){ genericPanel("safety","Driver Events","Behavior flags and coaching signals",`<div class="grid3"><div class="commandMetric"><div class="commandMetric__label">Events This Week</div><div class="commandMetric__value">0</div><div class="commandMetric__sub">No harsh events recorded</div></div><div class="commandMetric"><div class="commandMetric__label">Top Offender</div><div class="commandMetric__value">--</div><div class="commandMetric__sub">Awaiting driver telemetry</div></div><div class="commandMetric"><div class="commandMetric__label">Coaching Queue</div><div class="commandMetric__value">0</div><div class="commandMetric__sub">No active coaching items</div></div></div>`); }
     async function loadHosCompliance(){ genericPanel("compliance","HOS Status","Driver hours of service standing",`<div class="tableWrap"><table class="table"><thead><tr><th>Driver</th><th>On Duty</th><th>Driving</th><th>Remaining</th><th>Status</th></tr></thead><tbody>${rowsEmpty(5,"HOS integration is not connected.")}</tbody></table></div>`); }
     async function loadTelemetryHistory(){ const v=encodeURIComponent($("historyVehicleSelect")?.value||state.selectedVehicleId||""); const metric=$("historyMetricSelect")?.value||"rpm"; const range=$("historyRangeSelect")?.value||"24h"; if(!v){ $("historyRows").innerHTML=rowsEmpty(5,"Select or register a vehicle to review telemetry history."); return; } try{ const data=unwrap(await apiGet([`/api/vehicles/${v}/metrics/history?metric=${metric}&range=${range}`,`/api/telemetry/history?vehicleId=${v}&metric=${metric}&range=${range}`])); $("historyRows").innerHTML=data.length?data.map(r=>`<tr><td>${esc(r.ts||r.timestamp)}</td><td>${esc(r.vehicleId||v)}</td><td>${esc(metric)}</td><td>${num(r.value??r[metric])}</td><td>${esc(r.quality||"normalized")}</td></tr>`).join(""):rowsEmpty(5,"No telemetry history for this filter."); err("historyError",""); }catch(e){ $("historyRows").innerHTML=rowsEmpty(5,"No telemetry history for this filter."); err("historyError",e.message); } }
@@ -458,10 +444,10 @@
     }
     async function refreshGps(){ try{ const data=unwrap(await apiGet("/api/gps/live")); state.mapMarkers.forEach(m=>m.remove()); state.mapMarkers=[]; $("gpsRows").innerHTML=data.map(p=>{ const marker=L.marker([p.lat,p.lon]).addTo(state.leafletMap).on("click",()=>{$("hudSelected").textContent=p.vehicleName||p.vehicleId;}); state.mapMarkers.push(marker); return `<tr><td>${esc(p.vehicleName||p.vehicleId)}</td><td>${num(p.lat)}</td><td>${num(p.lon)}</td><td>${num(p.speed)} mph</td></tr>`; }).join("") || rowsEmpty(4,"No vehicle positions available."); }catch(_){ $("gpsRows").innerHTML=rowsEmpty(4,"GPS positions are unavailable."); } }
     function stopGpsPolling(){ if(state.gpsTimer){ clearInterval(state.gpsTimer); state.gpsTimer=null; } }
-    function renderCameraChannels(){ genericPanel("cameras","Camera Channels","Road-facing, driver-facing, and rear views when connected",`<div class="cameraGrid">${["Front","Driver","Rear"].map((x,i)=>`<div class="cameraTile"><div><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:10px;opacity:.35" aria-hidden="true"><rect x="2" y="6" width="16" height="12" rx="2"/><path d="m18 9 4-2v10l-4-2"/></svg><h3>${x}</h3><p class="muted">${i===0?"Live":"Offline"} camera channel</p><button class="btn">Review Clips</button></div></div>`).join("")}</div><div id="clipList" style="margin-top:14px"></div>`); }
-    function renderClipList(){ const el=$("clipList"); if(el) el.innerHTML=`<div class="scheduleList">${["Hard brake","Speeding event","Manual bookmark"].map(x=>`<div class="scheduleItem"><b>${x}</b><span class="chip">clip tagged</span></div>`).join("")}</div>`; }
+    function renderCameraChannels(){ genericPanel("cameras","Camera Channels","Camera status appears only after a supported provider is connected",`<div class="cameraGrid">${["Front","Driver","Rear"].map(x=>`<div class="cameraTile"><div><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:10px;opacity:.35" aria-hidden="true"><rect x="2" y="6" width="16" height="12" rx="2"/><path d="m18 9 4-2v10l-4-2"/></svg><h3>${x}</h3><p class="muted">Not connected</p></div></div>`).join("")}</div><div id="clipList" style="margin-top:14px"></div>`); }
+    function renderClipList(){ const el=$("clipList"); if(el) el.innerHTML=`<div class="muted">No camera clips are available.</div>`; }
     function renderQuickPrompts(){ genericPanel("advisor","Fleet Advisor","Ask operational questions grounded in fleet data",`<div class="sectionActions">${["Which vehicles need service first?","Summarize compliance risk","Find cost outliers","Explain coolant drift"].map(q=>`<button class="btn" data-prompt="${esc(q)}">${esc(q)}</button>`).join("")}</div><div class="advisorThread" id="advisorPageThread"><div class="msg">Choose a prompt or ask Fleet Advisor from the dock.</div></div>`); }
-    async function aiAdvisorCheckStatus(){ return true; }
+    async function aiAdvisorCheckStatus(){ return null; }
     async function sendAdvisor(query){ const thread=$("advisorThread"); thread.insertAdjacentHTML("beforeend",`<div class="msg user">${esc(query)}</div><div class="msg" id="advisorLoading">Fleet Advisor is thinking...</div>`); try{ const r=await apiPost(["/api/advisor/query","/api/advisor/message","/api/ai/chat"],{query,message:query,vehicleId:state.selectedVehicleId}); $("advisorLoading")?.remove(); thread.insertAdjacentHTML("beforeend",`<div class="msg">${esc(r.reply||r.data?.reply||"No response generated.")}</div>`);}catch(e){$("advisorLoading")?.remove(); thread.insertAdjacentHTML("beforeend",`<div class="msg">Advisor is unavailable: ${esc(e.message)}</div>`);} thread.scrollTop=thread.scrollHeight; }
     async function loadMaintenanceLogs(){ loadMaintenanceLogsV2("maintenance"); }
     async function loadMaintenanceLogsV2(target="maintenance-logs"){
@@ -473,23 +459,54 @@
         : rowsEmpty(7,"No service archive records are connected to this workspace.");
       genericPanel(target,title,meta,`<div class="tableWrap"><table class="table"><thead><tr><th>Date</th><th>Vehicle</th><th>Service</th><th>Technician</th><th>Parts</th><th>Cost</th><th>Notes</th></tr></thead><tbody>${rows}</tbody></table></div>`);
     }
-    async function loadDvirHistory(){ await loadSimpleTable("dvir","Inspection Records","Pre-trip and post-trip inspections",["/api/dvir"],["Date","Driver","Vehicle","Status","Notes"],r=>`<tr><td>${esc((r.inspectedAt||r.submittedAt||"").slice(0,16))}</td><td>${esc(r.driverLabel||r.driverId)}</td><td>${esc(r.vehicleLabel||r.vehicleId)}</td><td>${riskPill(r.defectStatus==="defects_noted"?"Fail":"Pass")}</td><td>${esc(r.defects||"No defects noted")}</td></tr>`,"No inspections have been submitted."); }
-    async function loadDispatchJobs(){ await loadSimpleTable("dispatch","Dispatch Jobs","Active loads, routes, and delivery status",["/api/dispatch/jobs"],["Job","Driver","Route","Status","ETA"],r=>`<tr><td>${esc(r.jobId||r.id)}</td><td>${esc(r.driverLabel||r.driverId||"--")}</td><td>${esc(r.origin)} → ${esc(r.destination)}</td><td>${riskPill(r.status||"Scheduled")}</td><td>${esc(r.eta||"--")}</td></tr>`,"No dispatch jobs are active."); }
-    async function loadPartsInventory(){ await loadSimpleTable("parts-inventory","Parts Inventory","Stock levels and reorder thresholds",["/api/parts","/api/parts-inventory"],["Part","Number","On Hand","Reorder","Vendor","Unit Cost"],r=>`<tr><td>${esc(r.name)}</td><td class="mono">${esc(r.partNumber)}</td><td>${riskPill(Number(r.quantityOnHand)<=Number(r.reorderAt) ? r.quantityOnHand : String(r.quantityOnHand))}</td><td>${num(r.reorderAt)}</td><td>${esc(r.vendor||"--")}</td><td>$${num(r.unitCost||0,"0")}</td></tr>`,"No parts are in inventory."); }
-    async function loadDotCompliance(){ await loadSimpleTable("dot-compliance","DOT Compliance Summary","Inspection and HOS readiness",["/api/dot-compliance"],["Category","Status","Count","Message"],r=>`<tr><td>DVIR</td><td>${riskPill(r.hos?.status||"not_connected")}</td><td>${num(r.dvir?.total||0)}</td><td>${esc(r.hos?.message||"DVIR summary loaded")}</td></tr>`,"Compliance data is not connected."); }
+    function vehicleOptions(){return `<option value="">Select vehicle</option>`+state.vehicles.map(v=>`<option value="${esc(v.vehicleId||v.id)}">${esc(v.unitName||v.vehicleId||v.id)}</option>`).join("");}
+    function driverOptions(){return `<option value="">Select driver</option>`+state.drivers.map(d=>`<option value="${esc(d.driverId||d.id)}">${esc([d.firstName,d.lastName].filter(Boolean).join(" ")||d.driverId||d.id)}</option>`).join("");}
+    async function loadDvirHistory(){
+      await loadFleetManagement();
+      const items=["Service brakes","Parking brake","Steering","Lighting","Tires","Wheels and rims","Mirrors","Windshield and wipers","Horn","Coupling equipment","Emergency equipment","Fuel or oil leaks"];
+      genericPanel("dvir","Inspection Center","Record a complete pre-trip or post-trip inspection",`<form id="dvirForm"><div class="form-grid"><div class="form-group"><label class="form-label" for="dvirVehicle">Vehicle</label><select class="form-select" id="dvirVehicle" required>${vehicleOptions()}</select></div><div class="form-group"><label class="form-label" for="dvirDriver">Driver</label><select class="form-select" id="dvirDriver" required>${driverOptions()}</select></div><div class="form-group"><label class="form-label" for="dvirType">Inspection</label><select class="form-select" id="dvirType"><option value="pre">Pre-trip</option><option value="post">Post-trip</option></select></div><div class="form-group"><label class="form-label" for="dvirOdometer">Odometer</label><input class="form-input" id="dvirOdometer" type="number" min="0" inputmode="numeric"></div></div><fieldset class="inspectionChecklist"><legend>Items inspected</legend>${items.map(item=>`<label><input type="checkbox" name="dvirItem" value="${esc(item)}"> <span>${esc(item)}</span></label>`).join("")}</fieldset><div class="form-grid"><div class="form-group"><label class="form-label" for="dvirResult">Result</label><select class="form-select" id="dvirResult"><option value="pass">Pass - no defects</option><option value="fail">Defects found</option></select></div><div class="form-group"><label class="form-label" for="dvirDefects">Defects or notes</label><textarea id="dvirDefects"></textarea></div><div class="form-group"><label class="form-label" for="dvirSignature">Inspector signature</label><input class="form-input" id="dvirSignature" required autocomplete="name"></div><button class="btn primary" type="submit">Submit inspection</button></div><div class="inlineError" id="dvirFormStatus"></div></form><div class="tableWrap" style="margin-top:24px"><table class="table"><thead><tr><th>Date</th><th>Driver</th><th>Vehicle</th><th>Result</th><th>Notes</th></tr></thead><tbody id="dvirRows"><tr><td colspan="5"><div class="skeleton"></div></td></tr></tbody></table></div>`);
+      $("dvirForm").onsubmit=submitDvir;
+      try{const data=unwrap(await apiGet("/api/dvir"));$("dvirRows").innerHTML=data.length?data.map(r=>`<tr><td>${esc((r.inspectedAt||r.submittedAt||"").slice(0,16))}</td><td>${esc(r.driverLabel||r.driverId)}</td><td>${esc(r.vehicleLabel||r.vehicleId)}</td><td>${riskPill(r.defectStatus==="defects_noted"?"Fail":"Pass")}</td><td>${esc(r.defects||"No defects noted")}</td></tr>`).join(""):rowsEmpty(5,"No inspections have been submitted.");}catch(e){$("dvirRows").innerHTML=rowsEmpty(5,"Inspection records are unavailable.");err("dvirFormStatus",e.message);}
+    }
+    async function submitDvir(event){event.preventDefault();const inspectedItems=[...document.querySelectorAll('input[name="dvirItem"]:checked')].map(input=>input.value);const defects=$("dvirResult").value==="fail"?$("dvirDefects").value.trim():"";if(!inspectedItems.length){err("dvirFormStatus","Select each item that was inspected.");return;}if($("dvirResult").value==="fail"&&!defects){err("dvirFormStatus","Describe the defects that caused the failed inspection.");return;}const button=event.submitter;button.disabled=true;try{await apiPost("/api/dvir",{vehicleId:$("dvirVehicle").value,driverId:$("dvirDriver").value,type:$("dvirType").value,odometer:$("dvirOdometer").value||null,inspectedItems,defects,signature:$("dvirSignature").value.trim()});await loadDvirHistory();}catch(e){err("dvirFormStatus",e.message);}finally{if(button.isConnected)button.disabled=false;}}
+    async function loadDispatchJobs(){
+      await loadFleetManagement();
+      genericPanel("dispatch","Dispatch Board","Create assignments and review active delivery work",`<form id="dispatchForm" class="form-grid"><div class="form-group"><label class="form-label" for="dispatchOrigin">Origin</label><input class="form-input" id="dispatchOrigin" required></div><div class="form-group"><label class="form-label" for="dispatchDestination">Destination</label><input class="form-input" id="dispatchDestination" required></div><div class="form-group"><label class="form-label" for="dispatchVehicle">Vehicle</label><select class="form-select" id="dispatchVehicle">${vehicleOptions()}</select></div><div class="form-group"><label class="form-label" for="dispatchDriver">Driver</label><select class="form-select" id="dispatchDriver">${driverOptions()}</select></div><div class="form-group"><label class="form-label" for="dispatchEta">ETA</label><input class="form-input" id="dispatchEta" type="datetime-local"></div><div class="form-group"><label class="form-label" for="dispatchWeight">Cargo weight</label><input class="form-input" id="dispatchWeight" type="number" min="0"></div><button class="btn primary" type="submit">Create assignment</button></form><div class="inlineError" id="dispatchStatus"></div><div class="tableWrap" style="margin-top:24px"><table class="table"><thead><tr><th>Job</th><th>Driver</th><th>Vehicle</th><th>Route</th><th>Status</th><th>ETA</th></tr></thead><tbody id="dispatchRows"></tbody></table></div>`);
+      $("dispatchForm").onsubmit=async event=>{event.preventDefault();const button=event.submitter;button.disabled=true;try{await apiPost("/api/dispatch/jobs",{origin:$("dispatchOrigin").value.trim(),destination:$("dispatchDestination").value.trim(),vehicleId:$("dispatchVehicle").value,driverId:$("dispatchDriver").value,eta:$("dispatchEta").value||undefined,cargoWeight:$("dispatchWeight").value||null});await loadDispatchJobs();}catch(e){err("dispatchStatus",e.message);}finally{if(button.isConnected)button.disabled=false;}};
+      try{const data=unwrap(await apiGet("/api/dispatch/jobs"));$("dispatchRows").innerHTML=data.length?data.map(r=>`<tr><td>${esc(r.jobId||r.id)}</td><td>${esc(r.driverLabel||r.driverId||"Unassigned")}</td><td>${esc(r.vehicleLabel||r.vehicleId||"Unassigned")}</td><td>${esc(r.origin)} → ${esc(r.destination)}</td><td>${riskPill(r.status||"Scheduled")}</td><td>${esc(r.eta||"Not set")}</td></tr>`).join(""):rowsEmpty(6,"No dispatch jobs are active.");}catch(e){$("dispatchRows").innerHTML=rowsEmpty(6,"Dispatch jobs are unavailable.");err("dispatchStatus",e.message);}
+    }
+    async function loadPartsInventory(){
+      genericPanel("parts-inventory","Parts Inventory","Track stock and reorder thresholds",`<form id="partForm" class="form-grid"><div class="form-group"><label class="form-label" for="partName">Part name</label><input class="form-input" id="partName" required></div><div class="form-group"><label class="form-label" for="partNumber">Part number</label><input class="form-input" id="partNumber" required></div><div class="form-group"><label class="form-label" for="partQuantity">On hand</label><input class="form-input" id="partQuantity" type="number" min="0" value="0"></div><div class="form-group"><label class="form-label" for="partReorder">Reorder at</label><input class="form-input" id="partReorder" type="number" min="0" value="0"></div><div class="form-group"><label class="form-label" for="partVendor">Vendor</label><input class="form-input" id="partVendor"></div><div class="form-group"><label class="form-label" for="partCost">Unit cost</label><input class="form-input" id="partCost" type="number" min="0" step="0.01"></div><button class="btn primary" type="submit">Add part</button></form><div class="inlineError" id="partStatus"></div><div class="tableWrap" style="margin-top:24px"><table class="table"><thead><tr><th>Part</th><th>Number</th><th>On hand</th><th>Reorder</th><th>Vendor</th><th>Unit cost</th></tr></thead><tbody id="partsRows"></tbody></table></div>`);
+      $("partForm").onsubmit=async event=>{event.preventDefault();const button=event.submitter;button.disabled=true;try{await apiPost("/api/parts",{name:$("partName").value.trim(),partNumber:$("partNumber").value.trim(),quantityOnHand:$("partQuantity").value,reorderAt:$("partReorder").value,vendor:$("partVendor").value.trim(),unitCost:$("partCost").value});await loadPartsInventory();}catch(e){err("partStatus",e.message);}finally{if(button.isConnected)button.disabled=false;}};
+      try{const response=await apiGet(["/api/parts","/api/parts-inventory"]);const data=unwrap(response);$("partsRows").innerHTML=data.length?data.map(r=>`<tr><td>${esc(r.name)}</td><td class="mono">${esc(r.partNumber)}</td><td>${Number(r.quantityOnHand)<=Number(r.reorderAt)?riskPill(`${r.quantityOnHand} low`):num(r.quantityOnHand)}</td><td>${num(r.reorderAt)}</td><td>${esc(r.vendor||"Not set")}</td><td>$${num(r.unitCost||0,"0")}</td></tr>`).join(""):rowsEmpty(6,"No parts are in inventory.");}catch(e){$("partsRows").innerHTML=rowsEmpty(6,"Parts inventory is unavailable.");err("partStatus",e.message);}
+    }
+    async function loadDotCompliance(){
+      genericPanel("dot-compliance","DOT Status","Inspection records and connected compliance sources",`<div class="commandStrip"><div class="commandMetric"><div class="commandMetric__label">DVIR records</div><div class="commandMetric__value" id="dotDvirTotal">--</div><div class="commandMetric__sub">Persisted inspections</div></div><div class="commandMetric"><div class="commandMetric__label">Defects noted</div><div class="commandMetric__value warn" id="dotDefects">--</div><div class="commandMetric__sub">Records requiring review</div></div><div class="commandMetric"><div class="commandMetric__label">Last 24 hours</div><div class="commandMetric__value" id="dotLast24">--</div><div class="commandMetric__sub">Submitted inspections</div></div></div><div class="tableWrap"><table class="table"><thead><tr><th>Source</th><th>Status</th><th>Detail</th></tr></thead><tbody id="dotStatusRows"><tr><td colspan="3"><div class="skeleton"></div></td></tr></tbody></table></div><div class="inlineError" id="dotStatusError"></div>`);
+      try{
+        const response=await apiGet("/api/dot-compliance");
+        const data=response?.data||response||{};
+        $("dotDvirTotal").textContent=num(data.dvir?.total, "0");
+        $("dotDefects").textContent=num(data.dvir?.withDefects, "0");
+        $("dotLast24").textContent=num(data.dvir?.last24h, "0");
+        $("dotStatusRows").innerHTML=`<tr><td>DVIR</td><td>${riskPill(data.dvir?.withDefects?"Review required":"Recorded")}</td><td>${esc(data.dvir?.lastSubmittedAt?`Last submission ${data.dvir.lastSubmittedAt}`:"No inspections submitted")}</td></tr><tr><td>Hours of service</td><td>${riskPill("Not connected")}</td><td>${esc(data.hos?.message||"HOS data is not connected.")}</td></tr>`;
+      }catch(e){ $("dotStatusRows").innerHTML=rowsEmpty(3,"Compliance data is unavailable."); err("dotStatusError",e.message); }
+    }
     async function loadRecalls(){ await loadSimpleTable("recalls","Recall Tracker","NHTSA recall status by vehicle",["/api/recalls"],["Vehicle","Campaign","Component","Description","Status"],r=>`<tr><td>${esc(r.vehicleName||r.vehicleId)}</td><td class="mono">${esc(r.recallId||r.campaignId)}</td><td>${esc(r.component||"--")}</td><td>${esc(r.title||r.description||"--")}</td><td>${riskPill(r.status||"Open")}</td></tr>`,"No recall records found."); }
     async function loadCostAnalytics(){ await loadSimpleTable("cost-analytics","Cost Analysis","Fuel, service, and cost per mile",["/api/cost-analytics"],["Vehicle","Fuel","Maintenance","Total","Cost/Mile","Cost/Day"],r=>`<tr><td>${esc(r.vehicleName||r.vehicleId)}</td><td>$${num(r.fuelCost||0,"0")}</td><td>$${num(r.maintCost||r.maintenanceCost||0,"0")}</td><td>$${num(r.totalCost||0,"0")}</td><td>$${num(r.costPerMile||0,"0")}</td><td>$${num(r.costPerDay||0,"0")}</td></tr>`,"No cost data available."); }
     async function loadDriverScores(){ await loadSimpleTable("driver-scores","Driver Leaderboard","Behavior scores by driver",["/api/driver-scores"],["Rank","Driver","Overall","Braking","Speed","Idle","Incidents"],(r,i)=>`<tr><td>${i+1}</td><td>${esc(r.driverName||r.driverId)}</td><td>${riskPill(r.score??"N/A")}</td><td>${num(r.brakingScore||r.breakdown?.harshBraking||0)}</td><td>${num(r.speedScore||r.breakdown?.speedingEvents||0)}</td><td>${num(r.idleScore||r.breakdown?.idleMinutes||0)}</td><td>${num(r.incidents||0)}</td></tr>`,"No driver scoring data available."); }
-    async function loadWebhooks(){ await loadSimpleTable("webhooks","Webhook Integrations","Push fleet events to external endpoints",["/api/webhooks"],["Endpoint","Events","Status","Last Delivery","Actions"],r=>`<tr><td>${esc(r.url)}</td><td>${esc((r.events||[]).join(", "))}</td><td>${riskPill(r.active===false?"Paused":"Active")}</td><td>${esc(r.lastDeliveryAt||"--")}</td><td><button class="btn ghost">Test</button></td></tr>`,"No webhooks configured."); }
-    async function loadAlertSubscriptions(){ await loadSimpleTable("alert-subscriptions","Alert Subscriptions","Email delivery for critical events",["/api/alert-subscriptions"],["Email","Events","Status","Actions"],r=>`<tr><td>${esc(r.email)}</td><td>${esc((r.events||[]).join(", "))}</td><td>${riskPill(r.active===false?"Paused":"Active")}</td><td><button class="btn ghost">Test email</button></td></tr>`,"No alert subscriptions configured."); }
+    async function loadWebhooks(){ await loadSimpleTable("webhooks","Webhook Integrations","Push fleet events to external endpoints",["/api/webhooks"],["Endpoint","Events","Status","Last Delivery"],r=>`<tr><td>${esc(r.url)}</td><td>${esc((r.events||[]).join(", "))}</td><td>${riskPill(r.active===false?"Paused":"Active")}</td><td>${esc(r.lastDeliveryAt||"No delivery recorded")}</td></tr>`,"No webhooks configured."); }
+    async function loadAlertSubscriptions(){ await loadSimpleTable("alert-subscriptions","Alert Subscriptions","Email delivery for critical events",["/api/alert-subscriptions"],["Email","Events","Status","Actions"],r=>`<tr><td>${esc(r.email)}</td><td>${esc((r.events||[]).join(", "))}</td><td>${riskPill(r.active===false?"Paused":"Active")}</td><td><button class="btn ghost" data-test-email="${esc(r.email)}">Send test</button></td></tr>`,"No alert subscriptions configured."); document.querySelectorAll("[data-test-email]").forEach(button=>button.onclick=async()=>{button.disabled=true;try{const result=await apiPost("/api/alert-subscriptions/test",{email:button.dataset.testEmail});button.textContent=result.sent===false?"Provider not configured":"Sent";}catch(e){button.textContent="Failed";}finally{setTimeout(()=>{button.disabled=false;button.textContent="Send test";},2500);}}); }
     function loadPredictiveScheduler(){ genericPanel("predictive-scheduler","AI Scheduler","Automatically creates work orders when a vehicle health score falls below 70.",`<button class="btn primary" id="btnRunPredictive">Run Scan</button><div id="predictiveResult" class="inlineError"></div>`); $("btnRunPredictive").onclick=async()=>{try{const r=await apiPost("/api/predictive/run",{});$("predictiveResult").innerHTML=`${esc(r.message||"Scan complete.")}`;}catch(e){err("predictiveResult",e.message);}}; }
     function initComplianceReport(){ genericPanel("compliance-report","Compliance Report","Generate printable DVIR, maintenance, and HOS records",`<div class="form-grid"><div class="form-group"><label class="form-label" for="reportFrom">From</label><input class="form-input" id="reportFrom" type="date"></div><div class="form-group"><label class="form-label" for="reportTo">To</label><input class="form-input" id="reportTo" type="date"></div><button class="btn primary" id="btnGenerateCompliance">Generate</button><button class="btn" id="btnPrintCompliance">Print / Export PDF</button></div><div id="complianceReportOutput" style="margin-top:14px"></div>`); $("btnPrintCompliance").onclick=()=>window.print(); $("btnGenerateCompliance").onclick=async()=>{try{const r=await apiGet(`/api/reports/compliance?from=${$("reportFrom").value}&to=${$("reportTo").value}`);$("complianceReportOutput").innerHTML=`<pre class="mono">${esc(JSON.stringify(r.data||r,null,2))}</pre>`;}catch(e){err("complianceReportOutput",e.message);}}; }
-    async function loadMessages(){ genericPanel("messages","Driver Messaging","Dispatch-to-driver message threads",`<div class="grid2"><div class="card"><div class="cardBody" id="driverMsgList"></div></div><div class="card"><div class="cardBody"><div class="advisorThread" id="messageThread"></div><form class="advisorForm" id="msgForm"><input class="form-input" id="msgInput" aria-label="Message driver"><button class="btn primary">Send</button></form></div></div></div>`); await loadFleetManagement(); $("driverMsgList").innerHTML=state.drivers.map(d=>`<button class="btn ghost" style="width:100%;margin-bottom:8px" data-driver="${esc(d.driverId||d.id)}">${esc([d.firstName,d.lastName].filter(Boolean).join(" ")||d.name||d.driverId||d.id)}</button>`).join(""); startMsgSse(); }
-    function startMsgSse(){ stopMsgSse(); try{ state.msgSse=new EventSource("/api/messages/stream"); state.msgSse.onmessage=(e)=>{ const msg=JSON.parse(e.data); if(!state.selectedDriver || msg.driverId===state.selectedDriver || msg.toDriverId===state.selectedDriver) appendMessage(msg); }; state.msgSse.onerror=()=>stopMsgSse(); }catch(_){} }
+    async function loadMessages(){ genericPanel("messages","Driver Messaging","Dispatch-to-driver message threads",`<div class="grid2"><div class="card"><div class="cardBody" id="driverMsgList"></div></div><div class="card"><div class="cardBody"><div class="advisorThread" id="messageThread"><div class="muted">Select a driver to load messages.</div></div><form class="advisorForm" id="msgForm"><label class="srOnly" for="msgInput">Message driver</label><input class="form-input" id="msgInput" aria-label="Message driver" autocomplete="off"><button class="btn primary">Send</button></form><div class="inlineError" id="msgError"></div></div></div></div>`); await loadFleetManagement(); $("driverMsgList").innerHTML=state.drivers.map(d=>`<button class="btn ghost" style="width:100%;margin-bottom:8px" data-driver="${esc(d.driverId||d.id)}">${esc([d.firstName,d.lastName].filter(Boolean).join(" ")||d.name||d.driverId||d.id)}</button>`).join("")||`<div class="muted">No drivers are registered.</div>`; document.querySelectorAll("[data-driver]").forEach(button=>button.onclick=()=>selectMessageDriver(button.dataset.driver)); $("msgForm").onsubmit=sendDriverMessage; startMsgSse(); if(state.drivers[0]) await selectMessageDriver(state.drivers[0].driverId||state.drivers[0].id); }
+    async function selectMessageDriver(driverId){ state.selectedDriver=driverId; const thread=$("messageThread"); if(!thread)return; thread.innerHTML=`<div class="skeleton"></div>`; try{const data=unwrap(await apiGet(`/api/messages?driverId=${encodeURIComponent(driverId)}`));thread.innerHTML=data.length?data.map(msg=>messageMarkup(msg)).join(""):`<div class="muted">No messages in this thread.</div>`;thread.scrollTop=thread.scrollHeight;err("msgError","");}catch(e){thread.innerHTML=`<div class="muted">Messages are unavailable.</div>`;err("msgError",e.message);} }
+    async function sendDriverMessage(event){event.preventDefault();const input=$("msgInput");const content=input.value.trim();if(!state.selectedDriver){err("msgError","Select a driver first.");return;}if(!content)return;input.disabled=true;try{const response=await apiPost("/api/messages",{driverId:state.selectedDriver,content});input.value="";appendMessage(response.data||response);err("msgError","");}catch(e){err("msgError",e.message);}finally{input.disabled=false;input.focus();}}
+    function messageMarkup(msg){return `<div class="msg ${msg.fromRole==="dispatcher"?"user":""}">${esc(msg.body||msg.content||msg.message||"")}<div class="muted">${esc(msg.sentAt||msg.ts||"")}</div></div>`;}
+    function startMsgSse(){ stopMsgSse(); try{ state.msgSse=new EventSource("/api/messages/stream"); state.msgSse.onmessage=(e)=>{ const msg=JSON.parse(e.data); if(msg.type==="connected")return; if(!state.selectedDriver || msg.driverId===state.selectedDriver || msg.toDriverId===state.selectedDriver) appendMessage(msg); }; state.msgSse.onerror=()=>stopMsgSse(); }catch(_){} }
     function stopMsgSse(){ if(state.msgSse){ state.msgSse.close(); state.msgSse=null; } }
-    function appendMessage(msg){ const el=$("messageThread"); if(el) el.insertAdjacentHTML("beforeend",`<div class="msg">${esc(msg.body||msg.content||msg.message||"Message received")}<div class="muted">${esc(msg.sentAt||msg.ts||"")}</div></div>`); }
-    function initReports(){ genericPanel("reports","Fleet Reports","Generate operational exports by date range",`<div class="form-grid"><div class="form-group"><label class="form-label" for="reportType">Report Type</label><select class="form-select" id="reportType"><option>Fleet Summary</option><option>Maintenance</option><option>Driver Activity</option><option>Fuel Usage</option></select></div><div class="form-group"><label class="form-label" for="reportStart">Start</label><input class="form-input" id="reportStart" type="date"></div><div class="form-group"><label class="form-label" for="reportEnd">End</label><input class="form-input" id="reportEnd" type="date"></div><button class="btn primary">Generate Report</button></div>`); }
-    function loadSettings(){ genericPanel("settings","Workspace Settings","Company, theme, notifications, password, and session controls",`<div class="form-grid"><div class="form-group"><label class="form-label" for="companySetting">Company Name</label><input class="form-input" id="companySetting" value="${esc($("headerCompanyName").textContent)}"></div><div class="form-group"><label class="form-label" for="timezoneSetting">Timezone</label><select class="form-select" id="timezoneSetting"><option>America/Chicago</option><option>America/New_York</option><option>America/Denver</option><option>America/Los_Angeles</option></select></div><div class="form-group"><label class="form-label" for="themeSetting">Theme</label><select class="form-select" id="themeSetting"><option value="light">Cream</option><option value="dark">Dark</option></select></div><button class="btn primary">Save Settings</button></div><div class="note">Notification preferences and password changes are managed through secure account settings.</div>`); $("themeSetting").value=document.documentElement.dataset.theme||"light"; $("themeSetting").onchange=()=>{document.documentElement.dataset.theme=$("themeSetting").value;localStorage.setItem("fleetai.theme",$("themeSetting").value);}; }
+    function appendMessage(msg){ const el=$("messageThread"); if(el){const empty=el.querySelector(".muted");if(empty&&el.children.length===1)el.innerHTML="";el.insertAdjacentHTML("beforeend",messageMarkup(msg));el.scrollTop=el.scrollHeight;} }
+    function initReports(){ genericPanel("reports","Fleet Reports","Verified exports are available from connected operational records",`<p class="muted">Use Audit Center to generate the currently supported DVIR, maintenance, and HOS-readiness export. Additional report types will appear only when their data sources are connected.</p><button class="btn primary" type="button" data-route="compliance-report">Open Audit Center</button>`); document.querySelector("#view-reports [data-route]")?.addEventListener("click",event=>setHashRoute(event.currentTarget.dataset.route)); }
+    function loadSettings(){ genericPanel("settings","Workspace Settings","Secure account and organization controls",`<div class="note">Organization profile, roles, password changes, and notification delivery require dedicated server-backed settings before they will be editable here.</div><button class="btn danger" id="settingsLogout" type="button">Sign out of Fleet AI</button>`); $("settingsLogout").onclick=logout; }
     function renderFleetTables(){
       const addVehicleBtn = `<button class="btn primary" id="btnAddVehicle" style="margin-left:auto">+ Add Vehicle</button>`;
       const addDriverBtn = `<button class="btn primary" id="btnAddDriver" style="margin-left:auto">+ Add Driver</button>`;
@@ -540,11 +557,11 @@
         finally{if($("btnSaveDriver"))$("btnSaveDriver").disabled=false;}
       };
     }
-    function renderPairing(){
+    function renderPairingLegacy(){
       const noVehicles = !state.vehicles.length;
       const noDrivers = !state.drivers.length;
       const warning = (noVehicles || noDrivers) ? `<div class="note" style="border-color:var(--warn);color:var(--text)"><strong>Setup needed:</strong> ${noVehicles?"Register a vehicle on the Fleet Directory tab. ":""}${noDrivers?"Register a driver on the Drivers tab.":""}</div>` : "";
-      genericPanel("pairing","Device Pairing","Generate codes and manage telematics devices",`${warning}<div class="form-grid"><div class="form-group"><label class="form-label" for="pairVehicleSelect">Vehicle</label><select class="form-select" id="pairVehicleSelect">${noVehicles?`<option value="">-- No vehicles registered --`:""}${state.vehicles.map(v=>`<option value="${esc(v.vehicleId||v.id)}">${esc(v.unitName||v.vehicleId||v.id)}</option>`).join("")}</select></div><div class="form-group"><label class="form-label" for="pairDriverSelect">Driver</label><select class="form-select" id="pairDriverSelect">${noDrivers?`<option value="">-- No drivers registered --`:""}${state.drivers.map(d=>`<option value="${esc(d.driverId||d.id)}">${esc([d.firstName,d.lastName].filter(Boolean).join(" ")||d.name||d.driverId||d.id)}</option>`).join("")}</select></div><button class="btn primary" id="btnGeneratePairCode" ${(noVehicles||noDrivers)?"disabled":""}>Generate Code</button><div class="chip mono" id="pairPing">Ready</div></div><div class="note">Endpoint: <span id="pairingDebugEndpoint">/api/pairing/generate</span> &nbsp;|&nbsp; Status: <span id="pairingDebugStatus">idle</span> &nbsp;|&nbsp; Error: <span id="pairingDebugError">none</span><br>Code: <span id="pairingDebugResponse" style="font-family:var(--mono);font-size:15px;font-weight:800"></span></div>`);
+      genericPanel("pairing","Device Pairing","Generate codes and manage telematics devices",`${warning}<div class="form-grid"><div class="form-group"><label class="form-label" for="pairVehicleSelect">Vehicle</label><select class="form-select" id="pairVehicleSelect">${noVehicles?`<option value="">-- No vehicles registered --`:""}${state.vehicles.map(v=>`<option value="${esc(v.vehicleId||v.id)}">${esc(v.unitName||v.vehicleId||v.id)}</option>`).join("")}</select></div><div class="form-group"><label class="form-label" for="pairDriverSelect">Driver</label><select class="form-select" id="pairDriverSelect">${noDrivers?`<option value="">-- No drivers registered --`:""}${state.drivers.map(d=>`<option value="${esc(d.driverId||d.id)}">${esc([d.firstName,d.lastName].filter(Boolean).join(" ")||d.name||d.driverId||d.id)}</option>`).join("")}</select></div><button class="btn primary" id="btnGeneratePairCode" ${(noVehicles||noDrivers)?"disabled":""}>Generate Code</button><div class="chip mono" id="pairPing">Ready</div></div><div class="note">Endpoint: <span id="pairingDebugEndpoint">/api/pairing/generate</span> &nbsp;|&nbsp; Status: <span id="pairingDebugStatus">idle</span> &nbsp;|&nbsp; Error: <span id="pairingDebugError">none</span><br><span id="pairingDebugResponse" style="font-family:var(--mono);font-size:15px;font-weight:800"></span></div>`);
       $("btnGeneratePairCode")?.addEventListener("click", async()=>{
         const vehicleId = $("pairVehicleSelect")?.value;
         const driverId = $("pairDriverSelect")?.value;
@@ -554,31 +571,227 @@
           $("pairingDebugError").textContent="none";
           const r=await apiPost(["/api/pairing/generate","/api/pair-code/generate"],{vehicleId,driverId});
           const code=r.code||r.pairCode||r.data?.code||r.data?.pairingCode||"";
+          const driverPin=r.driverPin||r.data?.driverPin||r.pin||r.data?.pin||"";
           $("pairPing").textContent=code||"Generated";
           $("pairingDebugStatus").textContent="ok";
-          $("pairingDebugResponse").textContent=code ? `Pairing code: ${code}` : JSON.stringify(r).slice(0,120);
+          $("pairingDebugResponse").textContent=code ? `Pairing code: ${code}${driverPin ? ` | Driver PIN: ${driverPin}` : ""}` : JSON.stringify(r).slice(0,120);
         }catch(e){
           $("pairingDebugStatus").textContent="failed";
           $("pairingDebugError").textContent=e.message;
         }
       });
     }
+    function renderPairing(){
+      const noVehicles = !state.vehicles.length;
+      const noDrivers = !state.drivers.length;
+      const warning = (noVehicles || noDrivers) ? `<div class="note" style="box-shadow:inset 3px 0 0 var(--warn);color:var(--text)"><strong>Setup needed:</strong> ${noVehicles?"Register a vehicle on the Fleet Directory tab. ":""}${noDrivers?"Register a driver on the Drivers tab.":""}</div>` : "";
+      const vehicleOptions = `${noVehicles?`<option value="">-- No vehicles registered --</option>`:""}${state.vehicles.map(v=>`<option value="${esc(v.vehicleId||v.id)}">${esc(v.unitName||v.vehicleId||v.id)}</option>`).join("")}`;
+      const driverOptions = `${noDrivers?`<option value="">-- No drivers registered --</option>`:""}${state.drivers.map(d=>`<option value="${esc(d.driverId||d.id)}">${esc([d.firstName,d.lastName].filter(Boolean).join(" ")||d.name||d.driverId||d.id)}</option>`).join("")}`;
+      genericPanel("pairing","Device Pairing","Generate a pairing packet, hand it to the driver, and monitor pending or claimed tablets",`
+        ${warning}
+        <div class="form-grid">
+          <div class="form-group"><label class="form-label" for="pairVehicleSelect">Vehicle</label><select class="form-select" id="pairVehicleSelect">${vehicleOptions}</select></div>
+          <div class="form-group"><label class="form-label" for="pairDriverSelect">Driver</label><select class="form-select" id="pairDriverSelect">${driverOptions}</select></div>
+          <button class="btn primary" id="btnGeneratePairCode" ${(noVehicles||noDrivers)?"disabled":""}>Generate pairing packet</button>
+          <button class="btn" id="btnRefreshPairings">Refresh pairings</button>
+        </div>
+        <div class="pairingResult" id="pairingResult">
+          <div class="pairingCodeLabel">Give these two values to the driver tablet</div>
+          <div class="pairingCodes">
+            <div class="pairingCodeBox"><div class="pairingCodeLabel">Pairing code</div><div class="pairingCodeValue" id="pairingCodeValue">------</div></div>
+            <div class="pairingCodeBox"><div class="pairingCodeLabel">Driver PIN</div><div class="pairingCodeValue" id="pairingPinValue">------</div></div>
+          </div>
+          <div class="pairingMiniActions">
+            <button class="btn" id="btnCopyPairCode">Copy code</button>
+            <button class="btn" id="btnCopyPairPin">Copy PIN</button>
+            <span class="chip" id="pairingExpiry">Expires: --</span>
+            <span class="chip mono" id="pairPing">Ready</span>
+          </div>
+        </div>
+        <div class="note">Endpoint: <span id="pairingDebugEndpoint">/api/pairing/generate</span> &nbsp;|&nbsp; Status: <span id="pairingDebugStatus">idle</span> &nbsp;|&nbsp; Error: <span id="pairingDebugError">none</span><br><span id="pairingDebugResponse" class="mono"></span></div>
+        <div class="pairingTableBlock">
+          <h4>Pending tablet claims</h4>
+          <div class="tableWrap"><table class="table"><thead><tr><th>Vehicle</th><th>Driver</th><th>Code</th><th>PIN</th><th>Expires</th><th>Actions</th></tr></thead><tbody id="pendingPairingRows">${rowsEmpty(6,"Loading pending pairings...")}</tbody></table></div>
+        </div>
+        <div class="pairingTableBlock">
+          <h4>Claimed tablets</h4>
+          <div class="tableWrap"><table class="table"><thead><tr><th>Vehicle</th><th>Driver</th><th>Tablet</th><th>Status</th><th>Claimed</th><th>Actions</th></tr></thead><tbody id="claimedPairingRows">${rowsEmpty(6,"Loading claimed pairings...")}</tbody></table></div>
+        </div>
+      `);
+      $("btnGeneratePairCode")?.addEventListener("click", generatePairingPacket);
+      $("btnRefreshPairings")?.addEventListener("click", loadPairingTables);
+      $("btnCopyPairCode")?.addEventListener("click", () => copyText($("pairingCodeValue")?.textContent || "", "pairingDebugStatus"));
+      $("btnCopyPairPin")?.addEventListener("click", () => copyText($("pairingPinValue")?.textContent || "", "pairingDebugStatus"));
+      const pairingView = $("view-pairing");
+      if(pairingView) pairingView.onclick = handlePairingAction;
+      loadPairingTables();
+    }
+    function pairingId(p){ return p.id || p.pairId || p.assignmentId || p.pairingId || ""; }
+    function pairingCode(p){ return p.pairingCode || p.pairCode || p.code || ""; }
+    function pairingPin(p){ return p.driverPin || p.pin || ""; }
+    function formatPairExpiry(value){
+      if(!value) return "--";
+      const d = new Date(value);
+      if(Number.isNaN(d.getTime())) return String(value);
+      const mins = Math.max(0, Math.round((d.getTime() - Date.now()) / 60000));
+      return `${d.toLocaleString([], { month:"short", day:"numeric", hour:"2-digit", minute:"2-digit" })} (${mins}m)`;
+    }
+    function vehicleLabel(id){ const v=state.vehicles.find(x=>(x.vehicleId||x.id)===id); return v ? (v.unitName||v.name||id) : (id||"--"); }
+    function driverLabel(id){ const d=state.drivers.find(x=>(x.driverId||x.id)===id); return d ? ([d.firstName,d.lastName].filter(Boolean).join(" ")||d.name||id) : (id||"--"); }
+    async function copyText(text, statusId){
+      const clean = String(text || "").trim();
+      if(!clean || clean === "------") return;
+      try{
+        if(navigator.clipboard?.writeText) await navigator.clipboard.writeText(clean);
+        else { const ta=document.createElement("textarea"); ta.value=clean; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); ta.remove(); }
+        const el=$(statusId); if(el) el.textContent="copied";
+      }catch(e){ const el=$(statusId); if(el) el.textContent="copy failed"; }
+    }
+    async function generatePairingPacket(){
+      const vehicleId = $("pairVehicleSelect")?.value;
+      const driverId = $("pairDriverSelect")?.value;
+      if(!vehicleId||!driverId){$("pairingDebugError").textContent="Select a vehicle and driver first.";return;}
+      try{
+        $("pairingDebugStatus").textContent="generating...";
+        $("pairingDebugError").textContent="none";
+        const r=await apiPost(["/api/pairing/generate","/api/pair-code/generate"],{vehicleId,driverId});
+        const code=pairingCode(r.data||r);
+        const pin=pairingPin(r.data||r);
+        $("pairingResult").classList.add("show");
+        $("pairingCodeValue").textContent=code||"------";
+        $("pairingPinValue").textContent=pin||"------";
+        $("pairingExpiry").textContent=`Expires: ${formatPairExpiry(r.expiresAt||r.data?.expiresAt)}`;
+        $("pairPing").textContent=code||"Generated";
+        $("pairingDebugStatus").textContent="ok";
+        $("pairingDebugResponse").textContent=code ? `Pairing packet ready for ${vehicleLabel(vehicleId)} / ${driverLabel(driverId)}.` : JSON.stringify(r).slice(0,120);
+        await loadPairingTables();
+      }catch(e){
+        $("pairingDebugStatus").textContent="failed";
+        $("pairingDebugError").textContent=e.message;
+      }
+    }
+    async function loadPairingTables(){
+      try{
+        const pending=unwrap(await apiGet("/api/pairings/active"));
+        $("pendingPairingRows").innerHTML = pending.length ? pending.map(p=>`<tr><td>${esc(vehicleLabel(p.vehicleId))}</td><td>${esc(driverLabel(p.driverId))}</td><td class="mono">${esc(pairingCode(p))}</td><td class="mono">${esc(pairingPin(p))}</td><td>${esc(formatPairExpiry(p.expiresAt))}</td><td><button class="btn ghost" data-copy="${esc(pairingCode(p))}">Copy code</button><button class="btn ghost" data-copy="${esc(pairingPin(p))}">Copy PIN</button><button class="btn danger" data-expire-pair="${esc(pairingId(p))}">Revoke</button></td></tr>`).join("") : rowsEmpty(6,"No pending pairing codes.");
+      }catch(e){ $("pendingPairingRows").innerHTML = rowsEmpty(6,"Pending pairings unavailable."); $("pairingDebugError").textContent=e.message; }
+      try{
+        const debug=await apiGet("/api/pairings/debug");
+        const active=debug.active||[];
+        $("claimedPairingRows").innerHTML = active.length ? active.map(p=>`<tr><td>${esc(vehicleLabel(p.vehicleId))}</td><td>${esc(driverLabel(p.driverId))}</td><td>${esc(p.deviceLabel||p.deviceId||"--")}</td><td>${riskPill(p.status||"active")}</td><td>${esc(p.claimedAt||"--")}</td><td><button class="btn ghost" data-replace-vehicle="${esc(p.vehicleId)}" data-replace-driver="${esc(p.driverId)}">Replace tablet</button><button class="btn danger" data-expire-pair="${esc(pairingId(p))}">Revoke</button></td></tr>`).join("") : rowsEmpty(6,"No claimed tablets.");
+      }catch(e){ $("claimedPairingRows").innerHTML = rowsEmpty(6,"Claimed pairings unavailable."); }
+    }
+    async function handlePairingAction(event){
+      const btn=event.target.closest("button");
+      if(!btn) return;
+      if(btn.dataset.copy){ await copyText(btn.dataset.copy, "pairingDebugStatus"); return; }
+      if(btn.dataset.expirePair){
+        btn.disabled=true;
+        try{ await apiPost(`/api/pair-code/${encodeURIComponent(btn.dataset.expirePair)}/expire`,{}); $("pairingDebugStatus").textContent="revoked"; await loadPairingTables(); }
+        catch(e){ $("pairingDebugError").textContent=e.message; }
+        finally{ btn.disabled=false; }
+      }
+      if(btn.dataset.replaceVehicle && btn.dataset.replaceDriver){
+        btn.disabled=true;
+        try{
+          const r=await apiPost("/api/pair-code/replace",{vehicleId:btn.dataset.replaceVehicle,driverId:btn.dataset.replaceDriver});
+          $("pairingResult").classList.add("show");
+          $("pairingCodeValue").textContent=pairingCode(r)||"------";
+          $("pairingPinValue").textContent=pairingPin(r)||"------";
+          $("pairingExpiry").textContent=`Expires: ${formatPairExpiry(r.expiresAt)}`;
+          $("pairingDebugStatus").textContent="replacement ready";
+          $("pairingDebugResponse").textContent="Replacement pairing packet generated.";
+          await loadPairingTables();
+        }catch(e){ $("pairingDebugError").textContent=e.message; }
+        finally{ btn.disabled=false; }
+      }
+    }
     async function loadAddonsState(){ genericPanel("addons","Workspace Add-ons","Optional modules for Fleet AI workspaces",`<div class="grid4">${["AI Advisor","Camera Integration","Compliance Module","Advanced Analytics"].map((x,i)=>`<div class="card"><div class="cardBody"><h3>${x}</h3><p class="muted">Expansion capability for connected fleet operations.</p><span class="pill ${i===0?"good":"warn"}">${i===0?"Active":"Available"}</span></div></div>`).join("")}</div>`); }
-    function telemetryStreamConnect(){ if(state.telemetrySse) return; try{ state.telemetrySse=new EventSource("/api/telemetry/stream"); $("telemetryStatus").textContent="Connected"; $("telemetryStatus").className="pill good"; state.telemetrySse.onmessage=(e)=>{ const d=JSON.parse(e.data); addTelemetryRow(d); }; state.telemetrySse.onerror=()=>{$("telemetryStatus").textContent="Waiting";$("telemetryStatus").className="pill warn";}; }catch(e){err("telemetryError",e.message);} }
+    function telemetryStreamConnect(){
+      if(state.telemetrySse) return;
+      try{
+        state.telemetrySse=new EventSource("/api/telemetry/stream");
+        state.telemetrySse.onopen=()=>{ const el=$("telemetryStatus"); if(el){el.textContent="Stream open - awaiting data";el.className="pill warn";} };
+        state.telemetrySse.onmessage=(e)=>{ const d=JSON.parse(e.data); state.telemetryLastAt=Date.now(); addTelemetryRow(d); };
+        state.telemetrySse.onerror=()=>{const el=$("telemetryStatus");if(el){el.textContent="Stream unavailable";el.className="pill bad";}};
+        if(!state.telemetryFreshnessTimer) state.telemetryFreshnessTimer=setInterval(()=>{
+          const el=$("telemetryStatus");
+          if(!el||!state.telemetryLastAt) return;
+          const age=Date.now()-state.telemetryLastAt;
+          if(age>45000){el.textContent="Data stale";el.className="pill warn";}
+        },15000);
+      }catch(e){err("telemetryError",e.message);}
+    }
     window.telemetryStreamConnect = telemetryStreamConnect;
-    function addTelemetryRow(d){ const m=d.metrics||d.signals||d; state.telemetryRows.unshift(d); state.telemetryRows=state.telemetryRows.slice(0,40); $("liveRpm").textContent=num(m.rpm); $("liveSpeed").textContent=num(m.speed||m.vehicleSpeed); $("liveCoolant").textContent=num(m.coolantTemp||m.coolant_temp); $("liveBattery").textContent=num(m.batteryVoltage||m.battery_voltage); $("telemetryRows").innerHTML=state.telemetryRows.map(x=>{const mm=x.metrics||x.signals||x;return `<tr><td>${esc(x.ts||x.timestamp||"now")}</td><td>${esc(x.vehicleId||"--")}</td><td>${num(mm.rpm)}</td><td>${num(mm.speed||mm.vehicleSpeed)}</td><td>${num(mm.coolantTemp||mm.coolant_temp)}</td><td>${num(mm.batteryVoltage||mm.battery_voltage)}</td><td>${num(mm.engineLoad||mm.engine_load)}</td></tr>`;}).join(""); }
+    // Reads a telemetry frame off the live stream.
+    //
+    // The server broadcasts the NORMALIZED snapshot, whose readings live under
+    // metrics.engine / metrics.vehicle / metrics.electrical — not as flat keys.
+    // This previously read m.rpm, m.speed, m.coolantTemp and m.batteryVoltage
+    // directly, all of which are undefined in that structure, so every live
+    // tile rendered "--" even with data arriving. Reads the nested shape first
+    // and keeps the flat fallbacks for older senders.
+    function telemetryValue(frame, paths){
+      const m = frame && (frame.metrics || frame.signals || frame) || {};
+      for(const p of paths){
+        const v = p.split(".").reduce((acc,k)=> (acc==null?undefined:acc[k]), m);
+        if(v !== undefined && v !== null && v !== "") return v;
+      }
+      return null;
+    }
+    const TELEMETRY_PATHS = {
+      rpm:      ["engine.rpm", "rpm", "engineRpm"],
+      speed:    ["vehicle.speedKph", "speed", "vehicleSpeed", "speedKph"],
+      coolant:  ["engine.coolantTempC", "coolantTemp", "coolant_temp", "coolantTempC"],
+      battery:  ["electrical.batteryVoltageV", "batteryVoltage", "battery_voltage", "batteryVoltageV"],
+      load:     ["engine.engineLoadPct", "engineLoad", "engine_load", "engineLoadPct"]
+    };
+    function addTelemetryRow(d){
+      state.telemetryRows.unshift(d);
+      state.telemetryLastAt=Date.now();
+      state.telemetryRows=state.telemetryRows.slice(0,40);
+      $("liveRpm").textContent     = num(telemetryValue(d, TELEMETRY_PATHS.rpm));
+      $("liveSpeed").textContent   = num(telemetryValue(d, TELEMETRY_PATHS.speed));
+      $("liveCoolant").textContent = num(telemetryValue(d, TELEMETRY_PATHS.coolant));
+      $("liveBattery").textContent = num(telemetryValue(d, TELEMETRY_PATHS.battery));
+      // Link state: a tablet can be online while its OBD adapter is unplugged.
+      // Those look identical without this, so surface it rather than showing a
+      // stale reading as if it were live.
+      const linkEl = $("telemetryStatus");
+      if(linkEl && d.obdConnected === false){
+        linkEl.textContent = "Tablet online, OBD unplugged";
+        linkEl.className = "pill warn";
+      } else if(linkEl && d.obdConnected === true){
+        linkEl.textContent = "Live data";
+        linkEl.className = "pill good";
+      } else if(linkEl){
+        linkEl.textContent = "Live data";
+        linkEl.className = "pill good";
+      }
+      $("telemetryRows").innerHTML = state.telemetryRows.map(x=>
+        `<tr><td>${esc(x.ts||x.timestamp||"now")}</td><td>${esc(x.vehicleId||"--")}</td>`
+        + `<td>${num(telemetryValue(x, TELEMETRY_PATHS.rpm))}</td>`
+        + `<td>${num(telemetryValue(x, TELEMETRY_PATHS.speed))}</td>`
+        + `<td>${num(telemetryValue(x, TELEMETRY_PATHS.coolant))}</td>`
+        + `<td>${num(telemetryValue(x, TELEMETRY_PATHS.battery))}</td>`
+        + `<td>${num(telemetryValue(x, TELEMETRY_PATHS.load))}</td></tr>`
+      ).join("");
+    }
     function pollAlertCount(){ apiGet("/api/ml/alerts").then(r=>{ const n=unwrap(r).filter(a=>a.status!=="resolved" && !a.resolved).length; const el=$("alertCount"); if(el) el.textContent=String(n); }).catch(()=>{}); }
-    async function logout(){ try{ await apiPost(["/api/auth/logout","/api/auth/customer/logout"],{}); }catch(_){} location.href="/customer-login.html"; }
+    async function logout(){ try{ await apiPost("/api/auth/customer/logout",{}); }catch(_){} location.href="/customer-login.html"; }
     function bind(){
       $("btnToggleNav").onclick=()=>{ $("app").classList.toggle("nav-collapsed"); $("btnToggleNav").textContent=$("app").classList.contains("nav-collapsed")?"Show nav":"Hide nav"; };
-      $("btnRefreshView").onclick=()=>renderRoute(state.activeRoute); $("btnLogout").onclick=logout; $("btnExportReport").onclick=()=>csvDownload("fleet-ai-export.csv",[["route","exportedAt"],[state.activeRoute,new Date().toISOString()]]);
+      $("btnRefreshView").onclick=()=>renderRoute(state.activeRoute); $("btnLogout").onclick=logout; $("btnExportReport").onclick=()=>exportVisibleTable();
       $("advisorDockForm").onsubmit=(e)=>{e.preventDefault(); const q=$("advisorDockInput").value.trim(); if(q){ $("advisorDockInput").value=""; sendAdvisor(q); }};
       $("btnAdvisorToggle").onclick=()=>$("opsAdvisorDock").classList.toggle("open"); $("btnCloseAdvisor").onclick=()=>$("opsAdvisorDock").classList.remove("open");
-      $("btnLoadHistory")?.addEventListener("click",loadTelemetryHistory); $("btnExportTelemetry")?.addEventListener("click",()=>csvDownload("telemetry-history.csv",[["time","vehicle","metric","value","quality"]]));
+      $("btnLoadHistory")?.addEventListener("click",loadTelemetryHistory); $("btnExportTelemetry")?.addEventListener("click",()=>exportVisibleTable("telemetry-history"));
+      $("dashboardGlobalSearch").addEventListener("input",event=>filterActiveView(event.target.value));
+      $("telemetryVehicleSelect")?.addEventListener("change",event=>{state.selectedVehicleId=event.target.value;});
+      document.addEventListener("click",event=>{const exportButton=event.target.closest("[data-export]");if(exportButton)exportVisibleTable(exportButton.dataset.export);const prompt=event.target.closest("[data-prompt]");if(prompt){$("opsAdvisorDock").classList.add("open");sendAdvisor(prompt.dataset.prompt);}});
       window.addEventListener("hashchange",()=>renderRoute(routeFromHash()));
     }
     async function init(){
-      const savedTheme = localStorage.getItem("fleetai.theme"); document.documentElement.dataset.theme=savedTheme || "light";
+      document.documentElement.dataset.theme="light"; localStorage.removeItem("fleetai.theme");
       buildNav(); bind(); $("buildStamp").textContent = "build: " + new Date().toISOString().slice(0,10);
       if(window.matchMedia("(max-width:760px)").matches){ $("app").classList.add("nav-collapsed"); $("btnToggleNav").textContent="Show nav"; }
       if(await authInit()){ await loadFleetManagement(); renderRoute(routeFromHash()); telemetryStreamConnect(); pollAlertCount(); setInterval(pollAlertCount,60000); }
