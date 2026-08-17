@@ -822,6 +822,25 @@ a { color: var(--primary); }
 #orgTable tr,
 #leadTable tr { cursor: pointer; }
 
+#orgTable .contactCell {
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#orgTable .rightStack {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: max-content;
+}
+
+#orgTable .rightStack .btn {
+  min-height: 28px;
+  padding: 5px 7px;
+}
+
 .statusBadge,
 .roleBadge {
   display: inline-flex;
@@ -852,6 +871,16 @@ a { color: var(--primary); }
 .status-lost,
 .status-closed,
 .status-deleted { color: var(--bad); background: var(--bad-soft); }
+
+.status-recovered { color: var(--good); background: var(--good-soft); }
+.status-duplicate { color: var(--warn); background: var(--warn-soft); }
+
+.companyCell {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: max-content;
+}
 
 .roleBadge { color: var(--primary); background: var(--primary-soft); }
 

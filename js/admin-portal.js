@@ -151,7 +151,13 @@ async function apiJson(path, opts) {
       throw new Error("Invalid JSON response");
     }
     diagLog("response", res.status, path, data);
-    if (!res.ok) throw new Error(data.error || "Request failed");
+    if (!res.ok) {
+      const requestError = new Error(data.error || "Request failed");
+      requestError.status = res.status;
+      requestError.code = data.code || "";
+      requestError.data = data;
+      throw requestError;
+    }
     return data;
   } catch (err) {
     const message = err && err.name === "AbortError"
@@ -402,7 +408,6 @@ function viewTemplate() {
                       <th>Fleet size</th>
                       <th>Active vehicles</th>
                       <th>Primary contact</th>
-                      <th>Created</th>
                       <th>Actions</th>
                     </tr>
                   </thead>
@@ -1298,17 +1303,19 @@ function renderOrgs() {
     .map((org) => {
       const orgId = org.orgId || org.id;
       const disableDelete = !roleAllowsOrgEdit() || String(org.status || "").toUpperCase() === "DELETED";
+      const recoveryTag = org.duplicateOf
+        ? `<span class="statusBadge status-duplicate">Duplicate</span>`
+        : (org.recoveredFromAuthStore ? `<span class="statusBadge status-recovered">Recovered</span>` : "");
       return `
         <tr data-org-id="${orgId}">
-          <td>${org.name || "--"}</td>
+          <td><div class="companyCell"><strong>${org.name || "--"}</strong>${recoveryTag}</div></td>
           <td><span class="statusBadge status-${(org.status || "LEAD").toLowerCase()}">${formatStatus(org.status)}</span></td>
           <td>${Number(org.fleetSizeEstimate || 0)}</td>
           <td>${Number(org.activeVehicles || 0)}</td>
-          <td>${org.primaryContactEmail || "--"}</td>
-          <td>${formatDate(org.createdAt)}</td>
+          <td class="contactCell" title="${org.primaryContactEmail || ""}">${org.primaryContactEmail || "--"}</td>
           <td>
             <div class="rightStack">
-              <button class="btn ghost" data-action="view-org" data-org-id="${orgId}">View/Edit</button>
+              <button class="btn ghost" data-action="view-org" data-org-id="${orgId}">Open</button>
               <button class="btn ghost" data-action="delete-org" data-org-id="${orgId}" ${disableDelete ? "disabled" : ""}>Delete</button>
             </div>
           </td>
@@ -1598,14 +1605,7 @@ function bindOrgCreate() {
               contactName: payload.primaryContactName
             })
           });
-          if (customerAccess?.data?.tempPassword) {
-            showCustomerTempPassword(customerAccess.data.tempPassword);
-          } else if (customerAccess?.data?.alreadyExists || customerAccess?.data?.repaired) {
-            const note = $("orgSaveNote");
-            if (note) note.textContent = customerAccess.data.repaired
-              ? "Customer access was repaired. Use the existing password or reset it below."
-              : "Customer access already exists. Use reset if a new temporary password is needed.";
-          }
+          await applyCustomerAccessResult(customerAccess);
         } catch (err) {
           const note = $("orgSaveNote");
           if (note) {
@@ -1630,17 +1630,20 @@ async function createCustomerLogin() {
       body: JSON.stringify({ email, contactName })
     });
     if (data && data.data) {
-      if (data.data.tempPassword) {
-        showCustomerTempPassword(data.data.tempPassword);
-      } else {
-        const note = $("orgSaveNote");
-        if (note) note.textContent = data.data.repaired
-          ? "Customer access repaired. Use the existing password or reset it below."
-          : "Customer access already exists. Use reset if a new temporary password is needed.";
-      }
+      await applyCustomerAccessResult(data);
     }
   } catch (e) {
-    alert(e.message || "Unable to create customer login.");
+    const existingOrgId = e?.data?.existingOrgId;
+    const existingOrgName = e?.data?.existingOrgName;
+    if (existingOrgId) {
+      await loadOrgs();
+      selectOrg(existingOrgId);
+      const note = $("orgSaveNote");
+      if (note) note.textContent = `This login belongs to ${existingOrgName || existingOrgId}. The original company is now open.`;
+      showToast("Opened the company that already owns this login.", "good");
+      return;
+    }
+    showToast(e.message || "Unable to create customer login.", "bad");
   }
 }
 
@@ -1671,6 +1674,31 @@ function showCustomerTempPassword(value) {
     block.scrollIntoView({ behavior: "smooth", block: "center" });
     showToast("Temporary password created. Copy it before leaving this page.", "good");
   }
+}
+
+async function applyCustomerAccessResult(result) {
+  const access = result?.data || {};
+  if (access.redirectOrgId) {
+    await loadOrgs();
+    selectOrg(access.redirectOrgId);
+    const note = $("orgSaveNote");
+    if (note) {
+      note.textContent = `Customer access already belongs to ${access.existingOrgName || access.redirectOrgId}. The original company is now open.`;
+    }
+    showToast("Existing customer account recovered and opened.", "good");
+    return;
+  }
+  if (access.tempPassword) {
+    showCustomerTempPassword(access.tempPassword);
+    return;
+  }
+  const note = $("orgSaveNote");
+  if (note) {
+    note.textContent = access.repaired
+      ? "Customer access was repaired. Use the existing password or reset it below."
+      : "Customer access already exists. Use reset if a new temporary password is needed.";
+  }
+  if (access.repaired) showToast("Customer login storage was repaired.", "good");
 }
 
 async function loadLeads() {
@@ -1793,7 +1821,14 @@ async function convertLead() {
     if (data && data.data && data.data.org) {
       const orgId = data.data.org.orgId || data.data.org.id;
       window.location.hash = "orgs";
-      setTimeout(() => selectOrg(orgId), 0);
+      setTimeout(() => {
+        selectOrg(orgId);
+        if (data.data.reused) {
+          showToast(data.data.recovered
+            ? "Recovered the original company and linked this lead to it."
+            : "This lead was already converted. Opened the existing company.", "good");
+        }
+      }, 0);
     }
   } catch (e) {
     alert(e.message || "Unable to convert lead.");

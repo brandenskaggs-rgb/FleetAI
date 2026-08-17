@@ -21,7 +21,7 @@ function registerOrgManagementRoutes(app, deps) {
   // admin-only fields (billingPlan, notes, fleetSizeEstimate, etc.) that don't
   // have a Prisma home yet — this is a deliberate dual-write, not a full
   // migration of the admin org-management panel.
-  async function mirrorOrgToPrisma(org) {
+  async function mirrorOrgToPrisma(org, { required = false } = {}) {
     try {
       const orgId = org.orgId || org.id;
       const existing = await db.getOrg(orgId);
@@ -41,9 +41,89 @@ function registerOrgManagementRoutes(app, deps) {
           phone: org.phone || null
         });
       }
+      return true;
     } catch (err) {
       console.warn(`[ORG-SYNC] failed to mirror org to Prisma: ${err.message}`);
+      if (required) throw err;
+      return false;
     }
+  }
+
+  function orgIdOf(org) {
+    return org?.orgId || org?.id || null;
+  }
+
+  function findOrgById(orgs, orgId) {
+    if (!orgId) return null;
+    return (orgs || []).find((org) => orgIdOf(org) === orgId) || null;
+  }
+
+  function isCustomerUser(user) {
+    const role = String(user?.role || "").toUpperCase();
+    return String(user?.kind || "").toLowerCase() === "customer"
+      || role.startsWith("CUSTOMER")
+      || role === "ORG_ADMIN";
+  }
+
+  function adminOrgFromAuth(authOrg) {
+    const orgId = authOrg?.id;
+    return {
+      id: orgId,
+      orgId,
+      name: authOrg?.name || "Recovered Organization",
+      status: normalizeOrgStatus(authOrg?.status || "PILOT"),
+      primaryContactName: "",
+      primaryContactEmail: normalizeEmail(authOrg?.email),
+      phone: sanitizeString(authOrg?.phone, 80),
+      fleetSizeEstimate: 0,
+      activeVehicles: 0,
+      billingPlan: "PILOT_CORE",
+      notes: "Recovered from the primary account database.",
+      recoveredFromAuthStore: true,
+      createdAt: authOrg?.createdAt || nowIso(),
+      updatedAt: authOrg?.updatedAt || nowIso()
+    };
+  }
+
+  async function reconcileAuthOrganizations(data, { persist = false } = {}) {
+    data.orgs = Array.isArray(data.orgs) ? data.orgs : [];
+    let authData = { users: [], orgs: [] };
+    if (prismaAuthAdapter) {
+      try {
+        authData = await prismaAuthAdapter.loadData();
+      } catch (err) {
+        console.warn(`[ORG-RECONCILE] unable to read primary account database: ${err.message}`);
+      }
+    }
+    let changed = false;
+    for (const authOrg of authData.orgs || []) {
+      if (!authOrg?.id || findOrgById(data.orgs, authOrg.id)) continue;
+      data.orgs.push(adminOrgFromAuth(authOrg));
+      addAudit(data, "ORG_INDEX_REPAIRED", `${authOrg.id}:${authOrg.name || "unknown"}`);
+      changed = true;
+    }
+    if (changed && persist) await writeData(data);
+    return { authData, changed };
+  }
+
+  function canonicalCustomerOrgId(email, data, authData) {
+    const cleanEmail = normalizeEmail(email);
+    if (!cleanEmail) return null;
+    const authUser = (authData?.users || []).find((user) => (
+      isCustomerUser(user) && normalizeEmail(user.email) === cleanEmail && user.orgId
+    ));
+    if (authUser?.orgId) return authUser.orgId;
+    const jsonUser = (data.users || []).find((user) => (
+      isCustomerUser(user) && normalizeEmail(user.email) === cleanEmail && user.orgId
+    ));
+    return jsonUser?.orgId || null;
+  }
+
+  function duplicateOrgTarget(org, data, authData) {
+    const email = normalizeEmail(org?.primaryContactEmail || org?.email);
+    const canonicalOrgId = canonicalCustomerOrgId(email, data, authData);
+    if (!canonicalOrgId || canonicalOrgId === orgIdOf(org)) return null;
+    return canonicalOrgId;
   }
 
   async function mirrorOrgStatusToPrisma(orgId, status) {
@@ -166,11 +246,14 @@ function registerOrgManagementRoutes(app, deps) {
   app.get("/api/orgs", requireEmployeeApi, async (req, res, next) => {
     try {
       const data = await readData();
+      const { authData } = await reconcileAuthOrganizations(data, { persist: true });
       const includeDeleted = req.query.includeDeleted === "1" || req.query.includeDeleted === "true";
       const orgs = (data.orgs || [])
         .filter((org) => {
+          const isDeleted = String(org.status || "").toUpperCase() === "DELETED" || Boolean(org.deletedAt);
+          const duplicateOf = duplicateOrgTarget(org, data, authData);
           if (includeDeleted) return true;
-          return String(org.status || "").toUpperCase() !== "DELETED" && !org.deletedAt;
+          return !isDeleted && !duplicateOf;
         })
         .map((org) => {
         const orgId = org.orgId || org.id || makeId("ORG");
@@ -180,7 +263,8 @@ function registerOrgManagementRoutes(app, deps) {
           status: normalizeOrgStatus(org.status || "LEAD"),
           billingPlan: org.billingPlan || "PILOT_CORE",
           activeVehicles: Number.isFinite(Number(org.activeVehicles)) ? Number(org.activeVehicles) : 0,
-          fleetSizeEstimate: Number.isFinite(Number(org.fleetSizeEstimate)) ? Number(org.fleetSizeEstimate) : 0
+          fleetSizeEstimate: Number.isFinite(Number(org.fleetSizeEstimate)) ? Number(org.fleetSizeEstimate) : 0,
+          duplicateOf: duplicateOrgTarget(org, data, authData)
         });
       });
       orgs.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
@@ -220,8 +304,8 @@ function registerOrgManagementRoutes(app, deps) {
       data.orgs = data.orgs || [];
       data.orgs.push(org);
       addAudit(data, "ORG_CREATED", `${orgId}:${org.name}`);
+      await mirrorOrgToPrisma(org, { required: true });
       await writeData(data);
-      await mirrorOrgToPrisma(org);
       res.status(201).json({ ok: true, data: org });
     } catch (err) {
       next(err);
@@ -231,6 +315,7 @@ function registerOrgManagementRoutes(app, deps) {
   app.get("/api/orgs/:orgId", requireEmployeeApi, async (req, res, next) => {
     try {
       const data = await readData();
+      await reconcileAuthOrganizations(data, { persist: true });
       const org = (data.orgs || []).find((o) => (o.orgId || o.id) === req.params.orgId || o.id === req.params.orgId);
       if (!org) return res.status(404).json({ error: "Org not found" });
       const orgId = org.orgId || org.id;
@@ -379,8 +464,34 @@ function registerOrgManagementRoutes(app, deps) {
   app.post("/api/leads/:leadId/convert", requireEmployeeApi, requireRole(["SUPER_ADMIN"]), async (req, res, next) => {
     try {
       const data = await readData();
+      data.users = Array.isArray(data.users) ? data.users : [];
+      const { authData, changed: repairedOrgIndex } = await reconcileAuthOrganizations(data);
       const lead = (data.leads || []).find((l) => (l.leadId || l.id) === req.params.leadId || l.id === req.params.leadId);
       if (!lead) return res.status(404).json({ error: "Lead not found" });
+      const leadEmail = normalizeEmail(lead.contactEmail || lead.email);
+      const canonicalOrgId = canonicalCustomerOrgId(leadEmail, data, authData);
+      const existingOrg = findOrgById(data.orgs, canonicalOrgId)
+        || findOrgById(data.orgs, lead.orgId)
+        || (data.orgs || []).find((org) => (
+          leadEmail
+          && normalizeEmail(org.primaryContactEmail || org.email) === leadEmail
+          && String(org.status || "").toUpperCase() !== "DELETED"
+        ));
+
+      if (existingOrg) {
+        const existingOrgId = orgIdOf(existingOrg);
+        const linkChanged = lead.orgId !== existingOrgId || normalizeLeadStatus(lead.status || lead.stage) !== "CONVERTED";
+        lead.status = "CONVERTED";
+        lead.stage = "CONVERTED";
+        lead.orgId = existingOrgId;
+        lead.updatedAt = nowIso();
+        if (linkChanged) {
+          addAudit(data, "LEAD_CONVERSION_REUSED_ORG", `${lead.leadId || lead.id}:${existingOrgId}`);
+        }
+        if (linkChanged || repairedOrgIndex) await writeData(data);
+        return res.json({ ok: true, data: { lead, org: existingOrg, reused: true, recovered: Boolean(existingOrg.recoveredFromAuthStore) } });
+      }
+
       const status = normalizeOrgStatus(req.body?.status || "PILOT");
       const orgId = makeId("ORG");
       const org = {
@@ -406,8 +517,8 @@ function registerOrgManagementRoutes(app, deps) {
       lead.updatedAt = nowIso();
       addAudit(data, "ORG_CREATED", `${orgId}:${org.name}`);
       addAudit(data, "LEAD_CONVERTED_TO_ORG", `${lead.leadId || lead.id}:${orgId}`);
+      await mirrorOrgToPrisma(org, { required: true });
       await writeData(data);
-      await mirrorOrgToPrisma(org);
       res.json({ ok: true, data: { lead, org } });
     } catch (err) {
       next(err);
@@ -489,31 +600,61 @@ function registerOrgManagementRoutes(app, deps) {
       if (!email) return res.status(400).json({ error: "Valid email required" });
       const orgId = org.orgId || org.id;
       const jsonUser = data.users.find((u) => normalizeEmail(u.email) === email) || null;
-      const authData = prismaAuthAdapter ? await prismaAuthAdapter.loadData() : null;
+      const { authData, changed: repairedOrgIndex } = await reconcileAuthOrganizations(data);
       const authUser = (authData?.users || []).find((u) => normalizeEmail(u.email) === email) || null;
 
-      for (const existing of [jsonUser, authUser].filter(Boolean)) {
-        if (!isCustomerAccountForOrg(existing, orgId)) {
+      // The database-backed auth record is authoritative. If a repeated lead
+      // conversion created a second org for the same contact, return the
+      // original org so the employee console can open and repair it instead of
+      // trapping the operator behind a generic duplicate-email error.
+      if (authUser) {
+        if (!isCustomerAccountForOrg(authUser, orgId)) {
+          const canonicalOrg = findOrgById(data.orgs, authUser.orgId);
+          const sameCustomerIdentity = duplicateOrgTarget(org, data, authData) === authUser.orgId
+            || normalizeEmail(org.primaryContactEmail || org.email) === email;
+          if (sameCustomerIdentity && canonicalOrg) {
+            if (repairedOrgIndex) await writeData(data);
+            return res.json({
+              ok: true,
+              data: {
+                email,
+                alreadyExists: true,
+                redirectOrgId: authUser.orgId,
+                existingOrgName: canonicalOrg.name || authUser.orgId,
+                recovered: Boolean(canonicalOrg.recoveredFromAuthStore)
+              }
+            });
+          }
           return res.status(409).json({
-            error: "That email already belongs to another Fleet AI account. Use a different customer email."
+            code: "EMAIL_IN_USE_BY_ORG",
+            error: "That email belongs to a different Fleet AI company account.",
+            existingOrgId: authUser.orgId || null,
+            existingOrgName: canonicalOrg?.name || null
           });
         }
-      }
-
-      // The Prisma auth store is authoritative for login. Older provisioning
-      // wrote JSON first, so a failed database write left an account visible in
-      // the employee portal but invisible to customer login. Repair either
-      // half of that split state instead of returning a permanent conflict.
-      if (authUser) {
         if (!jsonUser) {
           data.users.push(authUser);
           addAudit(data, "CUSTOMER_LOGIN_INDEX_REPAIRED", `${authUser.id}:${email}`);
+          await writeData(data);
+        } else if (!isCustomerAccountForOrg(jsonUser, orgId)) {
+          Object.assign(jsonUser, authUser);
+          addAudit(data, "CUSTOMER_LOGIN_INDEX_REALIGNED", `${authUser.id}:${email}:${orgId}`);
+          await writeData(data);
+        } else if (repairedOrgIndex) {
           await writeData(data);
         }
         return res.json({ ok: true, data: { email, alreadyExists: true } });
       }
 
       if (jsonUser) {
+        if (!isCustomerAccountForOrg(jsonUser, orgId)) {
+          return res.status(409).json({
+            code: "EMAIL_IN_USE_BY_ORG",
+            error: "That email belongs to a different Fleet AI company account.",
+            existingOrgId: jsonUser.orgId || null,
+            existingOrgName: findOrgById(data.orgs, jsonUser.orgId)?.name || null
+          });
+        }
         let tempPassword = null;
         if (!jsonUser.passwordHash) {
           tempPassword = generateTempPassword();
