@@ -20,7 +20,6 @@ import com.fleetai.driver.network.ApiService
 import com.fleetai.driver.network.DriverLogRequest
 import com.fleetai.driver.network.MockApiService
 import com.fleetai.driver.network.SelectVehicleRequest
-import com.fleetai.driver.network.PairingClaimResponse
 import kotlinx.coroutines.flow.first
 import retrofit2.HttpException
 import java.time.Instant
@@ -75,7 +74,13 @@ class DefaultDriverRepository(
             } catch (ex: HttpException) {
                 val errorBody = ex.response()?.errorBody()?.string().orEmpty()
                 when (ex.code()) {
-                    401 -> throw IllegalArgumentException("invalid_pin")
+                    400 -> throw IllegalArgumentException("invalid_request")
+                    401 -> {
+                        if (errorBody.contains("PIN_REQUIRED", ignoreCase = true)) {
+                            throw IllegalArgumentException("pin_required")
+                        }
+                        throw IllegalArgumentException("invalid_pin")
+                    }
                     404 -> throw IllegalArgumentException("invalid_code")
                     409 -> {
                         if (errorBody.contains("ALREADY_CLAIMED", ignoreCase = true)) {
@@ -88,16 +93,23 @@ class DefaultDriverRepository(
                 }
             }
         }
-        preferences.savePairing(response.vehicleId, response.driverId)
-        if (response is PairingClaimResponse && response.assignmentId != null) {
-            preferences.saveAssignment(response.assignmentId)
+        val token = response.deviceToken?.takeIf { it.isNotBlank() }
+            ?: throw IllegalStateException("pairing_response_missing_token")
+        val tenantId = response.tenantId.ifBlank { response.orgId }
+        if (response.vehicleId.isBlank() || response.driverId.isBlank() || tenantId.isBlank()) {
+            throw IllegalStateException("pairing_response_incomplete")
         }
-        // Persist the device session token so ApiClient's interceptor can
-        // authenticate subsequent calls. Without this the app pairs and then
-        // gets 401 on telemetry ingest.
-        if (response is PairingClaimResponse && !response.deviceToken.isNullOrBlank()) {
-            preferences.saveDeviceToken(response.deviceToken)
-        }
+        // Claim is the tablet's authentication bootstrap. Persist the entire
+        // assignment in one DataStore edit so the UI never observes a token
+        // without its driver/vehicle scope (or vice versa).
+        preferences.saveClaimedSession(
+            tenantId = tenantId,
+            driverId = response.driverId,
+            driverName = response.driverName.ifBlank { response.driverId },
+            vehicleId = response.vehicleId,
+            assignmentId = response.assignmentId,
+            token = token
+        )
     }
 
     override suspend fun getVehicles(tenantId: String): List<Vehicle> {

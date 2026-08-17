@@ -72,7 +72,7 @@ function registerLegacyPairingRoutes(app, deps) {
       pairingCode: normalizePairingCode(pairingCodeRaw),
       deviceId: sanitizeString(deviceIdRaw || "", 120),
       deviceName: sanitizeString(deviceNameRaw || "", 120),
-      driverPin: sanitizeString(driverPinRaw || "", 20)
+      driverPin: sanitizeString(driverPinRaw || "", 20).replace(/\D+/g, "").slice(0, 6)
     };
   }
 
@@ -122,6 +122,28 @@ function registerLegacyPairingRoutes(app, deps) {
   function driverDisplayName(driver) {
     if (!driver) return "";
     return `${driver.firstName || ""} ${driver.lastName || ""}`.trim();
+  }
+
+  function pairingClaimPayload(pairing, input, deviceToken, vehicle, driver, debugMode) {
+    const driverName = driverDisplayName(driver) || pairing.driverId || "Driver";
+    return {
+      ok: true,
+      deviceToken,
+      pairingCode: pairing.pairingCode,
+      assignmentId: pairing.id,
+      deviceId: pairing.deviceId || input.deviceId,
+      deviceLabel: pairing.deviceLabel || input.deviceName || "",
+      serverTime: nowIso(),
+      tenantId: pairing.orgId || "",
+      orgId: pairing.orgId || "",
+      vehicle: { vehicleId: pairing.vehicleId, name: vehicle?.unitName || pairing.vehicleId || "" },
+      driver: { driverId: pairing.driverId, name: driverName },
+      vehicleId: pairing.vehicleId || "",
+      driverId: pairing.driverId || "",
+      driverName,
+      status: pairing.status,
+      ...(debugMode ? { debug: { route: input.route || "pairing-claim" } } : {})
+    };
   }
 
   function customerOrgId(req) {
@@ -337,38 +359,46 @@ function registerLegacyPairingRoutes(app, deps) {
         pushPairingDebug(pairingDebug.claims, { time: nowIso(), deviceId: input.deviceId, status: "not_found" });
         return res.status(404).json({ ok: false, error: "PAIRING_CODE_INVALID_OR_EXPIRED", message: "Invalid or expired pairing code", legacyError: "Invalid code", ...(debugMode ? { debug: { normalized: input } } : {}) });
       }
+      if (isExpired(pairing.expiresAt) || isExpired(pairing.driverPinExpiresAt)) {
+        log("[PAIR-CLAIM] expired", { pairingId: pairing.id, deviceId: input.deviceId });
+        await db.updatePairing(pairing.id, { status: "expired" });
+        pushPairingDebug(pairingDebug.claims, { time: nowIso(), orgId: pairing.orgId, pairId: pairing.id, vehicleId: pairing.vehicleId, driverId: pairing.driverId, status: "expired" });
+        return res.status(410).json({ ok: false, error: "PAIRING_CODE_INVALID_OR_EXPIRED", message: "Pairing code expired", legacyError: "Expired code", ...(debugMode ? { debug: { route: req.path } } : {}) });
+      }
+      // A PIN is required for both a first claim and same-device recovery.
+      // Otherwise anyone who learned a claimed code and device ID could mint a
+      // replacement device token without knowing the driver's PIN.
+      if (pairing.driverPin) {
+        if (!input.driverPin) {
+          log("[PAIR-CLAIM] pin_required", { pairingId: pairing.id, deviceId: input.deviceId });
+          pushPairingDebug(pairingDebug.claims, { time: nowIso(), orgId: pairing.orgId, pairId: pairing.id, vehicleId: pairing.vehicleId, driverId: pairing.driverId, status: "pin_required" });
+          return res.status(401).json({ ok: false, error: "PIN_REQUIRED", message: "Driver PIN required to claim this pairing.", ...(debugMode ? { debug: { route: req.path } } : {}) });
+        }
+        if (!timingSafeEquals(input.driverPin, pairing.driverPin)) {
+          log("[PAIR-CLAIM] pin_mismatch", { pairingId: pairing.id, deviceId: input.deviceId });
+          pushPairingDebug(pairingDebug.claims, { time: nowIso(), orgId: pairing.orgId, pairId: pairing.id, vehicleId: pairing.vehicleId, driverId: pairing.driverId, status: "pin_mismatch" });
+          return res.status(401).json({ ok: false, error: "PIN_INVALID", message: "Driver PIN does not match.", ...(debugMode ? { debug: { route: req.path } } : {}) });
+        }
+      }
       if (pairing.status === "active") {
         if (pairing.deviceId && pairing.deviceId !== input.deviceId) {
           log("[PAIR-CLAIM] already_claimed", { pairingId: pairing.id, deviceId: input.deviceId, existingDeviceId: pairing.deviceId });
           pushPairingDebug(pairingDebug.claims, { time: nowIso(), orgId: pairing.orgId, pairId: pairing.id, vehicleId: pairing.vehicleId, driverId: pairing.driverId, status: "already_claimed" });
           return res.status(409).json({ ok: false, error: "ALREADY_CLAIMED", message: "Pairing code already claimed by another device", conflict: { assignmentId: pairing.id, status: pairing.status }, ...(debugMode ? { debug: { route: req.path } } : {}) });
         }
-        const [vehicle, driver] = await Promise.all([db.getVehicleByVehicleId(pairing.vehicleId), db.getDriverByDriverId(pairing.driverId)]);
-        return res.json({ ok: true, pairingCode: pairing.pairingCode, assignmentId: pairing.id, deviceId: pairing.deviceId || input.deviceId, deviceLabel: pairing.deviceLabel || input.deviceName || "", serverTime: nowIso(), vehicle: { vehicleId: pairing.vehicleId, name: vehicle?.unitName || "" }, driver: { driverId: pairing.driverId, name: driverDisplayName(driver) }, vehicleId: pairing.vehicleId, driverId: pairing.driverId, status: pairing.status, ...(debugMode ? { debug: { normalized: input, route: req.path } } : {}) });
+        const recovered = pairing.deviceId ? pairing : await db.updatePairing(pairing.id, {
+          deviceId: input.deviceId,
+          deviceLabel: input.deviceName || pairing.deviceLabel || `Tablet-${input.deviceId.slice(-4) || "UNK"}`
+        });
+        const deviceToken = await db.issueDeviceToken(recovered.id);
+        const [vehicle, driver] = await Promise.all([db.getVehicleByVehicleId(recovered.vehicleId), db.getDriverByDriverId(recovered.driverId)]);
+        pushPairingDebug(pairingDebug.claims, { time: nowIso(), orgId: recovered.orgId, pairId: recovered.id, vehicleId: recovered.vehicleId, driverId: recovered.driverId, status: "same_device_recovered" });
+        return res.json(pairingClaimPayload(recovered, { ...input, route: req.path }, deviceToken, vehicle, driver, debugMode));
       }
       if (pairing.status && pairing.status !== "pending") {
         log("[PAIR-CLAIM] status_invalid", { pairingId: pairing.id, deviceId: input.deviceId, status: pairing.status });
         pushPairingDebug(pairingDebug.claims, { time: nowIso(), orgId: pairing.orgId, pairId: pairing.id, vehicleId: pairing.vehicleId, driverId: pairing.driverId, status: pairing.status });
         return res.status(409).json({ ok: false, error: "PAIRING_CODE_ALREADY_CLAIMED", message: "Pairing code already used", legacyError: "Code already used", ...(debugMode ? { debug: { normalized: input } } : {}) });
-      }
-      if (isExpired(pairing.expiresAt) || isExpired(pairing.driverPinExpiresAt)) {
-        log("[PAIR-CLAIM] expired", { pairingId: pairing.id, deviceId: input.deviceId });
-        await db.updatePairing(pairing.id, { status: "expired" });
-        pushPairingDebug(pairingDebug.claims, { time: nowIso(), orgId: pairing.orgId, pairId: pairing.id, vehicleId: pairing.vehicleId, driverId: pairing.driverId, status: "expired" });
-        return res.status(410).json({ ok: false, error: "PAIRING_CODE_INVALID_OR_EXPIRED", message: "Pairing code expired", legacyError: "Expired code", ...(debugMode ? { debug: { normalized: input } } : {}) });
-      }
-      // PIN check — required when the pairing has a PIN. Driver app must supply it.
-      if (pairing.driverPin) {
-        if (!input.driverPin) {
-          log("[PAIR-CLAIM] pin_required", { pairingId: pairing.id, deviceId: input.deviceId });
-          pushPairingDebug(pairingDebug.claims, { time: nowIso(), orgId: pairing.orgId, pairId: pairing.id, vehicleId: pairing.vehicleId, driverId: pairing.driverId, status: "pin_required" });
-          return res.status(401).json({ ok: false, error: "PIN_REQUIRED", message: "Driver PIN required to claim this pairing.", ...(debugMode ? { debug: { normalized: input } } : {}) });
-        }
-        if (!timingSafeEquals(input.driverPin, pairing.driverPin)) {
-          log("[PAIR-CLAIM] pin_mismatch", { pairingId: pairing.id, deviceId: input.deviceId });
-          pushPairingDebug(pairingDebug.claims, { time: nowIso(), orgId: pairing.orgId, pairId: pairing.id, vehicleId: pairing.vehicleId, driverId: pairing.driverId, status: "pin_mismatch" });
-          return res.status(401).json({ ok: false, error: "PIN_INVALID", message: "Driver PIN does not match.", ...(debugMode ? { debug: { normalized: input } } : {}) });
-        }
       }
       const fallbackLabel = `Tablet-${input.deviceId.slice(-4) || "UNK"}`;
       const deviceLabel = input.deviceName || pairing.deviceLabel || fallbackLabel;
@@ -380,12 +410,12 @@ function registerLegacyPairingRoutes(app, deps) {
       });
       log("[PAIR-CLAIM] success", { pairingId: updated.id, deviceId: updated.deviceId });
       pushPairingDebug(pairingDebug.claims, { time: nowIso(), orgId: updated.orgId, pairId: updated.id, vehicleId: updated.vehicleId, driverId: updated.driverId, status: updated.status });
-      // Issue the device session token. This is the ONLY point it is ever
-      // returned in full — only its hash is persisted. Claiming again (e.g.
-      // re-pairing a replacement tablet) mints a new one and invalidates the old.
+      // Issue the device session token. The raw value is returned only to the
+      // claiming tablet; only its hash is persisted. A same-device recovery
+      // mints a replacement and invalidates the previous token.
       const deviceToken = await db.issueDeviceToken(updated.id);
       const [vehicle, driver] = await Promise.all([db.getVehicleByVehicleId(updated.vehicleId), db.getDriverByDriverId(updated.driverId)]);
-      res.json({ ok: true, deviceToken, pairingCode: updated.pairingCode, assignmentId: updated.id, deviceId: updated.deviceId, deviceLabel: updated.deviceLabel, serverTime: nowIso(), vehicle: { vehicleId: updated.vehicleId, name: vehicle?.unitName || "" }, driver: { driverId: updated.driverId, name: driverDisplayName(driver) }, vehicleId: updated.vehicleId, driverId: updated.driverId, status: updated.status, ...(debugMode ? { debug: { normalized: input, route: req.path } } : {}) });
+      res.json(pairingClaimPayload(updated, { ...input, route: req.path }, deviceToken, vehicle, driver, debugMode));
     } catch (err) {
       next(err);
     }

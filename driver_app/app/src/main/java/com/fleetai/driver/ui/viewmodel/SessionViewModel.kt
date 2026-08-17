@@ -117,6 +117,11 @@ class SessionViewModel(
                         "This device code is already claimed. Ask dispatch to issue a new code."
                     ex.message?.contains("conflict", ignoreCase = true) == true ->
                         "Pairing conflict detected. Ask dispatch to replace the code."
+                    ex.message?.contains("missing_token", ignoreCase = true) == true ||
+                        ex.message?.contains("incomplete", ignoreCase = true) == true ->
+                        "The server returned an incomplete pairing session. Ask dispatch to retry."
+                    ex.message?.contains("invalid_request", ignoreCase = true) == true ->
+                        "Check both six-digit values and try again."
                     BuildConfig.DEBUG && ex is UnknownHostException ->
                         "DNS failed. Check server address."
                     BuildConfig.DEBUG && ex is ConnectException ->

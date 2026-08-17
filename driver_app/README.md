@@ -10,28 +10,33 @@ For Class 8 truck acquisition requirements, the supported adapter protocol, and 
 
 ## Run Instructions
 1) Start an API 34+ emulator (Pixel/Tablet) and run the app.
-2) Sign in with Company Code + Driver PIN (mocked if backend is offline).
-3) Select a vehicle.
-4) Use the bottom tabs: Home, Logbook, Sensors, Notifications.
-5) Optional: open Settings for theme and demo mode toggles.
+2) In the customer dashboard, select a vehicle and driver and generate a pairing packet.
+3) Enter the six-digit pairing code and six-digit driver PIN on the tablet.
+4) The successful claim signs in the tablet and assigns its company, driver, and vehicle in one step.
+5) Use the bottom tabs: Home, Logbook, Inspections, Sensors, and Notifications.
+6) Optional: open Settings for theme and demo mode toggles.
 
 ## Backend Connection
 - Base URL is configured in `driver_app/app/build.gradle` via `BuildConfig.BASE_URL`.
-- Default value uses emulator loopback: `http://10.0.2.2:3000/`.
+- The default production value is `https://fleetaiops.com`.
 - Override for a real device or hotspot network:
-  - Add `FLEETAI_BASE_URL=http://<your-server-ip>:3000/` to `driver_app/gradle.properties` (or pass `-PFLEETAI_BASE_URL=...` in Gradle).
+  - Add `FLEETAI_BASE_URL=https://<your-server>/` to `driver_app/gradle.properties` (or pass `-PFLEETAI_BASE_URL=...` in Gradle).
+  - Plain HTTP is allowed only for loopback development addresses.
 
 ## Demo Mode
 - Toggle Demo Mode in Settings to generate local sensor readings without a dongle.
 
 ## App Flow
-1) Login: Company Code + Driver PIN.
-2) Vehicle selection: binds the session to a vehicle.
-3) Home: duty status, compliance guidance, quick actions.
+1) Activation: pairing code + driver PIN claims the tablet and returns a scoped device token.
+2) Assignment: company, driver, vehicle, and assignment are saved atomically on the tablet.
+3) Home: duty status, compliance guidance, and quick actions.
 4) Logbook: add HOS-like events (stored locally and synced).
-5) Sensors: Bluetooth OBD connection + PID tiles (or demo).
-6) Notifications: in-app list with FCM scaffolding.
-7) Diagnostics/Route/Settings: accessible from Home quick actions.
+5) Inspections: complete pre-trip and post-trip workflows.
+6) Sensors: Bluetooth or USB J1939/OBD connection + PID tiles (or demo).
+7) Notifications: in-app list with FCM scaffolding.
+8) Diagnostics/Route/Settings: accessible from Home quick actions.
+
+If a tablet loses its local session after a successful claim, the same tablet can enter the same unexpired code and PIN again to receive a replacement token. A different tablet is rejected until dispatch uses **Replace tablet** or revokes the prior assignment.
 
 ## Notes
 - UI uses a Fleet AI dark/light theme with large buttons and high contrast.

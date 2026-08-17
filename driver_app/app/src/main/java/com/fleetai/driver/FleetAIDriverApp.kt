@@ -24,7 +24,6 @@ import androidx.navigation.compose.rememberNavController
 import com.fleetai.driver.navigation.MainRoute
 import com.fleetai.driver.navigation.MainScreen
 import com.fleetai.driver.navigation.MainNavGraph
-import com.fleetai.driver.ui.screens.LoginScreen
 import com.fleetai.driver.ui.screens.PairDeviceScreen
 import com.fleetai.driver.ui.viewmodel.SessionState
 import com.fleetai.driver.ui.viewmodel.SessionViewModel
@@ -35,10 +34,7 @@ fun FleetAIDriverApp(
     sessionState: SessionState
 ) {
     when {
-        !sessionState.isLoggedIn -> {
-            LoginScreen(sessionViewModel = sessionViewModel)
-        }
-        sessionState.vehicleId.isBlank() -> {
+        !sessionState.isLoggedIn || sessionState.vehicleId.isBlank() -> {
             PairDeviceScreen(sessionViewModel = sessionViewModel, sessionState = sessionState)
         }
         else -> {

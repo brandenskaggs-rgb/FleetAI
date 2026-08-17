@@ -66,6 +66,28 @@ class AppPreferences(private val context: Context) {
         }
     }
 
+    suspend fun saveClaimedSession(
+        tenantId: String,
+        driverId: String,
+        driverName: String,
+        vehicleId: String,
+        assignmentId: String?,
+        token: String
+    ) {
+        context.appDataStore.edit { prefs ->
+            prefs[tenantIdKey] = tenantId
+            prefs[driverIdKey] = driverId
+            prefs[driverNameKey] = driverName
+            prefs[vehicleIdKey] = vehicleId
+            prefs[tokenKey] = token
+            if (assignmentId.isNullOrBlank()) {
+                prefs.remove(assignmentIdKey)
+            } else {
+                prefs[assignmentIdKey] = assignmentId
+            }
+        }
+    }
+
     suspend fun clearSession() {
         context.appDataStore.edit { prefs ->
             prefs.remove(tenantIdKey)

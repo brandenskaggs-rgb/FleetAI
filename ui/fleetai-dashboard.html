@@ -609,6 +609,7 @@
             <span class="chip" id="pairingExpiry">Expires: --</span>
             <span class="chip mono" id="pairPing">Ready</span>
           </div>
+          <div class="muted" style="margin-top:10px">These values are shown once. If they are lost, revoke this claim and generate a new pairing packet.</div>
         </div>
         <div class="note">Endpoint: <span id="pairingDebugEndpoint">/api/pairing/generate</span> &nbsp;|&nbsp; Status: <span id="pairingDebugStatus">idle</span> &nbsp;|&nbsp; Error: <span id="pairingDebugError">none</span><br><span id="pairingDebugResponse" class="mono"></span></div>
         <div class="pairingTableBlock">
@@ -675,7 +676,7 @@
     async function loadPairingTables(){
       try{
         const pending=unwrap(await apiGet("/api/pairings/active"));
-        $("pendingPairingRows").innerHTML = pending.length ? pending.map(p=>`<tr><td>${esc(vehicleLabel(p.vehicleId))}</td><td>${esc(driverLabel(p.driverId))}</td><td class="mono">${esc(pairingCode(p))}</td><td class="mono">${esc(pairingPin(p))}</td><td>${esc(formatPairExpiry(p.expiresAt))}</td><td><button class="btn ghost" data-copy="${esc(pairingCode(p))}">Copy code</button><button class="btn ghost" data-copy="${esc(pairingPin(p))}">Copy PIN</button><button class="btn danger" data-expire-pair="${esc(pairingId(p))}">Revoke</button></td></tr>`).join("") : rowsEmpty(6,"No pending pairing codes.");
+        $("pendingPairingRows").innerHTML = pending.length ? pending.map(p=>`<tr><td>${esc(vehicleLabel(p.vehicleId))}</td><td>${esc(driverLabel(p.driverId))}</td><td class="muted">Shown once at generation</td><td class="muted">Shown once at generation</td><td>${esc(formatPairExpiry(p.expiresAt))}</td><td><button class="btn danger" data-expire-pair="${esc(pairingId(p))}">Revoke</button></td></tr>`).join("") : rowsEmpty(6,"No pending pairing codes.");
       }catch(e){ $("pendingPairingRows").innerHTML = rowsEmpty(6,"Pending pairings unavailable."); $("pairingDebugError").textContent=e.message; }
       try{
         const debug=await apiGet("/api/pairings/debug");

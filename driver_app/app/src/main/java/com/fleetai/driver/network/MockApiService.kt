@@ -44,7 +44,13 @@ class MockApiService {
         return PairingClaimResponse(
             vehicleId = "VEHICLE_001",
             driverId = "DRIVER_1001",
-            status = "active"
+            status = "active",
+            tenantId = "TENANT_DEMO",
+            driverName = "Demo Driver",
+            assignmentId = "PAIR_DEMO",
+            deviceId = deviceId,
+            deviceLabel = deviceLabel,
+            deviceToken = "dev_${UUID.randomUUID()}"
         )
     }
 }

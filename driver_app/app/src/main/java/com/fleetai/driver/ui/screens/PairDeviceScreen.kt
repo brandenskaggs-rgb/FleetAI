@@ -51,7 +51,7 @@ fun PairDeviceScreen(
     var pairingCode by remember { mutableStateOf("") }
     var driverPin by remember { mutableStateOf("") }
     var deviceLabel by remember { mutableStateOf("Fleet AI Tablet") }
-    var statusMessage by remember { mutableStateOf("Enter the active pairing code from dispatch.") }
+    var statusMessage by remember { mutableStateOf("Enter both six-digit values shown in Fleet AI dispatch.") }
     var isSubmitting by remember { mutableStateOf(false) }
 
     Surface(color = MaterialTheme.colorScheme.background) {
@@ -71,17 +71,17 @@ fun PairDeviceScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 FleetCard(modifier = Modifier.weight(1f)) {
-                    Text("Tablet pairing", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.ExtraBold)
+                    Text("Activate this tablet", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.ExtraBold)
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        "Connect this signed-in driver tablet to the assigned vehicle. Pairing does not store the driver PIN on the device.",
+                        "The pairing code and driver PIN securely identify the company, driver, vehicle, and this tablet in one step. The PIN is not stored on the device.",
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.70f)
                     )
                     Spacer(modifier = Modifier.height(14.dp))
                     AssistChip(
                         onClick = {},
-                        label = { Text("Driver: ${sessionState.driverName.ifBlank { "Signed in" }}") },
+                        label = { Text("Secure dispatch activation") },
                         leadingIcon = { Icon(Icons.Default.AdminPanelSettings, contentDescription = null) }
                     )
                     Spacer(modifier = Modifier.height(8.dp))
@@ -93,7 +93,7 @@ fun PairDeviceScreen(
                 }
 
                 FleetCard(modifier = Modifier.weight(0.95f)) {
-                    Text("Claim vehicle", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.ExtraBold)
+                    Text("Enter dispatch codes", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.ExtraBold)
                     Spacer(modifier = Modifier.height(16.dp))
                     OutlinedTextField(
                         value = pairingCode,
@@ -130,8 +130,8 @@ fun PairDeviceScreen(
                     FleetButton(
                         text = if (isSubmitting) "Pairing..." else "Pair tablet",
                         onClick = {
-                            if (pairingCode.isBlank()) {
-                                statusMessage = "Pairing code is required."
+                            if (pairingCode.length != 6) {
+                                statusMessage = "Enter the 6-digit pairing code from dispatch."
                                 return@FleetButton
                             }
                             if (driverPin.length != 6) {
