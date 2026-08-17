@@ -69,7 +69,7 @@ async function applyAuthStoreRepair(data, options) {
         email,
         role: info.role,
         kind: info.kind,
-        orgId: info.orgId || defaultOrgId,
+        orgId: info.kind === "customer" ? (info.orgId || defaultOrgId) : null,
         isActive: true,
         active: true,
         createdAt: nowIso
@@ -89,7 +89,7 @@ async function applyAuthStoreRepair(data, options) {
       user.email = email;
       user.role = info.role || user.role;
       user.kind = info.kind || user.kind;
-      user.orgId = user.orgId || info.orgId || defaultOrgId;
+      user.orgId = info.kind === "customer" ? (user.orgId || info.orgId || defaultOrgId) : null;
       user.isActive = user.isActive !== false;
       user.active = user.active !== false;
       const after = JSON.stringify({

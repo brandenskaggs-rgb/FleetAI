@@ -1,30 +1,17 @@
 const express = require("express");
 const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
-const { getPrisma, createOrg, getOrg, updateOrg, updateOrgStatus, listVehicles } = require("../db");
+const { getPrisma, createOrg, getOrg, updateOrg, listVehicles } = require("../db");
 
 // Mirrors core org identity into Prisma (see orgManagementRoutes.js's
 // mirrorOrgToPrisma for the full rationale — flat file stays authoritative
 // for admin-only fields like billingPlan/notes; Prisma just needs a valid
 // row so Vehicle/Driver/Pairing FK references and dashboard reads work).
 async function mirrorAdminOrgToPrisma(org) {
-  try {
-    const existing = await getOrg(org.id);
-    const fields = { name: org.name, status: org.status, email: org.primaryContactEmail || null, phone: org.phone || null, industry: org.industry || null };
-    if (existing) await updateOrg(org.id, fields);
-    else await createOrg({ id: org.id, ...fields });
-  } catch (err) {
-    console.warn(`[ORG-SYNC] failed to mirror admin org to Prisma: ${err.message}`);
-  }
-}
-
-async function mirrorAdminOrgStatusToPrisma(orgId, status) {
-  try {
-    const existing = await getOrg(orgId);
-    if (existing) await updateOrgStatus(orgId, status);
-  } catch (err) {
-    console.warn(`[ORG-SYNC] failed to mirror admin org status to Prisma: ${err.message}`);
-  }
+  const existing = await getOrg(org.id);
+  const fields = { name: org.name, status: org.status, email: org.primaryContactEmail || null, phone: org.phone || null, industry: org.industry || null };
+  if (existing) await updateOrg(org.id, fields);
+  else await createOrg({ id: org.id, ...fields });
 }
 const { generateApiKey } = require("../middleware/apiKeyAuth");
 const { validateBody, schemas } = require("../middleware/validate");
@@ -145,6 +132,84 @@ function registerAdminRoutes(app, deps) {
     DEFAULT_SETTINGS,
     prismaAuthAdapter
   } = deps;
+
+  function kindForRole(role) {
+    const employeeRoles = new Set(["SUPER_ADMIN", "EMPLOYEE", "ADMIN", "SUPPORT", "SALES"]);
+    return employeeRoles.has(String(role || "").toUpperCase()) ? "employee" : "customer";
+  }
+
+  function authOrgRecord(org) {
+    return {
+      id: org.id || org.orgId,
+      name: org.name || "Fleet AI Org",
+      status: org.status || "LEAD",
+      email: org.primaryContactEmail || org.email || null,
+      phone: org.phone || null,
+      industry: org.industry || null
+    };
+  }
+
+  function authUserRecord(user) {
+    return Object.assign({}, user, {
+      email: normalizeEmail(user.email),
+      kind: user.kind || kindForRole(user.role),
+      isActive: user.isActive !== false,
+      active: user.active !== false,
+      verified: user.verified !== false,
+      passwordAlgo: user.passwordAlgo || "bcrypt"
+    });
+  }
+
+  async function saveAdminUserToPrimary(user, data) {
+    if (!prismaAuthAdapter) return;
+    const org = user.orgId ? (data.orgs || []).find((item) => (item.id || item.orgId) === user.orgId) : null;
+    await prismaAuthAdapter.saveData({
+      users: [authUserRecord(user)],
+      orgs: org ? [authOrgRecord(org)] : []
+    });
+  }
+
+  async function reconcileAdminUsers(data, { persist = false } = {}) {
+    data.users = Array.isArray(data.users) ? data.users : [];
+    if (!prismaAuthAdapter) return { users: data.users, changed: false };
+    const authData = await prismaAuthAdapter.loadData();
+    let changed = false;
+    const authEmails = new Set((authData.users || []).map((user) => normalizeEmail(user.email)));
+    const staleUsers = data.users.filter((user) => normalizeEmail(user.email) && !authEmails.has(normalizeEmail(user.email)));
+    if (staleUsers.length) {
+      data.users = data.users.filter((user) => authEmails.has(normalizeEmail(user.email)));
+      for (const user of staleUsers) {
+        addAudit(data, "STALE_ADMIN_USER_INDEX_REMOVED", `${user.id || "unknown"}:${normalizeEmail(user.email)}`);
+      }
+      changed = true;
+    }
+    for (const authUser of authData.users || []) {
+      const email = normalizeEmail(authUser.email);
+      const indexed = data.users.find((user) => normalizeEmail(user.email) === email);
+      if (!indexed) {
+        data.users.push(authUserRecord(authUser));
+        addAudit(data, "ADMIN_USER_INDEX_REPAIRED", `${authUser.id || "unknown"}:${email}`);
+        changed = true;
+      } else {
+        const authoritative = authUserRecord(authUser);
+        const fields = [
+          "id", "email", "role", "kind", "orgId", "isActive", "active", "verified",
+          "passwordHash", "passwordAlgo", "mustSetPassword", "requirePasswordReset",
+          "firstLogin", "firstLoginRequired", "mustResetPassword", "isTemporaryPassword",
+          "setupTokenHash", "setupTokenExpiresAt", "passwordLastSetAt", "lastPasswordChangeAt",
+          "displayName", "lastLoginAt"
+        ];
+        if (fields.some((field) => indexed[field] !== authoritative[field])) {
+          for (const field of fields) indexed[field] = authoritative[field];
+          indexed.updatedAt = authoritative.updatedAt || nowIso();
+          addAudit(data, "ADMIN_USER_INDEX_REALIGNED", `${authUser.id || "unknown"}:${email}`);
+          changed = true;
+        }
+      }
+    }
+    if (changed && persist) await writeData(data);
+    return { users: data.users, changed };
+  }
 
   // ── Bootstrap setup endpoints ────────────────────────────────────────────
 
@@ -339,8 +404,8 @@ function registerAdminRoutes(app, deps) {
       data.billing[org.id] = defaultBilling(org.id, data);
       data.featureFlags[org.id] = defaultFeatures(org.id);
       addAudit(data, "ORG_CREATED", `${org.id}:${org.name}`);
-      await writeData(data);
       await mirrorAdminOrgToPrisma(org);
+      await writeData(data);
       res.json({ ok: true, data: org });
     } catch (err) {
       next(err);
@@ -373,8 +438,8 @@ function registerAdminRoutes(app, deps) {
       if (notes !== undefined) org.notes = notes;
       org.updatedAt = nowIso();
       addAudit(data, "ORG_UPDATED", org.id);
-      await writeData(data);
       await mirrorAdminOrgToPrisma(org);
+      await writeData(data);
       res.json({ ok: true, data: org });
     } catch (err) {
       next(err);
@@ -391,8 +456,8 @@ function registerAdminRoutes(app, deps) {
       org.status = normalizeOrgStatus(status);
       org.updatedAt = nowIso();
       addAudit(data, "ORG_STATUS_UPDATED", `${org.id}:${status}`);
+      await mirrorAdminOrgToPrisma(org);
       await writeData(data);
-      await mirrorAdminOrgStatusToPrisma(org.id, org.status);
       res.json({ ok: true, data: org });
     } catch (err) {
       next(err);
@@ -402,6 +467,7 @@ function registerAdminRoutes(app, deps) {
   adminRouter.get("/users", async (req, res, next) => {
     try {
       const data = await readData();
+      await reconcileAdminUsers(data, { persist: true });
       res.json({ ok: true, data: data.users || [] });
     } catch (err) {
       next(err);
@@ -425,21 +491,26 @@ function registerAdminRoutes(app, deps) {
     try {
       const data = await readData();
       data.users = data.users || [];
-      const exists = data.users.some((u) => u.email === normalizedEmail);
+      await reconcileAdminUsers(data, { persist: true });
+      const exists = data.users.some((u) => normalizeEmail(u.email) === normalizedEmail);
       if (exists) return res.status(409).json({ error: "User already exists" });
       const passwordHash = password ? await bcrypt.hash(password, 12) : "";
       const user = {
         id: makeId("USR"),
         email: normalizedEmail,
         role: normalizedRole,
+        kind: kindForRole(normalizedRole),
         orgId: orgId || null,
         isActive: true,
+        active: true,
+        verified: true,
         createdAt: nowIso(),
         lastLoginAt: null,
         passwordHash,
         mustSetPassword: !password,
         requirePasswordReset: !password
       };
+      await saveAdminUserToPrimary(user, data);
       data.users.push(user);
       addAudit(data, "USER_CREATED", `${user.id}:${user.email}:${user.role}`);
       await writeData(data);
@@ -461,6 +532,7 @@ function registerAdminRoutes(app, deps) {
     try {
       const data = await readData();
       data.users = data.users || [];
+      await reconcileAdminUsers(data, { persist: true });
       if (data.users.some((u) => String(u.email || "").toLowerCase() === normalizedEmail)) {
         return res.status(409).json({ error: "User already exists." });
       }
@@ -471,8 +543,10 @@ function registerAdminRoutes(app, deps) {
         id: makeId("EMP"),
         email: normalizedEmail,
         role: "SUPER_ADMIN",
+        kind: "employee",
         orgId: null,
         isActive: true,
+        active: true,
         verified: true,
         createdAt: nowIso(),
         lastLoginAt: null,
@@ -482,6 +556,7 @@ function registerAdminRoutes(app, deps) {
         setupTokenHash,
         setupTokenExpiresAt
       };
+      await saveAdminUserToPrimary(user, data);
       data.users.push(user);
       addAudit(data, "SUPER_ADMIN_INVITED", `${user.id}:${user.email}:by=${req.employee?.email || "unknown"}`);
       await writeData(data);
@@ -501,13 +576,18 @@ function registerAdminRoutes(app, deps) {
   adminRouter.put("/users/:id", async (req, res, next) => {
     try {
       const data = await readData();
+      await reconcileAdminUsers(data, { persist: true });
       const user = (data.users || []).find((u) => u.id === req.params.id);
       if (!user) return res.status(404).json({ error: "User not found" });
       const { email, orgId, isActive } = req.body || {};
-      if (email !== undefined) user.email = email.toLowerCase();
+      if (email !== undefined && normalizeEmail(email) !== normalizeEmail(user.email)) {
+        return res.status(400).json({ error: "Email changes require creating a new account." });
+      }
       if (orgId !== undefined) user.orgId = orgId || null;
       if (isActive !== undefined) user.isActive = Boolean(isActive);
+      user.active = user.isActive !== false;
       addAudit(data, "USER_UPDATED", user.id);
+      await saveAdminUserToPrimary(user, data);
       await writeData(data);
       res.json({ ok: true, data: user });
     } catch (err) {
@@ -524,10 +604,13 @@ function registerAdminRoutes(app, deps) {
     }
     try {
       const data = await readData();
+      await reconcileAdminUsers(data, { persist: true });
       const user = (data.users || []).find((u) => u.id === req.params.id);
       if (!user) return res.status(404).json({ error: "User not found" });
       user.role = normalizedRole;
+      user.kind = kindForRole(normalizedRole);
       addAudit(data, "USER_ROLE_UPDATED", `${user.id}:${normalizedRole}:by=${req.employee?.email || "unknown"}`);
+      await saveAdminUserToPrimary(user, data);
       await writeData(data);
       res.json({ ok: true, data: user });
     } catch (err) {
@@ -538,10 +621,13 @@ function registerAdminRoutes(app, deps) {
   adminRouter.put("/users/:id/disable", async (req, res, next) => {
     try {
       const data = await readData();
+      await reconcileAdminUsers(data, { persist: true });
       const user = (data.users || []).find((u) => u.id === req.params.id);
       if (!user) return res.status(404).json({ error: "User not found" });
       user.isActive = false;
+      user.active = false;
       addAudit(data, "USER_DISABLED", user.id);
+      await saveAdminUserToPrimary(user, data);
       await writeData(data);
       res.json({ ok: true, data: user });
     } catch (err) {
@@ -624,6 +710,18 @@ function registerAdminRoutes(app, deps) {
       const data = await readData();
       const lead = (data.leads || []).find((l) => l.id === req.params.id);
       if (!lead) return res.status(404).json({ error: "Lead not found" });
+      const existingOrg = lead.orgId
+        ? (data.orgs || []).find((item) => (item.id || item.orgId) === lead.orgId)
+        : (data.orgs || []).find((item) => normalizeEmail(item.primaryContactEmail || item.email) === normalizeEmail(lead.contactEmail));
+      if (existingOrg) {
+        lead.stage = "CONVERTED";
+        lead.status = "CONVERTED";
+        lead.orgId = existingOrg.id || existingOrg.orgId;
+        lead.updatedAt = nowIso();
+        addAudit(data, "LEAD_CONVERSION_REUSED_ORG", `${lead.id}:${lead.orgId}`);
+        await writeData(data);
+        return res.json({ ok: true, data: { lead, org: existingOrg, reused: true } });
+      }
       const org = {
         id: makeId("ORG"),
         name: lead.companyName,
@@ -645,8 +743,8 @@ function registerAdminRoutes(app, deps) {
       lead.updatedAt = nowIso();
       addAudit(data, "ORG_CREATED", `${org.id}:${org.name}`);
       addAudit(data, "LEAD_CONVERTED_TO_ORG", `${lead.id}:${org.id}`);
-      await writeData(data);
       await mirrorAdminOrgToPrisma(org);
+      await writeData(data);
       res.json({ ok: true, data: { lead, org } });
     } catch (err) {
       next(err);
@@ -735,13 +833,20 @@ function registerAdminRoutes(app, deps) {
     }
     const email = (req.body?.email || "").trim().toLowerCase();
     const orgId = (req.body?.orgId || "ORG_DEFAULT").trim();
-    const role = (req.body?.role || "admin").trim();
+    const role = normalizeRole(req.body?.role || "ADMIN");
     if (!email) {
       return res.status(400).json({ ok: false, error: "email_required" });
     }
+    if (!role) {
+      return res.status(400).json({ ok: false, error: "invalid_role" });
+    }
     try {
       const data = await readData();
-      const user = (data.users || []).find((u) => String(u.email || "").toLowerCase() === email);
+      data.users = Array.isArray(data.users) ? data.users : [];
+      const authData = prismaAuthAdapter ? await prismaAuthAdapter.loadData() : { users: [] };
+      const indexedUser = data.users.find((u) => normalizeEmail(u.email) === email) || null;
+      const authUser = (authData.users || []).find((u) => normalizeEmail(u.email) === email) || null;
+      const user = authUser || indexedUser;
       if (!user) {
         return res.status(404).json({ ok: false, error: "user_not_found" });
       }
@@ -752,6 +857,11 @@ function registerAdminRoutes(app, deps) {
       user.status = "ACTIVE";
       user.mustSetPassword = true;
       user.requirePasswordReset = true;
+      user.kind = kindForRole(role);
+      user.active = true;
+      if (!indexedUser) data.users.push(user);
+      else if (authUser) Object.assign(indexedUser, user);
+      await saveAdminUserToPrimary(user, data);
       await writeData(data);
       return res.json({ ok: true, userId: user.id, role: user.role, orgId: user.orgId });
     } catch (err) {
@@ -765,20 +875,26 @@ function registerAdminRoutes(app, deps) {
       return res.status(403).json({ ok: false, error: "setup_key_required" });
     }
     const email = (req.body?.email || "").trim().toLowerCase();
-    const role = (req.body?.role || "customer").trim();
+    const requestedRole = (req.body?.role || "CUSTOMER").trim();
+    const role = normalizeRole(requestedRole);
     const orgId = (req.body?.orgId || "ORG_DEFAULT").trim();
     if (!email) return res.status(400).json({ ok: false, error: "email_required" });
+    if (!role) return res.status(400).json({ ok: false, error: "invalid_role" });
     try {
       const data = await readData();
-      const exists = (data.users || []).find((u) => String(u.email || "").toLowerCase() === email);
+      data.users = Array.isArray(data.users) ? data.users : [];
+      await reconcileAdminUsers(data, { persist: true });
+      const exists = data.users.find((u) => normalizeEmail(u.email) === email);
       if (exists) return res.status(409).json({ ok: false, error: "user_exists" });
       const passwordHash = await bcrypt.hash(SETUP_KEY, 12);
       const user = {
         id: makeId("USR"),
         email,
         role,
+        kind: kindForRole(role),
         orgId,
         isActive: true,
+        active: true,
         verified: true,
         createdAt: nowIso(),
         lastLoginAt: null,
@@ -786,7 +902,7 @@ function registerAdminRoutes(app, deps) {
         mustSetPassword: true,
         requirePasswordReset: true
       };
-      data.users = Array.isArray(data.users) ? data.users : [];
+      await saveAdminUserToPrimary(user, data);
       data.users.push(user);
       await writeData(data);
       return res.json({ ok: true, userId: user.id, orgId: user.orgId, role: user.role });

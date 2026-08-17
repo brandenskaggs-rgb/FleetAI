@@ -2,24 +2,28 @@ const { getPrisma } = require("./db");
 
 async function upsertSession(session) {
   if (!process.env.DATABASE_URL) return;
-  try {
-    await getPrisma().session.upsert({
-      where: { id: session.id },
-      create: {
-        id: session.id,
-        userId: session.userId || null,
-        email: session.email,
-        role: session.role,
-        loginRole: session.loginRole,
-        orgId: session.orgId || null,
-        displayName: session.displayName || "",
-        expiresAt: new Date(session.expiresAt),
-      },
-      update: {
-        expiresAt: new Date(session.expiresAt),
-      }
-    });
-  } catch (_) {}
+  await getPrisma().session.upsert({
+    where: { id: session.id },
+    create: {
+      id: session.id,
+      userId: session.userId || null,
+      email: session.email,
+      role: session.role,
+      loginRole: session.loginRole,
+      orgId: session.orgId || null,
+      displayName: session.displayName || "",
+      expiresAt: new Date(session.expiresAt),
+    },
+    update: {
+      userId: session.userId || null,
+      email: session.email,
+      role: session.role,
+      loginRole: session.loginRole,
+      orgId: session.orgId || null,
+      displayName: session.displayName || "",
+      expiresAt: new Date(session.expiresAt),
+    }
+  });
 }
 
 async function deleteSession(id) {

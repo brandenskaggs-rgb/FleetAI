@@ -1,6 +1,9 @@
 const path = require("path");
+require("dotenv").config({ path: path.resolve(__dirname, "..", "..", ".env"), override: false });
 const { createDataStore } = require("../storage/dataStore");
 const { applyAuthStoreRepair } = require("../auth/repairAuthStore");
+const { resolveAuthStorePath } = require("../config/authStorePath");
+const prismaAuthAdapter = require("../auth/prismaAuthAdapter");
 
 const IS_PROD = process.env.NODE_ENV === "production";
 const DEV_SETUP = (process.env.DEV_SETUP || "").toLowerCase() === "true";
@@ -35,7 +38,7 @@ if (IS_PROD && !DEV_SETUP) {
   process.exit(1);
 }
 
-const dataPath = path.resolve(__dirname, "..", "data.json");
+const dataPath = resolveAuthStorePath();
 const defaultData = { schemaVersion: 2, users: [], orgs: [] };
 
 const dataStore = createDataStore({
@@ -59,6 +62,9 @@ async function run() {
   }
 
   const backupPath = await dataStore.createBackup();
+  if (String(process.env.DATABASE_URL || "").trim()) {
+    await prismaAuthAdapter.saveData({ users: result.data.users || [], orgs: result.data.orgs || [] });
+  }
   await dataStore.safeWriteData(result.data);
   console.log("[repair-auth-store] Updated auth store.");
   if (backupPath) console.log(`[repair-auth-store] Backup: ${backupPath}`);

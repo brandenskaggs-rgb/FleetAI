@@ -36,7 +36,7 @@
     "test:security": "node tests/security-boundary.test.js",
     "test:j1939": "node tests/j1939-ingest.test.js",
     "test:j1939:replay": "node scripts/replay-j1939-capture.js",
-    "test:integration": "node tests/telemetry-chain.test.js && node tests/j1939-ingest.test.js && node tests/telemetry-route.test.js && node tests/driver-app-contract.test.js && node tests/security-boundary.test.js && node tests/customer-provisioning.test.js && node tests/org-conversion-recovery.test.js && node tests/auth-first-login.test.js"
+    "test:integration": "node tests/telemetry-chain.test.js && node tests/j1939-ingest.test.js && node tests/telemetry-route.test.js && node tests/driver-app-contract.test.js && node tests/security-boundary.test.js && node tests/customer-provisioning.test.js && node tests/org-conversion-recovery.test.js && node tests/account-store-consistency.test.js && node tests/auth-first-login.test.js"
   },
   "keywords": [],
   "author": "",
@@ -60,5 +60,8 @@
     "@playwright/test": "^1.59.1",
     "pixelmatch": "^7.2.0",
     "pngjs": "^7.0.0"
+  },
+  "overrides": {
+    "deepmerge-ts": "8.0.1"
   }
 }

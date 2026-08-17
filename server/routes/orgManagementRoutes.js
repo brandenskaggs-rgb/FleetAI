@@ -13,6 +13,7 @@ const { validateBody, schemas } = require('../middleware/validate');
 
 function registerOrgManagementRoutes(app, deps) {
   const { readData, writeData, requireEmployeeApi, requireCustomerApi, requireRole, getRateState, prismaAuthAdapter } = deps;
+  const employeeRoles = new Set(["SUPER_ADMIN", "ADMIN", "SUPPORT", "SALES"]);
 
   // Mirrors core org identity (name/status/email/phone) into Prisma so any
   // Vehicle/Driver/Pairing created against this orgId has a valid FK target,
@@ -126,13 +127,71 @@ function registerOrgManagementRoutes(app, deps) {
     return canonicalOrgId;
   }
 
-  async function mirrorOrgStatusToPrisma(orgId, status) {
-    try {
-      const existing = await db.getOrg(orgId);
-      if (existing) await db.updateOrgStatus(orgId, status);
-    } catch (err) {
-      console.warn(`[ORG-SYNC] failed to mirror org status to Prisma: ${err.message}`);
+  function isEmployeeUser(user) {
+    return employeeRoles.has(String(user?.role || "").toUpperCase())
+      || String(user?.kind || "").toLowerCase() === "employee";
+  }
+
+  function employeeAuthRecord(user) {
+    return Object.assign({}, user, {
+      email: normalizeEmail(user.email),
+      role: String(user.role || "EMPLOYEE").toUpperCase(),
+      kind: "employee",
+      orgId: null,
+      status: user.status || "ACTIVE",
+      isActive: user.isActive !== false,
+      active: user.active !== false,
+      verified: user.verified !== false,
+      passwordAlgo: user.passwordAlgo || "bcrypt"
+    });
+  }
+
+  async function reconcileEmployeeUsers(data, { persist = false } = {}) {
+    data.users = Array.isArray(data.users) ? data.users : [];
+    if (!prismaAuthAdapter) return { changed: false, authData: { users: [], orgs: [] } };
+
+    const authData = await prismaAuthAdapter.loadData();
+    const authEmployees = (authData.users || []).filter(isEmployeeUser);
+    const authEmails = new Set(authEmployees.map((user) => normalizeEmail(user.email)));
+    let changed = false;
+
+    const indexedEmployees = data.users.filter(isEmployeeUser);
+    const staleEmployees = indexedEmployees.filter((user) => !authEmails.has(normalizeEmail(user.email)));
+    if (staleEmployees.length) {
+      const staleEmails = new Set(staleEmployees.map((user) => normalizeEmail(user.email)));
+      data.users = data.users.filter((user) => !isEmployeeUser(user) || !staleEmails.has(normalizeEmail(user.email)));
+      for (const user of staleEmployees) {
+        addAudit(data, "STALE_EMPLOYEE_INDEX_REMOVED", `${user.id || "unknown"}:${normalizeEmail(user.email)}`);
+      }
+      changed = true;
     }
+
+    for (const authUser of authEmployees) {
+      const email = normalizeEmail(authUser.email);
+      const indexed = data.users.find((user) => normalizeEmail(user.email) === email);
+      if (!indexed) {
+        data.users.push(employeeAuthRecord(authUser));
+        addAudit(data, "EMPLOYEE_INDEX_REPAIRED", `${authUser.id || "unknown"}:${email}`);
+        changed = true;
+        continue;
+      }
+      const authoritative = employeeAuthRecord(authUser);
+      const fields = [
+        "id", "email", "role", "kind", "orgId", "status", "isActive", "active", "verified",
+        "passwordHash", "passwordAlgo", "mustSetPassword", "requirePasswordReset",
+        "mustResetPassword", "isTemporaryPassword", "setupTokenHash", "setupTokenExpiresAt",
+        "passwordLastSetAt", "lastPasswordChangeAt", "displayName", "lastLoginAt"
+      ];
+      if (fields.some((field) => indexed[field] !== authoritative[field])) {
+        for (const field of fields) indexed[field] = authoritative[field];
+        indexed.updatedAt = authoritative.updatedAt || nowIso();
+        addAudit(data, "EMPLOYEE_INDEX_REALIGNED", `${authUser.id || "unknown"}:${email}`);
+        changed = true;
+      }
+    }
+
+    if (changed && persist) await writeData(data);
+    return { changed, authData };
   }
   app.get("/api/leads/public-status", (req, res) => {
     res.json({ ok: true });
@@ -364,8 +423,8 @@ function registerOrgManagementRoutes(app, deps) {
       if (raw.notes !== undefined) org.notes = sanitizeString(raw.notes, 1200);
       org.updatedAt = nowIso();
       addAudit(data, "ORG_UPDATED", org.orgId || org.id || "unknown");
+      await mirrorOrgToPrisma(org, { required: true });
       await writeData(data);
-      await mirrorOrgToPrisma(org);
       res.json({ ok: true, data: org });
     } catch (err) {
       next(err);
@@ -385,8 +444,8 @@ function registerOrgManagementRoutes(app, deps) {
       org.deletedBy = req.employee?.userId || req.employee?.email || "system";
       org.updatedAt = nowIso();
       addAudit(data, "ORG_DELETED", `${org.orgId || org.id}:${org.deletedBy}`);
+      await mirrorOrgToPrisma(org, { required: true });
       await writeData(data);
-      await mirrorOrgStatusToPrisma(org.orgId || org.id, "DELETED");
       res.json({ ok: true, data: org });
     } catch (err) {
       next(err);
@@ -403,8 +462,8 @@ function registerOrgManagementRoutes(app, deps) {
       org.deletedBy = null;
       org.updatedAt = nowIso();
       addAudit(data, "ORG_RESTORED", `${org.orgId || org.id}`);
+      await mirrorOrgToPrisma(org, { required: true });
       await writeData(data);
-      await mirrorOrgStatusToPrisma(org.orgId || org.id, "ACTIVE");
       res.json({ ok: true, data: org });
     } catch (err) {
       next(err);
@@ -528,8 +587,8 @@ function registerOrgManagementRoutes(app, deps) {
   app.get("/api/employees", requireEmployeeApi, async (req, res, next) => {
     try {
       const data = await readData();
-      const roles = ["SUPER_ADMIN", "ADMIN", "SUPPORT", "SALES"];
-      const employees = (data.users || []).filter((u) => roles.includes(u.role));
+      await reconcileEmployeeUsers(data, { persist: true });
+      const employees = (data.users || []).filter(isEmployeeUser);
       res.json({ ok: true, data: employees });
     } catch (err) {
       next(err);
@@ -538,14 +597,15 @@ function registerOrgManagementRoutes(app, deps) {
   
   app.post("/api/employees", requireEmployeeApi, requireRole(["SUPER_ADMIN"]), async (req, res, next) => {
     const { email, role } = req.body || {};
-    const roles = ["SUPER_ADMIN", "ADMIN", "SUPPORT", "SALES"];
+    const roles = Array.from(employeeRoles);
     const cleanEmail = normalizeEmail(email);
     if (!cleanEmail || !role || !roles.includes(role)) {
       return res.status(400).json({ error: "Valid email and role required." });
     }
     try {
       const data = await readData();
-      const exists = (data.users || []).some((u) => u.email === cleanEmail);
+      await reconcileEmployeeUsers(data, { persist: true });
+      const exists = (data.users || []).some((u) => normalizeEmail(u.email) === cleanEmail);
       if (exists) return res.status(409).json({ error: "User already exists" });
       const tempPassword = generateTempPassword();
       const passwordHash = await bcrypt.hash(tempPassword, 12);
@@ -553,13 +613,25 @@ function registerOrgManagementRoutes(app, deps) {
         id: makeId("USR"),
         email: cleanEmail,
         role,
+        kind: "employee",
         orgId: null,
+        status: "ACTIVE",
         isActive: true,
+        active: true,
+        verified: true,
+        mustSetPassword: true,
+        requirePasswordReset: true,
         mustResetPassword: true,
+        isTemporaryPassword: true,
+        tempPasswordIssuedAt: nowIso(),
+        passwordAlgo: "bcrypt",
         createdAt: nowIso(),
         lastLoginAt: null,
         passwordHash
       };
+      if (prismaAuthAdapter) {
+        await prismaAuthAdapter.saveData({ users: [user], orgs: [] });
+      }
       data.users.push(user);
       addAudit(data, "USER_CREATED", `${user.id}:${user.email}`);
       await writeData(data);
@@ -1043,20 +1115,44 @@ function registerOrgManagementRoutes(app, deps) {
       if (!userEmail || !/^[^@]+@[^@]+\.[^@]+$/.test(userEmail)) {
         return res.status(400).json({ error: "Valid email required." });
       }
-      const exists = (data.users || []).some((u) => u.email === userEmail);
+      data.users = Array.isArray(data.users) ? data.users : [];
+      const authData = prismaAuthAdapter ? await prismaAuthAdapter.loadData() : { users: [] };
+      const exists = data.users.some((u) => normalizeEmail(u.email) === userEmail)
+        || (authData.users || []).some((u) => normalizeEmail(u.email) === userEmail);
       if (exists) return res.status(409).json({ error: "User already exists" });
-      const role = invite.type === "DRIVER" ? "DRIVER" : invite.type === "FLEET_MANAGER" ? "FLEET_MANAGER" : "ADMIN";
+      const roleByInviteType = {
+        CUSTOMER: "ORG_ADMIN",
+        FLEET_MANAGER: "CUSTOMER_ADMIN",
+        DRIVER: "CUSTOMER_USER"
+      };
+      const role = roleByInviteType[String(invite.type || "CUSTOMER").toUpperCase()] || "ORG_ADMIN";
       const passwordHash = await bcrypt.hash(password, 12);
       const user = {
         id: makeId("USR"),
         email: userEmail,
         role,
+        kind: "customer",
         orgId: invite.orgId || null,
+        status: "ACTIVE",
         isActive: true,
+        active: true,
+        verified: true,
+        passwordAlgo: "bcrypt",
+        mustSetPassword: false,
+        requirePasswordReset: false,
+        mustResetPassword: false,
+        isTemporaryPassword: false,
         createdAt: nowIso(),
         lastLoginAt: null,
         passwordHash
       };
+      const org = findOrgById(data.orgs, user.orgId);
+      if (prismaAuthAdapter) {
+        await prismaAuthAdapter.saveData({
+          users: [user],
+          orgs: org ? [authOrgRecord(org)] : []
+        });
+      }
       data.users.push(user);
       data.invites.splice(inviteIndex, 1);
       addAudit(data, "INVITE_ACCEPTED", invite.id);

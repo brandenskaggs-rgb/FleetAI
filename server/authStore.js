@@ -13,9 +13,10 @@ function normalizeUser(user) {
   const role = user.role || "customer";
   const upperRole = String(role).toUpperCase();
   const kind = user.kind || (upperRole.startsWith("CUSTOMER") || upperRole === "ORG_ADMIN" ? "customer" : "employee");
+  const orgId = user.orgId || (kind === "customer" ? "ORG_DEFAULT" : null);
   return Object.assign({}, user, {
     email,
-    orgId: user.orgId || "ORG_DEFAULT",
+    orgId,
     isActive: user.isActive !== false,
     active: user.active !== false,
     role,

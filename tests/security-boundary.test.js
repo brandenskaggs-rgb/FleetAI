@@ -196,6 +196,31 @@ function testLegacyIngestAndDtcContracts() {
   );
 }
 
+function testSessionAndDevAuthContracts() {
+  const server = fs.readFileSync(path.join(__dirname, "..", "server.js"), "utf8");
+  const authStore = fs.readFileSync(path.join(__dirname, "..", "server", "authStore.js"), "utf8");
+  assert(
+    server.includes('const DEV_SETUP_PASSWORD = process.env.DEV_SETUP_PASSWORD || "";'),
+    "development auth bypass must not have a source-code default password"
+  );
+  assert(
+    server.includes('await validateSessionIdentity(result.session, "employee")'),
+    "employee sessions must be revalidated against the primary user record"
+  );
+  assert(
+    server.includes('await validateSessionIdentity(session, "customer")'),
+    "customer sessions must be revalidated against the primary user record"
+  );
+  assert(
+    /async function ensureBootstrapCustomer\(data\)[\s\S]*DATABASE_URL[\s\S]*source: "primary_database"/.test(server),
+    "database-backed auth must not auto-create a demo customer during login"
+  );
+  assert(
+    authStore.includes('kind === "customer" ? "ORG_DEFAULT" : null'),
+    "employee auth records must not be assigned to the default customer organization"
+  );
+}
+
 (async () => {
   await testPairingOptionsRequiresAuthAndScopes();
   await testPairingGenerationRejectsCrossOrg();
@@ -204,7 +229,8 @@ function testLegacyIngestAndDtcContracts() {
   await testMlStateDoesNotIncludeOrglessRows();
   testFrontendAndAndroidContracts();
   testLegacyIngestAndDtcContracts();
-  console.log("Security boundary tests: 7 passed, 0 failed");
+  testSessionAndDevAuthContracts();
+  console.log("Security boundary tests: 8 passed, 0 failed");
 })().catch((err) => {
   console.error("Security boundary tests failed:", err.stack || err.message);
   process.exitCode = 1;

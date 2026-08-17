@@ -137,7 +137,7 @@ sqliteDb.syncMlArtifactsFromDisk(path.join(__dirname, "fleet_ai", "models")).the
   console.warn(`[ml] artifact sync skipped: ${err.message}`);
 });
 const DEV_SETUP_RESET_PASSWORDS = (process.env.DEV_SETUP_RESET_PASSWORDS || "").toLowerCase() === "true";
-const DEV_SETUP_PASSWORD = process.env.DEV_SETUP_PASSWORD || "FleetAI!12345";
+const DEV_SETUP_PASSWORD = process.env.DEV_SETUP_PASSWORD || "";
 const AUTH_DEMO_WHITELIST = (process.env.AUTH_DEMO_WHITELIST || "")
   .split(",")
   .map((value) => value.trim().toLowerCase())
@@ -332,6 +332,9 @@ function logGeneratedPasswords(context, report, generatedPasswords) {
 
 async function seedDevAuthStoreIfNeeded() {
   if (!DEV_SETUP) return { seeded: false };
+  if (String(process.env.DATABASE_URL || "").trim()) {
+    return { seeded: false, source: "primary_database" };
+  }
   const { demoUsers, generatedPasswords } = buildDemoUsers();
   const store = loadAuthStore({ allowEmpty: true, allowMissing: true });
   const result = await applyAuthStoreRepair(store.data, {
@@ -1390,6 +1393,9 @@ async function writeData(data) {
 
 async function runDevAuthRepair() {
   if (IS_PROD || !DEV_SETUP) return { ran: false };
+  if (String(process.env.DATABASE_URL || "").trim()) {
+    return { ran: false, source: "primary_database" };
+  }
   const data = await readData();
   const { demoUsers, generatedPasswords } = buildDemoUsers();
   const result = await applyAuthStoreRepair(data, {
@@ -1407,12 +1413,28 @@ async function runDevAuthRepair() {
   return { ran: true, changed: true, report: result.report };
 }
 
+async function reconcileAuthIndexFromPrimary() {
+  if (!String(process.env.DATABASE_URL || "").trim()) return { changed: false };
+  const [data, authData] = await Promise.all([readData(), prismaAuthAdapter.loadData()]);
+  const nextUsers = Array.isArray(authData.users) ? authData.users : [];
+  const currentUsers = Array.isArray(data.users) ? data.users : [];
+  if (JSON.stringify(currentUsers) === JSON.stringify(nextUsers)) return { changed: false };
+  data.users = nextUsers;
+  addAudit(data, "AUTH_INDEX_SYNCED_FROM_PRIMARY", `users=${nextUsers.length}`);
+  await writeData(data);
+  console.log(`[AUTH] synchronized secondary user index from primary database users=${nextUsers.length}`);
+  return { changed: true };
+}
+
 
 // user normalization handled by authStore.normalizeAuthData
 
 async function restoreUsersIfEmpty(data) {
   if (Array.isArray(data.users) && data.users.length > 0) {
     return { data, restored: false };
+  }
+  if (String(process.env.DATABASE_URL || "").trim()) {
+    return { data, restored: false, source: "primary_database" };
   }
   const backupsDir = path.resolve(__dirname, "server");
   const backups = fs.existsSync(backupsDir)
@@ -1446,6 +1468,9 @@ async function restoreUsersIfEmpty(data) {
 
 async function ensureBootstrapCustomer(data) {
   if (!BOOTSTRAP_CUSTOMER_ENABLED) return { created: false };
+  if (String(process.env.DATABASE_URL || "").trim()) {
+    return { created: false, source: "primary_database" };
+  }
   if (!Array.isArray(data.users)) data.users = [];
   const email = BOOTSTRAP_CUSTOMER_EMAIL;
   if (!email) return { created: false };
@@ -1467,6 +1492,7 @@ async function ensureBootstrapCustomer(data) {
     id: makeId("CUST"),
     email,
     role: "CUSTOMER",
+    kind: "customer",
     orgId: org.id,
     isActive: true,
     active: true,
@@ -1576,6 +1602,43 @@ function getSessionFromRequest(req) {
   return { session: cookieSession, source: "cookie" };
 }
 
+function customerRole(role) {
+  const normalized = String(role || "").toUpperCase();
+  return normalized.startsWith("CUSTOMER") || normalized === "ORG_ADMIN";
+}
+
+function revokeSessionIdentity(session) {
+  if (!session) return;
+  sessionStore.delete(session.id);
+  customerSessionStore.delete(session.id);
+  persistSessionStoresSoon();
+  pgSessionStore.deleteSession(session.id).catch(() => {});
+}
+
+async function validateSessionIdentity(session, expectedScope) {
+  if (!session || !String(process.env.DATABASE_URL || "").trim()) return session;
+  const prisma = sqliteDb.getPrisma();
+  const user = session.userId
+    ? await prisma.user.findUnique({ where: { id: session.userId } })
+    : await prisma.user.findUnique({ where: { email: normalizeEmail(session.email) } });
+  const active = Boolean(user) && user.isActive !== false && user.active !== false
+    && !["INACTIVE", "DISABLED", "LOCKED", "DELETED"].includes(String(user.status || "").toUpperCase());
+  const scopeMatches = Boolean(user) && (expectedScope === "customer" ? customerRole(user.role) : !customerRole(user.role));
+  if (!active || !scopeMatches) {
+    revokeSessionIdentity(session);
+    return null;
+  }
+  const identity = {
+    userId: user.id,
+    email: user.email,
+    role: user.role,
+    orgId: user.orgId || null,
+    displayName: user.displayName || ""
+  };
+  Object.assign(session, identity);
+  return session;
+}
+
 function issueSession(scope, user) {
   const sessionId = crypto.randomBytes(24).toString("hex");
   const session = {
@@ -1634,13 +1697,22 @@ function getCustomerSession(req) {
   return session;
 }
 
-function requireEmployeeSession(req, res, next) {
+async function requireEmployeeSession(req, res, next) {
   const result = getSessionFromRequest(req);
   if (!result) {
     return res.redirect("/employee-login.html");
   }
-  req.employee = result.session;
-  next();
+  try {
+    const session = await validateSessionIdentity(result.session, "employee");
+    if (!session) {
+      clearSessionCookie(res);
+      return res.redirect("/employee-login.html");
+    }
+    req.employee = session;
+    next();
+  } catch (err) {
+    next(err);
+  }
 }
 
 function formatAuthResponse({ ok, code, message, session = null, next = null }) {
@@ -1676,7 +1748,7 @@ function validateFirstLoginToken(token) {
   return entry;
 }
 
-function requireSuperAdmin(req, res, next) {
+async function requireSuperAdmin(req, res, next) {
   const result = getSessionFromRequest(req);
   if (!result) {
     if (req.path.startsWith("/api")) {
@@ -1684,43 +1756,85 @@ function requireSuperAdmin(req, res, next) {
     }
     return res.redirect("/employee-login.html");
   }
-  if (result.session.role !== "SUPER_ADMIN") {
+  let session;
+  try {
+    session = await validateSessionIdentity(result.session, "employee");
+  } catch (err) {
+    return next(err);
+  }
+  if (!session) {
+    clearSessionCookie(res);
+    if (req.path.startsWith("/api")) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+    return res.redirect("/employee-login.html");
+  }
+  if (session.role !== "SUPER_ADMIN") {
     if (req.path.startsWith("/api")) {
       return res.status(403).json({ error: "Forbidden" });
     }
     return res.redirect("/employee-login.html");
   }
-  req.employee = result.session;
+  req.employee = session;
   next();
 }
 
-function requireEmployeeApi(req, res, next) {
+async function requireEmployeeApi(req, res, next) {
   const result = getSessionFromRequest(req);
   if (!result) {
     return res.status(401).json({ error: "Unauthorized" });
   }
-  req.employee = result.session;
-  next();
+  try {
+    const session = await validateSessionIdentity(result.session, "employee");
+    if (!session) {
+      clearSessionCookie(res);
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+    req.employee = session;
+    next();
+  } catch (err) {
+    next(err);
+  }
 }
 
-function requireCustomerApi(req, res, next) {
+async function requireCustomerApi(req, res, next) {
   const session = getCustomerSession(req);
   if (!session) {
     return res.status(401).json({ error: "Unauthorized" });
   }
-  req.customer = session;
-  next();
+  try {
+    const validated = await validateSessionIdentity(session, "customer");
+    if (!validated) {
+      clearCustomerSessionCookie(res);
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+    req.customer = validated;
+    next();
+  } catch (err) {
+    next(err);
+  }
 }
 
-function requireEmployeeOrCustomerApi(req, res, next) {
+async function requireEmployeeOrCustomerApi(req, res, next) {
   const employee = getSession(req);
   const customer = getCustomerSession(req);
   if (!employee && !customer) {
     return res.status(401).json({ error: "Unauthorized" });
   }
-  if (employee) req.employee = employee;
-  if (customer) req.customer = customer;
-  return next();
+  try {
+    const validatedEmployee = employee ? await validateSessionIdentity(employee, "employee") : null;
+    const validatedCustomer = customer ? await validateSessionIdentity(customer, "customer") : null;
+    if (!validatedEmployee && !validatedCustomer) {
+      if (employee) clearSessionCookie(res);
+      else clearCustomerSessionCookie(res);
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+    if (validatedEmployee) req.employee = validatedEmployee;
+    if (validatedCustomer) req.customer = validatedCustomer;
+    return next();
+  } catch (err) {
+    return next(err);
+  }
 }
 
 function requireRole(roles) {
@@ -3685,6 +3799,7 @@ async function startServer() {
   await redisReady;
   await seedDevAuthStoreIfNeeded();
   verifyAuthStoreOrExit();
+  await reconcileAuthIndexFromPrimary();
   await loadSessionsFromDb();
   // Vehicle/Driver/Pairing/User all carry orgId as a real FK to Org.id now
   // (previously just a loose string in the flat file) — ensure the ORG_DEFAULT

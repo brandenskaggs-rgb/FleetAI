@@ -1,6 +1,6 @@
 const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
-const { loadAuthStore, saveAuthStore } = require("../server/authStore");
+const { loadMaintenanceStores, persistMaintenanceChanges } = require("../server/auth/authStoreMaintenance");
 
 function normalizeEmail(email) {
   return String(email || "").trim().toLowerCase();
@@ -34,7 +34,7 @@ async function seedUsers(data) {
       email,
       role: info.role,
       kind: info.kind,
-      orgId: info.orgId || "ORG_DEFAULT",
+      orgId: info.kind === "customer" ? (info.orgId || "ORG_DEFAULT") : null,
       passwordHash: hash,
       passwordAlgo: "bcrypt",
       firstLoginRequired: false,
@@ -60,11 +60,13 @@ async function main() {
     console.error("[dev-reset] Refusing to run in production without DEV_SETUP=true.");
     process.exit(1);
   }
-  const { filePath, data } = loadAuthStore({ allowEmpty: true, allowMissing: true });
+  const stores = await loadMaintenanceStores({ allowEmpty: true, allowMissing: true });
+  const { filePath, data } = stores;
   data.users = [];
   data.orgs = Array.isArray(data.orgs) ? data.orgs : [];
   const generated = await seedUsers(data);
-  saveAuthStore(filePath, data);
+  const orgs = data.orgs || [];
+  await persistMaintenanceChanges({ ...stores, data, users: data.users, orgs });
   console.log(`[dev-reset] Reset auth store and seeded users in ${filePath}`);
   Object.keys(generated).forEach((email) => {
     console.warn(`[dev-reset] Generated password for ${email}: ${generated[email]}`);
