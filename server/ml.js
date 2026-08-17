@@ -412,6 +412,12 @@ function getLatestSample(samples) {
   return samples.reduce((latest, s) => (new Date(s.ts) > new Date(latest.ts) ? s : latest), samples[0]);
 }
 
+function usableTelemetrySamples(samples) {
+  return (Array.isArray(samples) ? samples : []).filter((sample) =>
+    METRIC_KEYS.some((key) => toNumber(sample?.metrics?.[key]) != null)
+  );
+}
+
 function computeRouteSignature(samples) {
   const geo = samples
     .map((s) => ({
@@ -429,7 +435,8 @@ function computeRouteSignature(samples) {
 }
 
 function computeModelState(data, vehicleId) {
-  const samples = getSamplesForVehicle(data, vehicleId).sort((a, b) => new Date(a.ts) - new Date(b.ts));
+  const samples = usableTelemetrySamples(getSamplesForVehicle(data, vehicleId))
+    .sort((a, b) => new Date(a.ts) - new Date(b.ts));
   const sampleCount = samples.length;
   const latest = getLatestSample(samples);
   const baselines = computeBaselines(samples);
@@ -783,7 +790,8 @@ function computeWeeksToFailure(values, metricKey, samplesPerHour = 12) {
 
 // Master prediction function — ML engine computes everything, AI only narrates
 function computeFullPrediction(samples, vehicleId) {
-  if (!samples || !samples.length) {
+  const usableSamples = usableTelemetrySamples(samples);
+  if (!usableSamples.length) {
     return {
       vehicleId,
       sampleCount: 0,
@@ -799,7 +807,7 @@ function computeFullPrediction(samples, vehicleId) {
     };
   }
 
-  const sorted = samples.slice().sort((a, b) => new Date(a.ts) - new Date(b.ts));
+  const sorted = usableSamples.slice().sort((a, b) => new Date(a.ts) - new Date(b.ts));
   const latest = sorted[sorted.length - 1];
   const baselines = computeBaselines(sorted);
   const seasonalBaselines = computeSeasonalBaselines(sorted);
@@ -833,22 +841,22 @@ function computeFullPrediction(samples, vehicleId) {
   const healthScore = Math.max(0, Math.round(100 - maxRisk * 0.6 - avgRisk * 0.4));
 
   // Anomaly score and system risks (existing logic)
-  const anomaly = samples.length >= MIN_SAMPLES
+  const anomaly = usableSamples.length >= MIN_SAMPLES
     ? computeAnomaly(latest, baselines, seasonalBaselines, seasonKey)
     : { score: null, contributors: [] };
 
-  const risk = samples.length >= MIN_SAMPLES
+  const risk = usableSamples.length >= MIN_SAMPLES
     ? computeRisk(sorted, baselines, climateContext)
     : null;
 
-  const confidence = confidenceFrom(samples.length, coverage);
+  const confidence = confidenceFrom(usableSamples.length, coverage);
   const signatures = detectMultivariateSignatures(latest.metrics);
 
   return {
     vehicleId,
     orgId: latest.orgId || null,
-    sampleCount: samples.length,
-    insufficientData: samples.length < MIN_SAMPLES,
+    sampleCount: usableSamples.length,
+    insufficientData: usableSamples.length < MIN_SAMPLES,
     healthScore,
     sensorRisks,
     weeksToFailure,

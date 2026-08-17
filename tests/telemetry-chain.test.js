@@ -9,6 +9,7 @@
  */
 const assert = require("assert");
 const { normalizeMetrics } = require("../server/telematics/normalize/normalizeMetrics");
+const { computeFullPrediction, computeModelState } = require("../server/ml");
 
 let pass = 0, fail = 0;
 function check(name, cond, detail) {
@@ -119,6 +120,22 @@ check("other device receives NOTHING", othDevice.frames.length === 0);
 
 const payload = JSON.parse(ownerOp.frames[0].replace(/^data: /, "").trim());
 check("frame carries real values", payload.metrics.engine.rpm === metrics.rpm);
+
+// Heartbeats prove transport liveness but contain no mechanical evidence. They
+// must never increase ML sample count or confidence.
+const heartbeatSamples = Array.from({ length: 100 }, (_, index) => ({
+  vehicleId: "TRUCK_2701",
+  ts: new Date(Date.now() + index).toISOString(),
+  metrics: Object.fromEntries([
+    "rpm", "coolantTemp", "batteryVoltage", "engineLoad", "vehicleSpeed"
+  ].map((key) => [key, null])),
+  raw: { heartbeatMs: Date.now() + index }
+}));
+const heartbeatPrediction = computeFullPrediction(heartbeatSamples, "TRUCK_2701");
+check("heartbeats do not count as ML samples", heartbeatPrediction.sampleCount === 0);
+check("heartbeat-only prediction stays insufficient", heartbeatPrediction.insufficientData === true);
+const heartbeatState = computeModelState({ telemetrySamples: heartbeatSamples }, "TRUCK_2701");
+check("heartbeats do not train model state", heartbeatState.sampleCount === 0 && heartbeatState.insufficientHistory === true);
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail === 0 ? 0 : 1);
