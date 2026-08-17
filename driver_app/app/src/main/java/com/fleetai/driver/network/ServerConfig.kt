@@ -1,12 +1,14 @@
 package com.fleetai.driver.network
 
 import android.content.Context
-import android.net.Uri
 import com.fleetai.driver.BuildConfig
 import com.fleetai.driver.ServerPrefs
+import java.net.URI
 
 object ServerConfig {
     data class Result(val url: String?, val error: String?)
+
+    private val localDevelopmentHosts = setOf("localhost", "127.0.0.1", "10.0.2.2")
 
     fun getBaseUrl(context: Context, allowDefault: Boolean = BuildConfig.DEBUG): String? {
         val saved = ServerPrefs.getBaseUrl(context)
@@ -26,10 +28,14 @@ object ServerConfig {
 
     fun validate(raw: String): Result {
         if (raw.isBlank()) return Result(null, "Server URL is required.")
-        val normalized = normalize(raw)
+        val normalized = try {
+            normalize(raw)
+        } catch (_: Exception) {
+            return Result(null, "Enter a valid server URL.")
+        }
         val parsed = try {
-            Uri.parse(normalized)
-        } catch (err: Exception) {
+            URI(normalized)
+        } catch (_: Exception) {
             return Result(null, "Enter a valid server URL.")
         }
         val host = parsed.host.orEmpty()
@@ -41,14 +47,28 @@ object ServerConfig {
     }
 
     fun normalize(raw: String): String {
-        var value = raw.trim()
-        if (!value.startsWith("http://") && !value.startsWith("https://")) {
-            value = "http://$value"
+        val trimmed = raw.trim()
+        val hasScheme = trimmed.startsWith("http://", ignoreCase = true) ||
+            trimmed.startsWith("https://", ignoreCase = true)
+        val parsed = URI(if (hasScheme) trimmed else "https://$trimmed")
+        val parsedHost = parsed.host.orEmpty().lowercase()
+        val host = if (parsedHost == "www.fleetaiops.com") "fleetaiops.com" else parsedHost
+        if (host.isBlank()) return trimmed
+
+        val isLocalDevelopment = host in localDevelopmentHosts
+        val scheme = if (isLocalDevelopment) {
+            parsed.scheme?.lowercase() ?: "http"
+        } else {
+            // Android blocks cleartext public traffic. Upgrade old saved HTTP
+            // values so a bare fleetaiops.com entry reaches the TLS endpoint.
+            "https"
         }
-        val parsed = Uri.parse(value)
-        val host = parsed.host.orEmpty().lowercase()
-        val portPart = if (parsed.port > 0) ":${parsed.port}" else ""
-        val scheme = parsed.scheme ?: "http"
-        return "${scheme}://$host$portPart"
+        val port = if (!isLocalDevelopment && parsed.scheme.equals("http", ignoreCase = true) && parsed.port == 80) {
+            -1
+        } else {
+            parsed.port
+        }
+        val portPart = if (port > 0) ":$port" else ""
+        return "$scheme://$host$portPart"
     }
 }
