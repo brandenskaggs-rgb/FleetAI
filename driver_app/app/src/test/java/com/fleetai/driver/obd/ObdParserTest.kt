@@ -26,4 +26,13 @@ class ObdParserTest {
         assertTrue("010C" in supported)
         assertTrue("010D" in supported)
     }
+
+    @Test
+    fun `classifies ECU probe responses without mistaking adapter errors for data`() {
+        assertEquals("", ObdResponseDiagnostics.classifyEcuProbe("SEARCHING... 41 00 BE 3E A8 13"))
+        assertEquals("", ObdResponseDiagnostics.classifyEcuProbe("4100BE3EA813"))
+        assertTrue(ObdResponseDiagnostics.classifyEcuProbe("NO DATA").contains("ignition"))
+        assertTrue(ObdResponseDiagnostics.classifyEcuProbe("UNABLE TO CONNECT").contains("protocol"))
+        assertTrue(ObdResponseDiagnostics.classifyEcuProbe(null).contains("No response"))
+    }
 }

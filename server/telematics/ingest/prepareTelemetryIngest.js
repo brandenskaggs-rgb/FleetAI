@@ -95,7 +95,25 @@ function sanitizeTelemetryMeta(meta) {
   if (vin && /^[A-HJ-NPR-Z0-9]{11,17}$/.test(vin)) output.vin = vin;
   const connector = boundedText(meta.connectorProfile, 40);
   if (connector) output.connectorProfile = connector;
+  for (const [key, maxLength] of Object.entries({
+    appVersion: 24,
+    obdTransport: 20,
+    ecuState: 32,
+    adapterIdentity: 80,
+    adapterVoltage: 30,
+    detectedProtocol: 80,
+    obdLastCommand: 20,
+    obdLastResponse: 120,
+    obdFailureReason: 180
+  })) {
+    const value = boundedText(meta[key], maxLength);
+    if (value) output[key] = value;
+  }
+  for (const key of ["adapterResponding", "ecuResponding"]) {
+    if (typeof meta[key] === "boolean") output[key] = meta[key];
+  }
   for (const key of [
+    "appVersionCode",
     "lastPgn",
     "captureBitrate",
     "captureBytes",

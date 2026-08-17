@@ -24,7 +24,19 @@ const prepared = prepareTelemetryIngest({
     bitrate: 500000,
     connectorProfile: "GREEN_9_PIN"
   },
-  meta: { captureBytes: 1200, captureRejectedRecords: 2, ignoredField: "not persisted" },
+  meta: {
+    captureBytes: 1200,
+    captureRejectedRecords: 2,
+    appVersion: "1.4",
+    appVersionCode: 5,
+    adapterResponding: true,
+    ecuResponding: false,
+    ecuState: "no_ecu_response",
+    adapterIdentity: "ELM327 v1.5",
+    detectedProtocol: "AUTO, ISO 15765-4 CAN",
+    obdFailureReason: "ECU returned NO DATA; verify ignition and diagnostic connection",
+    ignoredField: "not persisted"
+  },
   metrics: { coolantTempC: 10 }, // raw frame must win over client-derived value
   frames: [
     { id: 0x0cf00400, data: [0, 0, 0, 0xe0, 0x2e, 0xff, 0xff, 0xff] },
@@ -46,6 +58,11 @@ assert.strictEqual(prepared.capture.bitrate, 500000);
 assert.strictEqual(prepared.capture.connectorProfile, "GREEN_9_PIN");
 assert.strictEqual(prepared.quality.uniquePgnCount, 3);
 assert.strictEqual(prepared.decoded.meta.captureBytes, 1200);
+assert.strictEqual(prepared.decoded.meta.appVersion, "1.4");
+assert.strictEqual(prepared.decoded.meta.appVersionCode, 5);
+assert.strictEqual(prepared.decoded.meta.adapterResponding, true);
+assert.strictEqual(prepared.decoded.meta.ecuResponding, false);
+assert.strictEqual(prepared.decoded.meta.detectedProtocol, "AUTO, ISO 15765-4 CAN");
 assert.strictEqual(Object.hasOwn(prepared.decoded.meta, "ignoredField"), false);
 
 assert.throws(

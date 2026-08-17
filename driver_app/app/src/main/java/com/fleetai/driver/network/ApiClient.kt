@@ -92,6 +92,8 @@ object ApiClient {
                 }
             }
             builder.header("X-FleetAI-BaseUrl", baseUrl.toString())
+            builder.header("X-FleetAI-App-Version", BuildConfig.VERSION_NAME)
+            builder.header("X-FleetAI-App-Version-Code", BuildConfig.VERSION_CODE.toString())
             Log.d("FleetAI", "[NET] ${request.method} ${newUrl}")
             _diagnostics.value = _diagnostics.value.copy(
                 baseUrl = baseUrl.toString(),

@@ -1,6 +1,12 @@
 package com.fleetai.driver.obd
 
 object ObdParser {
+    fun hasResponse(response: String, mode: String, pid: String): Boolean {
+        val tokens = tokenizeHex(response)
+        val expected = listOf(mode.uppercase(), pid.uppercase())
+        return tokens.windowed(expected.size).any { it == expected }
+    }
+
     fun parseRpm(response: String): Double? {
         val bytes = extractBytes(response, "41 0C") ?: return null
         if (bytes.size < 2) return null
@@ -138,7 +144,7 @@ object ObdParser {
         return bytes
     }
 
-    private fun tokenizeHex(response: String): List<String> {
+    internal fun tokenizeHex(response: String): List<String> {
         return response
             .replace("\r", " ")
             .replace("\n", " ")

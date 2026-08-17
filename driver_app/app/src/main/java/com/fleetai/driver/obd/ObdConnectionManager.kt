@@ -18,9 +18,10 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.io.BufferedInputStream
 import java.io.BufferedOutputStream
-import java.net.SocketTimeoutException
 import java.nio.charset.Charset
 import java.util.UUID
 
@@ -39,6 +40,7 @@ class ObdConnectionManager(private val context: Context) {
     // ── BLE GATT state ─────────────────────────────────────────────────────────
     @Volatile private var bleGatt: BluetoothGatt? = null
     @Volatile private var bleTxChar: BluetoothGattCharacteristic? = null
+    @Volatile private var bleRxChar: BluetoothGattCharacteristic? = null
     @Volatile private var bleReady = false
     private val bleRxBuffer = StringBuilder()
     private val bleResponseChannel = Channel<String?>(Channel.UNLIMITED)
@@ -47,6 +49,8 @@ class ObdConnectionManager(private val context: Context) {
     // ── Active transport ───────────────────────────────────────────────────────
     private enum class Transport { NONE, SPP, BLE }
     @Volatile private var activeTransport = Transport.NONE
+    private val commandMutex = Mutex()
+    @Volatile private var diagnostics = ObdDiagnostics()
 
     companion object {
         // Veepeak OBDCheck BLE / ELM327 BLE clone profile
@@ -81,23 +85,40 @@ class ObdConnectionManager(private val context: Context) {
                 gattReadyDeferred = null
                 return
             }
-            val char = gatt.getService(BLE_SERVICE_UUID)?.getCharacteristic(BLE_CHAR_UUID)
-            if (char == null) {
-                Log.w(TAG, "BLE: OBD characteristic not found — device may not be ELM327 BLE")
+            val preferred = gatt.getService(BLE_SERVICE_UUID)?.getCharacteristic(BLE_CHAR_UUID)
+            val characteristics = gatt.services.flatMap { it.characteristics }
+            val tx = preferred ?: characteristics.firstOrNull { characteristic ->
+                val properties = characteristic.properties
+                properties and BluetoothGattCharacteristic.PROPERTY_WRITE != 0 ||
+                    properties and BluetoothGattCharacteristic.PROPERTY_WRITE_NO_RESPONSE != 0
+            }
+            val rx = preferred ?: characteristics.firstOrNull { characteristic ->
+                val properties = characteristic.properties
+                properties and BluetoothGattCharacteristic.PROPERTY_NOTIFY != 0 ||
+                    properties and BluetoothGattCharacteristic.PROPERTY_INDICATE != 0
+            } ?: tx
+            if (tx == null || rx == null) {
+                Log.w(TAG, "BLE: no writable OBD command characteristic was found")
                 gattReadyDeferred?.complete(false)
                 gattReadyDeferred = null
                 return
             }
-            bleTxChar = char
-            gatt.setCharacteristicNotification(char, true)
-            val desc = char.getDescriptor(CCCD_UUID)
+            bleTxChar = tx
+            bleRxChar = rx
+            gatt.setCharacteristicNotification(rx, true)
+            val desc = rx.getDescriptor(CCCD_UUID)
             if (desc != null) {
+                val descriptorValue = if (rx.properties and BluetoothGattCharacteristic.PROPERTY_NOTIFY != 0) {
+                    BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+                } else {
+                    BluetoothGattDescriptor.ENABLE_INDICATION_VALUE
+                }
                 // Enable notifications; wait for onDescriptorWrite to complete setup
                 @Suppress("DEPRECATION")
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    gatt.writeDescriptor(desc, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE)
+                    gatt.writeDescriptor(desc, descriptorValue)
                 } else {
-                    desc.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+                    desc.value = descriptorValue
                     @Suppress("DEPRECATION")
                     gatt.writeDescriptor(desc)
                 }
@@ -185,6 +206,7 @@ class ObdConnectionManager(private val context: Context) {
         // BLE cleanup
         bleReady = false
         bleTxChar = null
+        bleRxChar = null
         val prevGatt = bleGatt
         bleGatt = null
         gattReadyDeferred?.complete(false)
@@ -193,11 +215,14 @@ class ObdConnectionManager(private val context: Context) {
         runCatching { prevGatt?.close() }
         synchronized(bleRxLock) { bleRxBuffer.clear() }
         while (bleResponseChannel.tryReceive().isSuccess) { /* drain stale responses */ }
+        diagnostics = ObdDiagnostics()
     }
 
     suspend fun readPid(command: String): String? = withContext(Dispatchers.IO) {
         sendCommand(command)
     }
+
+    fun diagnosticsSnapshot(): ObdDiagnostics = diagnostics
 
     suspend fun readDtcs(): List<String> = withContext(Dispatchers.IO) {
         ObdParser.parseDtcs(sendCommand("03") ?: return@withContext emptyList())
@@ -243,7 +268,7 @@ class ObdConnectionManager(private val context: Context) {
 
         activeTransport = Transport.BLE
         Log.d(TAG, "BLE connected, initializing ELM327")
-        try { initializeElm() } catch (e: Exception) { Log.w(TAG, "ELM init error: ${e.message}") }
+        initializeElm("BLE")
         true
     }
 
@@ -260,7 +285,7 @@ class ObdConnectionManager(private val context: Context) {
             output = BufferedOutputStream(btSocket.outputStream)
             socket = btSocket
             activeTransport = Transport.SPP
-            initializeElm()
+            initializeElm("SPP")
             true
         } catch (err: Exception) {
             Log.w(TAG, "SPP connect failed: ${err.message}")
@@ -272,22 +297,72 @@ class ObdConnectionManager(private val context: Context) {
 
     // ── ELM327 initialization ──────────────────────────────────────────────────
 
-    private suspend fun initializeElm() {
-        sendCommand("ATZ")
-        delay(500)          // ELM327 takes ~300ms to reset and print its banner
+    private suspend fun initializeElm(transport: String) {
+        diagnostics = ObdDiagnostics(transport = transport, updatedAt = System.currentTimeMillis())
+        val reset = sendCommand("ATZ")
+        if (reset.isNullOrBlank()) {
+            diagnostics = diagnostics.copy(
+                lastCommand = "ATZ",
+                failureReason = "OBD adapter did not answer the reset command",
+                updatedAt = System.currentTimeMillis()
+            )
+            return
+        }
+        delay(300)
+        val identity = sendCommand("ATI")
+        diagnostics = diagnostics.copy(
+            adapterResponding = true,
+            adapterIdentity = ObdResponseDiagnostics.preview(identity ?: reset, 80),
+            updatedAt = System.currentTimeMillis()
+        )
         sendCommand("ATE0") // echo off
         sendCommand("ATL0") // linefeeds off
         sendCommand("ATS1") // spaces on; parser also accepts compact clone responses
         sendCommand("ATH0") // headers off
         sendCommand("ATSP0") // auto-detect OBD protocol
+
+        val voltage = sendCommand("ATRV")
+        val probe = sendCommand("0100")
+        val failure = ObdResponseDiagnostics.classifyEcuProbe(probe)
+        val protocol = sendCommand("ATDP")
+        diagnostics = diagnostics.copy(
+            adapterResponding = true,
+            ecuResponding = failure.isBlank(),
+            adapterVoltage = ObdResponseDiagnostics.preview(voltage, 30),
+            detectedProtocol = ObdResponseDiagnostics.preview(protocol, 80),
+            lastCommand = "0100",
+            lastResponse = ObdResponseDiagnostics.preview(probe),
+            failureReason = failure,
+            updatedAt = System.currentTimeMillis()
+        )
     }
 
     // ── Command dispatch ───────────────────────────────────────────────────────
 
-    private suspend fun sendCommand(command: String): String? = when (activeTransport) {
-        Transport.BLE  -> sendCommandBle(command)
-        Transport.SPP  -> sendCommandSpp(command)
-        Transport.NONE -> null
+    private suspend fun sendCommand(command: String): String? = commandMutex.withLock {
+        val response = when (activeTransport) {
+            Transport.BLE  -> sendCommandBle(command)
+            Transport.SPP  -> sendCommandSpp(command)
+            Transport.NONE -> null
+        }
+        if (!command.startsWith("AT", ignoreCase = true)) {
+            val pid = command.replace(" ", "").uppercase().takeIf { it.length >= 4 && it.startsWith("01") }?.substring(2, 4)
+            val hasEcuResponse = pid != null && response != null && ObdParser.hasResponse(response, "41", pid)
+            val nextFailure = when {
+                hasEcuResponse -> ""
+                diagnostics.ecuResponding -> diagnostics.failureReason
+                command.equals("0100", ignoreCase = true) -> ObdResponseDiagnostics.classifyEcuProbe(response)
+                else -> diagnostics.failureReason
+            }
+            diagnostics = diagnostics.copy(
+                ecuResponding = diagnostics.ecuResponding || hasEcuResponse,
+                lastCommand = command.take(20),
+                lastResponse = ObdResponseDiagnostics.preview(response),
+                failureReason = nextFailure,
+                updatedAt = System.currentTimeMillis()
+            )
+        }
+        response
     }
 
     @SuppressLint("MissingPermission")
@@ -300,11 +375,16 @@ class ObdConnectionManager(private val context: Context) {
         while (bleResponseChannel.tryReceive().isSuccess) { }
 
         val payload = "${command.trim()}\r".toByteArray(Charsets.US_ASCII)
+        val writeType = if (char.properties and BluetoothGattCharacteristic.PROPERTY_WRITE_NO_RESPONSE != 0) {
+            BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE
+        } else {
+            BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            gatt.writeCharacteristic(char, payload, BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE)
+            gatt.writeCharacteristic(char, payload, writeType)
         } else {
             @Suppress("DEPRECATION")
-            char.writeType = BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE
+            char.writeType = writeType
             @Suppress("DEPRECATION")
             char.value = payload
             @Suppress("DEPRECATION")
@@ -328,14 +408,13 @@ class ObdConnectionManager(private val context: Context) {
             val buffer = ByteArray(256)
             val deadline = System.currentTimeMillis() + CMD_TIMEOUT_MS
             while (System.currentTimeMillis() < deadline) {
-                val read = try {
-                    inputStream.read(buffer)
-                } catch (_: SocketTimeoutException) {
-                    if (response.isNotEmpty()) break else continue
+                val available = inputStream.available()
+                if (available <= 0) {
+                    Thread.sleep(10)
+                    continue
                 }
-                if (read <= 0) {
-                    if (response.isNotEmpty()) break else continue
-                }
+                val read = inputStream.read(buffer, 0, minOf(buffer.size, available))
+                if (read <= 0) continue
                 val chunk = String(buffer, 0, read, Charset.forName("US-ASCII"))
                 response.append(chunk)
                 if (chunk.contains(">")) break
@@ -357,12 +436,12 @@ class ObdConnectionManager(private val context: Context) {
         val cleaned = raw
             .replace(">", " ")
             .replace("\r", "\n")
+            .replace(Regex("(?i)SEARCHING\\.{0,3}"), " ")
             .lines()
             .map { it.trim() }
             .filter { line ->
                 line.isNotBlank() &&
-                    !line.equals(command, ignoreCase = true) &&
-                    !line.startsWith("SEARCHING", ignoreCase = true)
+                    !line.replace(" ", "").equals(command.replace(" ", ""), ignoreCase = true)
             }
             .joinToString(" ")
             .trim()

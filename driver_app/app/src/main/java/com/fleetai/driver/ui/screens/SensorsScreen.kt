@@ -239,7 +239,7 @@ private fun ConnectionBanner(
             Text("Status: $status", style = MaterialTheme.typography.bodyMedium)
             Text("Saved dongle: ${savedDevice.ifBlank { "--" }}", style = MaterialTheme.typography.bodySmall)
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
-                StatusPill(label = debug.protocol, good = status.contains("Connected", true) || status.contains("live", true))
+                StatusPill(label = debug.protocol, good = debug.ecuResponding || status.contains("live", true))
                 StatusPill(label = "Vehicle bus", good = debug.lastObdReadAt > 0 && System.currentTimeMillis() - debug.lastObdReadAt < 3000)
                 StatusPill(label = "Live", good = debug.lastSendAt > 0 && System.currentTimeMillis() - debug.lastSendAt < 3000)
             }
@@ -247,6 +247,17 @@ private fun ConnectionBanner(
                 "Last upload: ${debug.lastSendAt.toTime()} | PIDs: ${debug.supportedPidCount} | CAN frames: ${debug.rawFrameCount} | Queued: ${debug.queuedBatches}",
                 style = MaterialTheme.typography.bodySmall
             )
+            if (debug.protocol == "OBD2") {
+                Text(
+                    "Adapter: ${debug.adapterIdentity.ifBlank { "not identified" }} | Voltage: ${debug.adapterVoltage.ifBlank { "--" }}",
+                    style = MaterialTheme.typography.bodySmall
+                )
+                Text(
+                    "ECU: ${if (debug.ecuResponding) "responding" else "no response"} | Protocol: ${debug.detectedProtocol.ifBlank { "not detected" }}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (debug.ecuResponding) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                )
+            }
             if (debug.protocol == "J1939") {
                 Text(
                     "Bus: ${debug.bitrate?.let { "${it / 1_000} kbit/s" } ?: "probing"} | Connector: ${debug.connectorProfile.replace('_', ' ')} | " +
@@ -376,6 +387,13 @@ private fun RawDebugPanel(readings: List<SensorReading>, debug: com.fleetai.driv
                 Text("${it.pid}: raw=${it.raw ?: "--"} smoothed=${it.smoothed ?: "--"} @ ${it.lastUpdated.toTime()}", style = MaterialTheme.typography.bodySmall)
             }
             Text("Last OBD read: ${debug.lastObdReadAt.toTime()} | Last send: ${debug.lastSendAt.toTime()}", style = MaterialTheme.typography.bodySmall)
+            if (debug.protocol == "OBD2") {
+                Text(
+                    "Adapter=${debug.adapterIdentity.ifBlank { "--" }} protocol=${debug.detectedProtocol.ifBlank { "--" }} " +
+                        "ECU=${debug.ecuState} command=${debug.lastObdCommand.ifBlank { "--" }} response=${debug.lastObdResponse.ifBlank { "--" }}",
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
             if (debug.lastError.isNotBlank()) {
                 Text("Errors: ${debug.errors} - ${debug.lastError}", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
             }

@@ -214,7 +214,7 @@
           <div class="commandMetric"><div class="commandMetric__label">Coolant</div><div class="commandMetric__value" id="liveCoolant">--</div><div class="commandMetric__sub">Thermal signal</div></div>
           <div class="commandMetric"><div class="commandMetric__label">Battery</div><div class="commandMetric__value" id="liveBattery">--</div><div class="commandMetric__sub">Electrical signal</div></div>
         </div>
-        <div class="card"><div class="cardHead"><div><h3>Live Sensor Readings</h3><div class="cardMeta"><span id="telemetryStatus" class="pill warn">Waiting</span></div></div><div class="form-group"><label class="form-label" for="telemetryVehicleSelect">Vehicle</label><select class="form-select" id="telemetryVehicleSelect"></select></div></div><div class="cardBody tableWrap"><table class="table"><thead><tr><th>Time</th><th>Vehicle</th><th>RPM</th><th>Speed</th><th>Coolant</th><th>Battery</th><th>Engine Load</th></tr></thead><tbody id="telemetryRows"></tbody></table><div class="inlineError" id="telemetryError"></div></div></div>
+        <div class="card"><div class="cardHead"><div><h3>Live Sensor Readings</h3><div class="cardMeta"><span id="telemetryStatus" class="pill warn">Waiting</span><span id="telemetryEcuDetail" class="muted">Waiting for tablet diagnostics</span></div></div><div class="form-group"><label class="form-label" for="telemetryVehicleSelect">Vehicle</label><select class="form-select" id="telemetryVehicleSelect"></select></div></div><div class="cardBody tableWrap"><table class="table"><thead><tr><th>Time</th><th>Vehicle</th><th>RPM</th><th>Speed</th><th>Coolant</th><th>Battery</th><th>Engine Load</th></tr></thead><tbody id="telemetryRows"></tbody></table><div class="inlineError" id="telemetryError"></div></div></div>
       </section>
 
       <section id="view-telemetry-history" class="section hide">
@@ -761,12 +761,16 @@
       // Those look identical without this, so surface it rather than showing a
       // stale reading as if it were live.
       const linkEl = $("telemetryStatus");
+      const detailEl = $("telemetryEcuDetail");
+      const diagnostics = d.deviceDiagnostics || {};
       const hasVehicleData = Object.values(TELEMETRY_PATHS).some(paths=>telemetryValue(d,paths)!==null);
       if(linkEl && hasVehicleData){
         linkEl.textContent = "Live vehicle data";
         linkEl.className = "pill good";
-      } else if(linkEl && (d.connectionState === "adapter_only" || d.obdConnected === true)){
-        linkEl.textContent = "Tablet online - waiting for ECU data";
+      } else if(linkEl && (d.connectionState === "adapter_only" || d.connectionState === "transport_only" || d.obdConnected === true)){
+        linkEl.textContent = d.connectionState === "transport_only"
+          ? "Tablet online - OBD adapter not responding"
+          : "Tablet online - waiting for ECU data";
         linkEl.className = "pill warn";
       } else if(linkEl && d.obdConnected === false){
         linkEl.textContent = "Tablet online - adapter disconnected";
@@ -774,6 +778,13 @@
       } else if(linkEl){
         linkEl.textContent = "Tablet online - no vehicle data";
         linkEl.className = "pill warn";
+      }
+      if(detailEl){
+        const version = diagnostics.appVersion ? `App ${diagnostics.appVersion}` : "App version unavailable";
+        const adapter = diagnostics.adapterIdentity || (diagnostics.adapterResponding ? "OBD adapter responding" : "OBD adapter not confirmed");
+        const protocol = diagnostics.detectedProtocol || "vehicle protocol not detected";
+        const reason = diagnostics.obdFailureReason || (hasVehicleData ? "ECU data active" : "no ECU response details received");
+        detailEl.textContent = `${version} · ${adapter} · ${protocol} · ${reason}`;
       }
       $("telemetryRows").innerHTML = state.telemetryRows.map(x=>
         `<tr><td>${esc(x.ts||x.timestamp||"now")}</td><td>${esc(x.vehicleId||"--")}</td>`

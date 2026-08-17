@@ -593,9 +593,11 @@ function recordTelemetryActivity(snapshot) {
   };
   const status = snapshot?.busDataActive
     ? "CONNECTED"
-    : snapshot?.obdConnected
+    : snapshot?.connectionState === "adapter_only"
       ? "ADAPTER_ONLY"
-      : "TABLET_ONLY";
+      : snapshot?.connectionState === "transport_only"
+        ? "TRANSPORT_ONLY"
+        : "TABLET_ONLY";
   setTelemetryState(status, ts, ageMs);
 }
 
@@ -627,7 +629,14 @@ const corsOptions = {
   },
   credentials: true,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization", "X-FleetAI-Token", "X-API-Key"]
+  allowedHeaders: [
+    "Content-Type",
+    "Authorization",
+    "X-FleetAI-Token",
+    "X-API-Key",
+    "X-FleetAI-App-Version",
+    "X-FleetAI-App-Version-Code"
+  ]
 };
 app.use(cors(corsOptions));
 app.options(/.*/, cors(corsOptions));

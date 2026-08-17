@@ -1,6 +1,7 @@
 package com.fleetai.driver.telemetry
 
 import com.fleetai.driver.AppGraph
+import com.fleetai.driver.BuildConfig
 import com.fleetai.driver.j1939.CanFrame
 import com.fleetai.driver.j1939.J1939DecodeResult
 import com.fleetai.driver.j1939.UsbJ1939Diagnostics
@@ -42,7 +43,15 @@ class TelemetrySender(
         val rejectedRecords: Long = 0,
         val reconnectCount: Int = 0,
         val busSilenceMs: Long = 0,
-        val connectorProfile: String = "UNKNOWN"
+        val connectorProfile: String = "UNKNOWN",
+        val adapterResponding: Boolean = false,
+        val ecuResponding: Boolean = false,
+        val adapterIdentity: String = "",
+        val adapterVoltage: String = "",
+        val detectedProtocol: String = "",
+        val ecuState: String = "adapter_unavailable",
+        val lastObdCommand: String = "",
+        val lastObdResponse: String = ""
     )
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -88,9 +97,11 @@ class TelemetrySender(
             debug = debug.copy(lastError = error.message ?: "discover_pid_error", errors = debug.errors + 1)
         }
         cachedVin = runCatching { obd.readVin() }.getOrNull()
+        refreshObdDiagnostics()
     }
 
     private suspend fun enqueueCurrentBatch() {
+        if (activeProtocol == "OBD2") refreshObdDiagnostics()
         val metrics = latestMetrics.toMutableMap()
         cachedVin?.let { metrics["vin"] = it }
         metrics[heartbeatKey] = System.currentTimeMillis()
@@ -132,6 +143,37 @@ class TelemetrySender(
                 errors = debug.errors + 1
             )
         }
+    }
+
+    private fun refreshObdDiagnostics() {
+        val diagnostics = obd.diagnosticsSnapshot()
+        debug = debug.copy(
+            adapterResponding = diagnostics.adapterResponding,
+            ecuResponding = diagnostics.ecuResponding,
+            adapterIdentity = diagnostics.adapterIdentity,
+            adapterVoltage = diagnostics.adapterVoltage,
+            detectedProtocol = diagnostics.detectedProtocol,
+            ecuState = diagnostics.ecuState,
+            lastObdCommand = diagnostics.lastCommand,
+            lastObdResponse = diagnostics.lastResponse,
+            lastError = diagnostics.failureReason
+        )
+        latestMeta["appVersion"] = BuildConfig.VERSION_NAME
+        latestMeta["appVersionCode"] = BuildConfig.VERSION_CODE
+        latestMeta["obdTransport"] = diagnostics.transport
+        latestMeta["adapterResponding"] = diagnostics.adapterResponding
+        latestMeta["ecuResponding"] = diagnostics.ecuResponding
+        latestMeta["ecuState"] = diagnostics.ecuState
+        setMetaText("adapterIdentity", diagnostics.adapterIdentity)
+        setMetaText("adapterVoltage", diagnostics.adapterVoltage)
+        setMetaText("detectedProtocol", diagnostics.detectedProtocol)
+        setMetaText("obdLastCommand", diagnostics.lastCommand)
+        setMetaText("obdLastResponse", diagnostics.lastResponse)
+        setMetaText("obdFailureReason", diagnostics.failureReason)
+    }
+
+    private fun setMetaText(key: String, value: String) {
+        if (value.isBlank()) latestMeta.remove(key) else latestMeta[key] = value
     }
 
     fun updateSnapshot(metrics: Map<String, Double?>, obdConnected: Boolean, packetAt: Long = System.currentTimeMillis()) {

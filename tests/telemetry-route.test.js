@@ -104,16 +104,45 @@ async function invoke(app, body) {
     protocol: "OBD2",
     timestamp: "2026-08-14T12:00:00.000Z",
     metrics: { heartbeatMs: 123456 },
-    obdConnected: true
+    obdConnected: true,
+    meta: {
+      appVersion: "1.4",
+      adapterResponding: true,
+      ecuResponding: false,
+      ecuState: "no_ecu_response",
+      obdFailureReason: "ECU returned NO DATA"
+    }
   });
   assert.strictEqual(heartbeat.statusCode, 200);
   assert.strictEqual(heartbeat.body.stored, false);
   assert.strictEqual(heartbeat.body.linkOnly, true);
   assert.strictEqual(heartbeat.body.snapshot.connectionState, "adapter_only");
   assert.strictEqual(heartbeat.body.snapshot.readingCount, 0);
+  assert.strictEqual(heartbeat.body.snapshot.deviceDiagnostics.appVersion, "1.4");
+  assert.strictEqual(heartbeat.body.snapshot.deviceDiagnostics.ecuResponding, false);
+  assert.strictEqual(heartbeat.body.snapshot.deviceDiagnostics.obdFailureReason, "ECU returned NO DATA");
   assert.strictEqual(writes, 1);
   assert.strictEqual(pipelineRuns, 1);
   assert.strictEqual(telemetryLatest.get("TRUCK_1").connectionState, "adapter_only");
+
+  const transportOnly = await invoke(app, {
+    batchId: "batch-transport-only",
+    vehicleId: "TRUCK_1",
+    protocol: "OBD2",
+    timestamp: "2026-08-14T12:00:00.000Z",
+    metrics: { heartbeatMs: 123457 },
+    obdConnected: true,
+    meta: {
+      appVersion: "1.4",
+      adapterResponding: false,
+      ecuResponding: false,
+      ecuState: "adapter_unavailable",
+      obdFailureReason: "OBD adapter did not answer the reset command"
+    }
+  });
+  assert.strictEqual(transportOnly.body.snapshot.connectionState, "transport_only");
+  assert.strictEqual(transportOnly.body.snapshot.deviceDiagnostics.adapterResponding, false);
+  assert.strictEqual(transportOnly.body.stored, false);
 
   console.log("Telemetry route tests passed");
 })().catch((error) => {

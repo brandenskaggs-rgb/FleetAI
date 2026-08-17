@@ -366,6 +366,10 @@ function registerFleetOpsRoutes(app, deps) {
       const readingCount = normalizedReadingCount(metrics);
       const busDataActive = prepared.frames.length > 0 || readingCount > 0;
       const obdConnected = payload.obdConnected !== undefined ? Boolean(payload.obdConnected) : null;
+      const hasAdapterDiagnostic = Object.prototype.hasOwnProperty.call(prepared.decoded.meta || {}, "adapterResponding");
+      const adapterResponding = hasAdapterDiagnostic
+        ? prepared.decoded.meta.adapterResponding === true
+        : obdConnected === true;
       const snapshot = {
         vehicleId,
         driverId: req.device
@@ -381,13 +385,20 @@ function registerFleetOpsRoutes(app, deps) {
         // which otherwise both look like silence.
         obdConnected,
         busDataActive,
-        connectionState: busDataActive ? "live" : obdConnected ? "adapter_only" : "tablet_only",
+        connectionState: busDataActive
+          ? "live"
+          : adapterResponding
+            ? "adapter_only"
+            : obdConnected
+              ? "transport_only"
+              : "tablet_only",
         lastObdPacketAt: busDataActive ? (prepared.quality.lastFrameAt || normalizedTs) : null,
         protocol: prepared.adapter.protocol,
         frameCount: prepared.frames.length,
         readingCount,
         capture: prepared.capture,
-        captureQuality: prepared.quality
+        captureQuality: prepared.quality,
+        deviceDiagnostics: prepared.decoded.meta || {}
       };
       if (busDataActive) {
         storeNormalizedSnapshot(data, prepared.normalized, {
