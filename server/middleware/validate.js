@@ -68,8 +68,8 @@ const orgCreateSchema = z.object({
   primaryContactEmail: z.string().email("Must be a valid email.").max(200),
   phone: z.string().max(80).optional().default(""),
   status: z.string().max(20).optional(),
-  fleetSizeEstimate: z.number().int().min(0).optional(),
-  activeVehicles: z.number().int().min(0).optional(),
+  fleetSizeEstimate: z.coerce.number().int().min(0).optional(),
+  activeVehicles: z.coerce.number().int().min(0).optional(),
   billingPlan: z.string().max(80).optional(),
   notes: z.string().max(1200).optional().default("")
 });

@@ -105,12 +105,6 @@ function createAuthService(options) {
       logAuth("inactive user", { scope, email: emailNormalized, userId: user.id || null });
       return { ok: false, error: AUTH_ERRORS.ACCOUNT_LOCKED };
     }
-    if (needsPasswordSetup(user)) {
-      const tokenInfo = issueSetupToken(user);
-      await saveData(data);
-      logAuth("password setup required", { scope, email: emailNormalized, userId: user.id || null });
-      return { ok: false, error: AUTH_ERRORS.PASSWORD_SETUP_REQUIRED, next: tokenInfo };
-    }
     let ok = false;
     try {
       ok = await bcrypt.compare(password, user.passwordHash);
@@ -125,6 +119,16 @@ function createAuthService(options) {
     }
     if (!ok) {
       return { ok: false, error: AUTH_ERRORS.INVALID_CREDENTIALS };
+    }
+    // A first-login token is credential-equivalent: it can replace the
+    // account password. Verify the issued temporary password before creating
+    // that token, otherwise knowing only an email address is enough to take
+    // over any account marked for password setup.
+    if (needsPasswordSetup(user)) {
+      const tokenInfo = issueSetupToken(user);
+      await saveData(data);
+      logAuth("password setup required", { scope, email: emailNormalized, userId: user.id || null });
+      return { ok: false, error: AUTH_ERRORS.PASSWORD_SETUP_REQUIRED, next: tokenInfo };
     }
     user.lastLoginAt = new Date().toISOString();
     await saveData(data);

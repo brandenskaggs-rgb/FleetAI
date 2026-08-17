@@ -458,11 +458,28 @@ function registerOrgManagementRoutes(app, deps) {
     }
   });
   
-  app.post("/api/orgs/:orgId/create-customer-login", requireEmployeeApi, requireRole(["SUPER_ADMIN"]), async (req, res, next) => {
+  function isCustomerAccountForOrg(user, orgId) {
+    if (!user) return false;
+    const role = String(user.role || "").toUpperCase();
+    return (role.startsWith("CUSTOMER") || role === "ORG_ADMIN") && user.orgId === orgId;
+  }
+
+  function authOrgRecord(org) {
+    return {
+      id: org.orgId || org.id,
+      name: org.name || "Fleet AI Org",
+      status: org.status || "PILOT",
+      email: org.primaryContactEmail || null,
+      phone: org.phone || null
+    };
+  }
+
+  async function handleCreateCustomerLogin(req, res, next) {
     try {
       const rate = getRateState(`cust-create:${req.employee?.userId || req.employee?.email || "unknown"}`);
       if (!rate.allowed) return res.status(429).json({ error: "Too many requests. Try again later." });
       const data = await readData();
+      data.users = Array.isArray(data.users) ? data.users : [];
       const org = (data.orgs || []).find((o) => (o.orgId || o.id) === req.params.orgId || o.id === req.params.orgId);
       if (!org) return res.status(404).json({ error: "Org not found" });
       if (String(org.status || "").toUpperCase() === "DELETED") {
@@ -470,18 +487,63 @@ function registerOrgManagementRoutes(app, deps) {
       }
       const email = normalizeEmail(req.body?.email || org.primaryContactEmail);
       if (!email) return res.status(400).json({ error: "Valid email required" });
-      const exists = (data.users || []).some((u) => u.email === email);
-      if (exists) return res.status(409).json({ error: "User already exists" });
+      const orgId = org.orgId || org.id;
+      const jsonUser = data.users.find((u) => normalizeEmail(u.email) === email) || null;
+      const authData = prismaAuthAdapter ? await prismaAuthAdapter.loadData() : null;
+      const authUser = (authData?.users || []).find((u) => normalizeEmail(u.email) === email) || null;
+
+      for (const existing of [jsonUser, authUser].filter(Boolean)) {
+        if (!isCustomerAccountForOrg(existing, orgId)) {
+          return res.status(409).json({
+            error: "That email already belongs to another Fleet AI account. Use a different customer email."
+          });
+        }
+      }
+
+      // The Prisma auth store is authoritative for login. Older provisioning
+      // wrote JSON first, so a failed database write left an account visible in
+      // the employee portal but invisible to customer login. Repair either
+      // half of that split state instead of returning a permanent conflict.
+      if (authUser) {
+        if (!jsonUser) {
+          data.users.push(authUser);
+          addAudit(data, "CUSTOMER_LOGIN_INDEX_REPAIRED", `${authUser.id}:${email}`);
+          await writeData(data);
+        }
+        return res.json({ ok: true, data: { email, alreadyExists: true } });
+      }
+
+      if (jsonUser) {
+        let tempPassword = null;
+        if (!jsonUser.passwordHash) {
+          tempPassword = generateTempPassword();
+          jsonUser.passwordHash = await bcrypt.hash(tempPassword, 12);
+          jsonUser.mustSetPassword = true;
+          jsonUser.requirePasswordReset = true;
+          jsonUser.mustResetPassword = true;
+          jsonUser.isTemporaryPassword = true;
+        }
+        if (prismaAuthAdapter) {
+          await prismaAuthAdapter.saveData({ users: [jsonUser], orgs: [authOrgRecord(org)] });
+        }
+        addAudit(data, "CUSTOMER_LOGIN_AUTH_REPAIRED", `${jsonUser.id}:${email}`);
+        await writeData(data);
+        return res.json({ ok: true, data: { email, repaired: true, tempPassword } });
+      }
+
       const tempPassword = generateTempPassword();
       const passwordHash = await bcrypt.hash(tempPassword, 12);
       const user = {
         id: makeId("USR"),
         email,
         role: "ORG_ADMIN",
-        orgId: org.orgId || org.id,
+        kind: "customer",
+        orgId,
         displayName: sanitizeString(req.body?.contactName || org.primaryContactName || "", 200),
         status: "ACTIVE",
         isActive: true,
+        active: true,
+        verified: true,
         isTemporaryPassword: true,
         mustSetPassword: true,
         requirePasswordReset: true,
@@ -493,20 +555,22 @@ function registerOrgManagementRoutes(app, deps) {
         lastLoginAt: null,
         passwordHash
       };
+      // Write the login authority first. If the secondary JSON index fails,
+      // the customer can still authenticate and a retry repairs the index.
+      if (prismaAuthAdapter) {
+        await prismaAuthAdapter.saveData({ users: [user], orgs: [authOrgRecord(org)] });
+      }
       data.users.push(user);
       addAudit(data, "CUSTOMER_LOGIN_CREATED", `${user.id}:${user.email}`);
       await writeData(data);
-      if (prismaAuthAdapter) await prismaAuthAdapter.saveData({ users: [user], orgs: [] });
       res.status(201).json({ ok: true, data: { email: user.email, tempPassword } });
     } catch (err) {
       next(err);
     }
-  });
-  
-  app.post("/api/orgs/:orgId/customer/create", requireEmployeeApi, requireRole(["SUPER_ADMIN"]), async (req, res, next) => {
-    req.url = `/api/orgs/${req.params.orgId}/create-customer-login`;
-    app.handle(req, res, next);
-  });
+  }
+
+  app.post("/api/orgs/:orgId/create-customer-login", requireEmployeeApi, requireRole(["SUPER_ADMIN"]), handleCreateCustomerLogin);
+  app.post("/api/orgs/:orgId/customer/create", requireEmployeeApi, requireRole(["SUPER_ADMIN"]), handleCreateCustomerLogin);
   
   app.post("/api/orgs/:orgId/customer/reset-password", requireEmployeeApi, requireRole(["SUPER_ADMIN"]), async (req, res, next) => {
     try {
@@ -521,8 +585,15 @@ function registerOrgManagementRoutes(app, deps) {
       }
       const email = normalizeEmail(req.body?.email || org.primaryContactEmail);
       if (!email) return res.status(400).json({ error: "Valid email required" });
-      const user = (data.users || []).find((u) => u.email === email && ["CUSTOMER_ADMIN", "ORG_ADMIN"].includes(u.role));
+      data.users = Array.isArray(data.users) ? data.users : [];
+      const jsonUser = data.users.find((u) => normalizeEmail(u.email) === email) || null;
+      const authData = prismaAuthAdapter ? await prismaAuthAdapter.loadData() : null;
+      const authUser = (authData?.users || []).find((u) => normalizeEmail(u.email) === email) || null;
+      const user = jsonUser || authUser;
       if (!user) return res.status(404).json({ error: "Customer user not found" });
+      if (!isCustomerAccountForOrg(user, orgId)) {
+        return res.status(409).json({ error: "Customer account does not belong to this organization" });
+      }
       const tempPassword = generateTempPassword();
       user.passwordHash = await bcrypt.hash(tempPassword, 12);
       user.mustResetPassword = true;
@@ -533,10 +604,17 @@ function registerOrgManagementRoutes(app, deps) {
       user.lastPasswordChangeAt = null;
       user.passwordLastSetAt = null;
       user.status = user.status || "ACTIVE";
+      user.kind = "customer";
+      user.isActive = true;
+      user.active = true;
+      user.verified = true;
       user.lastLoginAt = null;
+      if (!jsonUser) data.users.push(user);
       addAudit(data, "CUSTOMER_PASSWORD_RESET", `${user.id}:${user.email}`);
+      if (prismaAuthAdapter) {
+        await prismaAuthAdapter.saveData({ users: [user], orgs: [authOrgRecord(org)] });
+      }
       await writeData(data);
-      if (prismaAuthAdapter) await prismaAuthAdapter.saveData({ users: [user], orgs: [] });
       res.json({ ok: true, data: { email: user.email, tempPassword } });
     } catch (err) {
       next(err);

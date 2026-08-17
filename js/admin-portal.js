@@ -123,7 +123,9 @@ async function apiJson(path, opts) {
   diagLog("request", opts?.method || "GET", path);
   const url = resolveApiUrl(path);
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 3500);
+  const method = String(opts?.method || "GET").toUpperCase();
+  const timeoutMs = method === "GET" ? 8000 : 15000;
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
   const requestHeaders = Object.assign({ "Content-Type": "application/json" }, opts?.headers || {});
   diagLog("request headers", path, requestHeaders);
   updateConsoleDebug({
@@ -1531,24 +1533,60 @@ function bindOrgCreate() {
           <span>Notes</span>
           <textarea name="notes" rows="3"></textarea>
         </label>
-        <button class="btn primary" type="submit">Create Organization</button>
+        <label class="fieldGroup" style="display:flex;flex-direction:row;align-items:flex-start;gap:10px;">
+          <input type="checkbox" name="createCustomerLogin" checked style="width:auto;margin-top:3px;" />
+          <span>Create customer access for the primary contact</span>
+        </label>
+        <button class="btn primary" type="submit">Create Company &amp; Access</button>
       </form>`
     });
     document.getElementById("orgCreateForm").addEventListener("submit", async (e) => {
       e.preventDefault();
       const payload = Object.fromEntries(new FormData(e.target));
+      payload.createCustomerLogin = Boolean(e.target.elements.createCustomerLogin?.checked);
+      for (const field of ["fleetSizeEstimate", "activeVehicles"]) {
+        payload[field] = payload[field] === "" ? 0 : Number(payload[field]);
+      }
+      let createdOrg = null;
       try {
         const data = await apiJson("/api/orgs", {
           method: "POST",
           body: JSON.stringify(payload)
         });
+        createdOrg = data && data.data;
         closeModal();
         await loadOrgs();
-        if (data && data.data) {
-          selectOrg(data.data.orgId || data.data.id);
+        if (createdOrg) {
+          selectOrg(createdOrg.orgId || createdOrg.id);
         }
       } catch (err) {
-        alert(err.message || "Unable to create org.");
+        alert(err.message || "Unable to create company.");
+        return;
+      }
+
+      if (createdOrg && payload.createCustomerLogin) {
+        try {
+          const customerAccess = await apiJson(`/api/orgs/${encodeURIComponent(createdOrg.orgId || createdOrg.id)}/customer/create`, {
+            method: "POST",
+            body: JSON.stringify({
+              email: payload.primaryContactEmail,
+              contactName: payload.primaryContactName
+            })
+          });
+          if (customerAccess?.data?.tempPassword) {
+            showCustomerTempPassword(customerAccess.data.tempPassword);
+          } else if (customerAccess?.data?.alreadyExists || customerAccess?.data?.repaired) {
+            const note = $("orgSaveNote");
+            if (note) note.textContent = customerAccess.data.repaired
+              ? "Customer access was repaired. Use the existing password or reset it below."
+              : "Customer access already exists. Use reset if a new temporary password is needed.";
+          }
+        } catch (err) {
+          const note = $("orgSaveNote");
+          if (note) {
+            note.textContent = `Company created, but customer access failed: ${err.message || "unknown error"}. Use Create Customer Login below to retry.`;
+          }
+        }
       }
     });
   });
@@ -1566,7 +1604,14 @@ async function createCustomerLogin() {
       body: JSON.stringify({ email, contactName })
     });
     if (data && data.data) {
-      showCustomerTempPassword(data.data.tempPassword);
+      if (data.data.tempPassword) {
+        showCustomerTempPassword(data.data.tempPassword);
+      } else {
+        const note = $("orgSaveNote");
+        if (note) note.textContent = data.data.repaired
+          ? "Customer access repaired. Use the existing password or reset it below."
+          : "Customer access already exists. Use reset if a new temporary password is needed.";
+      }
     }
   } catch (e) {
     alert(e.message || "Unable to create customer login.");
