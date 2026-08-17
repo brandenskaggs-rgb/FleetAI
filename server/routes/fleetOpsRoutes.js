@@ -62,6 +62,27 @@ function registerFleetOpsRoutes(app, deps) {
     return scoped.filter(Boolean);
   }
 
+  function normalizeOrgEmail(org) {
+    return String(org?.primaryContactEmail || org?.email || "").trim().toLowerCase();
+  }
+
+  async function canRecoverBetweenOrgs(sourceOrgId, targetOrgId) {
+    if (!sourceOrgId || !targetOrgId) return false;
+    if (sourceOrgId === targetOrgId) return true;
+
+    const data = await readData();
+    const jsonOrgs = Array.isArray(data?.orgs) ? data.orgs : [];
+    const sourceJson = jsonOrgs.find((org) => String(org?.id || org?.orgId || "") === sourceOrgId);
+    const targetJson = jsonOrgs.find((org) => String(org?.id || org?.orgId || "") === targetOrgId);
+    const [sourceDb, targetDb] = await Promise.all([
+      db.getOrg(sourceOrgId),
+      db.getOrg(targetOrgId)
+    ]);
+    const sourceEmail = normalizeOrgEmail(sourceJson) || normalizeOrgEmail(sourceDb);
+    const targetEmail = normalizeOrgEmail(targetJson) || normalizeOrgEmail(targetDb);
+    return Boolean(sourceEmail && targetEmail && sourceEmail === targetEmail);
+  }
+
   async function handleListVehicles(req, res, next) {
     try {
       const orgId = await resolveRequestOrgId(req);
@@ -85,19 +106,64 @@ function registerFleetOpsRoutes(app, deps) {
       if (!normalizedOrgId) {
         return res.status(400).json({ error: "orgId required" });
       }
-      const existing = await db.getVehicleByVehicleId(vehicleId);
-      if (existing) {
-        return res.status(409).json({ error: "Vehicle already exists" });
-      }
-      const vehicle = await db.createVehicle({
-        vehicleId,
-        unitName,
-        vin,
-        type,
-        orgId: normalizedOrgId,
+      const normalizedVehicleId = sanitizeString(vehicleId, 80);
+      const normalizedVin = sanitizeString(vin, 40).toUpperCase();
+      const submittedVehicle = {
+        unitName: sanitizeString(unitName, 120),
+        vin: normalizedVin,
+        type: sanitizeString(type, 80),
         year: parseNumberField(req.body?.year, null),
         make: sanitizeString(req.body?.make || "", 80),
         model: sanitizeString(req.body?.model || "", 80)
+      };
+      const [existingById, existingByVin] = await Promise.all([
+        db.getVehicleByVehicleId(normalizedVehicleId),
+        db.getVehicleByVin(normalizedVin)
+      ]);
+
+      if (existingById && existingByVin && existingById.vehicleId !== existingByVin.vehicleId) {
+        return res.status(409).json({
+          ok: false,
+          code: "VEHICLE_ID_VIN_CONFLICT",
+          error: "That unit ID and VIN belong to different existing vehicles. Choose a different unit ID or contact support."
+        });
+      }
+      if (existingById && existingById.vin && String(existingById.vin).trim().toUpperCase() !== normalizedVin) {
+        return res.status(409).json({
+          ok: false,
+          code: "VEHICLE_ID_CONFLICT",
+          error: "That unit ID is already assigned to a different VIN. Choose a different unit ID."
+        });
+      }
+
+      const existing = existingByVin || existingById;
+      if (existing) {
+        const sameOrg = existing.orgId === normalizedOrgId;
+        if (!sameOrg && !(await canRecoverBetweenOrgs(existing.orgId, normalizedOrgId))) {
+          return res.status(409).json({
+            ok: false,
+            code: "VEHICLE_IN_OTHER_ORG",
+            error: "That VIN or unit ID belongs to another fleet account. Contact support if the vehicle changed ownership."
+          });
+        }
+
+        const recovered = await db.transferVehicleToOrg(existing.vehicleId, normalizedOrgId, submittedVehicle);
+        await db.logAudit({
+          orgId: normalizedOrgId,
+          event: sameOrg ? "VEHICLE_RESURFACED" : "VEHICLE_RECOVERED",
+          detail: sameOrg ? existing.vehicleId : `${existing.vehicleId}:${existing.orgId}->${normalizedOrgId}`
+        });
+        return res.json({
+          ok: true,
+          data: recovered,
+          alreadyExists: sameOrg,
+          recovered: !sameOrg
+        });
+      }
+      const vehicle = await db.createVehicle({
+        vehicleId: normalizedVehicleId,
+        ...submittedVehicle,
+        orgId: normalizedOrgId,
       });
       await db.logAudit({ orgId: normalizedOrgId, event: "VEHICLE_CREATED", detail: vehicle.vehicleId });
       if (req.path.startsWith("/api/orgs/")) {
@@ -105,6 +171,13 @@ function registerFleetOpsRoutes(app, deps) {
       }
       return res.json({ ok: true, data: vehicle });
     } catch (err) {
+      if (err?.code === "P2002") {
+        return res.status(409).json({
+          ok: false,
+          code: "VEHICLE_DUPLICATE",
+          error: "A vehicle with that unit ID or VIN already exists. Refresh the vehicle list and try again."
+        });
+      }
       next(err);
     }
   }

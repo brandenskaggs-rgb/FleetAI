@@ -496,6 +496,53 @@ async function getVehicleByVehicleId(vehicleId) {
   return row ? rowToVehicle(row) : null;
 }
 
+async function getVehicleByVin(vin) {
+  const normalizedVin = String(vin || "").trim().toUpperCase();
+  if (!normalizedVin) return null;
+  const row = await getPrisma().vehicle.findFirst({
+    where: { vin: { equals: normalizedVin, mode: "insensitive" } }
+  });
+  return row ? rowToVehicle(row) : null;
+}
+
+async function transferVehicleToOrg(vehicleId, orgId, patch = {}) {
+  const prisma = getPrisma();
+  const vehicleData = {
+    orgId,
+    unitName: patch.unitName || undefined,
+    vin: patch.vin ? String(patch.vin).trim().toUpperCase() : undefined,
+    type: patch.type || undefined,
+    year: patch.year ?? undefined,
+    make: patch.make || undefined,
+    model: patch.model || undefined
+  };
+  const operations = [
+    prisma.pairing.updateMany({ where: { vehicleId }, data: { orgId } }),
+    prisma.telemetrySample.updateMany({ where: { vehicleId }, data: { orgId } }),
+    prisma.telemetrySnapshot.updateMany({ where: { vehicleId }, data: { orgId } }),
+    prisma.telemetryRecord.updateMany({ where: { vehicleId }, data: { orgId } }),
+    prisma.modelState.updateMany({ where: { vehicleId }, data: { orgId } }),
+    prisma.mlPredictionRun.updateMany({ where: { vehicleId }, data: { orgId } }),
+    prisma.mlFeatureSnapshot.updateMany({ where: { vehicleId }, data: { orgId } }),
+    prisma.baseline.updateMany({ where: { vehicleId }, data: { orgId } }),
+    prisma.trendSignal.updateMany({ where: { vehicleId }, data: { orgId } }),
+    prisma.feedbackLog.updateMany({ where: { vehicleId }, data: { orgId } }),
+    prisma.patternSignature.updateMany({ where: { vehicleId }, data: { orgId } }),
+    prisma.recommendation.updateMany({ where: { vehicleId }, data: { orgId } }),
+    prisma.alert.updateMany({ where: { vehicleId }, data: { orgId } }),
+    prisma.event.updateMany({ where: { vehicleId }, data: { orgId } }),
+    prisma.notification.updateMany({ where: { vehicleId }, data: { orgId } }),
+    prisma.aiReport.updateMany({ where: { vehicleId }, data: { orgId } }),
+    prisma.fuelEvent.updateMany({ where: { vehicleId }, data: { orgId } }),
+    prisma.maintenanceLog.updateMany({ where: { vehicleId }, data: { orgId } }),
+    prisma.workOrder.updateMany({ where: { vehicleId }, data: { orgId } }),
+    prisma.diagnosticScan.updateMany({ where: { vehicleId }, data: { orgId } }),
+    prisma.vehicle.update({ where: { vehicleId }, data: vehicleData })
+  ];
+  const results = await prisma.$transaction(operations);
+  return rowToVehicle(results[results.length - 1]);
+}
+
 async function deleteVehicleByVehicleId(vehicleId) {
   try {
     const row = await getPrisma().vehicle.delete({ where: { vehicleId } });
@@ -1227,6 +1274,8 @@ module.exports = {
   createVehicle,
   listVehicles,
   getVehicleByVehicleId,
+  getVehicleByVin,
+  transferVehicleToOrg,
   deleteVehicleByVehicleId,
   findVehicleByMotiveIdOrVin,
   upsertVehicleFromMotive,
