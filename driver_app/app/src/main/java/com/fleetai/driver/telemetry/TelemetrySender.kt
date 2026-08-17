@@ -97,7 +97,11 @@ class TelemetrySender(
         val frames = drainFrameSample()
         val vehicleId = resolveVehicleId()
         if (vehicleId.isNullOrBlank() || (metrics.size == 1 && frames.isEmpty() && !latestConnected)) return
-        val capturedAt = if (latestPacketAt > 0L) Instant.ofEpochMilli(latestPacketAt) else Instant.now()
+        val lastVehiclePacketAt = latestPacketAt.takeIf { it > 0L }?.let { Instant.ofEpochMilli(it) }
+        val capturedAt = lastVehiclePacketAt ?: Instant.now()
+        val busDataActive = frames.isNotEmpty() || metrics.any { (key, value) ->
+            key != heartbeatKey && key != "vin" && value != null
+        }
         val request = TelemetryIngestRequest(
             batchId = UUID.randomUUID().toString(),
             vehicleId = vehicleId,
@@ -111,7 +115,8 @@ class TelemetrySender(
             meta = latestMeta.toMap(),
             adapter = adapterMetadata,
             obdConnected = latestConnected,
-            lastObdPacketAt = capturedAt.toString()
+            busDataActive = busDataActive,
+            lastObdPacketAt = lastVehiclePacketAt?.toString()
         )
         try {
             AppGraph.telemetryOutbox.enqueue(request)

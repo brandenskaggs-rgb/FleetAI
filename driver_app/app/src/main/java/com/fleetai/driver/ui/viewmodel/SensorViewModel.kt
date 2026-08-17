@@ -327,6 +327,26 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
                     packetAt = now
                 )
 
+                val liveSignalCount = listOf(
+                    rpmValue,
+                    speedValue,
+                    coolantValue,
+                    voltageValue,
+                    intakeValue,
+                    loadValue,
+                    throttleValue,
+                    mapValue,
+                    baroValue,
+                    mafValue,
+                    fuelLevelValue,
+                    oilTempValue
+                ).count { it != null }
+                _status.value = if (liveSignalCount > 0) {
+                    "Live vehicle data - $liveSignalCount signals"
+                } else {
+                    "Adapter connected - waiting for ECU data"
+                }
+
                 val unit = _unitPrefs.value
                 val coreReadings = listOfNotNull(
                     buildReading("010C", "RPM", rpmValue, "rpm", now, decimals = 0),
@@ -393,8 +413,19 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
 
     private suspend fun readPidValue(pid: String, parser: (String) -> Double?): PidReadResult {
         return try {
-            val raw = obd.readPid(pid) ?: return PidReadResult(null, null)
-            PidReadResult(parser(raw), null)
+            val raw = obd.readPid(pid) ?: return PidReadResult(null, "No response from adapter")
+            val value = parser(raw)
+            val error = if (value == null) {
+                when {
+                    raw.contains("NO DATA", ignoreCase = true) -> "ECU returned NO DATA"
+                    raw.contains("UNABLE TO CONNECT", ignoreCase = true) -> "Adapter cannot reach the ECU"
+                    raw.contains("BUS", ignoreCase = true) -> raw.take(80)
+                    else -> "Unrecognized response for $pid"
+                }
+            } else {
+                null
+            }
+            PidReadResult(value, error)
         } catch (err: Exception) {
             val message = err.message ?: "obd_read_error"
             PidReadResult(null, message)

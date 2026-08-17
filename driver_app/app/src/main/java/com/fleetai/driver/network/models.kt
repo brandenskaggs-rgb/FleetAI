@@ -105,7 +105,8 @@ data class TelemetryIngestRequest(
     val adapter: TelemetryAdapterDto? = null,
     val derivedMetrics: Map<String, Any?> = emptyMap(),
     val obdConnected: Boolean = true,
-    val lastObdPacketAt: String = timestamp
+    val busDataActive: Boolean = false,
+    val lastObdPacketAt: String? = null
 )
 
 data class TelemetryDtcDto(

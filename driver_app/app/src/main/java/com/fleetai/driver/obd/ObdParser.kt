@@ -144,7 +144,13 @@ object ObdParser {
             .replace("\n", " ")
             .replace(">", " ")
             .split(" ")
-            .map { it.trim().uppercase() }
-            .filter { it.matches(Regex("^[0-9A-F]{2}$")) }
+            .flatMap { token ->
+                val hex = token.trim().uppercase()
+                if (hex.length >= 2 && hex.length % 2 == 0 && hex.matches(Regex("^[0-9A-F]+$"))) {
+                    hex.chunked(2)
+                } else {
+                    emptyList()
+                }
+            }
     }
 }

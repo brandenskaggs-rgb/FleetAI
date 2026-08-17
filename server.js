@@ -581,6 +581,24 @@ function setTelemetryState(status, lastSampleAt, ageMs) {
   telemetryState.ageMs = ageMs;
 }
 
+function recordTelemetryActivity(snapshot) {
+  const ts = snapshot?.ts || nowIso();
+  const parsedTs = new Date(ts).getTime();
+  const ageMs = Number.isFinite(parsedTs) ? Math.max(0, Date.now() - parsedTs) : 0;
+  telemetryLastSeen = {
+    vehicleId: snapshot?.vehicleId || null,
+    driverId: snapshot?.driverId || null,
+    deviceId: snapshot?.deviceId || null,
+    ts
+  };
+  const status = snapshot?.busDataActive
+    ? "CONNECTED"
+    : snapshot?.obdConnected
+      ? "ADAPTER_ONLY"
+      : "TABLET_ONLY";
+  setTelemetryState(status, ts, ageMs);
+}
+
 // Throttled heartbeat log (every ~2s when telemetry is active)
 let lastHeartbeatLog = 0;
 function logTelemetryHeartbeat(status, ageMs, source, metrics) {
@@ -980,7 +998,8 @@ registerFleetOpsRoutes(app, {
   getTelemetryState: () => telemetryState,
   triggerTelemetryPipeline,
   storeNormalizedSnapshot,
-  normalizeMetrics
+  normalizeMetrics,
+  recordTelemetryActivity
 });
 
 // On-board diagnostics: CAN sensor visibility + fault-code scanning, with any

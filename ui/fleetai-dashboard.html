@@ -761,15 +761,19 @@
       // Those look identical without this, so surface it rather than showing a
       // stale reading as if it were live.
       const linkEl = $("telemetryStatus");
-      if(linkEl && d.obdConnected === false){
-        linkEl.textContent = "Tablet online, OBD unplugged";
+      const hasVehicleData = Object.values(TELEMETRY_PATHS).some(paths=>telemetryValue(d,paths)!==null);
+      if(linkEl && hasVehicleData){
+        linkEl.textContent = "Live vehicle data";
+        linkEl.className = "pill good";
+      } else if(linkEl && (d.connectionState === "adapter_only" || d.obdConnected === true)){
+        linkEl.textContent = "Tablet online - waiting for ECU data";
         linkEl.className = "pill warn";
-      } else if(linkEl && d.obdConnected === true){
-        linkEl.textContent = "Live data";
-        linkEl.className = "pill good";
+      } else if(linkEl && d.obdConnected === false){
+        linkEl.textContent = "Tablet online - adapter disconnected";
+        linkEl.className = "pill warn";
       } else if(linkEl){
-        linkEl.textContent = "Live data";
-        linkEl.className = "pill good";
+        linkEl.textContent = "Tablet online - no vehicle data";
+        linkEl.className = "pill warn";
       }
       $("telemetryRows").innerHTML = state.telemetryRows.map(x=>
         `<tr><td>${esc(x.ts||x.timestamp||"now")}</td><td>${esc(x.vehicleId||"--")}</td>`

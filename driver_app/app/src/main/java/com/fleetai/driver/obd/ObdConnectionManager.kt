@@ -277,7 +277,7 @@ class ObdConnectionManager(private val context: Context) {
         delay(500)          // ELM327 takes ~300ms to reset and print its banner
         sendCommand("ATE0") // echo off
         sendCommand("ATL0") // linefeeds off
-        sendCommand("ATS0") // spaces off — removes spaces between hex bytes
+        sendCommand("ATS1") // spaces on; parser also accepts compact clone responses
         sendCommand("ATH0") // headers off
         sendCommand("ATSP0") // auto-detect OBD protocol
     }

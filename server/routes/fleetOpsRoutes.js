@@ -4,6 +4,12 @@ const { requireOperatorOrDevice: buildOperatorOrDevice, requireDevice } = requir
 const { prepareTelemetryIngest, TelemetryPayloadError } = require("../telematics/ingest/prepareTelemetryIngest");
 const { appendFrames } = require("../telematics/storage/telemetryStore");
 
+function normalizedReadingCount(normalized) {
+  return ["engine", "electrical", "vehicle", "emissions", "environment"]
+    .flatMap((group) => Object.values(normalized?.[group] || {}))
+    .filter((value) => value !== null && value !== undefined && value !== "").length;
+}
+
 function registerFleetOpsRoutes(app, deps) {
   const {
     readData,
@@ -19,7 +25,8 @@ function registerFleetOpsRoutes(app, deps) {
     getTelemetryState,
     triggerTelemetryPipeline,
     storeNormalizedSnapshot,
-    normalizeMetrics
+    normalizeMetrics,
+    recordTelemetryActivity = () => {}
   } = deps;
 
   // Accepts either an operator session or a paired-device token.
@@ -356,6 +363,9 @@ function registerFleetOpsRoutes(app, deps) {
       });
       const metrics = prepared.normalized;
       const normalizedTs = prepared.normalized.timestamp;
+      const readingCount = normalizedReadingCount(metrics);
+      const busDataActive = prepared.frames.length > 0 || readingCount > 0;
+      const obdConnected = payload.obdConnected !== undefined ? Boolean(payload.obdConnected) : null;
       const snapshot = {
         vehicleId,
         driverId: req.device
@@ -369,41 +379,47 @@ function registerFleetOpsRoutes(app, deps) {
         // Link state from the tablet: lets the dashboard tell "reporting
         // normally" apart from "tablet online but OBD adapter unplugged",
         // which otherwise both look like silence.
-        obdConnected: payload.obdConnected !== undefined ? Boolean(payload.obdConnected) : null,
-        lastObdPacketAt: prepared.quality.lastFrameAt || normalizedTs,
+        obdConnected,
+        busDataActive,
+        connectionState: busDataActive ? "live" : obdConnected ? "adapter_only" : "tablet_only",
+        lastObdPacketAt: busDataActive ? (prepared.quality.lastFrameAt || normalizedTs) : null,
         protocol: prepared.adapter.protocol,
         frameCount: prepared.frames.length,
+        readingCount,
         capture: prepared.capture,
         captureQuality: prepared.quality
       };
-      storeNormalizedSnapshot(data, prepared.normalized, {
-        driverId: snapshot.driverId,
-        deviceId: snapshot.deviceId,
-        rawPids: payload.metrics || {},
-        derivedMetrics: payload.derivedMetrics || {},
-        meta: Object.assign({}, prepared.decoded.meta || {}, {
-          capture: prepared.capture,
-          quality: prepared.quality
-        }),
-        vin: prepared.decoded.meta?.vin || null
-      });
-      if (prepared.frames.length) {
-        appendFrames(data, prepared.frames.map((frame) => Object.assign({}, frame, {
-          orgId,
-          vehicleId,
+      if (busDataActive) {
+        storeNormalizedSnapshot(data, prepared.normalized, {
           driverId: snapshot.driverId,
           deviceId: snapshot.deviceId,
-          protocol: prepared.adapter.protocol,
-          capture: prepared.capture
-        })));
+          rawPids: payload.metrics || {},
+          derivedMetrics: payload.derivedMetrics || {},
+          meta: Object.assign({}, prepared.decoded.meta || {}, {
+            capture: prepared.capture,
+            quality: prepared.quality
+          }),
+          vin: prepared.decoded.meta?.vin || null
+        });
+        if (prepared.frames.length) {
+          appendFrames(data, prepared.frames.map((frame) => Object.assign({}, frame, {
+            orgId,
+            vehicleId,
+            driverId: snapshot.driverId,
+            deviceId: snapshot.deviceId,
+            protocol: prepared.adapter.protocol,
+            capture: prepared.capture
+          })));
+        }
+        if (batchId) {
+          data.telemetryIngestReceipts.push({ batchId, deviceId: snapshot.deviceId, vehicleId, receivedAt: nowIso() });
+          if (data.telemetryIngestReceipts.length > 5000) data.telemetryIngestReceipts = data.telemetryIngestReceipts.slice(-5000);
+        }
+        await writeData(data);
       }
-      if (batchId) {
-        data.telemetryIngestReceipts.push({ batchId, deviceId: snapshot.deviceId, vehicleId, receivedAt: nowIso() });
-        if (data.telemetryIngestReceipts.length > 5000) data.telemetryIngestReceipts = data.telemetryIngestReceipts.slice(-5000);
-      }
-      await writeData(data);
       telemetryLatest.set(vehicleId, snapshot);
-      triggerTelemetryPipeline();
+      recordTelemetryActivity(snapshot);
+      if (busDataActive) triggerTelemetryPipeline();
 
       // Fan out to the fleet manager's dashboard in real time. Resolved from
       // the pairing for a device, otherwise looked up from the vehicle, so a
@@ -414,7 +430,7 @@ function registerFleetOpsRoutes(app, deps) {
       }
       broadcastTelemetry(snapshot, snapshotOrgId);
 
-      res.json({ ok: true, success: true, stored: true, snapshot });
+      res.json({ ok: true, success: true, stored: busDataActive, linkOnly: !busDataActive, snapshot });
     } catch (err) {
       if (err instanceof TelemetryPayloadError) {
         return res.status(err.statusCode).json({ ok: false, success: false, error: err.message });

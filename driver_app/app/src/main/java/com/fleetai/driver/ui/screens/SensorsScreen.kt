@@ -5,7 +5,6 @@ import android.content.res.Configuration
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -18,9 +17,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -51,7 +48,6 @@ import com.fleetai.driver.ui.viewmodel.SensorViewModel
 import java.text.SimpleDateFormat
 import java.util.Date
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun SensorsScreen(contentPadding: PaddingValues) {
     val viewModel: SensorViewModel = viewModel(factory = AppGraph.viewModelFactory)
@@ -82,54 +78,60 @@ fun SensorsScreen(contentPadding: PaddingValues) {
         hasPermissions = results.values.all { it }
     }
 
-    Column(
+    LazyColumn(
         modifier = Modifier
             .padding(contentPadding)
-            .fillMaxSize()
-            .padding(12.dp),
+            .fillMaxSize(),
+        contentPadding = PaddingValues(12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        ConnectionBanner(
-            status = status,
-            savedDevice = savedDevice,
-            debug = debug,
-            hasPermissions = hasPermissions,
-            onGrantPermissions = { permissionLauncher.launch(requiredPermissions.toTypedArray()) },
-            demoMode = demoMode,
-            onToggleDemo = { viewModel.toggleDemo(!demoMode) },
-            unitPrefs = unitPrefs,
-            onToggleUnits = { viewModel.toggleUnits(tempF = !unitPrefs.tempF, speedMph = !unitPrefs.speedMph) }
-        )
-
-        TruckNetworkPanel(
-            adapterCount = usbAdapters.size,
-            busProfile = j1939BusProfile,
-            connectorProfile = j1939ConnectorProfile,
-            onBusProfile = viewModel::setJ1939BusProfile,
-            onConnectorProfile = viewModel::setJ1939ConnectorProfile,
-            onConnect = viewModel::connectUsbJ1939
-        )
-
-        if (!hasBluetooth) {
-            FleetCard(modifier = Modifier.fillMaxWidth()) {
-                Text("Bluetooth is not available on this device.")
-            }
-        } else if (!hasPermissions) {
-            FleetCard(modifier = Modifier.fillMaxWidth()) {
-                Text("Bluetooth permissions are required to connect to the OBD dongle.")
-            }
-        } else {
-            PairedDevicesSection(
+        item {
+            ConnectionBanner(
+                status = status,
                 savedDevice = savedDevice,
-                onConnectSaved = { addr -> viewModel.pairedDevices().firstOrNull { it.address == addr }?.let { viewModel.connect(it) } },
-                onConnect = { viewModel.connect(it) },
-                onDisconnect = { viewModel.disconnect() },
-                devices = viewModel.pairedDevices()
+                debug = debug,
+                hasPermissions = hasPermissions,
+                onGrantPermissions = { permissionLauncher.launch(requiredPermissions.toTypedArray()) },
+                demoMode = demoMode,
+                onToggleDemo = { viewModel.toggleDemo(!demoMode) },
+                unitPrefs = unitPrefs,
+                onToggleUnits = { viewModel.toggleUnits(tempF = !unitPrefs.tempF, speedMph = !unitPrefs.speedMph) }
             )
         }
 
-        SensorGrid(readings = readings, isLandscape = isLandscape)
-        RawDebugPanel(readings = readings, debug = debug)
+        item {
+            TruckNetworkPanel(
+                adapterCount = usbAdapters.size,
+                busProfile = j1939BusProfile,
+                connectorProfile = j1939ConnectorProfile,
+                onBusProfile = viewModel::setJ1939BusProfile,
+                onConnectorProfile = viewModel::setJ1939ConnectorProfile,
+                onConnect = viewModel::connectUsbJ1939
+            )
+        }
+
+        item {
+            if (!hasBluetooth) {
+                FleetCard(modifier = Modifier.fillMaxWidth()) {
+                    Text("Bluetooth is not available on this device.")
+                }
+            } else if (!hasPermissions) {
+                FleetCard(modifier = Modifier.fillMaxWidth()) {
+                    Text("Bluetooth permissions are required to connect to the OBD dongle.")
+                }
+            } else {
+                PairedDevicesSection(
+                    savedDevice = savedDevice,
+                    onConnectSaved = { addr -> viewModel.pairedDevices().firstOrNull { it.address == addr }?.let { viewModel.connect(it) } },
+                    onConnect = { viewModel.connect(it) },
+                    onDisconnect = { viewModel.disconnect() },
+                    devices = viewModel.pairedDevices()
+                )
+            }
+        }
+
+        item { SensorGrid(readings = readings, isLandscape = isLandscape) }
+        item { RawDebugPanel(readings = readings, debug = debug) }
     }
 }
 
@@ -291,23 +293,28 @@ private fun StatusPill(label: String, good: Boolean) {
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun SensorGrid(readings: List<SensorReading>, isLandscape: Boolean) {
     val columns = if (isLandscape) 2 else 1
-    LazyVerticalGrid(
-        modifier = Modifier.fillMaxSize(),
-        columns = GridCells.Fixed(columns),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        content = {
-            items(readings) { reading -> SensorTile(reading) }
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        readings.chunked(columns).forEach { rowReadings ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                rowReadings.forEach { reading ->
+                    SensorTile(reading, Modifier.weight(1f))
+                }
+                repeat(columns - rowReadings.size) {
+                    Spacer(modifier = Modifier.weight(1f))
+                }
+            }
         }
-    )
+    }
 }
 
 @Composable
-private fun SensorTile(reading: SensorReading) {
+private fun SensorTile(reading: SensorReading, modifier: Modifier = Modifier) {
     val alpha = when (reading.status) {
         SensorStatus.UNSUPPORTED -> 0.4f
         SensorStatus.STALE -> 0.6f
@@ -319,7 +326,7 @@ private fun SensorTile(reading: SensorReading) {
         else -> "--"
     }
     FleetCard(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f))
     ) {

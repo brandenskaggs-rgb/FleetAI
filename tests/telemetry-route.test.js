@@ -40,6 +40,8 @@ async function invoke(app, body) {
   let writes = 0;
   let stored = null;
   let pipelineRuns = 0;
+  let lastActivity = null;
+  const telemetryLatest = new Map();
   registerFleetOpsRoutes(app, {
     readData: async () => data,
     writeData: async () => { writes += 1; },
@@ -48,13 +50,14 @@ async function invoke(app, body) {
     nowIso: () => "2026-08-14T12:00:01.000Z",
     generateDigits: () => "123456",
     requireEmployeeOrCustomerApi: (_req, _res, next) => next(),
-    telemetryLatest: new Map(),
+    telemetryLatest,
     telemetrySubscribers: new Set(),
     getTelemetryLastSeen: () => null,
     getTelemetryState: () => ({}),
     triggerTelemetryPipeline: () => { pipelineRuns += 1; },
     storeNormalizedSnapshot: (store, normalized, extra) => { stored = { store, normalized, extra }; },
-    normalizeMetrics: (value) => value
+    normalizeMetrics: (value) => value,
+    recordTelemetryActivity: (snapshot) => { lastActivity = snapshot; }
   });
 
   const payload = {
@@ -86,11 +89,31 @@ async function invoke(app, body) {
   assert.strictEqual(first.body.snapshot.captureQuality.uniquePgnCount, 1);
   assert.strictEqual(writes, 1);
   assert.strictEqual(pipelineRuns, 1);
+  assert.strictEqual(first.body.snapshot.connectionState, "live");
+  assert.strictEqual(first.body.snapshot.readingCount > 0, true);
+  assert.strictEqual(lastActivity.vehicleId, "TRUCK_1");
 
   const duplicate = await invoke(app, payload);
   assert.strictEqual(duplicate.body.duplicate, true);
   assert.strictEqual(writes, 1);
   assert.strictEqual(data.telemetryFrames.length, 1);
+
+  const heartbeat = await invoke(app, {
+    batchId: "batch-heartbeat",
+    vehicleId: "TRUCK_1",
+    protocol: "OBD2",
+    timestamp: "2026-08-14T12:00:00.000Z",
+    metrics: { heartbeatMs: 123456 },
+    obdConnected: true
+  });
+  assert.strictEqual(heartbeat.statusCode, 200);
+  assert.strictEqual(heartbeat.body.stored, false);
+  assert.strictEqual(heartbeat.body.linkOnly, true);
+  assert.strictEqual(heartbeat.body.snapshot.connectionState, "adapter_only");
+  assert.strictEqual(heartbeat.body.snapshot.readingCount, 0);
+  assert.strictEqual(writes, 1);
+  assert.strictEqual(pipelineRuns, 1);
+  assert.strictEqual(telemetryLatest.get("TRUCK_1").connectionState, "adapter_only");
 
   console.log("Telemetry route tests passed");
 })().catch((error) => {

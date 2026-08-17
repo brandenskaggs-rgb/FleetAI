@@ -12,7 +12,9 @@ import com.fleetai.driver.obd.ObdService
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.util.concurrent.TimeUnit
@@ -93,12 +95,14 @@ class DiagnosticsViewModel(
             val target = "${ServerConfig.normalize(baseUrl)}/${path.trimStart('/')}"
             _networkMessage.value = "Pinging $target"
             try {
-                val request = Request.Builder().url(target).get().build()
-                val response = httpClient.newCall(request).execute()
-                response.use {
-                    val bodyPreview = it.body?.string()?.take(160).orEmpty()
-                    _networkMessage.value = "HTTP ${it.code}: ${bodyPreview.ifBlank { "ok" }}"
+                val result = withContext(Dispatchers.IO) {
+                    val request = Request.Builder().url(target).get().build()
+                    httpClient.newCall(request).execute().use {
+                        val bodyPreview = it.body?.string()?.take(160).orEmpty()
+                        "HTTP ${it.code}: ${bodyPreview.ifBlank { "ok" }}"
+                    }
                 }
+                _networkMessage.value = result
             } catch (err: Exception) {
                 _networkMessage.value = err.message ?: "Ping failed"
             }

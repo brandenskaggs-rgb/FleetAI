@@ -1,11 +1,11 @@
 package com.fleetai.driver.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -32,56 +32,59 @@ fun DiagnosticsScreen(contentPadding: PaddingValues) {
     val apiDiagnostics by viewModel.apiDiagnostics.collectAsState()
     val networkMessage by viewModel.networkMessage.collectAsState()
 
-    Column(
+    LazyColumn(
         modifier = Modifier
             .padding(contentPadding)
-            .padding(16.dp),
+            .fillMaxSize(),
+        contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        FleetCard(modifier = Modifier.fillMaxWidth()) {
-            Text(text = "Diagnostics", style = MaterialTheme.typography.headlineMedium)
-            Spacer(modifier = Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                FleetButton(text = "Scan", onClick = { viewModel.scan() })
-                FleetButton(text = "Clear", onClick = { viewModel.clear() })
-            }
-            if (message.isNotBlank()) {
+        item {
+            FleetCard(modifier = Modifier.fillMaxWidth()) {
+                Text(text = "Diagnostics", style = MaterialTheme.typography.headlineMedium)
                 Spacer(modifier = Modifier.height(8.dp))
-                Text(text = message)
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    FleetButton(text = "Scan", onClick = { viewModel.scan() })
+                    FleetButton(text = "Clear", onClick = { viewModel.clear() })
+                }
+                if (message.isNotBlank()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(text = message)
+                }
             }
         }
 
-        FleetCard(modifier = Modifier.fillMaxWidth()) {
-            Text(text = "Network Diagnostics", style = MaterialTheme.typography.titleMedium)
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(text = "Base URL: ${apiDiagnostics.baseUrl.ifBlank { "--" }}")
-            Text(text = "Last Request: ${apiDiagnostics.lastMethod} ${apiDiagnostics.lastUrl}".trim())
-            Text(text = "Last Status: ${apiDiagnostics.lastStatus.ifBlank { "--" }}")
-            Text(text = "Last Error: ${apiDiagnostics.lastError.ifBlank { "--" }}")
-            Spacer(modifier = Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                FleetButton(text = "Ping /health", onClick = { viewModel.ping("/health") })
-                FleetButton(text = "Ping /api/pairing/health", onClick = { viewModel.ping("/api/pairing/health") })
-            }
-            if (networkMessage.isNotBlank()) {
+        item {
+            FleetCard(modifier = Modifier.fillMaxWidth()) {
+                Text(text = "Network Diagnostics", style = MaterialTheme.typography.titleMedium)
                 Spacer(modifier = Modifier.height(8.dp))
-                Text(text = networkMessage)
+                Text(text = "Base URL: ${apiDiagnostics.baseUrl.ifBlank { "--" }}")
+                Text(text = "Last Request: ${apiDiagnostics.lastMethod} ${apiDiagnostics.lastUrl}".trim())
+                Text(text = "Last Status: ${apiDiagnostics.lastStatus.ifBlank { "--" }}")
+                Text(text = "Last Error: ${apiDiagnostics.lastError.ifBlank { "--" }}")
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    FleetButton(text = "Ping /health", onClick = { viewModel.ping("/health") })
+                    FleetButton(text = "Ping pairing health", onClick = { viewModel.ping("/api/pairing/health") })
+                }
+                if (networkMessage.isNotBlank()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(text = networkMessage)
+                }
             }
         }
 
         if (dtcs.isNotEmpty()) {
-            WarningBanner(message = "Check engine: diagnostic codes detected.", isCritical = true)
+            item { WarningBanner(message = "Check engine: diagnostic codes detected.", isCritical = true) }
         }
 
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            items(dtcs) { dtc ->
-                FleetCard(modifier = Modifier.fillMaxWidth()) {
-                    Text(text = dtc.code, style = MaterialTheme.typography.titleLarge)
-                    Text(text = dtc.description)
-                    Text(text = "Severity: ${dtc.severity}")
-                    Spacer(modifier = Modifier.height(8.dp))
-                    FleetButton(text = "Explain (stub)", onClick = { })
-                }
+        items(dtcs, key = { it.code }) { dtc ->
+            FleetCard(modifier = Modifier.fillMaxWidth()) {
+                Text(text = dtc.code, style = MaterialTheme.typography.titleLarge)
+                Text(text = dtc.description)
+                Text(text = "Severity: ${dtc.severity}")
+                Spacer(modifier = Modifier.height(8.dp))
+                FleetButton(text = "Explain fault", onClick = { })
             }
         }
     }
