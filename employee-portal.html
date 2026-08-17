@@ -1,73 +1,89 @@
 ﻿<!doctype html>
 <html lang="en" data-theme="light-blue">
 <head>
-  <link rel="stylesheet" href="/css/theme.css" />
-
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Fleet AI Employee Console</title>
+  <meta name="description" content="Fleet AI internal customer operations console." />
   <link rel="stylesheet" href="/css/fonts.css?v=20260729" />
-  <link rel="stylesheet" href="/css/site-tokens.css" />
-  <link rel="stylesheet" href="/css/site-theme.css" />
-  <link rel="stylesheet" href="/css/site-components.css" />
-  <link rel="stylesheet" href="/css/site-layout.css" />
-  <link rel="stylesheet" href="/css/design-system.css" />
-  <link rel="stylesheet" href="/css/employee-portal.css" />
+  <link rel="stylesheet" href="/css/employee-portal.css?v=20260817b" />
 </head>
 <body class="employeeConsoleV2">
-  <header class="siteHeader employeeTopbar">
-    <div class="siteHeader__row">
-      <a class="wordmark" href="/index.html"><span class="brandFleet">Fleet</span><span class="brandAI">AI</span></a>
-      <div class="employeeTopbar__center">
-        <span>Internal Ops</span>
-        <strong>Company onboarding console</strong>
-      </div>
-      <div class="siteActions">
-        <button class="btn secondary" id="adminRefreshTop" type="button">Refresh</button>
-        <button class="btn ghost" id="employeeSignOut" type="button">Sign out</button>
-      </div>
-    </div>
-  </header>
-
-  <main class="employeeShell">
+  <div class="employeeShell">
     <aside class="employeeSidebar">
       <div class="sidebarBrand">
-        <div class="shellLabel">fleet-ai / internal</div>
-        <div class="brandTitle">Employee Console</div>
-        <div class="brandMeta">Companies, onboarding, access, and support.</div>
+        <a class="employeeWordmark" href="/index.html" aria-label="Fleet AI home">
+          <span class="employeeMark" aria-hidden="true"><i></i><i></i></span>
+          <span>Fleet AI</span>
+        </a>
+        <div class="brandMeta">Customer operations</div>
       </div>
-      <nav class="sidebarNav" id="employeeNav">
-        <button type="button" data-route="overview" class="is-active">Overview</button>
-        <button type="button" data-route="orgs">Companies</button>
-        <button type="button" data-route="leads">Pipeline</button>
-        <button type="button" data-route="invites">Onboarding</button>
-        <button type="button" data-route="billing">Billing Prep</button>
-        <button type="button" data-route="features">Feature Flags</button>
-        <button type="button" data-route="system-health">System Health</button>
-        <button type="button" data-route="audit-log">Audit Log</button>
-        <button type="button" data-route="users">Employees</button>
-        <button type="button" data-route="api-keys">Partner API Keys</button>
-        <button type="button" data-route="settings">Settings</button>
-        <a class="sidebarLink" href="/ui/fleetai-dashboard.html">Customer Dashboard</a>
+      <nav class="sidebarNav" id="employeeNav" aria-label="Employee console navigation">
+        <div class="navGroup">
+          <div class="navGroupLabel">Command</div>
+          <button type="button" data-route="overview" class="is-active"><span>Operations</span><small>01</small></button>
+        </div>
+        <div class="navGroup">
+          <div class="navGroupLabel">Customers</div>
+          <button type="button" data-route="orgs"><span>Companies</span></button>
+          <button type="button" data-route="leads"><span>Sales pipeline</span></button>
+          <button type="button" data-route="invites"><span>Access invites</span></button>
+        </div>
+        <div class="navGroup">
+          <div class="navGroupLabel">Commercial</div>
+          <button type="button" data-route="billing"><span>Billing setup</span></button>
+          <button type="button" data-route="features"><span>Product access</span></button>
+        </div>
+        <div class="navGroup">
+          <div class="navGroupLabel">Platform</div>
+          <button type="button" data-route="system-health"><span>Service health</span></button>
+          <button type="button" data-route="audit-log"><span>Activity ledger</span></button>
+          <button type="button" data-route="api-keys"><span>Partner API</span></button>
+        </div>
+        <div class="navGroup">
+          <div class="navGroupLabel">Administration</div>
+          <button type="button" data-route="users"><span>Employee access</span></button>
+          <button type="button" data-route="settings"><span>Console settings</span></button>
+        </div>
       </nav>
-      <div class="sidebarNote">
-        <div class="noteTitle">Launch workflow</div>
-        <div class="noteMeta">Qualify company, create org, issue customer access, then add internal owners.</div>
+      <div class="sidebarFooter">
+        <a class="sidebarLink" href="/ui/fleetai-dashboard.html">Open customer dashboard <span aria-hidden="true">&#8599;</span></a>
+        <div class="sidebarNote">
+          <div class="noteTitle">Onboarding sequence</div>
+          <div class="noteMeta">Create company, issue access, confirm fleet, then activate the workspace.</div>
+        </div>
       </div>
     </aside>
 
     <section class="employeeMain">
+      <header class="employeeTopbar">
+        <div class="topbarIdentity">
+          <button class="navToggle" id="employeeNavToggle" type="button" aria-label="Toggle navigation" aria-expanded="false"><span></span><span></span><span></span></button>
+          <div>
+            <div class="topbarContext">Fleet AI / Internal</div>
+            <strong>Customer Operations</strong>
+          </div>
+        </div>
+        <div class="topbarActions">
+          <button class="btn ghost" id="adminRefreshTop" type="button">Refresh data</button>
+          <div class="operatorIdentity">
+            <span class="operatorAvatar" aria-hidden="true">FA</span>
+            <span id="portalRole">Role: --</span>
+          </div>
+          <button class="btn quietDanger" id="employeeSignOut" type="button">Sign out</button>
+        </div>
+      </header>
+
       <div class="mainHeader">
-        <div>
-          <div class="shellLabel">operations view</div>
+        <div class="routeHeading">
+          <div class="shellLabel">Operations workspace</div>
           <h1 id="viewTitle">Overview</h1>
           <p id="viewSubtitle">Track companies, onboarding status, customer access, and internal users.</p>
-          <div class="roleMeta" id="portalRole">Role: --</div>
         </div>
         <div class="headerActions">
-          <input type="search" id="adminSearch" placeholder="Search companies, users, or leads" />
-          <button class="btn ghost" id="adminRefresh" type="button">Refresh</button>
-          <button class="btn secondary" id="resetAuthBtn" type="button">Reset Session</button>
+          <label class="globalSearch" for="adminSearch"><span aria-hidden="true">&#8981;</span><input type="search" id="adminSearch" placeholder="Search this workspace" /></label>
+          <button class="btn secondary" id="adminRefresh" type="button">Reload view</button>
+          <button class="btn ghost" id="resetAuthBtn" type="button">Session tools</button>
         </div>
       </div>
 
@@ -86,7 +102,8 @@
 
       <main id="portalView"></main>
     </section>
-  </main>
+  </div>
+  <button class="navScrim" id="employeeNavScrim" type="button" aria-label="Close navigation"></button>
 
   <div id="consoleOverlay" class="uiBlocker" hidden aria-hidden="true">
     <div class="uiBlockerCard">
@@ -107,32 +124,7 @@
     </div>
   </div>
 
-  <footer class="footer">
-    <div class="container footerGrid">
-      <div class="footerCol footerBrand">
-        <div class="wordmark"><span class="brandFleet">Fleet</span><span class="brandAI">AI</span></div>
-        <div class="footerMeta">&copy; 2026 Fleet AI &middot; Sentinel X Inc.</div>
-      </div>
-      <div class="footerCol">
-        <h4>Product</h4>
-        <a href="/product.html">Product</a>
-        <a href="/pricing.html">Pricing</a>
-        <a href="/pilot.html">Pilot Program</a>
-      </div>
-      <div class="footerCol">
-        <h4>Company</h4>
-        <a href="/security.html">Security</a>
-        <a href="/about.html">About</a>
-        <a href="/request-demo.html">Contact</a>
-        <a href="/employee-login.html" title="For Fleet AI staff only">Employee Portal</a>
-      </div>
-      <div class="footerCol">
-        <h4>Legal</h4>
-        <a href="/legal/privacy.html">Privacy Policy</a>
-        <a href="/legal/terms.html">Terms</a>
-      </div>
-    </div>
-  </footer>
+  <div class="toastRegion" id="portalToastRegion" aria-live="polite" aria-atomic="true"></div>
 
   <script>
     window.__FLEETAI__ = window.__FLEETAI__ || {};
@@ -214,12 +206,29 @@
       }, 3000);
     })();
   </script>
-  <script src="/js/admin-portal.js?v=20260817a"></script>
+  <script src="/js/admin-portal.js?v=20260817b"></script>
   <script>
     document.getElementById("adminRefreshTop")?.addEventListener("click", () => {
       document.getElementById("adminRefresh")?.click();
     });
+    (() => {
+      const body = document.body;
+      const toggle = document.getElementById("employeeNavToggle");
+      const scrim = document.getElementById("employeeNavScrim");
+      const close = () => {
+        body.classList.remove("nav-open");
+        toggle?.setAttribute("aria-expanded", "false");
+      };
+      toggle?.addEventListener("click", () => {
+        const next = !body.classList.contains("nav-open");
+        body.classList.toggle("nav-open", next);
+        toggle.setAttribute("aria-expanded", String(next));
+      });
+      scrim?.addEventListener("click", close);
+      document.getElementById("employeeNav")?.addEventListener("click", (event) => {
+        if (event.target.closest("button[data-route]")) close();
+      });
+    })();
   </script>
 </body>
 </html>
-

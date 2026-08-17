@@ -86,10 +86,8 @@ function setLoading(isLoading, reason) {
     blocker.style.display = "flex";
     blocker.classList.add("is-active");
     blocker.setAttribute("aria-hidden", "false");
-    console.log("EMP_PORTAL: overlay shown", reason || "");
     if (uiBlockTimer) clearTimeout(uiBlockTimer);
     uiBlockTimer = setTimeout(() => {
-      console.log("EMP_PORTAL: overlay auto-unlock");
       setLoading(false, "");
       setPortalError("Console took too long to load. Please retry.");
       renderPortalError();
@@ -103,7 +101,6 @@ function setLoading(isLoading, reason) {
   blocker.style.display = "none";
   blocker.style.pointerEvents = "none";
   blocker.setAttribute("aria-hidden", "true");
-  console.log("EMP_PORTAL: overlay hidden");
 }
 
 function clearLegacyEmployeeTokens() {
@@ -176,6 +173,27 @@ function setViewTitle(title, subtitle) {
 
 function setPortalError(message) {
   adminState.lastError = message || "";
+}
+
+function showToast(message, tone = "") {
+  const region = $("portalToastRegion");
+  if (!region || !message) return;
+  const toast = document.createElement("div");
+  toast.className = `portalToast ${tone}`.trim();
+  toast.textContent = message;
+  region.appendChild(toast);
+  window.setTimeout(() => toast.remove(), 4200);
+}
+
+async function copyText(value, successMessage) {
+  const text = String(value || "").trim();
+  if (!text || text === "--") return;
+  try {
+    await navigator.clipboard.writeText(text);
+    showToast(successMessage || "Copied to clipboard.", "good");
+  } catch (error) {
+    showToast("Copy failed. Select the value and copy it manually.", "bad");
+  }
 }
 
 function renderPortalError() {
@@ -310,7 +328,7 @@ function closeModal() {
 function viewTemplate() {
   return {
     overview: `
-      <section class="viewSection">
+      <section class="viewSection overviewSection">
         <div class="kpiGrid">
           <div class="kpiCard">
             <div class="kpiLabel">MRR Estimate</div>
@@ -330,23 +348,25 @@ function viewTemplate() {
             <div class="muted" style="margin-top:6px; font-size:12px;">Leads awaiting action.</div>
           </div>
         </div>
+        <div class="overviewGrid">
         <div class="panelCard">
           <div class="panelHeader">
-            <h2>Recent Activity</h2>
-            <span class="panelMeta">Audit events</span>
+            <h2>Onboarding activity</h2>
+            <span class="panelMeta">Latest account changes</span>
           </div>
           <div class="panelBody" id="activityFeed">
             <div class="emptyState">No recent activity.</div>
           </div>
         </div>
-        <div class="panelCard" style="margin-top:16px;">
+        <div class="panelCard">
           <div class="panelHeader">
-            <h2>Recent Alerts</h2>
-            <span class="panelMeta">Tier 2 system alerts</span>
+            <h2>Service exceptions</h2>
+            <span class="panelMeta">Items needing review</span>
           </div>
           <div class="panelBody" id="recentAlertsFeed">
             <div class="emptyState">No alerts yet.</div>
           </div>
+        </div>
         </div>
       </section>
     `,
@@ -365,8 +385,8 @@ function viewTemplate() {
         <div class="orgLayout">
           <div class="panelCard">
             <div class="panelHeader">
-              <h3>All Organizations</h3>
-              <span class="panelMeta">Click View/Edit to open details.</span>
+              <h3>Customer accounts</h3>
+              <span class="panelMeta">Select a row to manage the account</span>
             </div>
             <div class="panelBody">
               <label class="muted" style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">
@@ -394,8 +414,8 @@ function viewTemplate() {
           </div>
           <div class="panelCard" id="orgDetailPanel">
             <div class="panelHeader">
-              <h3>Org Detail</h3>
-              <span class="panelMeta" id="orgDetailMeta">Select an org to view.</span>
+              <h3>Company workspace</h3>
+              <span class="panelMeta" id="orgDetailMeta">Select a company to begin</span>
             </div>
             <div class="panelBody">
               <div class="detailForm">
@@ -451,8 +471,8 @@ function viewTemplate() {
               </div>
               <div class="panelCard" style="margin-top:12px;">
                 <div class="panelHeader">
-                  <h3>Customer Access</h3>
-                  <span class="panelMeta">Temporary password required on first login.</span>
+                  <h3>Customer access</h3>
+                  <span class="panelMeta">Issue or repair the primary contact login</span>
                 </div>
                 <div class="panelBody">
                   <label class="fieldGroup">
@@ -468,15 +488,19 @@ function viewTemplate() {
                     <div class="detailValue"><a href="/customer-login.html" target="_blank" rel="noreferrer">/customer-login.html</a></div>
                   </div>
                   <div class="detailBlock" id="customerPasswordBlock" style="display:none;">
-                    <div class="detailLabel">Temporary password</div>
+                    <div class="detailLabel">One-time temporary password</div>
                     <div class="detailValue" id="customerTempPassword">--</div>
-                    <div class="muted" style="font-size:12px;">Copy this password now. It will not be shown again.</div>
+                    <div class="muted" style="font-size:12px;">Store this securely before leaving the page. It cannot be shown again.</div>
+                    <div class="credentialActions">
+                      <button class="btn primary" id="customerCopyPasswordBtn" type="button">Copy password</button>
+                      <a class="btn ghost" href="/customer-login.html" target="_blank" rel="noreferrer">Open customer login</a>
+                    </div>
                   </div>
                 </div>
               </div>
               <div class="panelCard" style="margin-top:12px;" id="orgFleetPanel">
                 <div class="panelHeader">
-                  <h3>Fleet <span id="orgFleetCount" class="panelMeta" style="margin-left:6px;"></span></h3>
+                  <h3>Connected fleet <span id="orgFleetCount" class="panelMeta" style="margin-left:6px;"></span></h3>
                   <button class="btn ghost" id="orgFleetRefreshBtn" type="button" style="font-size:11px;">Refresh</button>
                 </div>
                 <div id="orgFleetBody">
@@ -608,14 +632,14 @@ function viewTemplateExtended() {
       <section class="viewSection">
         <div class="sectionHeaderRow">
           <div>
-            <h2>Invites</h2>
-            <p class="muted">Generate customer access links for new orgs.</p>
+            <h2>Access invitations</h2>
+            <p class="muted">Issue time-limited setup links for customer administrators.</p>
           </div>
         </div>
         <div class="panelCard">
           <div class="panelHeader">
-            <h3>Create Invite</h3>
-            <span class="panelMeta">Customer access invite</span>
+            <h3>Issue an invitation</h3>
+            <span class="panelMeta">Secure customer setup</span>
           </div>
           <div class="panelBody">
             <div class="formGrid">
@@ -639,8 +663,8 @@ function viewTemplateExtended() {
         </div>
         <div class="panelCard">
           <div class="panelHeader">
-            <h3>Active Invites</h3>
-            <span class="panelMeta">Links expire automatically.</span>
+            <h3>Open invitations</h3>
+            <span class="panelMeta">Links expire automatically</span>
           </div>
           <div class="panelBody">
             <div class="tableWrap">
@@ -665,15 +689,15 @@ function viewTemplateExtended() {
       <section class="viewSection">
         <div class="sectionHeaderRow">
           <div>
-            <h2>Billing Prep</h2>
-            <p class="muted">Capture billing metadata per organization.</p>
+            <h2>Billing setup</h2>
+            <p class="muted">Review account contacts, plan assignment, and payment readiness.</p>
           </div>
         </div>
         <div class="billingLayout">
           <div class="panelCard">
             <div class="panelHeader">
-              <h3>Billing Profile</h3>
-              <span class="panelMeta">Test mode - stored locally only.</span>
+              <h3>Account billing profile</h3>
+              <span class="panelMeta">Internal preparation workspace</span>
             </div>
             <div class="panelBody">
               <div class="formGrid twoCol">
@@ -761,13 +785,13 @@ function viewTemplateExtended() {
       <section class="viewSection">
         <div class="sectionHeaderRow">
           <div>
-            <h2>Feature Flags</h2>
-            <p class="muted">Configure upcoming add-ons per organization.</p>
+            <h2>Product access</h2>
+            <p class="muted">Control optional capabilities for each customer workspace.</p>
           </div>
         </div>
         <div class="panelCard">
           <div class="panelHeader">
-            <h3>Org Flags</h3>
+            <h3>Workspace capabilities</h3>
             <span class="panelMeta" id="flagNotice">Changes save immediately.</span>
           </div>
           <div class="panelBody">
@@ -803,8 +827,8 @@ function viewTemplateExtended() {
       <section class="viewSection">
         <div class="sectionHeaderRow">
           <div>
-            <h2>System Health</h2>
-            <p class="muted">Diagnostics and service status checks.</p>
+            <h2>Service health</h2>
+            <p class="muted">Inspect core service availability and route diagnostics.</p>
           </div>
         </div>
         <div class="panelCard">
@@ -870,13 +894,13 @@ function viewTemplateExtended() {
       <section class="viewSection">
         <div class="sectionHeaderRow">
           <div>
-            <h2>Audit Log</h2>
-            <p class="muted">Recent administrative events.</p>
+            <h2>Activity ledger</h2>
+            <p class="muted">Review administrative changes and security-relevant events.</p>
           </div>
         </div>
         <div class="panelCard">
           <div class="panelHeader">
-            <h3>Audit Events</h3>
+            <h3>Administrative events</h3>
             <span class="panelMeta">Most recent first</span>
           </div>
           <div class="panelBody">
@@ -901,15 +925,15 @@ function viewTemplateExtended() {
       <section class="viewSection">
         <div class="sectionHeaderRow">
           <div>
-            <h2>Users &amp; Roles</h2>
-            <p class="muted">Manage internal employee access.</p>
+            <h2>Employee access</h2>
+            <p class="muted">Manage internal users and operational permissions.</p>
           </div>
           <button class="btn primary" id="employeeCreateBtn" type="button">Add Employee</button>
         </div>
         <div class="panelCard">
           <div class="panelHeader">
-            <h3>Employee Users</h3>
-            <span class="panelMeta">Internal staff only.</span>
+            <h3>Employee directory</h3>
+            <span class="panelMeta">Internal staff only</span>
           </div>
           <div class="panelBody">
             <div class="tableWrap">
@@ -934,13 +958,13 @@ function viewTemplateExtended() {
     settings: `
       <section class="viewSection">
         <div class="sectionHeader">
-          <h2>Settings</h2>
-          <p class="muted">Portal preferences only.</p>
+          <h2>Console settings</h2>
+          <p class="muted">Adjust this employee workspace without changing customer accounts.</p>
         </div>
         <div class="panelCard">
           <div class="panelHeader">
-            <h3>Appearance</h3>
-            <span class="panelMeta">Theme and density</span>
+            <h3>Display preferences</h3>
+            <span class="panelMeta">Local to this browser</span>
           </div>
           <div class="panelBody">
             <div class="formGrid">
@@ -1047,17 +1071,17 @@ function setActiveRoute(route) {
     btn.classList.toggle("is-active", btn.getAttribute("data-route") === route);
   });
   const titles = {
-    overview: ["Overview", "Company pipeline, onboarding status, and recent internal activity."],
-    orgs: ["Companies", "Create and manage customer organizations."],
-    leads: ["Pipeline", "Inbound demo requests and pilot pipeline status."],
-    invites: ["Onboarding", "Invite links for customer access and setup."],
-    billing: ["Billing Prep", "Capture billing metadata per company."],
-    features: ["Feature Flags", "Configure upcoming add-ons."],
-    "system-health": ["System Health", "Diagnostics and service checks."],
-    "audit-log": ["Audit Log", "Recent administrative events."],
-    users: ["Employees", "Internal employee access and role assignment."],
-    settings: ["Settings", "Portal preferences only."],
-    "api-keys": ["Partner API Keys", "Issue and revoke partner_ml keys for external companies using the Fleet AI API."]
+    overview: ["Operations", "Customer activation, fleet adoption, and priority exceptions in one view."],
+    orgs: ["Companies", "Create customer accounts, issue access, and review connected fleets."],
+    leads: ["Sales pipeline", "Qualify inbound requests and convert approved pilots into customer accounts."],
+    invites: ["Access invitations", "Issue time-limited setup links for customer administrators."],
+    billing: ["Billing setup", "Prepare plan, contact, and payment metadata for each account."],
+    features: ["Product access", "Control optional capabilities by customer workspace."],
+    "system-health": ["Service health", "Inspect core service availability and backend route checks."],
+    "audit-log": ["Activity ledger", "Review administrative and security-relevant changes."],
+    users: ["Employee access", "Manage internal users and operational permissions."],
+    settings: ["Console settings", "Adjust local display preferences for this workspace."],
+    "api-keys": ["Partner API", "Issue and revoke scoped keys for approved Fleet AI integrations."]
   };
   if (titles[route]) {
     setViewTitle(titles[route][0], titles[route][1]);
@@ -1494,7 +1518,7 @@ function bindOrgCreate() {
     if (!roleAllowsOrgEdit()) return;
     openModal({
       title: "Create Organization",
-      content: `<form id="orgCreateForm" class="formGrid">
+      content: `<form id="orgCreateForm" class="formGrid twoCol">
         <label class="fieldGroup">
           <span>Organization name</span>
           <input name="name" required />
@@ -1529,15 +1553,15 @@ function bindOrgCreate() {
           <span>Active vehicles</span>
           <input type="number" min="0" name="activeVehicles" value="0" />
         </label>
-        <label class="fieldGroup">
+        <label class="fieldGroup" style="grid-column:1/-1;">
           <span>Notes</span>
           <textarea name="notes" rows="3"></textarea>
         </label>
-        <label class="fieldGroup" style="display:flex;flex-direction:row;align-items:flex-start;gap:10px;">
+        <label class="fieldGroup accessChoice" style="grid-column:1/-1;display:flex;flex-direction:row;align-items:flex-start;gap:10px;">
           <input type="checkbox" name="createCustomerLogin" checked style="width:auto;margin-top:3px;" />
-          <span>Create customer access for the primary contact</span>
+          <span><strong>Create customer access now</strong><small>The primary contact receives a one-time temporary password for first login.</small></span>
         </label>
-        <button class="btn primary" type="submit">Create Company &amp; Access</button>
+        <button class="btn primary" type="submit" style="grid-column:1/-1;justify-self:start;">Create company</button>
       </form>`
     });
     document.getElementById("orgCreateForm").addEventListener("submit", async (e) => {
@@ -1558,6 +1582,7 @@ function bindOrgCreate() {
         await loadOrgs();
         if (createdOrg) {
           selectOrg(createdOrg.orgId || createdOrg.id);
+          showToast("Company created successfully.", "good");
         }
       } catch (err) {
         alert(err.message || "Unable to create company.");
@@ -1586,6 +1611,7 @@ function bindOrgCreate() {
           if (note) {
             note.textContent = `Company created, but customer access failed: ${err.message || "unknown error"}. Use Create Customer Login below to retry.`;
           }
+          showToast("Company created, but customer access needs attention.", "bad");
         }
       }
     });
@@ -1642,6 +1668,8 @@ function showCustomerTempPassword(value) {
   if (block && field) {
     field.textContent = value || "--";
     block.style.display = "block";
+    block.scrollIntoView({ behavior: "smooth", block: "center" });
+    showToast("Temporary password created. Copy it before leaving this page.", "good");
   }
 }
 
@@ -1931,9 +1959,13 @@ function bindEmployeeCreate() {
           await loadUsers();
           openModal({
             title: "Employee Created",
-            content: `<div class="detailBlock"><div class="detailLabel">Email</div><div class="detailValue">${data.data.email}</div></div>
-            <div class="detailBlock"><div class="detailLabel">Temporary password</div><div class="detailValue"><strong>${data.data.tempPassword}</strong></div></div>
-            <div class="muted" style="font-size:12px;">Copy this password now. It will not be shown again.</div>`
+            content: `<div class="detailBlock"><div class="detailLabel">Employee email</div><div class="detailValue">${data.data.email}</div></div>
+            <div class="detailBlock" id="employeeCredentialBlock"><div class="detailLabel">One-time temporary password</div><div class="detailValue"><strong id="employeeTempPassword">${data.data.tempPassword}</strong></div>
+            <div class="muted" style="font-size:12px;">Store this securely before closing the dialog. It cannot be shown again.</div>
+            <div class="credentialActions"><button class="btn primary" id="employeeCopyPasswordBtn" type="button">Copy password</button></div></div>`
+          });
+          $("employeeCopyPasswordBtn")?.addEventListener("click", () => {
+            copyText($("employeeTempPassword")?.textContent, "Employee password copied.");
           });
         }
       } catch (err) {
@@ -2144,6 +2176,9 @@ function bindView(route) {
     $("orgSaveBtn")?.addEventListener("click", saveOrg);
     $("orgCreateCustomerBtn")?.addEventListener("click", createCustomerLogin);
     $("orgResetCustomerBtn")?.addEventListener("click", resetCustomerPassword);
+    $("customerCopyPasswordBtn")?.addEventListener("click", () => {
+      copyText($("customerTempPassword")?.textContent, "Customer password copied.");
+    });
     $("orgFleetRefreshBtn")?.addEventListener("click", () => {
       if (adminState.selectedOrgId) loadOrgFleet(adminState.selectedOrgId);
     });
@@ -2297,7 +2332,6 @@ function bindNav() {
     btn.addEventListener("click", () => {
       const route = btn.getAttribute("data-route");
       if (!route) return;
-      console.log("EMP_PORTAL: nav click", route);
       diagLog("nav click", route);
       window.location.hash = route;
     });
@@ -2307,6 +2341,25 @@ function bindNav() {
         btn.click();
       }
     });
+  });
+}
+
+function bindGlobalSearch() {
+  const input = $("adminSearch");
+  if (!input || input.dataset.bound === "true") return;
+  input.dataset.bound = "true";
+  input.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter") return;
+    const term = input.value.trim();
+    if (!term) return;
+    window.location.hash = "orgs";
+    window.setTimeout(() => {
+      const orgSearch = $("orgSearch");
+      if (!orgSearch) return;
+      orgSearch.value = term;
+      renderOrgs();
+      orgSearch.focus();
+    }, 120);
   });
 }
 
@@ -2340,7 +2393,6 @@ function bindModalClose() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-  console.log("EMP_PORTAL: boot");
   window.__EMP_PORTAL_BOOT = true;
   updateConsoleDebug({
     status: "booted",
@@ -2353,11 +2405,8 @@ document.addEventListener("DOMContentLoaded", () => {
     modal.hidden = true;
     modal.classList.remove("is-open");
   }
-  const modalBackdrop = document.querySelector(".modalBackdrop");
-  if (modalBackdrop) {
-    modalBackdrop.style.pointerEvents = "none";
-  }
   clearLegacyEmployeeTokens();
+  bindGlobalSearch();
   updateConsoleDebug({
     token: "cleared",
     cookie: document.cookie ? "present" : "missing",
