@@ -1,4 +1,5 @@
 const crypto = require("crypto");
+const { resolveChargingProfile } = require("./ml/chargingProfiles");
 
 const MIN_SAMPLES = 200;
 const EWMA_ALPHA = 0.18;
@@ -348,7 +349,7 @@ function sustainedLowWindow(points, threshold) {
   return longest;
 }
 
-function computeChargingEvidence(samples) {
+function computeChargingEvidence(samples, vehicleMeta = {}) {
   const sorted = (Array.isArray(samples) ? samples : [])
     .slice()
     .sort((a, b) => new Date(a.ts) - new Date(b.ts));
@@ -364,10 +365,10 @@ function computeChargingEvidence(samples) {
   }
 
   const typicalVoltage = median(points.map((point) => point.voltage));
-  const systemVoltage = typicalVoltage != null && typicalVoltage >= 18 ? 24 : 12;
-  const scale = systemVoltage / 12;
-  const warningThreshold = 12.2 * scale;
-  const criticalThreshold = 11.8 * scale;
+  const inferredSystemVoltage = typicalVoltage != null && typicalVoltage >= 18 ? 24 : 12;
+  const profile = resolveChargingProfile(vehicleMeta, inferredSystemVoltage);
+  const { systemVoltage, monitorThreshold, warningThreshold, criticalThreshold } = profile;
+  const monitorWindow = sustainedLowWindow(points, monitorThreshold);
   const warningWindow = sustainedLowWindow(points, warningThreshold);
   const criticalWindow = sustainedLowWindow(points, criticalThreshold);
   const qualifies = (window, minimumDurationMs, minimumSamples) => Boolean(
@@ -379,22 +380,34 @@ function computeChargingEvidence(samples) {
   );
   const critical = qualifies(criticalWindow, 60_000, 4);
   const warning = !critical && qualifies(warningWindow, 3 * 60_000, 8);
-  const activeWindow = critical ? criticalWindow : warning ? warningWindow : null;
+  const monitor = !critical && !warning && qualifies(monitorWindow, 3 * 60_000, 8);
+  const activeWindow = critical ? criticalWindow : warning ? warningWindow : monitor ? monitorWindow : null;
   const recentValues = points.slice(-20).map((point) => point.voltage);
-  const status = critical ? "critical" : warning ? "warning" : "normal";
+  const status = critical ? "critical" : warning ? "warning" : monitor ? "monitor" : "normal";
   const durationMinutes = activeWindow ? activeWindow.durationMs / 60_000 : 0;
-  const explanation = activeWindow
+  const explanation = critical || warning
     ? `Charging voltage stayed at or below ${(critical ? criticalThreshold : warningThreshold).toFixed(1)} V for ${durationMinutes.toFixed(1)} minutes while the engine was running; minimum observed voltage was ${activeWindow.minVoltage.toFixed(2)} V.`
-    : `No sustained low charging voltage was confirmed while the engine was running. Typical observed voltage was ${typicalVoltage.toFixed(2)} V.`;
+    : monitor
+      ? `Engine-running voltage stayed below the ${monitorThreshold.toFixed(1)} V monitor threshold for ${durationMinutes.toFixed(1)} minutes. The nominal target for this ${profile.label.toLowerCase()} profile is ${profile.nominalTarget.toFixed(1)} V, but commanded voltage, battery state, and electrical load must be considered before declaring a fault.`
+      : `No sustained below-target charging voltage was present in the recent engine-running data. The ${profile.label.toLowerCase()} profile targets about ${profile.nominalTarget.toFixed(1)} V; typical voltage across the available history was ${typicalVoltage.toFixed(2)} V.`;
 
   return {
     available: true,
     status,
     systemVoltage,
+    profileKey: profile.profileKey,
+    profileLabel: profile.label,
+    profileBasis: profile.basis,
+    make: profile.make,
+    model: profile.model,
+    modelYear: profile.year,
+    nominalTarget: profile.nominalTarget,
+    expectedOperatingRange: [profile.expectedMin, profile.expectedMax],
     engineRunningSampleCount: points.length,
     typicalVoltage: Math.round(typicalVoltage * 1000) / 1000,
     recentMedianVoltage: Math.round(median(recentValues) * 1000) / 1000,
     minimumVoltage: Math.round(Math.min(...points.map((point) => point.voltage)) * 1000) / 1000,
+    monitorThreshold,
     warningThreshold,
     criticalThreshold,
     sustainedLowMinutes: Math.round(durationMinutes * 10) / 10,
@@ -584,7 +597,8 @@ function computeModelState(data, vehicleId) {
   const coverage = computeCoverage(baselines);
   const climateContext = computeClimateContext(samples, baselines, seasonalBaselines, seasonKey);
   const historySpanHours = sampleSpanHours(samples);
-  const chargingEvidence = computeChargingEvidence(samples);
+  const vehicleMeta = (data.vehicles || []).find((vehicle) => vehicle.vehicleId === vehicleId) || {};
+  const chargingEvidence = computeChargingEvidence(samples, vehicleMeta);
   if (sampleCount < MIN_SAMPLES || coverage === 0) {
     return {
       vehicleId,
@@ -937,7 +951,7 @@ function computeWeeksToFailure(values, metricKey, samplesPerHour = 12) {
 }
 
 // Master prediction function — ML engine computes everything, AI only narrates
-function computeFullPrediction(samples, vehicleId) {
+function computeFullPrediction(samples, vehicleId, vehicleMeta = {}) {
   const usableSamples = usableTelemetrySamples(samples);
   if (!usableSamples.length) {
     return {
@@ -963,7 +977,7 @@ function computeFullPrediction(samples, vehicleId) {
   const coverage = computeCoverage(baselines);
   const climateContext = computeClimateContext(sorted, baselines, seasonalBaselines, seasonKey);
   const historySpanHours = sampleSpanHours(sorted);
-  const chargingEvidence = computeChargingEvidence(sorted);
+  const chargingEvidence = computeChargingEvidence(sorted, vehicleMeta);
 
   // Per-sensor risk scores (0-100) and weeks-to-failure projections
   const sensorRisks = {};

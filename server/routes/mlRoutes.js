@@ -9,6 +9,14 @@ const { predictionLimiter, defaultLimiter } = require("../middleware/rateLimiter
 function registerMlRoutes(app, deps) {
   const { requireEmployeeOrCustomerApi } = deps;
 
+  async function loadVehicleMetadata(vehicleId) {
+    const [vehicle, capabilities] = await Promise.all([
+      sqliteDb.getVehicleByVehicleId(vehicleId),
+      sqliteDb.getVehicleCapabilities(vehicleId)
+    ]);
+    return Object.assign({}, vehicle || {}, capabilities || {}, { vehicleId });
+  }
+
   async function resolveVehicleOrg(req, res, vehicleId) {
     const orgId = await sqliteDb.getVehicleOrgId(vehicleId, "");
     if (!orgId) {
@@ -67,14 +75,14 @@ function registerMlRoutes(app, deps) {
       const orgId = await resolveVehicleOrg(req, res, vehicleId);
       if (!orgId) return;
       const samples = await sqliteDb.getSamplesForVehicle(vehicleId, { limit: 5000 });
-      const jsPrediction = ml.computeFullPrediction(samples, vehicleId);
-      const caps = (await sqliteDb.getVehicleCapabilities(vehicleId)) || {};
+      const vehicleMeta = await loadVehicleMetadata(vehicleId);
+      const jsPrediction = ml.computeFullPrediction(samples, vehicleId, vehicleMeta);
       let pythonPrediction = null;
       let pythonError = null;
       try {
         const latestSample = samples.length ? samples[samples.length - 1] : null;
         const dtcCodes = latestSample?.raw?.activeDTCs || latestSample?.metrics?.activeDTCs || [];
-        pythonPrediction = await pythonMlClient.predict({ orgId, vehicleId, vehicleMeta: Object.assign({}, caps, { vehicleId }), samples, dtcCodes });
+        pythonPrediction = await pythonMlClient.predict({ orgId, vehicleId, vehicleMeta, samples, dtcCodes });
       } catch (err) {
         pythonError = err.message || "python_ml_unavailable";
       }
@@ -114,15 +122,15 @@ function registerMlRoutes(app, deps) {
       const orgId = await resolveVehicleOrg(req, res, vehicleId);
       if (!orgId) return;
       const samples = await sqliteDb.getSamplesForVehicle(vehicleId, { limit: 5000 });
-      const jsPrediction = ml.computeFullPrediction(samples, vehicleId);
-      const caps = (await sqliteDb.getVehicleCapabilities(vehicleId)) || {};
+      const vehicleMeta = await loadVehicleMetadata(vehicleId);
+      const jsPrediction = ml.computeFullPrediction(samples, vehicleId, vehicleMeta);
       let pythonPrediction = null;
       let pythonError = null;
       try {
         pythonPrediction = await pythonMlClient.predict({
           orgId,
           vehicleId,
-          vehicleMeta: Object.assign({}, caps, { vehicleId }),
+          vehicleMeta,
           samples,
           alertMode: req.query.alertMode || "launch_default"
         });
@@ -170,10 +178,10 @@ function registerMlRoutes(app, deps) {
       const orgId = await resolveVehicleOrg(req, res, vehicleId);
       if (!orgId) return;
       const samples = await sqliteDb.getSamplesForVehicle(vehicleId, { limit: 5000 });
-      const prediction = ml.computeFullPrediction(samples, vehicleId);
+      const vehicleMeta = await loadVehicleMetadata(vehicleId);
+      const prediction = ml.computeFullPrediction(samples, vehicleId, vehicleMeta);
       await sqliteDb.upsertModelState(prediction);
-      const caps = await sqliteDb.getVehicleCapabilities(vehicleId);
-      const report = await aiReportSvc.generateReport(prediction, caps || {});
+      const report = await aiReportSvc.generateReport(prediction, vehicleMeta);
       return res.json({ ok: true, data: report });
     } catch (err) {
       return res.status(500).json({ ok: false, error: err.message });

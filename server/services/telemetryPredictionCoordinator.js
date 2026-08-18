@@ -14,7 +14,7 @@ function createTelemetryPredictionCoordinator({
   const cache = new Map();
 
   async function predict({ orgId, vehicleId, vehicleMeta, samples, dtcCodes }) {
-    const jsPrediction = ml.computeFullPrediction(samples, vehicleId);
+    const jsPrediction = ml.computeFullPrediction(samples, vehicleId, vehicleMeta || {});
     const sampleKey = latestSampleKey(samples);
     const previous = cache.get(vehicleId) || null;
     const elapsed = previous ? now() - previous.attemptedAt : Number.POSITIVE_INFINITY;

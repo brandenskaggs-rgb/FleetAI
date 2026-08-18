@@ -222,7 +222,7 @@ function registerPartnerRoutes(app, deps) {
     const vehicleMeta = (body.vehicleMeta && typeof body.vehicleMeta === "object") ? body.vehicleMeta : {};
 
     // Node.js EWMA prediction
-    const jsPrediction = ml.computeFullPrediction(samples, vehicleId);
+    const jsPrediction = ml.computeFullPrediction(samples, vehicleId, vehicleMeta);
 
     // Python ensemble prediction
     let pythonPrediction = null;
@@ -343,7 +343,7 @@ function registerPartnerRoutes(app, deps) {
         const dtcCodes = Array.isArray(v.dtcCodes) ? v.dtcCodes.map(String) : [];
         const vehicleMeta = (v.vehicleMeta && typeof v.vehicleMeta === "object") ? v.vehicleMeta : {};
 
-        const jsPrediction = ml.computeFullPrediction(samples, vehicleId);
+        const jsPrediction = ml.computeFullPrediction(samples, vehicleId, vehicleMeta);
         let pythonPrediction = null;
         try {
           pythonPrediction = await pythonMlClient.predict({ orgId: `partner:${partner}`, vehicleId, vehicleMeta, samples, dtcCodes });

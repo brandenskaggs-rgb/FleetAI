@@ -3326,7 +3326,11 @@ async function runTelemetryPipeline() {
         const orgId = vehicleById.get(vehicleId)?.orgId
           || await sqliteDb.getVehicleOrgId(vehicleId, "").catch(() => "")
           || resolveOrgIdForVehicle(data, vehicleId);
-        const vehicleMeta = (await sqliteDb.getVehicleCapabilities(vehicleId)) || {};
+        const vehicleMeta = Object.assign(
+          {},
+          vehicleById.get(vehicleId) || {},
+          (await sqliteDb.getVehicleCapabilities(vehicleId)) || {}
+        );
         const latestSample = samples[samples.length - 1] || null;
         const dtcCodes = latestSample?.raw?.activeDTCs || latestSample?.metrics?.activeDTCs || [];
         const predictionResult = await telemetryPredictionCoordinator.predict({

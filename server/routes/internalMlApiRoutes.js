@@ -304,14 +304,15 @@ function registerInternalMlApiRoutes(app, deps) {
       return res.status(400).json({ ok: false, error: "telemetry sample required" });
     }
 
-    const jsPrediction = ml.computeFullPrediction(samples, vehicle.vehicleId);
+    const vehicleMeta = Object.assign({}, vehicle.meta, { vehicleId: vehicle.vehicleId });
+    const jsPrediction = ml.computeFullPrediction(samples, vehicle.vehicleId, vehicleMeta);
     let pythonPrediction = null;
     let pythonError = null;
     try {
       pythonPrediction = await pythonMlClient.predict({
         orgId: vehicle.orgId,
         vehicleId: vehicle.vehicleId,
-        vehicleMeta: Object.assign({}, vehicle.meta, { vehicleId: vehicle.vehicleId }),
+        vehicleMeta,
         samples,
         alertMode: sanitizeString(body.alertMode || "internal_personal", 80)
       });

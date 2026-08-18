@@ -7,39 +7,43 @@ const db = require("../db");
 
 // WMI (chars 0-2) → make
 const WMI_MAKE = {
-  "1FT": "Ford", "1FD": "Ford", "1FC": "Ford",
-  "1GC": "Chevrolet", "1G1": "Chevrolet", "2G1": "Chevrolet",
-  "1HM": "Honda", "2HG": "Honda",
-  "1N4": "Nissan", "1N6": "Nissan", "3N1": "Nissan",
-  "1VW": "Volkswagen",
-  "3VW": "Volkswagen",
-  "2T1": "Toyota", "4T1": "Toyota", "5TD": "Toyota",
-  "JTM": "Toyota", "JT2": "Toyota",
-  "1XP": "Peterbilt",
-  "2NP": "Kenworth",
-  "1M1": "Mack",
-  "1HTMM": "International",
-  "1HTMN": "International",
+  "1FT": "Ford", "1FD": "Ford", "1FC": "Ford", "1FA": "Ford", "1FM": "Ford",
+  "1GC": "Chevrolet", "1G1": "Chevrolet", "2G1": "Chevrolet", "3GC": "Chevrolet",
+  "1GT": "GMC", "1GK": "GMC", "1G4": "Buick", "1G6": "Cadillac", "1GY": "Cadillac",
+  "1C6": "Ram", "3C6": "Ram", "3D7": "Ram", "1C4": "Jeep", "1C3": "Chrysler",
+  "1HG": "Honda", "2HG": "Honda", "19X": "Honda", "5FN": "Honda",
+  "1N4": "Nissan", "1N6": "Nissan", "3N1": "Nissan", "JN1": "Nissan", "JN8": "Nissan",
+  "1VW": "Volkswagen", "3VW": "Volkswagen", "3VV": "Volkswagen",
+  "WAU": "Audi", "TRU": "Audi",
+  "2T1": "Toyota", "4T1": "Toyota", "5TD": "Toyota", "5TF": "Toyota",
+  "JTM": "Toyota", "JT2": "Toyota", "JTH": "Lexus", "2T2": "Lexus",
+  "5NP": "Hyundai", "5NM": "Hyundai", "KMH": "Hyundai",
+  "KNA": "Kia", "KND": "Kia", "5XY": "Kia",
+  "JF1": "Subaru", "JF2": "Subaru", "4S3": "Subaru", "4S4": "Subaru",
+  "JM1": "Mazda", "JM3": "Mazda",
+  "YV1": "Volvo", "YV4": "Volvo",
+  "5YJ": "Tesla", "7SA": "Tesla", "7F7": "Rivian",
+  "1FU": "Freightliner", "1FV": "Freightliner", "3AK": "Freightliner", "3AL": "Freightliner",
+  "5KK": "Western Star", "2WK": "Western Star", "2WL": "Western Star",
+  "1XP": "Peterbilt", "1NP": "Peterbilt", "2NP": "Peterbilt",
+  "1XK": "Kenworth", "1NK": "Kenworth", "2XK": "Kenworth",
+  "1M1": "Mack", "1M2": "Mack", "1M3": "Mack", "1M4": "Mack",
+  "1HT": "International", "1HS": "International", "2HS": "International", "3HS": "International",
   "2FZJA": "Sterling",
-  "3HSDJ": "International",
-  "4V1": "Volvo",
-  "4VL": "Volvo",
-  "4V4": "Volvo",
-  "3VT": "Volvo",
-  "WDB": "Mercedes-Benz",
-  "WBA": "BMW",
-  "WAU": "Audi"
+  "4V1": "Volvo Trucks", "4V2": "Volvo Trucks", "4VL": "Volvo Trucks",
+  "4V4": "Volvo Trucks", "4V5": "Volvo Trucks", "3VT": "Volvo Trucks",
+  "WDB": "Mercedes-Benz", "W1K": "Mercedes-Benz", "W1N": "Mercedes-Benz",
+  "WBA": "BMW", "WBY": "BMW"
 };
 
-// VIN position 10 (index 9) → model year (2000–2035)
+// VIN position 10 (index 9) → model year for the current 2000–2029 cycle.
 const YEAR_CHAR = {
   Y: 2000, "1": 2001, "2": 2002, "3": 2003, "4": 2004,
   "5": 2005, "6": 2006, "7": 2007, "8": 2008, "9": 2009,
   A: 2010, B: 2011, C: 2012, D: 2013, E: 2014,
   F: 2015, G: 2016, H: 2017, J: 2018, K: 2019,
   L: 2020, M: 2021, N: 2022, P: 2023, R: 2024,
-  S: 2025, T: 2026, V: 2027, W: 2028, X: 2029,
-  Y: 2030
+  S: 2025, T: 2026, V: 2027, W: 2028, X: 2029
 };
 
 // Core sensors every J1939 truck exposes
