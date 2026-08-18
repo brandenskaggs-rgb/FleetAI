@@ -11,13 +11,16 @@ import com.fleetai.driver.data.model.ComplianceConfig
 import com.fleetai.driver.data.model.DriverSession
 import com.fleetai.driver.data.model.DtcCode
 import com.fleetai.driver.data.model.DutyStatus
+import com.fleetai.driver.data.model.EldDeviceStatus
 import com.fleetai.driver.data.model.HosEvent
+import com.fleetai.driver.data.model.HosClockStatus
 import com.fleetai.driver.data.model.NotificationItem
 import com.fleetai.driver.data.model.ThemeMode
 import com.fleetai.driver.data.model.Vehicle
 import com.fleetai.driver.network.AlertRequest
 import com.fleetai.driver.network.ApiService
 import com.fleetai.driver.network.DriverLogRequest
+import com.fleetai.driver.network.EldCertificationRequest
 import com.fleetai.driver.network.MockApiService
 import com.fleetai.driver.network.SelectVehicleRequest
 import kotlinx.coroutines.flow.first
@@ -33,6 +36,13 @@ private fun dutyStatusApiValue(value: String): String = when (value.trim().upper
     "YARD_MOVE" -> "YARD_MOVE"
     "PERSONAL_CONVEYANCE" -> "PERSONAL_CONVEYANCE"
     else -> value.trim().uppercase()
+}
+
+private fun dutyStatusFromApi(value: String): DutyStatus = when (value.trim().uppercase()) {
+    "ON", "ON_DUTY" -> DutyStatus.ON
+    "DRIVING" -> DutyStatus.DRIVING
+    "SLEEPER" -> DutyStatus.SLEEPER
+    else -> DutyStatus.OFF
 }
 
 class DefaultDriverRepository(
@@ -187,7 +197,8 @@ class DefaultDriverRepository(
 
     override suspend fun getHosEvents(date: String): List<HosEvent> {
         val tenantId = preferences.tenantId.first()
-        return hosDao.getEventsByDate(tenantId, date).map {
+        val vehicleId = preferences.vehicleId.first()
+        val localEvents = hosDao.getEventsByDate(tenantId, date).map {
             HosEvent(
                 id = it.id,
                 tenantId = it.tenantId,
@@ -198,6 +209,23 @@ class DefaultDriverRepository(
                 endTime = it.endTime,
                 eventDate = it.eventDate
             )
+        }
+        if (preferences.demoMode.first()) return localEvents
+        return try {
+            api.getHosLogs(date).events.map { event ->
+                HosEvent(
+                    id = event.id.ifBlank { "remote-${event.timestamp}-${event.status}" },
+                    tenantId = tenantId,
+                    vehicleId = vehicleId,
+                    status = dutyStatusFromApi(event.status),
+                    notes = event.notes,
+                    startTime = event.timestamp,
+                    endTime = event.timestamp,
+                    eventDate = date
+                )
+            }
+        } catch (_: Exception) {
+            localEvents
         }
     }
 
@@ -255,6 +283,54 @@ class DefaultDriverRepository(
             breakMinutesRequired = 30,
             breakIntervalMinutes = 8 * 60
         )
+    }
+
+    override suspend fun getEldDeviceStatus(): EldDeviceStatus {
+        val response = api.getEldDeviceStatus()
+        val dutyStatus = when (response.state?.currentDutyCode) {
+            2 -> DutyStatus.SLEEPER
+            3 -> DutyStatus.DRIVING
+            4 -> DutyStatus.ON
+            else -> DutyStatus.OFF
+        }
+        return EldDeviceStatus(
+            enabled = response.enabled,
+            productionAuthorized = response.productionAuthorized,
+            driverLoggedIn = response.driverLoggedIn,
+            carrierConfigured = response.carrierConfigured,
+            driverConfigured = response.driverConfigured,
+            dutyStatus = dutyStatus,
+            vehicleMoving = response.state?.vehicleMoving == true,
+            lastTelemetryAt = response.state?.lastTelemetryAt.orEmpty(),
+            activeDiagnosticCount = response.activeDiagnostics.size
+        )
+    }
+
+    override suspend fun getEldHosStatus(): HosClockStatus {
+        val response = api.getEldHosStatus()
+        return HosClockStatus(
+            ruleLabel = response.ruleLabel,
+            sufficientHistory = response.sufficientHistory,
+            driveRemainingMinutes = response.driveRemainingMinutes,
+            windowRemainingMinutes = response.windowRemainingMinutes,
+            breakRemainingMinutes = response.breakRemainingMinutes,
+            cycleRemainingMinutes = response.cycleRemainingMinutes,
+            drivingProhibitedReasons = response.drivingProhibitedReasons,
+            violations = response.violations,
+            warnings = response.warnings
+        )
+    }
+
+    override suspend fun recordEldLogin() {
+        api.recordEldLogin()
+    }
+
+    override suspend fun recordEldLogout() {
+        api.recordEldLogout()
+    }
+
+    override suspend fun certifyEldRecords(recordDate: String) {
+        api.certifyEldRecords(EldCertificationRequest(recordDate = recordDate))
     }
 
     override suspend fun updateDutyStatus(status: DutyStatus, notes: String) {

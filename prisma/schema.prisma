@@ -211,6 +211,9 @@ model Driver {
   orgId          String?
   status         String   @default("active")
   licenseNum     String?
+  licenseState   String?
+  eldUsername    String?
+  eldExempt      Boolean  @default(false)
   motiveId       String?  @unique
   motiveMetadata Json     @default("{}")
   createdAt      DateTime @default(now())
@@ -220,6 +223,7 @@ model Driver {
   pairings Pairing[]
 
   @@index([orgId])
+  @@unique([orgId, eldUsername])
 }
 
 model Pairing {
@@ -816,4 +820,192 @@ model DiagnosticScan {
 
   @@index([vehicleId, scannedAt])
   @@index([orgId, severity])
+}
+
+// -----------------------------------------------------------------------------
+// FMCSA ELD compliance records
+// -----------------------------------------------------------------------------
+
+// Carrier-controlled values required in an ELD account profile and output file.
+// Keeping this separate from general tenant settings prevents visual/dashboard
+// changes from altering legally significant ELD configuration.
+model EldCarrierConfig {
+  orgId                    String   @id
+  carrierName              String
+  usdotNumber              String
+  homeTerminalName         String
+  homeTerminalAddress      String
+  homeTerminalTimeZone     String
+  dayStartMinutes          Int      @default(0)
+  multidayBasis            String   @default("US_70_8")
+  hosRuleProfile           String   @default("FEDERAL_PROPERTY_70_8")
+  personalConveyance       Boolean  @default(false)
+  yardMove                 Boolean  @default(false)
+  eldIdentifier            String   @default("")
+  eldRegistrationId        String   @default("")
+  eldProvider              String   @default("Fleet AI")
+  certifiedSoftwareVersion String   @default("")
+  certificationState       String   @default("DEVELOPMENT")
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  @@index([certificationState])
+}
+
+// Per-installed-device sequence and self-monitoring state. Event sequence IDs
+// are continuous across every user and power cycle on the physical ELD.
+model EldDeviceState {
+  deviceId                       String    @id
+  orgId                          String
+  vehicleId                      String
+  enabled                        Boolean   @default(false)
+  sequenceCounter                Int       @default(0)
+  sequenceEpoch                  Int       @default(0)
+  currentDriverId                String?
+  currentDutyCode                Int?
+  specialDrivingCode             Int?
+  ignitionOn                     Boolean   @default(false)
+  vehicleMoving                  Boolean   @default(false)
+  motionStartedAt                DateTime?
+  stoppedAt                      DateTime?
+  powerCycleStartedAt            DateTime?
+  powerCycleStartMiles           Int?
+  powerCycleStartEngineHours     Decimal?  @db.Decimal(7, 1)
+  lastEngineSyncAt               DateTime?
+  lastPositionAt                 DateTime?
+  lastTelemetryAt                DateTime?
+  engineSyncLossMs               BigInt    @default(0)
+  positioningLossMotionMs        BigInt    @default(0)
+  powerLossMotionMs              BigInt    @default(0)
+  lastRecordAt                   DateTime?
+  lastIntermediateAt             DateTime?
+  lastTransferCheckAt            DateTime?
+  consecutiveTransferCheckFails  Int       @default(0)
+  unidentifiedDrivingMinutes     Int       @default(0)
+  createdAt                      DateTime  @default(now())
+  updatedAt                      DateTime  @updatedAt
+
+  @@index([orgId, vehicleId])
+  @@index([enabled])
+}
+
+// Append-only legal event ledger. Existing records are never overwritten or
+// deleted; corrections create a replacement record and change only the status
+// of the original as required by Appendix A section 4.4.4.2.
+model EldEvent {
+  id                         String   @id @default(cuid())
+  orgId                      String
+  vehicleId                  String
+  driverId                   String?
+  deviceId                   String
+  sequenceId                 Int
+  sequenceEpoch              Int      @default(0)
+  recordStatus               Int      @default(1)
+  recordOrigin               Int
+  eventType                  Int
+  eventCode                  Int
+  occurredAt                 DateTime
+  eventDate                  String
+  eventTime                  String
+  timezoneOffsetMinutes      Int
+  accumulatedVehicleMiles    Int?
+  elapsedEngineHours         Decimal? @db.Decimal(7, 1)
+  totalVehicleMiles          Int?
+  totalEngineHours           Decimal? @db.Decimal(7, 1)
+  latitude                   Decimal? @db.Decimal(7, 2)
+  longitude                  Decimal? @db.Decimal(8, 2)
+  latitudeCode               String   @default("X")
+  longitudeCode              String   @default("X")
+  distanceSinceCoordinatesKm Int?
+  locationDescription        String   @default("")
+  annotation                 String   @default("")
+  eldUsername                String   @default("")
+  cmvPowerUnitNumber         String
+  cmvVin                     String   @default("")
+  trailerNumbers             String   @default("")
+  shippingDocumentNumber     String   @default("")
+  malfunctionIndicator       Boolean  @default(false)
+  diagnosticIndicator        Boolean  @default(false)
+  malfunctionDiagnosticCode  String   @default("")
+  eventDataCheck             String
+  relatedEventId             String?
+  metadata                   Json     @default("{}")
+  createdAt                  DateTime @default(now())
+
+  @@unique([deviceId, sequenceEpoch, sequenceId])
+  @@index([orgId, driverId, occurredAt])
+  @@index([vehicleId, occurredAt])
+  @@index([deviceId, occurredAt])
+  @@index([recordStatus, eventType])
+  @@index([relatedEventId])
+}
+
+model EldRecordCertification {
+  id                  String   @id @default(cuid())
+  orgId               String
+  driverId            String
+  deviceId            String
+  recordDate          String
+  certificationNumber Int
+  eventId             String
+  certifiedAt         DateTime
+  createdAt           DateTime @default(now())
+
+  @@unique([driverId, recordDate, certificationNumber])
+  @@index([orgId, recordDate])
+}
+
+model EldEditProposal {
+  id                 String    @id @default(cuid())
+  orgId              String
+  driverId           String
+  originalEventId    String
+  proposedEventId    String
+  proposedByUserId   String
+  status             String    @default("PENDING")
+  annotation         String
+  decidedAt          DateTime?
+  createdAt          DateTime  @default(now())
+
+  @@index([driverId, status])
+  @@index([orgId, createdAt])
+}
+
+model EldDiagnostic {
+  id          String    @id @default(cuid())
+  orgId       String
+  vehicleId   String
+  driverId    String?
+  deviceId    String
+  kind        String
+  code        String
+  status      String    @default("DETECTED")
+  detectedAt  DateTime
+  clearedAt   DateTime?
+  eventId     String?
+  detail      Json      @default("{}")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([deviceId, status, code])
+  @@index([orgId, detectedAt])
+}
+
+model EldTransferAttempt {
+  id                String    @id @default(cuid())
+  orgId             String
+  driverId          String
+  deviceId          String
+  method            String
+  outputFileName    String
+  outputFileComment String    @default("")
+  fileDataCheck     String
+  status            String    @default("GENERATED")
+  responseCode      String?
+  responseDetail    Json      @default("{}")
+  requestedAt       DateTime  @default(now())
+  completedAt       DateTime?
+
+  @@index([orgId, requestedAt])
+  @@index([deviceId, status])
 }

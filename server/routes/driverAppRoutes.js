@@ -22,7 +22,7 @@ const db = require("../db");
 const { requireDevice, attachDevice } = require("../middleware/deviceAuth");
 
 function registerDriverAppRoutes(app, deps) {
-  const { sanitizeString, nowIso, log = console.log } = deps;
+  const { sanitizeString, nowIso, log = console.log, eldService = null } = deps;
 
   // ── GET /api/drivers/me ────────────────────────────────────────────────────
   // DriverProfileResponse(tenantId, driverId, driverName) — all non-null.
@@ -122,6 +122,29 @@ function registerDriverAppRoutes(app, deps) {
           message: `dutyStatus must be one of: ${VALID.join(", ")}`
         });
       }
+      if (eldService) {
+        const context = await eldService.getDeviceContext(req.device);
+        if (context.state?.enabled) {
+          if (["YARD_MOVE", "PERSONAL_CONVEYANCE"].includes(dutyStatus)) {
+            return res.status(409).json({
+              success: false,
+              error: "USE_ELD_SPECIAL_DRIVING_ENDPOINT",
+              message: "Special driving categories must be started through the ELD special-driving workflow."
+            });
+          }
+          const event = await eldService.createDutyStatus(req.device, {
+            dutyStatus,
+            occurredAt: b.startTime || nowIso(),
+            annotation: b.notes || "",
+            locationDescription: b.locationDescription || "",
+            totalVehicleMiles: b.totalVehicleMiles,
+            totalEngineHours: b.totalEngineHours,
+            latitude: b.latitude,
+            longitude: b.longitude
+          });
+          return res.json({ success: true, eventId: event.id, sequenceId: event.sequenceId });
+        }
+      }
       await db.insertEvent({
         orgId: req.device.orgId,
         vehicleId: req.device.vehicleId,
@@ -149,6 +172,26 @@ function registerDriverAppRoutes(app, deps) {
   app.get("/api/logs/hos", requireDevice, async (req, res, next) => {
     try {
       const date = sanitizeString(req.query.date || "", 32);
+      if (eldService) {
+        const context = await eldService.getDeviceContext(req.device);
+        if (context.state?.enabled) {
+          const events = await eldService.listRecords(req.device, { limit: 5000 });
+          return res.json({
+            events: events
+              .filter((event) => event.eventType === 1 && (!date || event.eventDate === date.replaceAll("-", "").slice(2)))
+              .map((event) => ({
+                id: event.id,
+                sequenceId: event.sequenceId,
+                status: ({ 1: "OFF_DUTY", 2: "SLEEPER", 3: "DRIVING", 4: "ON_DUTY" })[event.eventCode] || "",
+                notes: event.annotation || "",
+                timestamp: event.occurredAt,
+                recordStatus: event.recordStatus,
+                recordOrigin: event.recordOrigin,
+                certified: false
+              }))
+          });
+        }
+      }
       const events = await db.listEventsForVehicle(req.device.vehicleId, {
         type: "HOS_STATUS",
         limit: 200

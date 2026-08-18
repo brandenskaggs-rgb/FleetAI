@@ -43,13 +43,67 @@ data class DriverLogRequest(
 )
 
 data class HosLogEventDto(
-    val status: String,
-    val notes: String,
-    val timestamp: String
+    val id: String = "",
+    val status: String = "",
+    val notes: String = "",
+    val timestamp: String = "",
+    val recordStatus: Int = 1,
+    val recordOrigin: Int = 1,
+    val certified: Boolean = false
 )
 
 data class HosLogResponse(
     val events: List<HosLogEventDto>
+)
+
+data class EldDeviceStateDto(
+    val currentDutyCode: Int? = null,
+    val specialDrivingCode: Int? = null,
+    val vehicleMoving: Boolean = false,
+    val ignitionOn: Boolean = false,
+    val lastTelemetryAt: String? = null,
+    val lastRecordAt: String? = null,
+    val lastEngineSyncAt: String? = null,
+    val lastPositionAt: String? = null,
+    val unidentifiedDrivingMinutes: Int = 0
+)
+
+data class EldDiagnosticDto(
+    val kind: String = "",
+    val code: String = "",
+    val status: String = ""
+)
+
+data class EldDeviceStatusResponse(
+    val ok: Boolean = false,
+    val enabled: Boolean = false,
+    val productionAuthorized: Boolean = false,
+    val driverLoggedIn: Boolean = false,
+    val state: EldDeviceStateDto? = null,
+    val carrierConfigured: Boolean = false,
+    val driverConfigured: Boolean = false,
+    val activeDiagnostics: List<EldDiagnosticDto> = emptyList()
+)
+
+data class EldCertificationRequest(
+    val recordDate: String,
+    val annotation: String = "Driver certification"
+)
+
+data class EldHosStatusResponse(
+    val ok: Boolean = false,
+    val ruleProfile: String = "",
+    val ruleLabel: String = "",
+    val sufficientHistory: Boolean = false,
+    val currentDutyCode: Int? = null,
+    val driveRemainingMinutes: Int? = null,
+    val windowRemainingMinutes: Int? = null,
+    val breakRemainingMinutes: Int? = null,
+    val cycleRemainingMinutes: Int? = null,
+    val requiredRestMinutes: Int = 600,
+    val drivingProhibitedReasons: List<String> = emptyList(),
+    val violations: List<String> = emptyList(),
+    val warnings: List<String> = emptyList()
 )
 
 data class TelemetrySnapshotRequest(

@@ -27,6 +27,21 @@ interface ApiService {
     @GET("api/logs/hos")
     suspend fun getHosLogs(@Query("date") date: String): HosLogResponse
 
+    @GET("api/eld/device/status")
+    suspend fun getEldDeviceStatus(): EldDeviceStatusResponse
+
+    @GET("api/eld/hos/status")
+    suspend fun getEldHosStatus(): EldHosStatusResponse
+
+    @POST("api/eld/login")
+    suspend fun recordEldLogin(@Body request: Map<String, String> = emptyMap()): BasicResponse
+
+    @POST("api/eld/logout")
+    suspend fun recordEldLogout(@Body request: Map<String, String> = emptyMap()): BasicResponse
+
+    @POST("api/eld/certifications")
+    suspend fun certifyEldRecords(@Body request: EldCertificationRequest): BasicResponse
+
     @POST("api/telemetry/ingest")
     suspend fun ingestTelemetry(@Body request: TelemetryIngestRequest): BasicResponse
 

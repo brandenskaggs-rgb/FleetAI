@@ -76,6 +76,8 @@ class J1939TelemetryService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private lateinit var transport: UsbJ1939Transport
     private lateinit var sender: TelemetrySender
+    private lateinit var locationTracker: DeviceLocationTracker
+    private var locationEnabled = false
     private val decoder = J1939Decoder()
     private var managerJob: Job? = null
     private var frameJob: Job? = null
@@ -94,12 +96,15 @@ class J1939TelemetryService : Service() {
             resolveDriverId = { AppGraph.preferences.driverId.first().ifBlank { null } },
             resolveDeviceId = { AppGraph.preferences.ensureDeviceId() }
         )
+        locationTracker = DeviceLocationTracker(applicationContext)
+        locationEnabled = locationTracker.start()
         createNotificationChannel()
         ServiceCompat.startForeground(
             this,
             NOTIFICATION_ID,
             notification("Connecting to truck network"),
-            ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+            ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC or
+                (if (locationEnabled) ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION else 0)
         )
     }
 
@@ -126,6 +131,7 @@ class J1939TelemetryService : Service() {
         }
         frameJob = scope.launch {
             transport.frames.collect { frame ->
+                sender.updateLocation(locationTracker.latest)
                 sender.updateJ1939Frame(frame)
                 val decoded = decoder.decode(frame)
                 sender.updateJ1939Decode(decoded)
@@ -181,7 +187,8 @@ class J1939TelemetryService : Service() {
                         this@J1939TelemetryService,
                         NOTIFICATION_ID,
                         notification("Reading truck data in listen-only mode"),
-                        ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE
+                        ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE or
+                            (if (locationEnabled) ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION else 0)
                     )
                     if (!senderStarted) {
                         sender.start(
@@ -234,6 +241,7 @@ class J1939TelemetryService : Service() {
 
     override fun onDestroy() {
         sender.stop()
+        locationTracker.stop()
         managerJob?.cancel()
         frameJob?.cancel()
         diagnosticsJob?.cancel()

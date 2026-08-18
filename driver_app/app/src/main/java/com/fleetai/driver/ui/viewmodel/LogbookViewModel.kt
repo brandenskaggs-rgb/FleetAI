@@ -45,6 +45,10 @@ class LogbookViewModel(
         endTime: String,
         notes: String
     ) {
+        if (status == DutyStatus.DRIVING) {
+            _message.value = "Driving time is recorded automatically and cannot be added manually."
+            return
+        }
         viewModelScope.launch {
             val tenantId = preferences.tenantId.first()
             val vehicleId = preferences.vehicleId.first()
@@ -68,6 +72,19 @@ class LogbookViewModel(
                 _message.value = ""
             } catch (_: Exception) {
                 _message.value = "Unable to save log entry right now."
+            }
+        }
+    }
+
+    fun certify(date: LocalDate = LocalDate.now()) {
+        viewModelScope.launch {
+            try {
+                val eldDate = "%02d%02d%02d".format(date.year % 100, date.monthValue, date.dayOfMonth)
+                repository.certifyEldRecords(eldDate)
+                _message.value = "Daily log certified."
+                loadLogs(date.toString())
+            } catch (_: Exception) {
+                _message.value = "Certification was not saved. Check ELD setup and connection."
             }
         }
     }

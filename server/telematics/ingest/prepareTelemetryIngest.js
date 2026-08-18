@@ -146,6 +146,14 @@ function sanitizeTelemetryMeta(meta) {
     const value = Number(meta[key]);
     if (Number.isFinite(value) && value >= 0 && value <= Number.MAX_SAFE_INTEGER) output[key] = value;
   }
+  const latitude = Number(meta.latitude);
+  const longitude = Number(meta.longitude);
+  const locationCapturedAt = Number(meta.locationCapturedAt);
+  if (Number.isFinite(latitude) && latitude >= -90 && latitude <= 90) output.latitude = latitude;
+  if (Number.isFinite(longitude) && longitude >= -180 && longitude <= 180) output.longitude = longitude;
+  if (Number.isFinite(locationCapturedAt) && locationCapturedAt > 0) {
+    output.locationCapturedAt = Math.round(locationCapturedAt);
+  }
   return output;
 }
 

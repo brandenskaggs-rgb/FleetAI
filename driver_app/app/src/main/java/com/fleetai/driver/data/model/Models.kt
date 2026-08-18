@@ -64,12 +64,47 @@ data class ComplianceConfig(
 
 data class HomeUiState(
     val dutyStatus: DutyStatus,
-    val remainingDriveMinutes: Int,
-    val remainingShiftMinutes: Int,
-    val breakMinutesRemaining: Int,
-    val complianceWarning: String,
-    val complianceBlocked: Boolean,
-    val needsAcknowledgement: Boolean
+    val eldEnabled: Boolean,
+    val productionAuthorized: Boolean,
+    val carrierConfigured: Boolean,
+    val driverConfigured: Boolean,
+    val vehicleMoving: Boolean,
+    val lastTelemetryAt: String,
+    val activeDiagnosticCount: Int,
+    val hosRuleLabel: String,
+    val hosHistorySufficient: Boolean,
+    val driveRemainingMinutes: Int?,
+    val windowRemainingMinutes: Int?,
+    val breakRemainingMinutes: Int?,
+    val cycleRemainingMinutes: Int?,
+    val drivingProhibitedReasons: List<String>,
+    val hosViolations: List<String>,
+    val statusMessage: String,
+    val actionInProgress: Boolean
+)
+
+data class HosClockStatus(
+    val ruleLabel: String,
+    val sufficientHistory: Boolean,
+    val driveRemainingMinutes: Int?,
+    val windowRemainingMinutes: Int?,
+    val breakRemainingMinutes: Int?,
+    val cycleRemainingMinutes: Int?,
+    val drivingProhibitedReasons: List<String>,
+    val violations: List<String>,
+    val warnings: List<String>
+)
+
+data class EldDeviceStatus(
+    val enabled: Boolean,
+    val productionAuthorized: Boolean,
+    val driverLoggedIn: Boolean,
+    val carrierConfigured: Boolean,
+    val driverConfigured: Boolean,
+    val dutyStatus: DutyStatus,
+    val vehicleMoving: Boolean,
+    val lastTelemetryAt: String,
+    val activeDiagnosticCount: Int
 )
 
 enum class SensorStatus { LIVE, STALE, UNSUPPORTED }

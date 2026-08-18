@@ -26,6 +26,8 @@ const { registerAuthRoutes } = require("./server/routes/authRoutes");
 const { registerFleetOpsRoutes } = require("./server/routes/fleetOpsRoutes");
 const { registerDiagnosticsRoutes } = require("./server/routes/diagnosticsRoutes");
 const { registerDriverAppRoutes } = require("./server/routes/driverAppRoutes");
+const { registerEldRoutes } = require("./server/routes/eldRoutes");
+const { createEldService } = require("./server/eld/eldService");
 const { registerSolutionRoutes } = require("./server/routes/solutionRoutes");
 const { registerInternalMlApiRoutes } = require("./server/routes/internalMlApiRoutes");
 const { registerMlRoutes } = require("./server/routes/mlRoutes");
@@ -1005,7 +1007,14 @@ const FLEET_OPS_ROUTE_MANIFEST = [
 // /api/vehicle/dtcs stub below, because two of its routes share those paths:
 // a device token gets the shape the Android models parse, and every other
 // caller falls through via next() to the existing operator handler.
-registerDriverAppRoutes(app, { sanitizeString, nowIso, log: console.log });
+const eldService = createEldService(sqliteDb.getPrisma());
+registerDriverAppRoutes(app, { sanitizeString, nowIso, log: console.log, eldService });
+
+registerEldRoutes(app, {
+  eldService,
+  requireEmployeeOrCustomerApi: (req, res, next) => requireEmployeeOrCustomerApi(req, res, next),
+  requireSuperAdmin: (req, res, next) => requireSuperAdmin(req, res, next)
+});
 
 registerFleetOpsRoutes(app, {
   readData,
@@ -1022,7 +1031,8 @@ registerFleetOpsRoutes(app, {
   triggerTelemetryPipeline,
   storeNormalizedSnapshot,
   normalizeMetrics,
-  recordTelemetryActivity
+  recordTelemetryActivity,
+  processEldTelemetry: (device, normalized, timestamp) => eldService.processTelemetry(device, normalized, timestamp)
 });
 
 // On-board diagnostics: CAN sensor visibility + fault-code scanning, with any

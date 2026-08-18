@@ -47,7 +47,10 @@ fun LogbookScreen(contentPadding: PaddingValues) {
         FleetCard(modifier = Modifier.fillMaxWidth()) {
             Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
                 Text(text = "Daily Log", style = MaterialTheme.typography.headlineMedium)
-                FleetButton(text = "Add Entry", onClick = { showDialog = true })
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FleetButton(text = "Add Duty Event", onClick = { showDialog = true })
+                    FleetButton(text = "Certify", onClick = { viewModel.certify() })
+                }
             }
             Spacer(modifier = Modifier.height(6.dp))
             Text(text = LocalDate.now().toString(), style = MaterialTheme.typography.bodyMedium)
@@ -95,7 +98,7 @@ private fun AddLogDialog(
     var startTime by remember { mutableStateOf("") }
     var endTime by remember { mutableStateOf("") }
     var notes by remember { mutableStateOf("") }
-    var status by remember { mutableStateOf(DutyStatus.DRIVING) }
+    var status by remember { mutableStateOf(DutyStatus.OFF) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -138,7 +141,7 @@ private fun AddLogDialog(
 private fun StatusPicker(selected: DutyStatus, onSelected: (DutyStatus) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(text = "Duty type", style = MaterialTheme.typography.bodyMedium)
-        DutyStatus.values().forEach { status ->
+        DutyStatus.values().filterNot { it == DutyStatus.DRIVING }.forEach { status ->
             TextButton(onClick = { onSelected(status) }) {
                 Text(if (status == selected) "* ${status.name}" else status.name)
             }

@@ -33,6 +33,29 @@ async function run() {
     }
     console.log(`PASS: primary account database users=${primary.users.length} orgs=${primary.orgs.length}`);
   }
+  if (String(process.env.ELD_PRODUCTION_ENABLED || "").toLowerCase() === "true") {
+    const requiredEldGates = [
+      "ELD_OFFLINE_ENGINE_COMPLETE",
+      "ELD_HOS_ENGINE_VALIDATED",
+      "ELD_ROADSIDE_DISPLAY_COMPLETE",
+      "ELD_TRANSFER_IMPLEMENTATION_COMPLETE",
+      "ELD_INDEPENDENT_REVIEW_COMPLETE",
+      "ELD_FIELD_VALIDATION_COMPLETE",
+      "ELD_FMCSA_LISTING_CONFIRMED"
+    ];
+    const missing = requiredEldGates.filter((name) => String(process.env[name] || "").toLowerCase() !== "true");
+    const secrets = [
+      "FMCSA_ELD_AUTH_PRIVATE_KEY",
+      "FMCSA_ELD_CLIENT_CERT",
+      "FMCSA_ELD_CLIENT_KEY",
+      "FMCSA_ELD_WEBSERVICE_URL",
+      "FMCSA_ELD_EMAIL_ADDRESS"
+    ];
+    missing.push(...secrets.filter((name) => !String(process.env[name] || "").trim()));
+    if (missing.length) {
+      throw new Error(`ELD production is enabled but required release gates are incomplete: ${missing.join(", ")}`);
+    }
+  }
   console.log(`PASS: active auth index status=${status.status} note=${status.note || "--"}`);
 }
 

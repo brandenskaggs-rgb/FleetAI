@@ -4,7 +4,9 @@ import com.fleetai.driver.data.model.ComplianceConfig
 import com.fleetai.driver.data.model.DriverSession
 import com.fleetai.driver.data.model.DtcCode
 import com.fleetai.driver.data.model.DutyStatus
+import com.fleetai.driver.data.model.EldDeviceStatus
 import com.fleetai.driver.data.model.HosEvent
+import com.fleetai.driver.data.model.HosClockStatus
 import com.fleetai.driver.data.model.NotificationItem
 import com.fleetai.driver.data.model.ThemeMode
 import com.fleetai.driver.data.model.Vehicle
@@ -23,6 +25,11 @@ interface DriverRepository {
     suspend fun markNotificationRead(notificationId: String)
 
     suspend fun getComplianceConfig(): ComplianceConfig
+    suspend fun getEldDeviceStatus(): EldDeviceStatus
+    suspend fun getEldHosStatus(): HosClockStatus
+    suspend fun recordEldLogin()
+    suspend fun recordEldLogout()
+    suspend fun certifyEldRecords(recordDate: String)
     suspend fun updateDutyStatus(status: DutyStatus, notes: String)
     suspend fun notifyFleet(message: String)
 

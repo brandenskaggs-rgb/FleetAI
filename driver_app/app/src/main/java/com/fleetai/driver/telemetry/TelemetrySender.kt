@@ -113,6 +113,20 @@ class TelemetrySender(
         if (vin.isNullOrBlank()) latestMeta.remove("vin") else latestMeta["vin"] = vin
     }
 
+    fun updateLocation(location: DeviceLocation?) {
+        if (location == null) {
+            latestMeta.remove("latitude")
+            latestMeta.remove("longitude")
+            latestMeta.remove("locationCapturedAt")
+            latestMeta.remove("locationAccuracyMeters")
+            return
+        }
+        latestMeta["latitude"] = location.latitude
+        latestMeta["longitude"] = location.longitude
+        latestMeta["locationCapturedAt"] = location.capturedAtEpochMs
+        latestMeta["locationAccuracyMeters"] = location.accuracyMeters.toDouble()
+    }
+
     fun updateExtendedProfile(profile: ExtendedPidProfile?) {
         if (profile == null) {
             latestMeta.remove("extendedPidProfile")

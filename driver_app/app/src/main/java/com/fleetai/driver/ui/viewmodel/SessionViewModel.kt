@@ -104,6 +104,7 @@ class SessionViewModel(
                 Log.d("FleetAI", "[PAIR] claim attempt")
                 val deviceId = preferences.ensureDeviceId()
                 repository.claimPairing(pairingCode, driverPin, deviceId, deviceLabel)
+                runCatching { repository.recordEldLogin() }
                 Log.d("FleetAI", "[PAIR] claim success")
                 onResult(true, "Device paired successfully.")
             } catch (ex: Exception) {
@@ -137,6 +138,7 @@ class SessionViewModel(
 
     fun logout() {
         viewModelScope.launch {
+            runCatching { repository.recordEldLogout() }
             preferences.clearSession()
         }
     }

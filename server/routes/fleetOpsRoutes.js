@@ -26,7 +26,8 @@ function registerFleetOpsRoutes(app, deps) {
     triggerTelemetryPipeline,
     storeNormalizedSnapshot,
     normalizeMetrics,
-    recordTelemetryActivity = () => {}
+    recordTelemetryActivity = () => {},
+    processEldTelemetry = null
   } = deps;
 
   // Accepts either an operator session or a paired-device token.
@@ -363,6 +364,9 @@ function registerFleetOpsRoutes(app, deps) {
       });
       const metrics = prepared.normalized;
       const normalizedTs = prepared.normalized.timestamp;
+      const eldResult = req.device && typeof processEldTelemetry === "function"
+        ? await processEldTelemetry(req.device, prepared.normalized, normalizedTs)
+        : null;
       const readingCount = normalizedReadingCount(metrics);
       const busDataActive = prepared.frames.length > 0 || readingCount > 0;
       const obdConnected = payload.obdConnected !== undefined ? Boolean(payload.obdConnected) : null;
@@ -463,7 +467,8 @@ function registerFleetOpsRoutes(app, deps) {
         outOfOrder: !promoteLiveSnapshot,
         livePromoted: promoteLiveSnapshot,
         linkOnly: !busDataActive,
-        snapshot
+        snapshot,
+        eld: eldResult
       });
     } catch (err) {
       if (err instanceof TelemetryPayloadError) {
