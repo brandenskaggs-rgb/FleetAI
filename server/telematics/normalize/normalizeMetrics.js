@@ -202,7 +202,8 @@ function normalizeMetrics(input) {
       vin: metrics.vin || meta.vin || null,
       ecuCount: metrics.ecuCount || meta.ecuCount || null,
       supportedPids: meta.supportedPids || [],
-      supportedSpns: meta.supportedSpns || []
+      supportedSpns: meta.supportedSpns || [],
+      metricAgesMs: meta.metricAgesMs || {}
     }
   };
 }

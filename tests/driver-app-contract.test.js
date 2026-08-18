@@ -141,6 +141,19 @@ console.log("\nTelemetry payload carries freshness without repeating VIN as a PI
   check("per-PID ages are included in telemetry metadata", /requestMeta\["metricAgesMs"\]/.test(sender));
   check("VIN is carried in metadata", /latestMeta\["vin"\]/.test(sender));
   check("VIN is not inserted into the metrics map", !/metrics\["vin"\]\s*=/.test(sender));
+  check("capture and network flushing use separate jobs", /captureJob[\s\S]*flushJob/.test(sender));
+  check("metric batches use an atomic immutable snapshot", /latestMetricSnapshot\s*=\s*MetricSnapshot\(validMetrics, validUpdatedAt, packetAt\)/.test(sender));
+  const j1979 = fs.readFileSync(path.join(
+    __dirname, "..", "driver_app", "app", "src", "main", "java", "com", "fleetai", "driver",
+    "telemetry", "J1979Spec.kt"
+  ), "utf8");
+  const sensorViewModel = fs.readFileSync(path.join(
+    __dirname, "..", "driver_app", "app", "src", "main", "java", "com", "fleetai", "driver",
+    "ui", "viewmodel", "SensorViewModel.kt"
+  ), "utf8");
+  check("impossible zero control-module voltage is rejected", /"batteryVoltageV"\s+to\s+5\.0\.\.40\.0/.test(j1979));
+  check("fast PID display freshness has a 15-second floor", /coerceIn\(15_000L, 90_000L\)/.test(sensorViewModel));
+  check("sender resets before polling publishes capabilities", /sender\.start\(\)\s*\n\s*startPolling\(\)/.test(sensorViewModel));
 }
 
 console.log("\nOBD polling has one application-level owner");

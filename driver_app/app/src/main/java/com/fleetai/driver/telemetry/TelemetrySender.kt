@@ -29,6 +29,12 @@ class TelemetrySender(
     private val resolveDriverId: suspend () -> String?,
     private val resolveDeviceId: suspend () -> String
 ) {
+    private data class MetricSnapshot(
+        val metrics: Map<String, Any?> = emptyMap(),
+        val updatedAt: Map<String, Long> = emptyMap(),
+        val packetAt: Long = 0L
+    )
+
     data class DebugState(
         val lastObdReadAt: Long = 0L,
         val lastSendAt: Long = 0L,
@@ -56,18 +62,17 @@ class TelemetrySender(
     )
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    @Volatile private var job: Job? = null
+    @Volatile private var captureJob: Job? = null
+    @Volatile private var flushJob: Job? = null
     @Volatile var debug = DebugState()
         private set
-    private val latestMetrics = ConcurrentHashMap<String, Any?>()
-    private val latestMetricUpdatedAt = ConcurrentHashMap<String, Long>()
+    @Volatile private var latestMetricSnapshot = MetricSnapshot()
     private val latestFrames = ConcurrentHashMap<String, CanFrameDto>()
     private val activeDtcs = ConcurrentHashMap.newKeySet<String>()
     private val latestMeta = ConcurrentHashMap<String, Any?>()
     @Volatile private var latestConnected = false
     @Volatile private var latestPacketAt = 0L
     @Volatile private var lastEnqueuedPacketAt = 0L
-    @Volatile private var cachedVin: String? = null
     @Volatile private var activeProtocol = "OBD2"
     @Volatile private var adapterMetadata: TelemetryAdapterDto? = null
     private val heartbeatKey = "heartbeatMs"
@@ -76,8 +81,7 @@ class TelemetrySender(
         stop()
         activeProtocol = protocol.uppercase()
         adapterMetadata = adapter
-        latestMetrics.clear()
-        latestMetricUpdatedAt.clear()
+        latestMetricSnapshot = MetricSnapshot()
         latestFrames.clear()
         activeDtcs.clear()
         latestMeta.clear()
@@ -85,31 +89,28 @@ class TelemetrySender(
         latestPacketAt = 0L
         lastEnqueuedPacketAt = 0L
         debug = debug.copy(lastError = "", protocol = activeProtocol, supportedPidCount = 0)
-        job = scope.launch {
-            if (activeProtocol == "OBD2") discoverObdCapabilities()
+        captureJob = scope.launch {
             while (isActive) {
                 enqueueCurrentBatch()
                 delay(UPLOAD_INTERVAL_MS)
             }
         }
-    }
-
-    private suspend fun discoverObdCapabilities() {
-        try {
-            val supported = obd.supportedPidsSnapshot().ifEmpty { obd.discoverSupportedPids() }
-            updateObdCapabilities(supported)
-        } catch (error: Exception) {
-            debug = debug.copy(lastError = error.message ?: "discover_pid_error", errors = debug.errors + 1)
+        flushJob = scope.launch {
+            while (isActive) {
+                flushOutbox()
+                delay(OUTBOX_FLUSH_INTERVAL_MS)
+            }
         }
-        cachedVin = runCatching { obd.readVin() }.getOrNull()
-        cachedVin?.let { latestMeta["vin"] = it }
-        refreshObdDiagnostics()
     }
 
     fun updateObdCapabilities(supported: Set<String>) {
         val normalized = supported.map { it.replace(" ", "").uppercase() }.distinct().sorted()
         latestMeta["supportedPids"] = normalized
         debug = debug.copy(supportedPidCount = normalized.size)
+    }
+
+    fun updateVin(vin: String?) {
+        if (vin.isNullOrBlank()) latestMeta.remove("vin") else latestMeta["vin"] = vin
     }
 
     fun updateExtendedProfile(profile: ExtendedPidProfile?) {
@@ -130,9 +131,10 @@ class TelemetrySender(
 
     private suspend fun enqueueCurrentBatch() {
         if (activeProtocol == "OBD2") refreshObdDiagnostics()
-        val packetAt = latestPacketAt
-        val hasFreshMetrics = packetAt > lastEnqueuedPacketAt && latestMetrics.isNotEmpty()
-        val metrics = if (hasFreshMetrics) latestMetrics.toMutableMap() else mutableMapOf()
+        val metricSnapshot = latestMetricSnapshot
+        val packetAt = maxOf(latestPacketAt, metricSnapshot.packetAt)
+        val hasFreshMetrics = metricSnapshot.packetAt > lastEnqueuedPacketAt && metricSnapshot.metrics.isNotEmpty()
+        val metrics = if (hasFreshMetrics) metricSnapshot.metrics.toMutableMap() else mutableMapOf()
         metrics[heartbeatKey] = System.currentTimeMillis()
         val frames = drainFrameSample()
         val vehicleId = resolveVehicleId()
@@ -147,8 +149,8 @@ class TelemetrySender(
         val requestMeta = latestMeta.toMutableMap()
         if (hasFreshMetrics) {
             val now = System.currentTimeMillis()
-            requestMeta["metricAgesMs"] = latestMetrics.keys.associateWith { key ->
-                (now - (latestMetricUpdatedAt[key] ?: packetAt)).coerceAtLeast(0L)
+            requestMeta["metricAgesMs"] = metricSnapshot.metrics.keys.associateWith { key ->
+                (now - (metricSnapshot.updatedAt[key] ?: metricSnapshot.packetAt)).coerceAtLeast(0L)
             }
         }
         val request = TelemetryIngestRequest(
@@ -169,7 +171,17 @@ class TelemetrySender(
         )
         try {
             AppGraph.telemetryOutbox.enqueue(request)
-            if (hasFreshMetrics) lastEnqueuedPacketAt = packetAt
+            if (hasFreshMetrics) lastEnqueuedPacketAt = metricSnapshot.packetAt
+        } catch (error: Exception) {
+            debug = debug.copy(
+                lastError = error.message ?: "telemetry_queue_error",
+                errors = debug.errors + 1
+            )
+        }
+    }
+
+    private suspend fun flushOutbox() {
+        try {
             val result = AppGraph.telemetryOutbox.flush(ApiClient.api)
             debug = debug.copy(
                 lastSendAt = if (result.sent > 0) System.currentTimeMillis() else debug.lastSendAt,
@@ -178,7 +190,7 @@ class TelemetrySender(
             )
         } catch (error: Exception) {
             debug = debug.copy(
-                lastError = error.message ?: "telemetry_queue_error",
+                lastError = error.message ?: "telemetry_flush_error",
                 errors = debug.errors + 1
             )
         }
@@ -221,16 +233,17 @@ class TelemetrySender(
         packetAt: Long = System.currentTimeMillis(),
         metricUpdatedAt: Map<String, Long> = emptyMap()
     ) {
-        latestMetrics.clear()
-        latestMetricUpdatedAt.clear()
+        val validMetrics = mutableMapOf<String, Any?>()
+        val validUpdatedAt = mutableMapOf<String, Long>()
         metrics.forEach { (key, value) ->
             if (value != null && value.isFinite()) {
-                latestMetrics[key] = value
-                latestMetricUpdatedAt[key] = metricUpdatedAt[key] ?: packetAt
+                validMetrics[key] = value
+                validUpdatedAt[key] = metricUpdatedAt[key] ?: packetAt
             }
         }
+        latestMetricSnapshot = MetricSnapshot(validMetrics, validUpdatedAt, packetAt)
         latestConnected = obdConnected
-        if (latestMetrics.isNotEmpty()) {
+        if (validMetrics.isNotEmpty()) {
             latestPacketAt = packetAt
             debug = debug.copy(lastObdReadAt = packetAt)
         }
@@ -306,14 +319,21 @@ class TelemetrySender(
     }
 
     fun stop() {
-        val current = job ?: return
-        job = null
-        current.cancel()
-        scope.launch { runCatching { current.cancelAndJoin() } }
+        val currentCapture = captureJob
+        val currentFlush = flushJob
+        captureJob = null
+        flushJob = null
+        currentCapture?.cancel()
+        currentFlush?.cancel()
+        scope.launch {
+            runCatching { currentCapture?.cancelAndJoin() }
+            runCatching { currentFlush?.cancelAndJoin() }
+        }
     }
 
     companion object {
         private const val UPLOAD_INTERVAL_MS = 2_000L
+        private const val OUTBOX_FLUSH_INTERVAL_MS = 500L
         private const val MAX_FRAMES_PER_BATCH = 256
     }
 }

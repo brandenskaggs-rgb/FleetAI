@@ -737,7 +737,12 @@
     // directly, all of which are undefined in that structure, so every live
     // tile rendered "--" even with data arriving. Reads the nested shape first
     // and keeps the flat fallbacks for older senders.
-    function telemetryValue(frame, paths){
+    function telemetryValue(frame, paths, sourceKeys=[]){
+      const ages=frame?.deviceDiagnostics?.metricAgesMs;
+      if(ages&&sourceKeys.length){
+        const reported=sourceKeys.map(key=>Number(ages[key])).filter(Number.isFinite);
+        if(reported.length&&Math.min(...reported)>30000) return null;
+      }
       const m = frame && (frame.metrics || frame.signals || frame) || {};
       for(const p of paths){
         const v = p.split(".").reduce((acc,k)=> (acc==null?undefined:acc[k]), m);
@@ -752,6 +757,10 @@
       battery:  ["electrical.batteryVoltageV", "batteryVoltage", "battery_voltage", "batteryVoltageV"],
       load:     ["engine.engineLoadPct", "engineLoad", "engine_load", "engineLoadPct"]
     };
+    const TELEMETRY_SOURCE_KEYS = {
+      rpm:["rpm"], speed:["speedKph","speedMph"], coolant:["coolantTempC","coolantTempF"],
+      battery:["batteryVoltageV","batteryVoltage"], load:["engineLoadPct","engine_load"]
+    };
     const SENSOR_GROUP_LABELS = {
       engine:"Engine", fuel:"Fuel delivery", electrical:"Electrical", emissions:"Emissions",
       vehicle:"Vehicle", controls:"Driver controls", brakes:"Brakes", lifecycle:"Lifecycle", environment:"Environment"
@@ -759,7 +768,7 @@
     function sensorStatePill(stateName){
       const value=String(stateName||"unknown").toLowerCase();
       if(value==="unsupported") return `<span class="pill">Not exposed</span>`;
-      const cls=value==="critical"?"bad":value==="watch"||value==="unknown"?"warn":"good";
+      const cls=value==="critical"?"bad":value==="watch"||value==="unknown"||value==="stale"?"warn":"good";
       return `<span class="pill ${cls}">${esc(value)}</span>`;
     }
     function formatSensorValue(reading){
@@ -777,7 +786,7 @@
       const groups=order.map(group=>[group,readings.filter(reading=>reading.group===group)]).filter(([,items])=>items.length);
       grid.innerHTML=groups.length?groups.map(([group,items])=>`<div class="sensorGroup"><h4>${esc(SENSOR_GROUP_LABELS[group]||group)}</h4>${items.map(reading=>`<div class="sensorReading ${reading.supported===false?"unsupported":""}"><div><div class="sensorReadingName">${esc(reading.label||reading.key)}</div><div class="sensorReadingMeta">${esc(reading.pid?`PID ${reading.pid}`:reading.spn?`SPN ${reading.spn}`:"Derived signal")}</div></div><div><div class="sensorReadingValue">${esc(formatSensorValue(reading))}</div>${sensorStatePill(reading.state)}</div></div>`).join("")}</div>`).join(""):`<div class="sensorEmpty">No standardized ECU signals have been reported for this vehicle.</div>`;
       const counts=payload?.counts||{};
-      if($("sensorSummary")) $("sensorSummary").innerHTML=`<span class="pill good">${num(counts.reporting,0)} reporting</span><span class="pill warn">${num(counts.unsupported,0)} not exposed</span>${counts.watch?`<span class="pill warn">${num(counts.watch)} watch</span>`:""}${counts.critical?`<span class="pill bad">${num(counts.critical)} critical</span>`:""}`;
+      if($("sensorSummary")) $("sensorSummary").innerHTML=`<span class="pill good">${num(counts.reporting,0)} reporting</span><span class="pill warn">${num(counts.unsupported,0)} not exposed</span>${counts.stale?`<span class="pill warn">${num(counts.stale)} stale</span>`:""}${counts.watch?`<span class="pill warn">${num(counts.watch)} watch</span>`:""}${counts.critical?`<span class="pill bad">${num(counts.critical)} critical</span>`:""}`;
     }
     async function loadLiveSensors(){
       const vehicleId=$("telemetryVehicleSelect")?.value||state.selectedVehicleId;
@@ -794,17 +803,17 @@
       state.telemetryRows.unshift(d);
       state.telemetryLastAt=Date.now();
       state.telemetryRows=state.telemetryRows.slice(0,40);
-      $("liveRpm").textContent     = num(telemetryValue(d, TELEMETRY_PATHS.rpm));
-      $("liveSpeed").textContent   = num(telemetryValue(d, TELEMETRY_PATHS.speed));
-      $("liveCoolant").textContent = num(telemetryValue(d, TELEMETRY_PATHS.coolant));
-      $("liveBattery").textContent = num(telemetryValue(d, TELEMETRY_PATHS.battery));
+      $("liveRpm").textContent     = num(telemetryValue(d, TELEMETRY_PATHS.rpm, TELEMETRY_SOURCE_KEYS.rpm));
+      $("liveSpeed").textContent   = num(telemetryValue(d, TELEMETRY_PATHS.speed, TELEMETRY_SOURCE_KEYS.speed));
+      $("liveCoolant").textContent = num(telemetryValue(d, TELEMETRY_PATHS.coolant, TELEMETRY_SOURCE_KEYS.coolant));
+      $("liveBattery").textContent = num(telemetryValue(d, TELEMETRY_PATHS.battery, TELEMETRY_SOURCE_KEYS.battery));
       // Link state: a tablet can be online while its OBD adapter is unplugged.
       // Those look identical without this, so surface it rather than showing a
       // stale reading as if it were live.
       const linkEl = $("telemetryStatus");
       const detailEl = $("telemetryEcuDetail");
       const diagnostics = d.deviceDiagnostics || {};
-      const hasVehicleData = Object.values(TELEMETRY_PATHS).some(paths=>telemetryValue(d,paths)!==null);
+      const hasVehicleData = Object.entries(TELEMETRY_PATHS).some(([key,paths])=>telemetryValue(d,paths,TELEMETRY_SOURCE_KEYS[key])!==null);
       if(linkEl && hasVehicleData){
         linkEl.textContent = "Live vehicle data";
         linkEl.className = "pill good";
@@ -829,11 +838,11 @@
       }
       $("telemetryRows").innerHTML = state.telemetryRows.map(x=>
         `<tr><td>${esc(x.ts||x.timestamp||"now")}</td><td>${esc(x.vehicleId||"--")}</td>`
-        + `<td>${num(telemetryValue(x, TELEMETRY_PATHS.rpm))}</td>`
-        + `<td>${num(telemetryValue(x, TELEMETRY_PATHS.speed))}</td>`
-        + `<td>${num(telemetryValue(x, TELEMETRY_PATHS.coolant))}</td>`
-        + `<td>${num(telemetryValue(x, TELEMETRY_PATHS.battery))}</td>`
-        + `<td>${num(telemetryValue(x, TELEMETRY_PATHS.load))}</td></tr>`
+        + `<td>${num(telemetryValue(x, TELEMETRY_PATHS.rpm, TELEMETRY_SOURCE_KEYS.rpm))}</td>`
+        + `<td>${num(telemetryValue(x, TELEMETRY_PATHS.speed, TELEMETRY_SOURCE_KEYS.speed))}</td>`
+        + `<td>${num(telemetryValue(x, TELEMETRY_PATHS.coolant, TELEMETRY_SOURCE_KEYS.coolant))}</td>`
+        + `<td>${num(telemetryValue(x, TELEMETRY_PATHS.battery, TELEMETRY_SOURCE_KEYS.battery))}</td>`
+        + `<td>${num(telemetryValue(x, TELEMETRY_PATHS.load, TELEMETRY_SOURCE_KEYS.load))}</td></tr>`
       ).join("");
       if(state.activeRoute==="telemetry"&&Date.now()-state.sensorLastRefresh>5000) loadLiveSensors();
     }

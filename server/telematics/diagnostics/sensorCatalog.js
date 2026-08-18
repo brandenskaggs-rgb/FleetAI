@@ -162,11 +162,16 @@ function classify(sensor, value) {
 function buildSensorView(normalized, supported = {}) {
   const supportedPids = new Set((supported.supportedPids || []).map((p) => String(p).toLowerCase()));
   const supportedSpns = new Set((supported.supportedSpns || []).map((s) => Number(s)));
+  const metricAgesMs = supported.metricAgesMs && typeof supported.metricAgesMs === "object"
+    ? supported.metricAgesMs
+    : {};
   const declaresSupport = supportedPids.size > 0 || supportedSpns.size > 0;
 
   const readings = SENSORS.map((s) => {
     const value = normalized ? readPath(normalized, s.path) : undefined;
-    const present = value !== undefined && value !== null;
+    const ageMs = Number(metricAgesMs[s.key]);
+    const stale = Number.isFinite(ageMs) && ageMs > 30_000;
+    const present = value !== undefined && value !== null && !stale;
     // If the ECU published a capability list, trust it; otherwise infer from
     // whether a value actually arrived.
     const isSupported = declaresSupport
@@ -184,7 +189,9 @@ function buildSensorView(normalized, supported = {}) {
       raw: present ? value : null,
       boolean: Boolean(s.boolean),
       supported: Boolean(isSupported),
-      state: present ? classify(s, value) : (isSupported ? "unknown" : "unsupported")
+      ageMs: Number.isFinite(ageMs) ? ageMs : null,
+      stale,
+      state: present ? classify(s, value) : (stale ? "stale" : (isSupported ? "unknown" : "unsupported"))
     };
   });
 
@@ -195,6 +202,7 @@ function buildSensorView(normalized, supported = {}) {
       total: readings.length,
       reporting: readings.filter((r) => r.value != null).length,
       unsupported: readings.filter((r) => !r.supported).length,
+      stale: readings.filter((r) => r.stale).length,
       watch: readings.filter((r) => r.state === "watch").length,
       critical: readings.filter((r) => r.state === "critical").length
     }

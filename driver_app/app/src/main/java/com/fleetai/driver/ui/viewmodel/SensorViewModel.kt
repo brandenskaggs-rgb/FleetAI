@@ -195,8 +195,8 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
                 _status.value = "Connected"
                 preferences.saveObdDeviceAddress(device.address)
                 _savedDevice.value = device.address
-                startPolling()
                 sender.start()
+                startPolling()
             } catch (_: SecurityException) {
                 _status.value = "Bluetooth permission required"
             } catch (_: Exception) {
@@ -248,8 +248,8 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
                     return@launch
                 }
                 _status.value = "Connected"
-                startPolling()
                 sender.start()
+                startPolling()
             } catch (_: SecurityException) {
                 _status.value = "Bluetooth permission required"
             } catch (_: Exception) {
@@ -267,6 +267,7 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
             sender.updateObdCapabilities(supported)
             val plan = J1979Spec.pollingPlan(supported)
             val vin = runCatching { obd.readVin() }.getOrNull()
+            sender.updateVin(vin)
             val extendedProfile = runCatching { extendedPidCatalog.match(vin) }.getOrNull()
             val extendedPlan = extendedProfile?.sensors.orEmpty()
             sender.updateExtendedProfile(extendedProfile)
@@ -413,12 +414,14 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
     private suspend fun readPidMetrics(command: String): PidMetricsReadResult {
         return try {
             val raw = obd.readPid(command) ?: return PidMetricsReadResult(emptyMap(), "No response from adapter")
-            val values = ObdParser.parsePid(command, raw)
+            val parsedValues = ObdParser.parsePid(command, raw)
+            val values = parsedValues.filter { (key, value) -> J1979Spec.isPlausible(key, value) }
             val error = if (values.isEmpty()) {
                 when {
                     raw.contains("NO DATA", ignoreCase = true) -> "ECU returned NO DATA for $command"
                     raw.contains("UNABLE TO CONNECT", ignoreCase = true) -> "Adapter cannot reach the ECU"
                     raw.contains("BUS", ignoreCase = true) -> raw.take(80)
+                    parsedValues.isNotEmpty() -> "ECU returned an implausible value for $command"
                     else -> "Unrecognized response for $command"
                 }
             } else null
@@ -531,7 +534,7 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
     }
 
     private fun readingFreshnessMs(minIntervalMs: Long): Long =
-        (minIntervalMs * 3).coerceIn(5_000L, 90_000L)
+        (minIntervalMs * 6).coerceIn(15_000L, 90_000L)
 
     private fun smooth(pid: String, value: Double): Double {
         val alpha = 0.15  // 15% new / 85% history — low enough to suppress BT noise

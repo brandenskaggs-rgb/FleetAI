@@ -107,6 +107,20 @@ check("accelerator position survives", Math.abs(expandedNorm.controls.accelerato
 const expandedView = buildSensorView(expandedNorm, expandedNorm.meta);
 check("sensor inventory reports expanded signals", expandedView.counts.reporting >= 5);
 check("capability metadata matches canonical PID format", expandedView.readings.find(r => r.key === "fuelPressureKpa")?.supported === true);
+const ageAwareNorm = normalizeMetrics({
+  protocol: "OBD2",
+  decoded: {
+    ...expanded,
+    meta: {
+      supportedPids: ["010A", "0123", "010E", "013C", "0149"],
+      metricAgesMs: { fuelPressureKpa: 45_000, fuelRailGaugePressureKpa: 500 }
+    }
+  }
+});
+const ageAwareView = buildSensorView(ageAwareNorm, ageAwareNorm.meta);
+check("normalization retains bounded per-PID ages", ageAwareNorm.meta.metricAgesMs.fuelPressureKpa === 45_000);
+check("sensor inventory marks old supported values stale", ageAwareView.readings.find(r => r.key === "fuelPressureKpa")?.state === "stale");
+check("sensor inventory keeps fresh values reporting", ageAwareView.readings.find(r => r.key === "fuelRailGaugePressureKpa")?.value === 1000);
 const expandedSample = buildTelemetrySample(expandedNorm);
 check("ML snapshot retains fuel pressure", expandedSample.metrics.fuelPressure === 96);
 check("ML snapshot retains rail pressure", expandedSample.metrics.fuelRailPressureGauge === 1000);

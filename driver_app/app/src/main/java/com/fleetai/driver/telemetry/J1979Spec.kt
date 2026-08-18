@@ -19,6 +19,18 @@ data class PidSpec(
  * model, powertrain, and model year.
  */
 object J1979Spec {
+    private val plausibleRanges = mapOf(
+        "rpm" to 0.0..10_000.0,
+        "speedKph" to 0.0..300.0,
+        "coolantTempC" to -50.0..150.0,
+        "oilTempC" to -50.0..200.0,
+        "intakeAirTempC" to -50.0..150.0,
+        "ambientTempC" to -50.0..100.0,
+        "batteryVoltageV" to 5.0..40.0,
+        "mafGramsPerSec" to 0.0..1_000.0,
+        "fuelLevelPct" to 0.0..100.0
+    )
+
     val core: List<PidSpec> = listOf(
         PidSpec("010C", "rpm", "Engine RPM", 2, "rpm", 250, 0),
         PidSpec("010D", "speedKph", "Vehicle speed", 1, "kph", 250, 0),
@@ -100,4 +112,7 @@ object J1979Spec {
         if (supported.isEmpty()) return all.filter { it.priority <= 1 }
         return all.filter { supported.contains(it.command.uppercase()) }
     }
+
+    fun isPlausible(key: String, value: Double): Boolean =
+        value.isFinite() && (plausibleRanges[key]?.contains(value) ?: true)
 }
