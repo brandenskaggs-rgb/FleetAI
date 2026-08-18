@@ -108,7 +108,10 @@ function registerDriverAppRoutes(app, deps) {
   app.post("/api/logs/hos", requireDevice, async (req, res, next) => {
     try {
       const b = req.body || {};
-      const dutyStatus = sanitizeString(b.dutyStatus || "", 32).toUpperCase();
+      const rawDutyStatus = sanitizeString(b.dutyStatus || "", 32).toUpperCase();
+      const dutyStatus = rawDutyStatus === "OFF"
+        ? "OFF_DUTY"
+        : rawDutyStatus === "ON" ? "ON_DUTY" : rawDutyStatus;
       // FMCSA duty statuses. An unrecognised value is rejected rather than
       // stored, because an un-decodable status in a log is a compliance defect.
       const VALID = ["OFF_DUTY", "SLEEPER", "DRIVING", "ON_DUTY", "YARD_MOVE", "PERSONAL_CONVEYANCE"];

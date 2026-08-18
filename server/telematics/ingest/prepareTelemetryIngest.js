@@ -103,6 +103,16 @@ function sanitizeTelemetryMeta(meta) {
       .filter((value) => Number.isInteger(value) && value > 0 && value <= 524287))]
       .slice(0, 1024);
   }
+  if (meta.metricAgesMs && typeof meta.metricAgesMs === "object" && !Array.isArray(meta.metricAgesMs)) {
+    output.metricAgesMs = Object.fromEntries(
+      Object.entries(meta.metricAgesMs)
+        .filter(([key, value]) => /^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(key)
+          && Number.isFinite(Number(value))
+          && Number(value) >= 0)
+        .slice(0, 256)
+        .map(([key, value]) => [key, Math.min(Math.round(Number(value)), MAX_OFFLINE_AGE_MS)])
+    );
+  }
   const vin = boundedText(meta.vin, 17).toUpperCase();
   if (vin && /^[A-HJ-NPR-Z0-9]{11,17}$/.test(vin)) output.vin = vin;
   const connector = boundedText(meta.connectorProfile, 40);

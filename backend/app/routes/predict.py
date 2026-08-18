@@ -15,7 +15,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from ..db import pg as pg_db
-from ..ml.features import extract_features, METRIC_KEYS
+from ..ml.features import coalesce_samples, extract_features, metric_value, METRIC_KEYS
 from ..ml.dtc import analyze_dtcs
 from ..ml.diagnosis import run_diagnosis
 from ..ml.fleet import compute_fleet_normalization, fleet_risk_boost
@@ -56,16 +56,8 @@ _if_cache: dict[str, VehicleIsolationForest] = {}
 
 
 def _dedupe_samples(samples: list[dict]) -> list[dict]:
-    """Keep one copy of each physical ECU observation while preserving order."""
-    unique: dict[str, dict] = {}
-    for sample in samples:
-        sample_id = str(sample.get("id") or "").strip()
-        timestamp = str(sample.get("ts") or sample.get("timestamp") or "").strip()
-        metrics = sample.get("metrics") if isinstance(sample.get("metrics"), dict) else {}
-        observation = json.dumps(metrics, sort_keys=True, separators=(",", ":"), default=str)
-        key = f"{timestamp}:{observation}" if timestamp else sample_id or observation
-        unique[key] = sample
-    return list(unique.values())
+    """Coalesce burst uploads into one five-second physical observation."""
+    return coalesce_samples(samples, bucket_seconds=5)
 
 
 def _welford_update(state: dict, value: float) -> dict:
@@ -127,7 +119,12 @@ async def _get_or_load_vif(vehicle_id: str, org_id: Optional[str]) -> VehicleIso
 
 # ── Baseline persistence helpers ──────────────────────────────────────────────
 
-async def _persist_baselines(vehicle_id: str, org_id: Optional[str], window_stats: dict) -> None:
+async def _persist_baselines(
+    vehicle_id: str,
+    org_id: Optional[str],
+    window_stats: dict,
+    samples: list[dict],
+) -> None:
     """Write per-metric Welford stats to the Baseline table."""
     welford = _welford_state.get(vehicle_id, {})
     for metric_key in METRIC_KEYS:
@@ -137,10 +134,10 @@ async def _persist_baselines(vehicle_id: str, org_id: Optional[str], window_stat
         count = ws["count"]
         mean = ws["mean"]
         M2 = ws["M2"]
-        # Collect recent sample values for percentile computation
+        # Persist percentiles from validated telemetry, not adapter sentinel values.
         all_stats = window_stats.get(metric_key, {}).get("all", {})
-        # We don't have the raw list here, pass None — percentiles computed from
-        # the samples list when available
+        sample_values = [metric_value(sample, metric_key) for sample in samples]
+        sample_values = [value for value in sample_values if value is not None]
         await pg_db.upsert_baseline(
             vehicle_id=vehicle_id,
             org_id=org_id,
@@ -151,7 +148,7 @@ async def _persist_baselines(vehicle_id: str, org_id: Optional[str], window_stat
             m2=M2,
             min_val=all_stats.get("min"),
             max_val=all_stats.get("max"),
-            samples_list=None,
+            samples_list=sample_values,
         )
 
 
@@ -387,7 +384,7 @@ async def predict(req: PredictRequest) -> dict:
 
     # ── 9. Persist ────────────────────────────────────────────────────────────
     try:
-        await _persist_baselines(vehicle_id, org_id, window_stats)
+        await _persist_baselines(vehicle_id, org_id, window_stats, all_samples)
         await _persist_state(vehicle_id, org_id, vif)
     except Exception as exc:
         logger.debug(f"[predict] persist error for {vehicle_id}: {exc}")

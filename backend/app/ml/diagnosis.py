@@ -95,16 +95,17 @@ def _detect_thermostat(m: dict, dtcs: list[str], slopes: dict) -> tuple:
     evidence = []
     score = 0.0
     coolant = _safe(m.get("coolantTemp"))
+    rpm = _safe(m.get("rpm"))
     coolant_slope = _safe(slopes.get("coolantTemp"))
     matched = _dtc_match(dtcs, ["P0128", "P0125"])  # below regulating temp / slow warm-up
 
-    if coolant > 100:
-        score += 0.30; evidence.append(f"Coolant temp {coolant:.0f}°C — above safe operating limit.")
-    elif coolant > 92:
-        score += 0.15; evidence.append(f"Coolant temp {coolant:.0f}°C — elevated.")
-
-    if coolant_slope > 0.5:
-        score += 0.20; evidence.append(f"Coolant temp rising at {coolant_slope:.2f}°C/sample — trending hot.")
+    # Heat soak after shutdown commonly raises coolant above 100 C. Do not
+    # infer a failed thermostat from temperature alone, especially at 0 RPM.
+    if rpm >= 400 and coolant > 110 and coolant_slope > 0.2:
+        score += 0.25
+        evidence.append(
+            f"Coolant reached {coolant:.0f}°C and continued rising while the engine was running."
+        )
 
     if "P0128" in matched:
         score += 0.35; evidence.append("DTC P0128: coolant below thermostat regulating temp — thermostat likely stuck open.")
@@ -118,16 +119,15 @@ def _detect_water_pump(m: dict, dtcs: list[str], slopes: dict) -> tuple:
     evidence = []
     score = 0.0
     coolant = _safe(m.get("coolantTemp"))
+    rpm = _safe(m.get("rpm"))
     coolant_slope = _safe(slopes.get("coolantTemp"))
-    matched = _dtc_match(dtcs, ["P0217", "P0218", "P3000"])
+    matched = _dtc_match(dtcs, ["P0217"])
 
-    if coolant > 105:
-        score += 0.35; evidence.append(f"Coolant temp critically high at {coolant:.0f}°C — possible flow blockage.")
-    elif coolant > 98:
-        score += 0.20; evidence.append(f"Coolant temp {coolant:.0f}°C — high without thermostat DTC suggests flow issue.")
-
-    if coolant_slope > 1.0:
-        score += 0.25; evidence.append("Rapid coolant temperature rise — inadequate coolant circulation.")
+    if rpm >= 400 and coolant > 118 and coolant_slope > 0.5:
+        score += 0.35
+        evidence.append(
+            f"Coolant reached {coolant:.0f}°C with a sustained rise while the engine was running."
+        )
 
     for dtc in matched:
         score += 0.20; evidence.append(f"DTC {dtc}: engine overtemp code consistent with pump failure.")

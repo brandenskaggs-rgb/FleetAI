@@ -16,6 +16,7 @@ import com.fleetai.driver.ui.screens.SensorsScreen
 import com.fleetai.driver.ui.screens.SettingsScreen
 import com.fleetai.driver.ui.screens.StatusScreen
 import com.fleetai.driver.ui.viewmodel.SessionState
+import com.fleetai.driver.ui.viewmodel.SensorViewModel
 
 object MainRoute {
     const val Home = "home"
@@ -41,7 +42,8 @@ sealed class MainScreen(val route: String, val label: String) {
 fun MainNavGraph(
     navController: NavHostController,
     contentPadding: PaddingValues,
-    sessionState: SessionState
+    sessionState: SessionState,
+    sensorViewModel: SensorViewModel
 ) {
     NavHost(
         navController = navController,
@@ -52,6 +54,7 @@ fun MainNavGraph(
             HomeScreen(
                 contentPadding = contentPadding,
                 sessionState = sessionState,
+                sensorViewModel = sensorViewModel,
                 onOpenStatus = { navController.navigate(MainRoute.Status) },
                 onOpenDiagnostics = { navController.navigate(MainRoute.Diagnostics) },
                 onOpenRoute = { navController.navigate(MainRoute.Route) },
@@ -65,7 +68,7 @@ fun MainNavGraph(
             InspectionScreen(contentPadding = contentPadding, sessionState = sessionState)
         }
         composable(MainRoute.Sensors) {
-            SensorsScreen(contentPadding = contentPadding)
+            SensorsScreen(contentPadding = contentPadding, viewModel = sensorViewModel)
         }
         composable(MainRoute.Notifications) {
             NotificationsScreen(contentPadding = contentPadding)

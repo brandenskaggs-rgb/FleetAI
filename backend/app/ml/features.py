@@ -66,6 +66,57 @@ def _to_f(v) -> Optional[float]:
         return None
 
 
+_VALID_RANGES = {
+    "batteryVoltage": (5.0, 40.0),
+    "rpm": (0.0, 10000.0),
+    "vehicleSpeed": (0.0, 300.0),
+    "coolantTemp": (-50.0, 150.0),
+    "oilTemp": (-50.0, 200.0),
+    "engineLoad": (0.0, 110.0),
+    "fuelLevel": (0.0, 100.0),
+    "throttlePos": (0.0, 100.0),
+    "dpfSootLoad": (0.0, 100.0),
+}
+
+
+def metric_value(sample: dict, metric_key: str) -> Optional[float]:
+    metrics = sample.get("metrics") if isinstance(sample.get("metrics"), dict) else {}
+    value = _to_f(metrics.get(metric_key))
+    limits = _VALID_RANGES.get(metric_key)
+    if value is None or limits is None:
+        return value
+    return value if limits[0] <= value <= limits[1] else None
+
+
+def coalesce_samples(samples: list[dict], bucket_seconds: int = 5) -> list[dict]:
+    """Merge burst uploads into one richer physical observation per time bucket."""
+    unique: dict[str, dict] = {}
+    for sample in samples:
+        timestamp = str(sample.get("ts") or sample.get("timestamp") or "").strip()
+        try:
+            parsed = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+            bucket = int(parsed.timestamp() // bucket_seconds)
+        except (TypeError, ValueError):
+            bucket = timestamp
+        vehicle_id = str(sample.get("vehicleId") or "").strip()
+        metrics = sample.get("metrics") if isinstance(sample.get("metrics"), dict) else {}
+        key = f"{vehicle_id}:{bucket}"
+        existing = unique.get(key)
+        if existing is None:
+            unique[key] = {**sample, "metrics": dict(metrics)}
+            continue
+        merged_metrics = dict(existing.get("metrics") or {})
+        merged_metrics.update({k: v for k, v in metrics.items() if v is not None and v != ""})
+        existing_ts = str(existing.get("ts") or existing.get("timestamp") or "")
+        unique[key] = {
+            **existing,
+            **sample,
+            "ts": max(existing_ts, timestamp),
+            "metrics": merged_metrics,
+        }
+    return list(unique.values())
+
+
 def _parse_ts(ts_str) -> Optional[datetime]:
     if not ts_str:
         return None
@@ -174,8 +225,8 @@ def _duty_cycle_score(samples: list[dict]) -> float:
         return 0.0
     hard_use = 0
     for s in samples:
-        rpm = _to_f(s.get("metrics", {}).get("rpm"))
-        load = _to_f(s.get("metrics", {}).get("engineLoad"))
+        rpm = metric_value(s, "rpm")
+        load = metric_value(s, "engineLoad")
         if (rpm and rpm > 2000) or (load and load > 70):
             hard_use += 1
     return round(hard_use / len(samples), 3)
@@ -290,19 +341,19 @@ def extract_features(samples: list[dict], vehicle_meta: Optional[dict] = None) -
     all_metric_values: dict[str, list[float]] = {}
 
     for key in METRIC_KEYS:
-        all_vals = [_to_f(s.get("metrics", {}).get(key)) for s in sorted_samples]
+        all_vals = [metric_value(s, key) for s in sorted_samples]
         all_vals = [v for v in all_vals if v is not None]
         all_metric_values[key] = all_vals
         key_stats = {"all": _stats(all_vals)}
         for h in WINDOW_HOURS:
             w_samples = _window_samples(sorted_samples, now_ts, h)
-            w_vals = [_to_f(s.get("metrics", {}).get(key)) for s in w_samples]
+            w_vals = [metric_value(s, key) for s in w_samples]
             w_vals = [v for v in w_vals if v is not None]
             key_stats[f"h{h}"] = _stats(w_vals)
         window_stats[key] = key_stats
 
     # Current values from latest sample
-    current_metrics = {k: _to_f(latest.get("metrics", {}).get(k)) for k in METRIC_KEYS}
+    current_metrics = {k: metric_value(latest, k) for k in METRIC_KEYS}
 
     # Derived trend/anomaly signals Stage 2 (stage2.py) reads by these exact
     # names — training (fleet_simulation.py) has these as physics-modeled
@@ -375,7 +426,7 @@ def extract_features(samples: list[dict], vehicle_meta: Optional[dict] = None) -
 
     # Phase 2B: temporal acceleration features for key signals
     for tkey in _TEMPORAL_SLOPE_KEYS:
-        h24_vals = [_to_f(s.get("metrics", {}).get(tkey))
+        h24_vals = [metric_value(s, tkey)
                     for s in _window_samples(sorted_samples, now_ts, 24)]
         h24_vals = [v for v in h24_vals if v is not None]
         accel = _temporal_acceleration(h24_vals)

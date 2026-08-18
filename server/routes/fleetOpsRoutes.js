@@ -405,6 +405,11 @@ function registerFleetOpsRoutes(app, deps) {
         captureQuality: prepared.quality,
         deviceDiagnostics: prepared.decoded.meta || {}
       };
+      const previousTimestampMs = previousSnapshot ? new Date(previousSnapshot.ts).getTime() : Number.NEGATIVE_INFINITY;
+      const snapshotTimestampMs = new Date(snapshot.ts).getTime();
+      const promoteLiveSnapshot = !previousSnapshot
+        || snapshotTimestampMs > previousTimestampMs
+        || (snapshotTimestampMs === previousTimestampMs && snapshot.readingCount > (previousSnapshot.readingCount || 0));
       if (busDataActive && !duplicateBusSample) {
         storeNormalizedSnapshot(data, prepared.normalized, {
           driverId: snapshot.driverId,
@@ -415,7 +420,7 @@ function registerFleetOpsRoutes(app, deps) {
             capture: prepared.capture,
             quality: prepared.quality
           }),
-          vin: prepared.decoded.meta?.vin || null
+          vin: prepared.normalized.meta?.vin || prepared.decoded.meta?.vin || null
         });
         if (prepared.frames.length) {
           appendFrames(data, prepared.frames.map((frame) => Object.assign({}, frame, {
@@ -433,24 +438,30 @@ function registerFleetOpsRoutes(app, deps) {
         }
         await writeData(data);
       }
-      telemetryLatest.set(vehicleId, snapshot);
-      recordTelemetryActivity(snapshot);
-      if (busDataActive && !duplicateBusSample) triggerTelemetryPipeline();
+      if (promoteLiveSnapshot) {
+        telemetryLatest.set(vehicleId, snapshot);
+        recordTelemetryActivity(snapshot);
+      }
+      if (promoteLiveSnapshot && busDataActive && !duplicateBusSample) triggerTelemetryPipeline();
 
       // Fan out to the fleet manager's dashboard in real time. Resolved from
       // the pairing for a device, otherwise looked up from the vehicle, so a
       // snapshot is only ever delivered inside its owning organisation.
-      let snapshotOrgId = req.device ? (req.device.orgId || null) : null;
-      if (!snapshotOrgId) {
-        snapshotOrgId = await db.getVehicleOrgId(vehicleId).catch(() => null);
+      if (promoteLiveSnapshot) {
+        let snapshotOrgId = req.device ? (req.device.orgId || null) : null;
+        if (!snapshotOrgId) {
+          snapshotOrgId = await db.getVehicleOrgId(vehicleId).catch(() => null);
+        }
+        broadcastTelemetry(snapshot, snapshotOrgId);
       }
-      broadcastTelemetry(snapshot, snapshotOrgId);
 
       res.json({
         ok: true,
         success: true,
         stored: busDataActive && !duplicateBusSample,
         duplicateSample: duplicateBusSample,
+        outOfOrder: !promoteLiveSnapshot,
+        livePromoted: promoteLiveSnapshot,
         linkOnly: !busDataActive,
         snapshot
       });

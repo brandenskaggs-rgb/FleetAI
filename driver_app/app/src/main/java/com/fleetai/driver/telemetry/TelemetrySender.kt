@@ -60,6 +60,7 @@ class TelemetrySender(
     @Volatile var debug = DebugState()
         private set
     private val latestMetrics = ConcurrentHashMap<String, Any?>()
+    private val latestMetricUpdatedAt = ConcurrentHashMap<String, Long>()
     private val latestFrames = ConcurrentHashMap<String, CanFrameDto>()
     private val activeDtcs = ConcurrentHashMap.newKeySet<String>()
     private val latestMeta = ConcurrentHashMap<String, Any?>()
@@ -76,6 +77,7 @@ class TelemetrySender(
         activeProtocol = protocol.uppercase()
         adapterMetadata = adapter
         latestMetrics.clear()
+        latestMetricUpdatedAt.clear()
         latestFrames.clear()
         activeDtcs.clear()
         latestMeta.clear()
@@ -100,6 +102,7 @@ class TelemetrySender(
             debug = debug.copy(lastError = error.message ?: "discover_pid_error", errors = debug.errors + 1)
         }
         cachedVin = runCatching { obd.readVin() }.getOrNull()
+        cachedVin?.let { latestMeta["vin"] = it }
         refreshObdDiagnostics()
     }
 
@@ -130,7 +133,6 @@ class TelemetrySender(
         val packetAt = latestPacketAt
         val hasFreshMetrics = packetAt > lastEnqueuedPacketAt && latestMetrics.isNotEmpty()
         val metrics = if (hasFreshMetrics) latestMetrics.toMutableMap() else mutableMapOf()
-        if (hasFreshMetrics) cachedVin?.let { metrics["vin"] = it }
         metrics[heartbeatKey] = System.currentTimeMillis()
         val frames = drainFrameSample()
         val vehicleId = resolveVehicleId()
@@ -142,6 +144,13 @@ class TelemetrySender(
         val busDataActive = frames.isNotEmpty() || metrics.any { (key, value) ->
             key != heartbeatKey && key != "vin" && value != null
         }
+        val requestMeta = latestMeta.toMutableMap()
+        if (hasFreshMetrics) {
+            val now = System.currentTimeMillis()
+            requestMeta["metricAgesMs"] = latestMetrics.keys.associateWith { key ->
+                (now - (latestMetricUpdatedAt[key] ?: packetAt)).coerceAtLeast(0L)
+            }
+        }
         val request = TelemetryIngestRequest(
             batchId = UUID.randomUUID().toString(),
             vehicleId = vehicleId,
@@ -152,7 +161,7 @@ class TelemetrySender(
             metrics = metrics,
             frames = frames,
             dtc = TelemetryDtcDto(active = activeDtcs.toList().sorted()),
-            meta = latestMeta.toMap(),
+            meta = requestMeta,
             adapter = adapterMetadata,
             obdConnected = latestConnected,
             busDataActive = busDataActive,
@@ -206,9 +215,20 @@ class TelemetrySender(
         if (value.isBlank()) latestMeta.remove(key) else latestMeta[key] = value
     }
 
-    fun updateSnapshot(metrics: Map<String, Double?>, obdConnected: Boolean, packetAt: Long = System.currentTimeMillis()) {
+    fun updateSnapshot(
+        metrics: Map<String, Double?>,
+        obdConnected: Boolean,
+        packetAt: Long = System.currentTimeMillis(),
+        metricUpdatedAt: Map<String, Long> = emptyMap()
+    ) {
         latestMetrics.clear()
-        metrics.forEach { (key, value) -> if (value != null && value.isFinite()) latestMetrics[key] = value }
+        latestMetricUpdatedAt.clear()
+        metrics.forEach { (key, value) ->
+            if (value != null && value.isFinite()) {
+                latestMetrics[key] = value
+                latestMetricUpdatedAt[key] = metricUpdatedAt[key] ?: packetAt
+            }
+        }
         latestConnected = obdConnected
         if (latestMetrics.isNotEmpty()) {
             latestPacketAt = packetAt

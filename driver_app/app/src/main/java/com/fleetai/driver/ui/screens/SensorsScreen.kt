@@ -35,8 +35,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.fleetai.driver.AppGraph
 import com.fleetai.driver.data.model.SensorReading
 import com.fleetai.driver.data.model.SensorStatus
 import com.fleetai.driver.data.model.Trend
@@ -49,8 +47,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 
 @Composable
-fun SensorsScreen(contentPadding: PaddingValues) {
-    val viewModel: SensorViewModel = viewModel(factory = AppGraph.viewModelFactory)
+fun SensorsScreen(contentPadding: PaddingValues, viewModel: SensorViewModel) {
     val status by viewModel.status.collectAsState()
     val demoMode by viewModel.demoMode.collectAsState()
     val savedDevice by viewModel.savedDevice.collectAsState()

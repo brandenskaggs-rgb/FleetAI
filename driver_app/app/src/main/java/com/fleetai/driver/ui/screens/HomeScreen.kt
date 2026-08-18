@@ -45,13 +45,13 @@ import com.fleetai.driver.ui.viewmodel.SessionState
 fun HomeScreen(
     contentPadding: PaddingValues,
     sessionState: SessionState,
+    sensorViewModel: SensorViewModel,
     onOpenStatus: () -> Unit,
     onOpenDiagnostics: () -> Unit,
     onOpenRoute: () -> Unit,
     onOpenSettings: () -> Unit
 ) {
     val viewModel: HomeViewModel = viewModel(factory = AppGraph.viewModelFactory)
-    val sensorViewModel: SensorViewModel = viewModel(factory = AppGraph.viewModelFactory)
     val state by viewModel.uiState.collectAsState()
     val obdStatus by sensorViewModel.status.collectAsState()
 

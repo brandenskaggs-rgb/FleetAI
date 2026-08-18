@@ -25,6 +25,16 @@ import retrofit2.HttpException
 import java.time.Instant
 import java.util.UUID
 
+private fun dutyStatusApiValue(value: String): String = when (value.trim().uppercase()) {
+    "OFF", "OFF_DUTY" -> "OFF_DUTY"
+    "ON", "ON_DUTY" -> "ON_DUTY"
+    "DRIVING" -> "DRIVING"
+    "SLEEPER" -> "SLEEPER"
+    "YARD_MOVE" -> "YARD_MOVE"
+    "PERSONAL_CONVEYANCE" -> "PERSONAL_CONVEYANCE"
+    else -> value.trim().uppercase()
+}
+
 class DefaultDriverRepository(
     private val api: ApiService,
     private val mockApi: MockApiService,
@@ -166,7 +176,7 @@ class DefaultDriverRepository(
                     date = event.eventDate,
                     startTime = event.startTime,
                     endTime = event.endTime,
-                    dutyStatus = event.status.name,
+                    dutyStatus = dutyStatusApiValue(event.status.name),
                     notes = event.notes
                 )
             )
@@ -321,7 +331,7 @@ class DefaultDriverRepository(
                         date = event.eventDate,
                         startTime = event.startTime,
                         endTime = event.endTime,
-                        dutyStatus = event.status,
+                        dutyStatus = dutyStatusApiValue(event.status),
                         notes = event.notes
                     )
                 )

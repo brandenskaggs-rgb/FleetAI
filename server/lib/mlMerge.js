@@ -120,6 +120,13 @@ function mergePythonAndNodePrediction(jsPrediction, pythonPrediction, context = 
   const topContributors = _buildTopContributors(jsPrediction, py);
   const signatures = _mergeSignatures(jsPrediction.signatures, py.fleetNormalization);
   const predictionLabel = PREDICTION_LABEL_MAP[py.prediction] || py.prediction || null;
+  const pythonConfidence = py.confidence == null ? null : Number(py.confidence);
+  const nodeConfidence = jsPrediction.confidence == null ? null : Number(jsPrediction.confidence);
+  const confidence = Number.isFinite(pythonConfidence) && Number.isFinite(nodeConfidence)
+    ? Math.min(pythonConfidence, nodeConfidence)
+    : Number.isFinite(nodeConfidence)
+      ? nodeConfidence
+      : Number.isFinite(pythonConfidence) ? pythonConfidence : null;
 
   // Blend sensor risks: JS per-sensor detail + Python model prior
   const sensorRisks = Object.keys(jsPrediction.sensorRisks || {}).length
@@ -129,8 +136,8 @@ function mergePythonAndNodePrediction(jsPrediction, pythonPrediction, context = 
   return Object.assign({}, jsPrediction, {
     orgId: jsPrediction.orgId || py.orgId || context.orgId || null,
     vehicleId: context.vehicleId || jsPrediction.vehicleId || py.vehicleId,
-    insufficientData: false,
-    insufficientHistory: false,
+    insufficientData: Boolean(jsPrediction.insufficientData),
+    insufficientHistory: Boolean(jsPrediction.insufficientHistory),
 
     // Prediction outputs
     predictionSource: "python_ml_ensemble",
@@ -141,7 +148,7 @@ function mergePythonAndNodePrediction(jsPrediction, pythonPrediction, context = 
       ? jsPrediction.anomalyScore
       : Number.isFinite(riskProbability) ? Math.round(riskProbability * 100) : null,
     healthScore,
-    confidence: py.confidence != null ? py.confidence : jsPrediction.confidence,
+    confidence,
     advisoryText: _advisoryText(py, jsPrediction),
 
     // Model metadata
@@ -162,7 +169,14 @@ function mergePythonAndNodePrediction(jsPrediction, pythonPrediction, context = 
 
     // Legacy fields kept for backward compat
     baselineProfile: py.baselineProfile || null,
-    dataQuality: py.dataQuality || null,
+    dataQuality: Object.assign({}, py.dataQuality || {}, {
+      operatingMinutes: jsPrediction.operatingMinutes ?? null,
+      operatingSessionCount: jsPrediction.operatingSessionCount ?? null,
+      wallClockSpanHours: jsPrediction.wallClockSpanHours ?? null,
+      confidenceCappedByObservedData: Number.isFinite(pythonConfidence)
+        && Number.isFinite(confidence)
+        && confidence < pythonConfidence
+    }),
     featureVector: py.featureVector || null,
     subsystemPriors: py.subsystemPriors || null,
 

@@ -74,6 +74,10 @@ async function invoke(app, body) {
       connectorProfile: "BLACK_9_PIN"
     },
     timestamp: "2026-08-14T12:00:00.000Z",
+    meta: {
+      vin: "1FUAAAAAAAAAAAAAA",
+      metricAgesMs: { coolantTempC: 750 }
+    },
     frames: [{ id: 0x18feee00, data: [130, 255, 255, 255, 255, 255, 255, 255] }]
   };
   const first = await invoke(app, payload);
@@ -81,6 +85,8 @@ async function invoke(app, body) {
   assert.strictEqual(first.body.success, true);
   assert.strictEqual(stored.normalized.engine.coolantTempC, 90);
   assert.strictEqual(stored.normalized.vehicleId, "TRUCK_1");
+  assert.strictEqual(stored.extra.vin, "1FUAAAAAAAAAAAAAA");
+  assert.strictEqual(stored.extra.meta.metricAgesMs.coolantTempC, 750);
   assert.strictEqual(data.telemetryFrames.length, 1);
   assert.strictEqual(data.telemetryFrames[0].orgId, "ORG_A");
   assert.strictEqual(data.telemetryFrames[0].pgn, 65262);
@@ -98,6 +104,19 @@ async function invoke(app, body) {
   assert.strictEqual(writes, 1);
   assert.strictEqual(data.telemetryFrames.length, 1);
 
+  const staleHeartbeat = await invoke(app, {
+    batchId: "batch-stale-heartbeat",
+    vehicleId: "TRUCK_1",
+    protocol: "OBD2",
+    timestamp: "2026-08-14T11:59:00.000Z",
+    metrics: { heartbeatMs: 123455 },
+    obdConnected: false
+  });
+  assert.strictEqual(staleHeartbeat.body.outOfOrder, true);
+  assert.strictEqual(staleHeartbeat.body.livePromoted, false);
+  assert.strictEqual(telemetryLatest.get("TRUCK_1").connectionState, "live");
+  assert.strictEqual(lastActivity.connectionState, "live");
+
   const repeatedPacket = await invoke(app, Object.assign({}, payload, { batchId: "batch-2" }));
   assert.strictEqual(repeatedPacket.body.duplicateSample, true);
   assert.strictEqual(repeatedPacket.body.stored, false);
@@ -109,7 +128,7 @@ async function invoke(app, body) {
     batchId: "batch-heartbeat",
     vehicleId: "TRUCK_1",
     protocol: "OBD2",
-    timestamp: "2026-08-14T12:00:00.000Z",
+    timestamp: "2026-08-14T12:00:02.000Z",
     metrics: { heartbeatMs: 123456 },
     obdConnected: true,
     meta: {
@@ -136,7 +155,7 @@ async function invoke(app, body) {
     batchId: "batch-transport-only",
     vehicleId: "TRUCK_1",
     protocol: "OBD2",
-    timestamp: "2026-08-14T12:00:00.000Z",
+    timestamp: "2026-08-14T12:00:03.000Z",
     metrics: { heartbeatMs: 123457 },
     obdConnected: true,
     meta: {

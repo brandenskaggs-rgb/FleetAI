@@ -11,6 +11,8 @@
  * reason.
  */
 const assert = require("assert");
+const fs = require("fs");
+const path = require("path");
 
 let pass = 0, fail = 0;
 function check(name, cond, detail) {
@@ -120,6 +122,38 @@ console.log("\nFMCSA duty statuses accepted by POST /api/logs/hos");
   check("covers yard move + personal conveyance",
     VALID.includes("YARD_MOVE") && VALID.includes("PERSONAL_CONVEYANCE"));
   check("rejects an unknown status", !VALID.includes("COFFEE_BREAK"));
+  const repository = fs.readFileSync(path.join(
+    __dirname, "..", "driver_app", "app", "src", "main", "java", "com", "fleetai", "driver",
+    "data", "repository", "DefaultDriverRepository.kt"
+  ), "utf8");
+  const driverRoutes = fs.readFileSync(path.join(__dirname, "..", "server", "routes", "driverAppRoutes.js"), "utf8");
+  check("Android maps OFF to OFF_DUTY", /"OFF",\s*"OFF_DUTY"\s*->\s*"OFF_DUTY"/.test(repository));
+  check("Android maps ON to ON_DUTY", /"ON",\s*"ON_DUTY"\s*->\s*"ON_DUTY"/.test(repository));
+  check("server accepts legacy OFF and ON tablet statuses", /rawDutyStatus === "OFF"[\s\S]*rawDutyStatus === "ON"/.test(driverRoutes));
+}
+
+console.log("\nTelemetry payload carries freshness without repeating VIN as a PID");
+{
+  const sender = fs.readFileSync(path.join(
+    __dirname, "..", "driver_app", "app", "src", "main", "java", "com", "fleetai", "driver",
+    "telemetry", "TelemetrySender.kt"
+  ), "utf8");
+  check("per-PID ages are included in telemetry metadata", /requestMeta\["metricAgesMs"\]/.test(sender));
+  check("VIN is carried in metadata", /latestMeta\["vin"\]/.test(sender));
+  check("VIN is not inserted into the metrics map", !/metrics\["vin"\]\s*=/.test(sender));
+}
+
+console.log("\nOBD polling has one application-level owner");
+{
+  const appRoot = path.join(__dirname, "..", "driver_app", "app", "src", "main", "java", "com", "fleetai", "driver");
+  const appShell = fs.readFileSync(path.join(appRoot, "FleetAIDriverApp.kt"), "utf8");
+  const navGraph = fs.readFileSync(path.join(appRoot, "navigation", "NavGraph.kt"), "utf8");
+  const home = fs.readFileSync(path.join(appRoot, "ui", "screens", "HomeScreen.kt"), "utf8");
+  const sensors = fs.readFileSync(path.join(appRoot, "ui", "screens", "SensorsScreen.kt"), "utf8");
+  check("app shell owns the SensorViewModel", /sensorViewModel:\s*SensorViewModel\s*=\s*viewModel/.test(appShell));
+  check("navigation passes the shared SensorViewModel", /sensorViewModel:\s*SensorViewModel/.test(navGraph));
+  check("Home does not create a route-scoped OBD poller", !/SensorViewModel\s*=\s*viewModel/.test(home));
+  check("Sensors does not create a route-scoped OBD poller", !/SensorViewModel\s*=\s*viewModel/.test(sensors));
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

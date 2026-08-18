@@ -102,10 +102,15 @@ async function getSampleCountForVehicle(vehicleId) {
 
 async function upsertModelState(state) {
   await ensureVehicleStub(state.vehicleId);
+  const existing = await getPrisma().modelState.findUnique({
+    where: { vehicleId: state.vehicleId },
+    select: { state: true }
+  });
+  const mergedState = Object.assign({}, existing?.state || {}, state);
   await getPrisma().modelState.upsert({
     where: { vehicleId: state.vehicleId },
-    update: { orgId: state.orgId || null, state },
-    create: { vehicleId: state.vehicleId, orgId: state.orgId || null, state }
+    update: { orgId: state.orgId || null, state: mergedState },
+    create: { vehicleId: state.vehicleId, orgId: state.orgId || null, state: mergedState }
   });
 }
 

@@ -16,8 +16,13 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.ViewModelStore
+import androidx.lifecycle.ViewModelStoreOwner
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
@@ -27,6 +32,11 @@ import com.fleetai.driver.navigation.MainNavGraph
 import com.fleetai.driver.ui.screens.PairDeviceScreen
 import com.fleetai.driver.ui.viewmodel.SessionState
 import com.fleetai.driver.ui.viewmodel.SessionViewModel
+import com.fleetai.driver.ui.viewmodel.SensorViewModel
+
+private class MainTelemetryViewModelStoreOwner : ViewModelStoreOwner {
+    override val viewModelStore = ViewModelStore()
+}
 
 @Composable
 fun FleetAIDriverApp(
@@ -46,6 +56,16 @@ fun FleetAIDriverApp(
 @Composable
 private fun MainScaffold(sessionState: SessionState) {
     val navController = rememberNavController()
+    // One owner for the OBD transport, polling scheduler, and uploader. Route-scoped
+    // instances would compete for the adapter and upload alternating partial snapshots.
+    val telemetryOwner = remember { MainTelemetryViewModelStoreOwner() }
+    DisposableEffect(telemetryOwner) {
+        onDispose { telemetryOwner.viewModelStore.clear() }
+    }
+    val sensorViewModel: SensorViewModel = viewModel(
+        viewModelStoreOwner = telemetryOwner,
+        factory = AppGraph.viewModelFactory
+    )
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
 
@@ -97,7 +117,8 @@ private fun MainScaffold(sessionState: SessionState) {
             MainNavGraph(
                 navController = navController,
                 contentPadding = padding,
-                sessionState = sessionState
+                sessionState = sessionState,
+                sensorViewModel = sensorViewModel
             )
         }
     }

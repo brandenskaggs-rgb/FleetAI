@@ -3783,7 +3783,7 @@ function logApiRoutes() {
     .map((route) => `${route.method} ${route.path}`)
     .sort();
   console.log(`[routes] registered /api endpoints (${apiRoutes.length})`);
-  apiRoutes.forEach((route) => console.log(`[routes] ${route}`));
+  if (!IS_PROD) apiRoutes.forEach((route) => console.log(`[routes] ${route}`));
 }
 
 app.get("/api/diagnostics", (req, res) => {

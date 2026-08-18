@@ -11,7 +11,13 @@ const assert = require("assert");
 const { normalizeMetrics } = require("../server/telematics/normalize/normalizeMetrics");
 const { decodeObd2Frames } = require("../server/telematics/decoders/obd2PidDecoder");
 const { buildSensorView } = require("../server/telematics/diagnostics/sensorCatalog");
-const { buildTelemetrySample, computeFullPrediction, computeModelState } = require("../server/ml");
+const { mergePythonAndNodePrediction } = require("../server/lib/mlMerge");
+const {
+  buildTelemetrySample,
+  classifySensorTier,
+  computeFullPrediction,
+  computeModelState
+} = require("../server/ml");
 
 let pass = 0, fail = 0;
 function check(name, cond, detail) {
@@ -105,6 +111,14 @@ const expandedSample = buildTelemetrySample(expandedNorm);
 check("ML snapshot retains fuel pressure", expandedSample.metrics.fuelPressure === 96);
 check("ML snapshot retains rail pressure", expandedSample.metrics.fuelRailPressureGauge === 1000);
 check("ML snapshot retains catalyst temperature", expandedSample.metrics.catalystTempB1S1 === 360);
+const staleSample = buildTelemetrySample(norm, {
+  rawPids: Object.assign({ vin: "1G1TESTVIN0000000" }, metrics),
+  meta: { metricAgesMs: { coolantTempC: 45_000, rpm: 500 } }
+});
+check("stale PID is excluded from ML current metrics", staleSample.metrics.coolantTemp === null);
+check("fresh PID remains available to ML", staleSample.metrics.rpm === metrics.rpm);
+check("VIN is not copied into every raw sample", staleSample.raw.vin === undefined);
+check("104C heat soak is not a light-duty danger tier", classifySensorTier("coolantTemp", 104, { vehicleClass: "passenger_car" }) === "NORMAL");
 
 // ── 4. Broadcast scoping ─────────────────────────────────────────────────────
 console.log("\n4. Real-time fan-out scoping");
@@ -162,6 +176,29 @@ check("heartbeats do not count as ML samples", heartbeatPrediction.sampleCount =
 check("heartbeat-only prediction stays insufficient", heartbeatPrediction.insufficientData === true);
 const heartbeatState = computeModelState({ telemetrySamples: heartbeatSamples }, "TRUCK_2701");
 check("heartbeats do not train model state", heartbeatState.sampleCount === 0 && heartbeatState.insufficientHistory === true);
+
+const burstSamples = Array.from({ length: 300 }, (_, index) => {
+  const ts = Date.now() + index * 5_000;
+  const base = {
+    vehicleId: "TRUCK_2701",
+    orgId: "ORG_A",
+    metrics: { rpm: 1200, coolantTemp: 94, batteryVoltage: 14.2, engineLoad: 35, vehicleSpeed: 60 }
+  };
+  return [
+    Object.assign({ id: `burst-a-${index}`, ts: new Date(ts).toISOString() }, base),
+    Object.assign({ id: `burst-b-${index}`, ts: new Date(ts + 50).toISOString() }, base)
+  ];
+}).flat();
+const burstPrediction = computeFullPrediction(burstSamples, "TRUCK_2701");
+check("parallel burst samples coalesce into physical observations", burstPrediction.sampleCount === 300, String(burstPrediction.sampleCount));
+check("confidence is capped by operating time and sessions", burstPrediction.confidence < 0.7, String(burstPrediction.confidence));
+const mergedPrediction = mergePythonAndNodePrediction(
+  Object.assign({}, burstPrediction, { confidence: 0.42, insufficientHistory: true }),
+  { confidence: 0.91, prediction: "normal", healthScore: 90 },
+  { vehicleId: "TRUCK_2701" }
+);
+check("Python confidence cannot exceed observed-data confidence", mergedPrediction.confidence === 0.42, String(mergedPrediction.confidence));
+check("Python merge preserves insufficient-history state", mergedPrediction.insufficientHistory === true);
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail === 0 ? 0 : 1);

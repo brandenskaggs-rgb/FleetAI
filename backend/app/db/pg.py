@@ -104,8 +104,8 @@ async def upsert_baseline(
                     "orgId"=EXCLUDED."orgId",
                     "mean"=EXCLUDED."mean",
                     "stdDev"=EXCLUDED."stdDev",
-                    "min"=LEAST("Baseline"."min", EXCLUDED."min"),
-                    "max"=GREATEST("Baseline"."max", EXCLUDED."max"),
+                    "min"=EXCLUDED."min",
+                    "max"=EXCLUDED."max",
                     "p10"=COALESCE(EXCLUDED."p10","Baseline"."p10"),
                     "p50"=COALESCE(EXCLUDED."p50","Baseline"."p50"),
                     "p90"=COALESCE(EXCLUDED."p90","Baseline"."p90"),
@@ -211,7 +211,7 @@ async def upsert_model_state(vehicle_id: str, org_id: Optional[str], state: dict
                 VALUES ($1,$2,$3::jsonb,now())
                 ON CONFLICT ("vehicleId") DO UPDATE SET
                     "orgId"=EXCLUDED."orgId",
-                    "state"=EXCLUDED."state",
+                    "state"=COALESCE("ModelState"."state", '{}'::jsonb) || EXCLUDED."state",
                     "updatedAt"=now()
                 """,
                 vehicle_id, org_id, json.dumps(state),

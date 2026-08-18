@@ -516,9 +516,72 @@ function computeRisk(samples, baselines, climateContext = null, chargingEvidence
   return result;
 }
 
-function confidenceFrom(samplesCount, coverage) {
-  const countScore = clamp(samplesCount / MIN_SAMPLES, 0, 1);
-  return clamp((countScore * 0.7) + (coverage * 0.3), 0, 1);
+function confidenceFrom(samplesCount, coverage, observation = {}) {
+  const countScore = clamp(samplesCount / 1000, 0, 1);
+  const operatingMinutesScore = clamp((observation.operatingMinutes || 0) / 360, 0, 1);
+  const sessionScore = clamp((observation.operatingSessionCount || 0) / 10, 0, 1);
+  return clamp(
+    (countScore * 0.25)
+      + (operatingMinutesScore * 0.35)
+      + (sessionScore * 0.20)
+      + (coverage * 0.20),
+    0,
+    1
+  );
+}
+
+const METRIC_SOURCE_KEYS = {
+  rpm: ["rpm"],
+  vehicleSpeed: ["speedKph", "speedMph"],
+  coolantTemp: ["coolantTempC", "coolantTempF"],
+  oilTemp: ["oilTempC", "oilTempF"],
+  batteryVoltage: ["batteryVoltageV", "batteryVoltage"],
+  engineLoad: ["engineLoadPct", "engine_load"],
+  engineTorque: ["torquePct", "actualTorquePct"],
+  fuelRate: ["fuelRateLph", "fuelRateGph"],
+  intakeAirTemp: ["intakeAirTempC", "intakeAirTempF"],
+  maf: ["mafGramsPerSec", "maf"],
+  throttlePos: ["throttlePosPct"],
+  intakeManifoldPressure: ["mapKpa", "boostKpa"],
+  dpfSootLoad: ["dpfSootLoadPct"],
+  ambientTemp: ["ambientTempC"],
+  fuelLevel: ["fuelLevelPct"],
+  absoluteLoad: ["absoluteLoadPct"],
+  ignitionTiming: ["ignitionTimingAdvanceDeg"],
+  fuelPressure: ["fuelPressureKpa"],
+  fuelRailPressureRelative: ["fuelRailPressureRelativeKpa"],
+  fuelRailPressureGauge: ["fuelRailGaugePressureKpa"],
+  fuelRailPressureAbsolute: ["fuelRailAbsolutePressureKpa"],
+  equivalenceRatio: ["commandedEquivalenceRatio"],
+  fuelInjectionTiming: ["fuelInjectionTimingDeg"],
+  stft1: ["shortTermFuelTrimBank1Pct", "stft1", "shortTermFuelTrim"],
+  ltft1: ["longTermFuelTrimBank1Pct", "ltft1", "longTermFuelTrim"],
+  stft2: ["shortTermFuelTrimBank2Pct"],
+  ltft2: ["longTermFuelTrimBank2Pct"],
+  o2B1S1Voltage: ["o2B1S1VoltageV"],
+  o2B1S2Voltage: ["o2B1S2VoltageV"],
+  o2B2S1Voltage: ["o2B2S1VoltageV"],
+  o2B2S2Voltage: ["o2B2S2VoltageV"],
+  catalystTempB1S1: ["catalystTempB1S1C"],
+  catalystTempB2S1: ["catalystTempB2S1C"],
+  catalystTempB1S2: ["catalystTempB1S2C"],
+  catalystTempB2S2: ["catalystTempB2S2C"],
+  commandedEgr: ["commandedEgrPct"],
+  egrError: ["egrErrorPct"],
+  acceleratorPedal: ["acceleratorPedalDPosPct", "acceleratorPedalEPosPct", "relativeAcceleratorPedalPct"],
+  brakePedalPosition: ["brakePedalPositionPct"]
+};
+
+function removeStaleMetrics(metrics, metricAgesMs, maximumAgeMs = 30_000) {
+  if (!metricAgesMs || typeof metricAgesMs !== "object" || Array.isArray(metricAgesMs)) return metrics;
+  const filtered = Object.assign({}, metrics);
+  Object.entries(METRIC_SOURCE_KEYS).forEach(([metricKey, sourceKeys]) => {
+    const reportedAges = sourceKeys
+      .map((key) => toNumber(metricAgesMs[key]))
+      .filter((age) => age != null && age >= 0);
+    if (reportedAges.length && Math.min(...reportedAges) > maximumAgeMs) filtered[metricKey] = null;
+  });
+  return filtered;
 }
 
 function buildTelemetrySample(normalized, extra = {}) {
@@ -528,7 +591,7 @@ function buildTelemetrySample(normalized, extra = {}) {
   const emissions = normalized.emissions || {};
   const controls = normalized.controls || {};
   const brakes = normalized.brakes || {};
-  const metrics = {
+  const metrics = removeStaleMetrics({
     rpm: engine.rpm ?? null,
     vehicleSpeed: vehicle.speedKph ?? null,
     coolantTemp: engine.coolantTempC ?? null,
@@ -572,9 +635,11 @@ function buildTelemetrySample(normalized, extra = {}) {
       ?? controls.relativeAcceleratorPedalPct
       ?? null,
     brakePedalPosition: brakes.brakePedalPositionPct ?? null
-  };
+  }, extra.meta?.metricAgesMs);
   const raw = Object.assign({}, extra.rawPids || {}, extra.derivedMetrics || {});
   delete raw.heartbeatMs;
+  delete raw.vin;
+  delete raw.VIN;
   const timestamp = normalized.timestamp || new Date().toISOString();
   const fingerprint = crypto
     .createHash("sha256")
@@ -617,12 +682,55 @@ function usableTelemetrySamples(samples) {
   const usable = (Array.isArray(samples) ? samples : []).filter((sample) =>
     METRIC_KEYS.some((key) => metricNumber(key, sample?.metrics?.[key]) != null)
   );
-  const unique = new Map();
-  usable.forEach((sample) => {
-    const key = `${sample?.vehicleId || ""}:${sample?.ts || ""}:${JSON.stringify(sample?.metrics || {})}`;
-    unique.set(key, sample);
+  const buckets = new Map();
+  usable
+    .slice()
+    .sort((a, b) => new Date(a.ts) - new Date(b.ts))
+    .forEach((sample) => {
+      const timestampMs = new Date(sample?.ts).getTime();
+      if (!Number.isFinite(timestampMs)) return;
+      const key = `${sample?.vehicleId || ""}:${Math.floor(timestampMs / 5000)}`;
+      const existing = buckets.get(key);
+      if (!existing) {
+        buckets.set(key, Object.assign({}, sample, {
+          metrics: Object.assign({}, sample.metrics || {}),
+          raw: Object.assign({}, sample.raw || {})
+        }));
+        return;
+      }
+      const mergedMetrics = Object.assign({}, existing.metrics || {});
+      Object.entries(sample.metrics || {}).forEach(([metricKey, value]) => {
+        if (value !== null && value !== undefined && value !== "") mergedMetrics[metricKey] = value;
+      });
+      buckets.set(key, Object.assign({}, existing, sample, {
+        ts: new Date(sample.ts) >= new Date(existing.ts) ? sample.ts : existing.ts,
+        metrics: mergedMetrics,
+        raw: Object.assign({}, existing.raw || {}, sample.raw || {})
+      }));
+    });
+  return Array.from(buckets.values());
+}
+
+function computeObservationStats(samples) {
+  const sorted = (Array.isArray(samples) ? samples : [])
+    .slice()
+    .sort((a, b) => new Date(a.ts) - new Date(b.ts));
+  const operatingMinuteBuckets = new Set();
+  let operatingSessionCount = 0;
+  let previousRunningAt = null;
+  sorted.forEach((sample) => {
+    const timestampMs = new Date(sample.ts).getTime();
+    const rpm = metricNumber("rpm", sample.metrics?.rpm);
+    if (!Number.isFinite(timestampMs) || rpm == null || rpm < 400) return;
+    operatingMinuteBuckets.add(Math.floor(timestampMs / 60_000));
+    if (previousRunningAt == null || timestampMs - previousRunningAt > 60_000) operatingSessionCount += 1;
+    previousRunningAt = timestampMs;
   });
-  return Array.from(unique.values());
+  return {
+    operatingMinutes: operatingMinuteBuckets.size,
+    operatingSessionCount,
+    wallClockSpanHours: sampleSpanHours(sorted)
+  };
 }
 
 function sampleSpanHours(samples) {
@@ -653,13 +761,14 @@ function computeModelState(data, vehicleId) {
   const samples = usableTelemetrySamples(getSamplesForVehicle(data, vehicleId))
     .sort((a, b) => new Date(a.ts) - new Date(b.ts));
   const sampleCount = samples.length;
+  const observation = computeObservationStats(samples);
   const latest = getLatestSample(samples);
   const baselines = computeBaselines(samples);
   const seasonalBaselines = computeSeasonalBaselines(samples);
   const seasonKey = latest ? getSeasonFromTimestamp(latest.ts) : "unknown";
   const coverage = computeCoverage(baselines);
   const climateContext = computeClimateContext(samples, baselines, seasonalBaselines, seasonKey);
-  const historySpanHours = sampleSpanHours(samples);
+  const historySpanHours = observation.operatingMinutes / 60;
   const vehicleMeta = (data.vehicles || []).find((vehicle) => vehicle.vehicleId === vehicleId) || {};
   const chargingEvidence = computeChargingEvidence(samples, vehicleMeta);
   if (sampleCount < MIN_SAMPLES || coverage === 0) {
@@ -669,6 +778,9 @@ function computeModelState(data, vehicleId) {
       sampleCount,
       coverage,
       historySpanHours,
+      wallClockSpanHours: observation.wallClockSpanHours,
+      operatingMinutes: observation.operatingMinutes,
+      operatingSessionCount: observation.operatingSessionCount,
       chargingEvidence,
       insufficientHistory: true,
       climateContext,
@@ -678,7 +790,7 @@ function computeModelState(data, vehicleId) {
   }
   const anomaly = computeAnomaly(latest, baselines, seasonalBaselines, seasonKey);
   const risk = computeRisk(samples, baselines, climateContext, chargingEvidence);
-  const confidence = confidenceFrom(sampleCount, coverage);
+  const confidence = confidenceFrom(sampleCount, coverage, observation);
   return {
     vehicleId,
     orgId: latest?.orgId || null,
@@ -690,6 +802,9 @@ function computeModelState(data, vehicleId) {
     confidence,
     risk,
     historySpanHours,
+    wallClockSpanHours: observation.wallClockSpanHours,
+    operatingMinutes: observation.operatingMinutes,
+    operatingSessionCount: observation.operatingSessionCount,
     chargingEvidence,
     climateContext,
     updatedAt: new Date().toISOString(),
@@ -943,7 +1058,7 @@ function generateAlertsFromState(state) {
 // ── SAE J1939 research-backed 3-tier sensor thresholds ────────────────────
 // Each entry: { unit, warnMin?, warnMax?, dangerMin?, dangerMax?, higherIsBad }
 const SENSOR_DANGER_THRESHOLDS = {
-  coolantTemp:          { unit: "°C",  warnMin: 90,  warnMax: 105, dangerMin: 105, higherIsBad: true },
+  coolantTemp:          { unit: "°C",  warnMin: 110, warnMax: 118, dangerMin: 118, higherIsBad: true },
   oilTemp:              { unit: "°C",  warnMin: 110, warnMax: 125, dangerMin: 125, higherIsBad: true },
   batteryVoltage:       { unit: "V",   warnMin: 12.0, warnMax: 12.4, dangerMax: 12.0, higherIsBad: false },
   rpm:                  { unit: "rpm", warnMin: 2000, warnMax: 2800, dangerMin: 2800, higherIsBad: true },
@@ -960,8 +1075,21 @@ const SENSOR_DANGER_THRESHOLDS = {
 };
 
 // Returns "NORMAL" | "WARNING" | "DANGER"
-function classifySensorTier(metricKey, value) {
-  const t = SENSOR_DANGER_THRESHOLDS[metricKey];
+function sensorThresholdFor(metricKey, vehicleMeta = {}) {
+  const base = SENSOR_DANGER_THRESHOLDS[metricKey];
+  if (metricKey !== "coolantTemp" || !base) return base;
+  const descriptor = [vehicleMeta.protocol, vehicleMeta.vehicleClass, vehicleMeta.class]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  const heavyDuty = descriptor.includes("j1939") || descriptor.includes("heavy") || descriptor.includes("class 8");
+  return heavyDuty
+    ? Object.assign({}, base, { warnMin: 105, warnMax: 112, dangerMin: 112 })
+    : base;
+}
+
+function classifySensorTier(metricKey, value, vehicleMeta = {}) {
+  const t = sensorThresholdFor(metricKey, vehicleMeta);
   if (!t || value == null) return "NORMAL";
   if (t.higherIsBad) {
     if (t.dangerMin != null && value >= t.dangerMin) return "DANGER";
@@ -974,8 +1102,8 @@ function classifySensorTier(metricKey, value) {
 }
 
 // Returns 0-100 risk score for a single sensor based on 3-tier thresholds + z-score blend
-function computeSensorRiskScore(metricKey, value, baseline) {
-  const tier = classifySensorTier(metricKey, value);
+function computeSensorRiskScore(metricKey, value, baseline, vehicleMeta = {}) {
+  const tier = classifySensorTier(metricKey, value, vehicleMeta);
   let thresholdScore = 0;
   if (tier === "WARNING") thresholdScore = 45;
   if (tier === "DANGER")  thresholdScore = 80;
@@ -992,9 +1120,9 @@ function computeSensorRiskScore(metricKey, value, baseline) {
 // Projects weeks until a metric hits its danger threshold using linear regression slope.
 // samplesPerHour: how many telemetry samples arrive per hour (default: 12 = every 5 min)
 // Returns number of weeks or null if trajectory is safe / not enough info.
-function computeWeeksToFailure(values, metricKey, samplesPerHour = 12) {
+function computeWeeksToFailure(values, metricKey, samplesPerHour = 12, vehicleMeta = {}) {
   if (!values || values.length < 10) return null;
-  const t = SENSOR_DANGER_THRESHOLDS[metricKey];
+  const t = sensorThresholdFor(metricKey, vehicleMeta);
   if (!t) return null;
 
   const current = values[values.length - 1];
@@ -1033,13 +1161,14 @@ function computeFullPrediction(samples, vehicleId, vehicleMeta = {}) {
   }
 
   const sorted = usableSamples.slice().sort((a, b) => new Date(a.ts) - new Date(b.ts));
+  const observation = computeObservationStats(sorted);
   const latest = sorted[sorted.length - 1];
   const baselines = computeBaselines(sorted);
   const seasonalBaselines = computeSeasonalBaselines(sorted);
   const seasonKey = latest ? getSeasonFromTimestamp(latest.ts) : "unknown";
   const coverage = computeCoverage(baselines);
   const climateContext = computeClimateContext(sorted, baselines, seasonalBaselines, seasonKey);
-  const historySpanHours = sampleSpanHours(sorted);
+  const historySpanHours = observation.operatingMinutes / 60;
   const chargingEvidence = computeChargingEvidence(sorted, vehicleMeta);
 
   // Per-sensor risk scores (0-100) and weeks-to-failure projections
@@ -1053,12 +1182,20 @@ function computeFullPrediction(samples, vehicleId, vehicleMeta = {}) {
     const current = metricNumber(key, latest.metrics?.[key]);
     if (current == null) return;
     const baseline = baselines[key];
-    sensorRisks[key] = computeSensorRiskScore(key, current, baseline);
+    if (key === "batteryVoltage") {
+      sensorRisks[key] = chargingEvidence.status === "critical"
+        ? 90
+        : chargingEvidence.status === "warning"
+          ? 72
+          : chargingEvidence.status === "monitor" ? 20 : 0;
+    } else {
+      sensorRisks[key] = computeSensorRiskScore(key, current, baseline, vehicleMeta);
+    }
 
     const values = sorted
       .map((s) => metricNumber(key, s.metrics?.[key]))
       .filter((v) => v != null);
-    const wtf = computeWeeksToFailure(values, key);
+    const wtf = computeWeeksToFailure(values, key, 12, vehicleMeta);
     if (wtf != null) weeksToFailure[key] = wtf;
   });
 
@@ -1079,7 +1216,7 @@ function computeFullPrediction(samples, vehicleId, vehicleMeta = {}) {
     ? computeRisk(sorted, baselines, climateContext, chargingEvidence)
     : null;
 
-  const confidence = confidenceFrom(usableSamples.length, coverage);
+  const confidence = confidenceFrom(usableSamples.length, coverage, observation);
   const signatures = detectMultivariateSignatures(latest.metrics).filter((signature) =>
     signature.id !== "charging_failure"
       || ["warning", "critical"].includes(chargingEvidence.status)
@@ -1097,6 +1234,9 @@ function computeFullPrediction(samples, vehicleId, vehicleMeta = {}) {
     topContributors: anomaly.contributors,
     risk,
     historySpanHours,
+    wallClockSpanHours: observation.wallClockSpanHours,
+    operatingMinutes: observation.operatingMinutes,
+    operatingSessionCount: observation.operatingSessionCount,
     chargingEvidence,
     climateContext,
     confidence,
@@ -1124,6 +1264,7 @@ module.exports = {
   computeSensorRiskScore,
   classifySensorTier,
   computeTimeWeightedBaseline,
+  computeObservationStats,
   detectMultivariateSignatures,
   generateMaintenanceLabels,
   markPreEventWindow,

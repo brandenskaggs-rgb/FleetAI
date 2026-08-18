@@ -331,12 +331,12 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
                 lastReadError = loopError
                 plan.forEach { spec ->
                     val age = now - (updatedAt[spec.key] ?: 0L)
-                    val ttl = (spec.minIntervalMs * 4).coerceIn(15_000L, 60_000L)
+                    val ttl = (spec.minIntervalMs * 4).coerceIn(30_000L, 120_000L)
                     if (age > ttl) latestValues.remove(spec.key)
                 }
                 extendedPlan.forEach { definition ->
                     val age = now - (updatedAt[definition.key] ?: 0L)
-                    val ttl = (definition.minIntervalMs * 4).coerceIn(15_000L, 60_000L)
+                    val ttl = (definition.minIntervalMs * 4).coerceIn(30_000L, 120_000L)
                     if (age > ttl) latestValues.remove(definition.key)
                 }
                 deriveBoost(latestValues["mapKpa"], latestValues["barometricPressureKpa"])?.let {
@@ -346,7 +346,8 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
                 sender.updateSnapshot(
                     metrics = latestValues.toMap(),
                     obdConnected = true,
-                    packetAt = now
+                    packetAt = now,
+                    metricUpdatedAt = updatedAt.toMap()
                 )
 
                 val liveSignalCount = latestValues.values.count { it.isFinite() }
@@ -373,7 +374,15 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
                         "V", "lambda", "g/s", "L/h" -> 2
                         else -> 1
                     }
-                    buildReading(spec.command, spec.name, value, displayUnit, updatedAt[spec.key] ?: 0L, decimals = decimals)
+                    buildReading(
+                        spec.command,
+                        spec.name,
+                        value,
+                        displayUnit,
+                        updatedAt[spec.key] ?: 0L,
+                        staleAfterMs = readingFreshnessMs(spec.minIntervalMs),
+                        decimals = decimals
+                    )
                 }.toMutableList()
                 extendedPlan.sortedWith(compareBy<ExtendedPidDefinition> { it.priority }.thenBy { it.name }).forEach { definition ->
                     var value = latestValues[definition.key]
@@ -388,6 +397,7 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
                         value,
                         displayUnit,
                         updatedAt[definition.key] ?: 0L,
+                        staleAfterMs = readingFreshnessMs(definition.minIntervalMs),
                         decimals = if (definition.unit == "V") 2 else 1
                     )
                 }
@@ -493,12 +503,13 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
         unit: String,
         ts: Long,
         derived: Boolean = false,
+        staleAfterMs: Long = 5_000L,
         decimals: Int = 1
     ): SensorReading {
         val smoothed = raw?.let { smooth(pid, it) }
         val status = when {
             raw == null -> SensorStatus.STALE
-            System.currentTimeMillis() - ts > 3000 -> SensorStatus.STALE
+            System.currentTimeMillis() - ts > staleAfterMs -> SensorStatus.STALE
             else -> SensorStatus.LIVE
         }
         val trend = trend(pid, smoothed ?: raw)
@@ -518,6 +529,9 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
             lastUpdated = ts
         )
     }
+
+    private fun readingFreshnessMs(minIntervalMs: Long): Long =
+        (minIntervalMs * 3).coerceIn(5_000L, 90_000L)
 
     private fun smooth(pid: String, value: Double): Double {
         val alpha = 0.15  // 15% new / 85% history — low enough to suppress BT noise
