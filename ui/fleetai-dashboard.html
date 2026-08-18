@@ -128,12 +128,16 @@
     .advisorPanel{display:none;background:var(--panel);border:0;border-radius:4px;box-shadow:var(--shadow);overflow:hidden;margin-bottom:10px}
     .opsAdvisorDock.open .advisorPanel{display:block}
     .advisorThread{height:280px;overflow:auto;padding:14px 16px;display:flex;flex-direction:column;gap:16px;scroll-behavior:smooth}.msg{max-width:92%;padding:0;background:transparent;color:var(--text);font-size:13.5px;line-height:1.62}.msg.assistant{align-self:flex-start}.msg.user{align-self:flex-end;background:var(--primary);color:#fff;border-radius:14px 14px 3px 14px;padding:10px 13px;box-shadow:0 6px 18px color-mix(in srgb,var(--primary) 14%,transparent)}.msgRole{margin-bottom:5px;color:var(--muted);font-size:10px;font-family:var(--mono);font-weight:700;letter-spacing:.7px;text-transform:uppercase}.msg p{margin:0 0 9px}.msg p:last-child{margin-bottom:0}.msg ul{margin:5px 0 0;padding-left:18px}.msg li+li{margin-top:5px}.msg strong{font-weight:800}.msg code{font-family:var(--mono);font-size:.92em;background:var(--input);padding:1px 4px;border-radius:3px}.msg.thinking{color:var(--muted)}
+    .typingBubble{width:64px;height:34px;border-radius:999px;background:var(--panel2);display:flex;align-items:center;justify-content:center;gap:5px;box-shadow:0 5px 16px rgba(15,23,42,.08)}.typingDot{width:6px;height:6px;border-radius:50%;background:var(--muted);animation:advisorTyping 1.05s ease-in-out infinite}.typingDot:nth-child(2){animation-delay:.14s}.typingDot:nth-child(3){animation-delay:.28s}@keyframes advisorTyping{0%,60%,100%{transform:translateY(0);opacity:.45}30%{transform:translateY(-5px);opacity:1}}
     .advisorActions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.advisorActions .btn,.advisorActions a.btn{display:inline-flex;align-items:center;text-decoration:none;background:var(--input)}.advisorReports{margin-top:22px}.advisorReports h4{margin:0 0 10px;font:700 13px/1.2 var(--display)}.advisorReportRow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px;align-items:center;padding:11px 0;box-shadow:inset 0 -1px 0 var(--divider)}.advisorReportRow:last-child{box-shadow:none}.advisorReportRow strong{display:block;font-size:13px}.advisorReportRow span{color:var(--muted);font-size:11px}
     .advisorForm{display:flex;gap:8px;padding:12px}
     .advisorForm input{flex:1}
+    body.advisor-route #btnAdvisorToggle{display:none}
+    .advisorWorkspace{display:grid;grid-template-columns:minmax(0,1fr) 310px;gap:18px;align-items:start}.advisorConversation{background:var(--panel);min-width:0;box-shadow:var(--shadow2)}.advisorConversationHead{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;padding:22px 26px 10px}.advisorConversationHead h3{margin:0;font:700 18px/1.2 var(--display)}.advisorConversationHead p{margin:6px 0 0;color:var(--muted);font-size:12px}.advisorPresence{display:flex;align-items:center;gap:7px;color:var(--good);font-size:11px;font-weight:800;white-space:nowrap}.advisorPresence:before{content:"";width:7px;height:7px;border-radius:50%;background:var(--good);box-shadow:0 0 0 4px color-mix(in srgb,var(--good) 12%,transparent)}.advisorPromptRail{display:flex;gap:7px;overflow:auto;padding:10px 26px 2px;scrollbar-width:thin}.advisorPromptRail .btn{background:var(--panel2);flex:0 0 auto;font-weight:650}.advisorPageThread{height:clamp(430px,55vh,650px);padding:28px 30px 22px}.advisorPageThread .msg{max-width:min(78%,720px);font-size:14.5px;line-height:1.68}.advisorComposer{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:end;margin:0 24px 24px;padding:10px 10px 10px 16px;background:var(--panel2);border-radius:18px}.advisorComposer textarea{min-height:42px;max-height:150px;padding:10px 0;background:transparent;box-shadow:none!important;resize:none}.advisorComposer .btn{height:40px;padding:0 18px;border-radius:12px}.advisorSideRail{display:grid;gap:18px}.advisorSideSection{background:var(--panel);padding:20px 20px 18px;box-shadow:var(--shadow2)}.advisorSideSection h3{margin:0;font:700 14px/1.2 var(--display)}.advisorSideSection>p{margin:6px 0 14px;color:var(--muted);font-size:11.5px}.advisorDataRow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 0;box-shadow:inset 0 -1px 0 var(--divider);font-size:12px}.advisorDataRow:last-child{box-shadow:none}.advisorDataRow span:last-child{color:var(--muted);font-family:var(--mono);font-size:10px}.advisorDockHeadActions{display:flex;align-items:center;gap:2px}
+    @media (prefers-reduced-motion:reduce){.typingDot{animation:none;opacity:.65}.advisorThread{scroll-behavior:auto}}
     .srOnly{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}.mobileOnly{display:none}
-    @media (max-width:1180px){.app-header{grid-template-columns:1fr auto}.search{display:none}.headerActions{grid-column:2}.overviewHero,.grid4,.commandStrip{grid-template-columns:repeat(2,minmax(0,1fr))}.grid3,.cameraGrid,.sensorGroups{grid-template-columns:1fr 1fr}.inspectionChecklist{grid-template-columns:repeat(2,minmax(0,1fr))}}
-    @media (max-width:760px){body{overflow:auto}.app{height:auto;min-height:100vh;grid-template-columns:0 minmax(0,1fr)}.sidebar{position:fixed;z-index:60;width:264px;opacity:0;transform:translateX(-18px);pointer-events:none}.app.nav-collapsed .sidebar{display:none}.app:not(.nav-collapsed) .sidebar{display:block;opacity:1;transform:none;pointer-events:auto}.main{grid-column:2;height:auto;padding:0 16px 96px}.app-header{display:flex;flex-wrap:wrap;gap:8px;padding:14px 0 10px}.crumb{width:100%}.crumb p{display:none}.headerActions{width:100%;display:flex;flex-wrap:nowrap;justify-content:flex-start;gap:2px}.headerActions .chip,#btnAddTeamMember,#btnExportReport{display:none!important}.headerActions .btn{padding:0 9px}.overviewHero,.grid2,.grid3,.grid4,.commandStrip,.form-grid,.cameraGrid,.sensorGroups{grid-template-columns:1fr}.viewHeader{padding:20px 0 14px}.viewHeader h2{font-size:27px}.viewHeader p{font-size:13px}.heroPanel,.planPanel{padding:22px}.inspectionChecklist{grid-template-columns:1fr}.opsAdvisorDock{right:12px;bottom:12px;max-width:calc(100vw - 24px)}.mobileOnly{display:inline-flex}}
+    @media (max-width:1180px){.app-header{grid-template-columns:1fr auto}.search{display:none}.headerActions{grid-column:2}.overviewHero,.grid4,.commandStrip{grid-template-columns:repeat(2,minmax(0,1fr))}.grid3,.cameraGrid,.sensorGroups{grid-template-columns:1fr 1fr}.inspectionChecklist{grid-template-columns:repeat(2,minmax(0,1fr))}.advisorWorkspace{grid-template-columns:1fr}.advisorSideRail{grid-template-columns:1fr 1fr}.advisorPageThread{height:520px}}
+    @media (max-width:760px){body{overflow:auto}.app{height:auto;min-height:100vh;grid-template-columns:0 minmax(0,1fr)}.sidebar{position:fixed;z-index:60;width:264px;opacity:0;transform:translateX(-18px);pointer-events:none}.app.nav-collapsed .sidebar{display:none}.app:not(.nav-collapsed) .sidebar{display:block;opacity:1;transform:none;pointer-events:auto}.main{grid-column:2;height:auto;padding:0 16px 96px}.app-header{display:flex;flex-wrap:wrap;gap:8px;padding:14px 0 10px}.crumb{width:100%}.crumb p{display:none}.headerActions{width:100%;display:flex;flex-wrap:nowrap;justify-content:flex-start;gap:2px}.headerActions .chip,#btnAddTeamMember,#btnExportReport{display:none!important}.headerActions .btn{padding:0 9px}.overviewHero,.grid2,.grid3,.grid4,.commandStrip,.form-grid,.cameraGrid,.sensorGroups{grid-template-columns:1fr}.viewHeader{padding:20px 0 14px}.viewHeader h2{font-size:27px}.viewHeader p{font-size:13px}.heroPanel,.planPanel{padding:22px}.inspectionChecklist{grid-template-columns:1fr}.opsAdvisorDock{right:12px;bottom:12px;max-width:calc(100vw - 24px)}.mobileOnly{display:inline-flex}.advisorSideRail{grid-template-columns:1fr}.advisorConversationHead{padding:18px 18px 8px}.advisorPromptRail{padding:8px 18px 2px}.advisorPageThread{height:58vh;min-height:390px;padding:22px 18px}.advisorPageThread .msg{max-width:90%}.advisorComposer{margin:0 12px 14px;border-radius:14px}.opsAdvisorDock.open #btnAdvisorToggle{display:none}}
   </style>
 </head>
 <body>
@@ -258,11 +262,11 @@
 
   <div class="opsAdvisorDock" id="opsAdvisorDock">
     <div class="advisorPanel">
-      <div class="cardHead"><div><h3>AI Advisor</h3><div class="cardMeta" id="advisorDockStatus">Checking advisor service...</div></div><button class="btn ghost" id="btnCloseAdvisor" type="button">Close</button></div>
+      <div class="cardHead"><div><h3>Fleet Advisor</h3><div class="cardMeta" id="advisorDockStatus">Checking advisor service...</div></div><div class="advisorDockHeadActions"><button class="btn ghost" id="btnOpenAdvisorPage" type="button">Open full view</button><button class="btn ghost" id="btnCloseAdvisor" type="button">Close</button></div></div>
       <div class="advisorThread" id="advisorThread"><div class="msg assistant"><div class="msgRole">Fleet Advisor</div><p>Hi. Ask me about a vehicle, an alert, maintenance priorities, or anything else happening across the fleet.</p></div></div>
-      <form class="advisorForm" id="advisorDockForm"><input class="form-input" id="advisorDockInput" aria-label="Ask Fleet Advisor" placeholder="Ask a fleet operations question..." /><button class="btn primary" type="submit">Send</button></form>
+      <form class="advisorForm" id="advisorDockForm"><input class="form-input" id="advisorDockInput" aria-label="Ask Fleet Advisor" placeholder="Ask a fleet operations question..." /><button class="btn primary" type="submit" data-advisor-send>Send</button></form>
     </div>
-    <button class="btn primary" id="btnAdvisorToggle" type="button">AI Advisor</button>
+    <button class="btn primary" id="btnAdvisorToggle" type="button">Fleet Advisor</button>
   </div>
 
   <script src="../assets/vendor/leaflet/leaflet.js"></script>
@@ -273,7 +277,7 @@
     const state = {
       activeRoute:"dashboard", user:null, orgId:"", isAdmin:false, vehicles:[], drivers:[], selectedVehicleId:"", sensorLastRefresh:0,
       selectedDriver:"", telemetryRows:[], telemetryLastAt:0, telemetryFreshnessTimer:null, msgSse:null, telemetrySse:null, gpsTimer:null, leafletMap:null,
-      mapMarkers:[], cache:{}, advisor:[]
+      mapMarkers:[], cache:{}, advisor:[], advisorBusy:false, advisorRetrieved:null, advisorActions:{}
     };
     const routes = [
       ["Command",[["dashboard","Command Center","Home"],["alerts","Risk Inbox","alertCount"]]],
@@ -283,7 +287,7 @@
       ["Compliance",[["dvir","Inspection Center",""],["dot-compliance","DOT Readiness",""]]],
       ["Service",[["maintenance","Maintenance Board",""],["maintenance-logs","Service Records",""],["parts-inventory","Parts Inventory",""],["recalls","Recall Watch",""],["predictive-scheduler","Predictive Planner",""]]],
       ["Finance",[["fuel-events","Fuel Events",""],["cost-analytics","Spend Analytics",""],["reports","Reports Studio",""],["compliance-report","Audit Center",""]]],
-      ["Intelligence",[["advisor","AI Advisor","AI"],["alert-subscriptions","Notification Rules",""],["webhooks","API & Webhooks",""]]],
+      ["Intelligence",[["advisor","Fleet Advisor","AI"],["alert-subscriptions","Notification Rules",""],["webhooks","API & Webhooks",""]]],
       ["Workspace",[["pairing","Device Setup",""],["addons","Marketplace",""],["settings","Admin Settings",""]]]
     ];
     const flatRoutes = routes.flatMap(g => g[1]);
@@ -306,7 +310,7 @@
       compliance:["ELD Readiness","FMCSA release gates, device enrollment, and validation status"],
       gps:["Map Control","Real-time unit positions for operational and incident context"],
       cameras:["Camera Review","Road-facing and driver-facing feeds when units are connected"],
-      advisor:["AI Advisor","AI-powered guidance for your connected fleet workspace"],
+      advisor:["Fleet Advisor","A data-aware operations conversation for your fleet workspace"],
       reports:["Reports Studio","Exportable fleet summaries and operational snapshots"],
       maintenance:["Maintenance Board","Open service jobs, scheduled maintenance, and work order tracking"],
       "maintenance-logs":["Service Records","Vehicle service history, repair records, and maintenance log"],
@@ -353,6 +357,8 @@
     function renderRoute(route){
       if(!titles[route]) route = "dashboard";
       state.activeRoute = route;
+      document.body.classList.toggle("advisor-route",route==="advisor");
+      if(route==="advisor")$("opsAdvisorDock")?.classList.remove("open");
       const [title,sub] = titles[route];
       $("viewTitle").textContent = title; $("viewSub").textContent = sub; $("headerViewName").textContent = title;
       document.querySelectorAll(".section").forEach(sec => sec.classList.toggle("hide", sec.id !== "view-"+route));
@@ -467,7 +473,44 @@
     function stopGpsPolling(){ if(state.gpsTimer){ clearInterval(state.gpsTimer); state.gpsTimer=null; } }
     function renderCameraChannels(){ genericPanel("cameras","Camera Channels","Camera status appears only after a supported provider is connected",`<div class="cameraGrid">${["Front","Driver","Rear"].map(x=>`<div class="cameraTile"><div><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:10px;opacity:.35" aria-hidden="true"><rect x="2" y="6" width="16" height="12" rx="2"/><path d="m18 9 4-2v10l-4-2"/></svg><h3>${x}</h3><p class="muted">Not connected</p></div></div>`).join("")}</div><div id="clipList" style="margin-top:14px"></div>`); }
     function renderClipList(){ const el=$("clipList"); if(el) el.innerHTML=`<div class="muted">No camera clips are available.</div>`; }
-    function renderQuickPrompts(){ genericPanel("advisor","Fleet Advisor","Ask about the fleet in plain language",`<div class="cardMeta" id="advisorPageStatus">Checking advisor service...</div><div class="sectionActions">${["What needs my attention today?","Summarize the latest drive","Build a fleet risk report","What maintenance is overdue?","Are there HOS concerns?"].map(q=>`<button class="btn" data-prompt="${esc(q)}">${esc(q)}</button>`).join("")}</div><div class="advisorThread" id="advisorPageThread"><div class="msg assistant"><div class="msgRole">Fleet Advisor</div><p>Ask about vehicles, drives, reports, maintenance, inspections, fuel, or compliance. I will use the latest records available to this workspace.</p></div></div><div class="advisorReports"><h4>Recent advisor reports</h4><div id="advisorReportList" class="muted">Loading reports...</div></div>`); }
+    function advisorMessageMarkup(role,content,extras=""){
+      return role==="user"
+        ? `<div class="msg user">${esc(content)}</div>`
+        : `<div class="msg assistant"><div class="msgRole">Fleet Advisor</div>${formatAdvisorText(content)}${extras}</div>`;
+    }
+    function renderAdvisorConversation(){
+      const thread=$("advisorPageThread");if(!thread)return;
+      thread.innerHTML=state.advisor.length
+        ? state.advisor.map(message=>advisorMessageMarkup(message.role,message.content)).join("")
+        : advisorMessageMarkup("assistant","I’m ready. Ask me about a vehicle, a recent drive, maintenance risk, inspections, compliance, or operating cost. I’ll use the latest records available to this workspace.");
+      thread.scrollTop=thread.scrollHeight;
+    }
+    function renderAdvisorDataSummary(){
+      const target=$("advisorDataSummary");if(!target)return;
+      const r=state.advisorRetrieved;
+      const count=(...values)=>values.reduce((total,value)=>total+(Number(value)||0),0);
+      const rows=r?[
+        ["Fleet assets",count(r.vehicles,r.drivers)],
+        ["Drive and signal data",count(r.driveSessions,r.telemetrySamples)],
+        ["Risk evidence",count(r.alerts,r.predictionRuns,r.diagnosticScans)],
+        ["Service records",count(r.maintenanceLogs,r.workOrders)],
+        ["Compliance records",count(r.dvirRecords,r.eldEvents,r.eldDiagnostics,r.eldCertifications)]
+      ]:[["Vehicles and drivers","Available"],["Telemetry and drive logs","Available"],["Risk and maintenance","Available"],["Inspections and compliance","Available"]];
+      target.innerHTML=rows.map(([label,value])=>`<div class="advisorDataRow"><span>${esc(label)}</span><span>${esc(value)}</span></div>`).join("");
+    }
+    function bindAdvisorPage(){
+      const form=$("advisorPageForm"),input=$("advisorPageInput");
+      if(!form||!input)return;
+      form.onsubmit=event=>{event.preventDefault();const query=input.value.trim();if(!query)return;input.value="";input.style.height="auto";sendAdvisor(query);};
+      input.onkeydown=event=>{if(event.key==="Enter"&&!event.shiftKey){event.preventDefault();form.requestSubmit();}};
+      input.oninput=()=>{input.style.height="auto";input.style.height=`${Math.min(input.scrollHeight,150)}px`;};
+    }
+    function renderQuickPrompts(){
+      const section=$("view-advisor");if(!section)return;
+      const prompts=["What needs my attention today?","Summarize the latest drive","Build a fleet risk report","What maintenance is overdue?","Are there HOS concerns?"];
+      section.innerHTML=`<div class="advisorWorkspace"><div class="advisorConversation"><div class="advisorConversationHead"><div><h3>Fleet Advisor</h3><p id="advisorPageStatus">Checking advisor service...</p></div><div class="advisorPresence">Ready for context</div></div><div class="advisorPromptRail" aria-label="Suggested Fleet Advisor questions">${prompts.map(q=>`<button class="btn ghost" type="button" data-prompt="${esc(q)}">${esc(q)}</button>`).join("")}</div><div class="advisorThread advisorPageThread" id="advisorPageThread" aria-live="polite"></div><form class="advisorComposer" id="advisorPageForm"><label class="srOnly" for="advisorPageInput">Ask Fleet Advisor</label><textarea id="advisorPageInput" aria-label="Ask Fleet Advisor" placeholder="Ask about a vehicle, drive, maintenance risk, compliance, or cost..."></textarea><button class="btn primary" type="submit" data-advisor-send>Send</button></form></div><aside class="advisorSideRail"><section class="advisorSideSection"><h3>Connected fleet records</h3><p>Answers are grounded in records available to this organization.</p><div id="advisorDataSummary"></div></section><section class="advisorSideSection advisorReports"><h3>Recent reports</h3><p>Reports generated through Fleet Advisor remain available here.</p><div id="advisorReportList" class="muted">Loading reports...</div></section></aside></div>`;
+      renderAdvisorConversation();renderAdvisorDataSummary();bindAdvisorPage();
+    }
     async function loadAdvisorArtifacts(){
       const list=$("advisorReportList");if(!list)return;
       try{
@@ -488,9 +531,14 @@
       }).join("");
     }
     function appendAdvisorMessage(role,content,extras=""){
-      const html=role==="user"?`<div class="msg user">${esc(content)}</div>`:`<div class="msg assistant"><div class="msgRole">Fleet Advisor</div>${formatAdvisorText(content)}${extras}</div>`;
+      const html=advisorMessageMarkup(role,content,extras);
       [$("advisorThread"),$("advisorPageThread")].filter(Boolean).forEach(thread=>{thread.insertAdjacentHTML("beforeend",html);thread.scrollTop=thread.scrollHeight;});
     }
+    const MIN_ADVISOR_TYPING_MS=1200;
+    function advisorTypingMarkup(token){return `<div class="msg assistant thinking" data-advisor-loading="${esc(token)}" role="status" aria-label="Fleet Advisor is typing"><div class="msgRole">Fleet Advisor</div><div class="typingBubble" aria-hidden="true"><span class="typingDot"></span><span class="typingDot"></span><span class="typingDot"></span></div></div>`;}
+    function showAdvisorTyping(token){[$("advisorThread"),$("advisorPageThread")].filter(Boolean).forEach(thread=>{thread.insertAdjacentHTML("beforeend",advisorTypingMarkup(token));thread.scrollTop=thread.scrollHeight;});}
+    function clearAdvisorTyping(token){document.querySelectorAll(`[data-advisor-loading="${token}"]`).forEach(element=>element.remove());}
+    function setAdvisorBusy(busy){state.advisorBusy=busy;document.querySelectorAll("[data-advisor-send]").forEach(button=>{button.disabled=busy;button.textContent=busy?"Thinking":"Send";});}
     function advisorResultActions(result){
       const artifacts=Array.isArray(result?.artifacts)?result.artifacts:[];
       const proposed=Array.isArray(result?.proposedActions)?result.proposedActions:[];
@@ -518,25 +566,31 @@
       }
     }
     async function sendAdvisor(query){
+      if(state.advisorBusy)return;
       const history=state.advisor.slice(-8);
       state.advisor.push({role:"user",content:query});
       appendAdvisorMessage("user",query);
-      const loadingId=`advisorLoading-${Date.now()}`;
-      const thread=$("advisorThread");
-      thread?.insertAdjacentHTML("beforeend",`<div class="msg assistant thinking" id="${loadingId}"><div class="msgRole">Fleet Advisor</div><p>Looking at the latest fleet records...</p></div>`);
-      if(thread) thread.scrollTop=thread.scrollHeight;
+      const loadingId=`advisor-${Date.now()}`;
+      const started=performance.now();
+      setAdvisorBusy(true);showAdvisorTyping(loadingId);
       try{
         const r=await apiPost(["/api/advisor/message","/api/ai/chat"],{query,message:query,vehicleId:state.selectedVehicleId,history});
-        $(loadingId)?.remove();
+        const remaining=MIN_ADVISOR_TYPING_MS-(performance.now()-started);
+        if(remaining>0)await new Promise(resolve=>setTimeout(resolve,remaining));
+        clearAdvisorTyping(loadingId);
         const reply=r.reply||r.data?.reply||"I couldn't generate a useful answer from the current fleet record.";
         state.advisor.push({role:"assistant",content:reply});
         state.advisor=state.advisor.slice(-10);
+        state.advisorRetrieved=r.retrieved||r.data?.retrieved||null;
         appendAdvisorMessage("assistant",reply,advisorResultActions(r));
+        renderAdvisorDataSummary();
         if(Array.isArray(r.artifacts)&&r.artifacts.length) loadAdvisorArtifacts();
       }catch(e){
-        $(loadingId)?.remove();
+        const remaining=MIN_ADVISOR_TYPING_MS-(performance.now()-started);
+        if(remaining>0)await new Promise(resolve=>setTimeout(resolve,remaining));
+        clearAdvisorTyping(loadingId);
         appendAdvisorMessage("assistant",`I can't reach the advisor service right now. ${e.message}`);
-      }
+      }finally{setAdvisorBusy(false);}
     }
     async function loadMaintenanceLogs(){ loadMaintenanceLogsV2("maintenance"); }
     async function loadMaintenanceLogsV2(target="maintenance-logs"){
@@ -939,10 +993,11 @@
       $("btnRefreshView").onclick=()=>renderRoute(state.activeRoute); $("btnLogout").onclick=logout; $("btnExportReport").onclick=()=>exportVisibleTable();
       $("advisorDockForm").onsubmit=(e)=>{e.preventDefault(); const q=$("advisorDockInput").value.trim(); if(q){ $("advisorDockInput").value=""; sendAdvisor(q); }};
       $("btnAdvisorToggle").onclick=()=>$("opsAdvisorDock").classList.toggle("open"); $("btnCloseAdvisor").onclick=()=>$("opsAdvisorDock").classList.remove("open");
+      $("btnOpenAdvisorPage").onclick=()=>{$("opsAdvisorDock").classList.remove("open");setHashRoute("advisor");};
       $("btnLoadHistory")?.addEventListener("click",loadTelemetryHistory); $("btnExportTelemetry")?.addEventListener("click",()=>exportVisibleTable("telemetry-history"));
       $("dashboardGlobalSearch").addEventListener("input",event=>filterActiveView(event.target.value));
       $("telemetryVehicleSelect")?.addEventListener("change",event=>{state.selectedVehicleId=event.target.value;loadLiveSensors();});
-      document.addEventListener("click",event=>{const exportButton=event.target.closest("[data-export]");if(exportButton)exportVisibleTable(exportButton.dataset.export);const prompt=event.target.closest("[data-prompt]");if(prompt){$("opsAdvisorDock").classList.add("open");sendAdvisor(prompt.dataset.prompt);}const advisorAction=event.target.closest("[data-advisor-action]");if(advisorAction)executeAdvisorAction(advisorAction.dataset.advisorAction,advisorAction);const advisorDownload=event.target.closest("[data-advisor-download]");if(advisorDownload){const link=document.createElement("a");link.href=advisorDownload.dataset.advisorDownload;link.download="";document.body.appendChild(link);link.click();link.remove();}});
+      document.addEventListener("click",event=>{const exportButton=event.target.closest("[data-export]");if(exportButton)exportVisibleTable(exportButton.dataset.export);const prompt=event.target.closest("[data-prompt]");if(prompt){if(state.activeRoute!=="advisor")$("opsAdvisorDock").classList.add("open");sendAdvisor(prompt.dataset.prompt);}const advisorAction=event.target.closest("[data-advisor-action]");if(advisorAction)executeAdvisorAction(advisorAction.dataset.advisorAction,advisorAction);const advisorDownload=event.target.closest("[data-advisor-download]");if(advisorDownload){const link=document.createElement("a");link.href=advisorDownload.dataset.advisorDownload;link.download="";document.body.appendChild(link);link.click();link.remove();}});
       window.addEventListener("hashchange",()=>renderRoute(routeFromHash()));
     }
     async function init(){
