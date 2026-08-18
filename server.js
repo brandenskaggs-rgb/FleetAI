@@ -18,6 +18,7 @@ const sqliteDb = require("./server/db");
 const vinCapSvc = require("./server/services/vinCapabilityService");
 const aiReportSvc = require("./server/services/aiReportService");
 const pythonMlClient = require("./server/services/pythonMlClient");
+const { createTelemetryPredictionCoordinator } = require("./server/services/telemetryPredictionCoordinator");
 const { createDataStore } = require("./server/storage/dataStore");
 const { registerSystemStatusRoutes } = require("./server/routes/systemStatus");
 const { registerLegacyPairingRoutes } = require("./server/routes/legacyPairing");
@@ -116,6 +117,10 @@ const ALERTS_AGGREGATION_INTERVAL_MS = Number(
   process.env.ALERTS_AGGREGATION_INTERVAL_MS || 5 * 60 * 1000
 );
 const TELEMETRY_RETENTION_LIMIT = Number(process.env.TELEMETRY_RETENTION_LIMIT || 50000);
+const THEOREM_INFERENCE_INTERVAL_MS = Math.max(
+  15_000,
+  Number(process.env.FLEETAI_THEOREM_INFERENCE_INTERVAL_MS || 60_000)
+);
 const COOLANT_OVERHEAT_THRESHOLD = Number(process.env.COOLANT_OVERHEAT_THRESHOLD || 215);
 const COOLANT_DELTA_WARN = Number(process.env.COOLANT_DELTA_WARN || 6);
 const COOLANT_DELTA_CRIT = Number(process.env.COOLANT_DELTA_CRIT || 12);
@@ -143,6 +148,12 @@ const AUTH_DEMO_WHITELIST = (process.env.AUTH_DEMO_WHITELIST || "")
   .map((value) => value.trim().toLowerCase())
   .filter(Boolean);
 const SESSION_COOKIE = "fleetai_session";
+const telemetryPredictionCoordinator = createTelemetryPredictionCoordinator({
+  ml,
+  pythonMlClient,
+  mergePredictions: mergePythonAndNodePrediction,
+  intervalMs: THEOREM_INFERENCE_INTERVAL_MS
+});
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
 const CUSTOMER_SESSION_COOKIE = "fleetai_customer_session";
 const COOKIE_SAMESITE = (process.env.COOKIE_SAMESITE || (IS_PROD ? "Lax" : "Lax")).trim();
@@ -3293,17 +3304,57 @@ async function runTelemetryPipeline() {
       }
     }
 
-    // ML full-prediction pipeline — runs per-vehicle via PostgreSQL samples
+    // ML full-prediction pipeline. THEOREM is attempted on a controlled
+    // interval and the existing Node model remains the reliability fallback.
     for (const vehicleId of vehicles) {
       try {
         const samples = await sqliteDb.getSamplesForVehicle(vehicleId, { limit: 5000 });
         if (!samples.length) continue;
-        const prediction = ml.computeFullPrediction(samples, vehicleId);
+        const orgId = resolveOrgIdForVehicle(data, vehicleId)
+          || await sqliteDb.getVehicleOrgId(vehicleId, "").catch(() => "");
+        const vehicleMeta = (await sqliteDb.getVehicleCapabilities(vehicleId)) || {};
+        const latestSample = samples[samples.length - 1] || null;
+        const dtcCodes = latestSample?.raw?.activeDTCs || latestSample?.metrics?.activeDTCs || [];
+        const predictionResult = await telemetryPredictionCoordinator.predict({
+          orgId,
+          vehicleId,
+          vehicleMeta: Object.assign({}, vehicleMeta, { vehicleId }),
+          samples,
+          dtcCodes
+        });
+        const prediction = predictionResult.prediction;
         await sqliteDb.upsertModelState(prediction);
+        if (predictionResult.attempted) {
+          try {
+            const runId = await sqliteDb.insertMlPredictionRun({
+              orgId,
+              vehicleId,
+              modelVersion: prediction.modelVersion || "node-ewma-v2",
+              source: prediction.predictionSource || "node_fallback",
+              confidenceStage: prediction.confidenceStage || null,
+              confidence: prediction.confidence,
+              riskProbability: prediction.riskProbability,
+              healthScore: prediction.healthScore,
+              prediction
+            });
+            const features = prediction.features || prediction.featureVector || null;
+            if (features) {
+              await sqliteDb.insertMlFeatureSnapshot({ orgId, vehicleId, predictionRunId: runId, features });
+            }
+          } catch (auditError) {
+            console.warn("[THEOREM] prediction audit write failed:", auditError.message);
+          }
+          console.log("[THEOREM] prediction", {
+            vehicleId,
+            source: prediction.predictionSource || "node_fallback",
+            samples: prediction.sampleCount || samples.length,
+            error: predictionResult.pythonError || null
+          });
+        }
         // Generate threshold-based alerts and persist
         const oldState = {
           vehicleId,
-          orgId: prediction.orgId || resolveOrgIdForVehicle(data, vehicleId),
+          orgId: prediction.orgId || orgId,
           anomalyScore: prediction.anomalyScore != null ? prediction.anomalyScore / 100 : null,
           confidence: prediction.confidence,
           risk: prediction.risk,

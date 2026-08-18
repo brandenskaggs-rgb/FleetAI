@@ -98,6 +98,13 @@ async function invoke(app, body) {
   assert.strictEqual(writes, 1);
   assert.strictEqual(data.telemetryFrames.length, 1);
 
+  const repeatedPacket = await invoke(app, Object.assign({}, payload, { batchId: "batch-2" }));
+  assert.strictEqual(repeatedPacket.body.duplicateSample, true);
+  assert.strictEqual(repeatedPacket.body.stored, false);
+  assert.strictEqual(writes, 1);
+  assert.strictEqual(pipelineRuns, 1);
+  assert.strictEqual(data.telemetryFrames.length, 1);
+
   const heartbeat = await invoke(app, {
     batchId: "batch-heartbeat",
     vehicleId: "TRUCK_1",

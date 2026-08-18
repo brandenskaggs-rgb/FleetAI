@@ -1,0 +1,2403 @@
+{
+  "modelVersion": "physics-v4.4.0",
+  "profiles": {
+    "cargo_van:chevrolet:express": {
+      "profileKey": "cargo_van:chevrolet:express",
+      "vehicleClass": "cargo_van",
+      "make": "Chevrolet",
+      "model": "Express",
+      "protocol": "OBD2",
+      "powertrain": "gasoline",
+      "trainingSource": "physics_calibrated_v4",
+      "modelVersion": "physics-v4.4.0",
+      "sampleCount": 28755,
+      "failureRate": 0.016102,
+      "baselineMetrics": {
+        "rpm": {
+          "mean": 1921.765903,
+          "std": 513.29469,
+          "p10": 770.5,
+          "p50": 2050.3,
+          "p90": 2406.5
+        },
+        "engine_temp": {
+          "mean": 50.939685,
+          "std": 33.234692,
+          "p10": 12.318,
+          "p50": 45.63,
+          "p90": 98.92
+        },
+        "oil_temp": {
+          "mean": 58.067419,
+          "std": 33.353725,
+          "p10": 19.32,
+          "p50": 52.69,
+          "p90": 106.117
+        },
+        "transmission_temp": {
+          "mean": 87.20539,
+          "std": 7.417312,
+          "p10": 77.51,
+          "p50": 87.4,
+          "p90": 96.63
+        },
+        "fuel_pressure": {
+          "mean": 49.376047,
+          "std": 2.567849,
+          "p10": 46.05,
+          "p50": 49.5,
+          "p90": 52.57
+        },
+        "fuel_rate": {
+          "mean": 9.939524,
+          "std": 10.608015,
+          "p10": 1.133,
+          "p50": 6.017,
+          "p90": 26.3276
+        },
+        "battery_voltage": {
+          "mean": 13.519986,
+          "std": 1.932574,
+          "p10": 9.9112,
+          "p50": 14.202,
+          "p90": 14.497
+        },
+        "vibration": {
+          "mean": 0.523927,
+          "std": 0.317484,
+          "p10": 0.1232,
+          "p50": 0.4975,
+          "p90": 0.94421
+        },
+        "dpf_soot_load": {
+          "mean": 0.0,
+          "std": 0.0,
+          "p10": 0.0,
+          "p50": 0.0,
+          "p90": 0.0
+        },
+        "brake_temp": {
+          "mean": 119.111255,
+          "std": 15.755352,
+          "p10": 98.97,
+          "p50": 118.89,
+          "p90": 139.53
+        },
+        "tire_pressure": {
+          "mean": 233.188257,
+          "std": 14.545514,
+          "p10": 214.36,
+          "p50": 233.26,
+          "p90": 251.89
+        },
+        "oil_pressure": {
+          "mean": 46.082266,
+          "std": 18.81645,
+          "p10": 24.46,
+          "p50": 42.97,
+          "p90": 74.324
+        },
+        "fuel_trim_long": {
+          "mean": 2.97562,
+          "std": 2.544122,
+          "p10": -0.306,
+          "p50": 3.02,
+          "p90": 6.1916
+        },
+        "dpf_differential_kpa": {
+          "mean": 0.0,
+          "std": 0.0,
+          "p10": 0.0,
+          "p50": 0.0,
+          "p90": 0.0
+        },
+        "egt_c": {
+          "mean": 412.363078,
+          "std": 33.762866,
+          "p10": 371.0,
+          "p50": 409.3,
+          "p90": 456.0
+        },
+        "oil_viscosity_cst": {
+          "mean": 144.229282,
+          "std": 255.104335,
+          "p10": 12.86,
+          "p50": 63.02,
+          "p90": 326.825
+        },
+        "hub_temp_fl_c": {
+          "mean": 23.741282,
+          "std": 17.179654,
+          "p10": 0.268,
+          "p50": 24.47,
+          "p90": 46.01
+        },
+        "bearing_wear_index": {
+          "mean": 0.454396,
+          "std": 0.322519,
+          "p10": 0.096,
+          "p50": 0.4013,
+          "p90": 0.86314
+        }
+      },
+      "subsystemPriors": {
+        "charging": 0.779273,
+        "cooling": 0.076091,
+        "engine_wear": 0.050356,
+        "brakes_tires": 0.048931,
+        "fuel": 0.030429,
+        "drivetrain": 0.007547,
+        "hub_bearing": 0.007373
+      }
+    },
+    "cargo_van:ford:transit": {
+      "profileKey": "cargo_van:ford:transit",
+      "vehicleClass": "cargo_van",
+      "make": "Ford",
+      "model": "Transit",
+      "protocol": "OBD2",
+      "powertrain": "gasoline",
+      "trainingSource": "physics_calibrated_v4",
+      "modelVersion": "physics-v4.4.0",
+      "sampleCount": 27225,
+      "failureRate": 0.016676,
+      "baselineMetrics": {
+        "rpm": {
+          "mean": 1928.666462,
+          "std": 506.81107,
+          "p10": 774.7,
+          "p50": 2049.5,
+          "p90": 2405.23
+        },
+        "engine_temp": {
+          "mean": 51.102957,
+          "std": 33.424331,
+          "p10": 12.234,
+          "p50": 45.77,
+          "p90": 99.628
+        },
+        "oil_temp": {
+          "mean": 58.393794,
+          "std": 33.463845,
+          "p10": 19.513,
+          "p50": 53.14,
+          "p90": 107.007
+        },
+        "transmission_temp": {
+          "mean": 87.277988,
+          "std": 7.455742,
+          "p10": 77.58,
+          "p50": 87.47,
+          "p90": 96.69
+        },
+        "fuel_pressure": {
+          "mean": 49.395514,
+          "std": 2.593199,
+          "p10": 46.01,
+          "p50": 49.52,
+          "p90": 52.59
+        },
+        "fuel_rate": {
+          "mean": 9.961564,
+          "std": 10.546525,
+          "p10": 1.135,
+          "p50": 6.107,
+          "p90": 26.1275
+        },
+        "battery_voltage": {
+          "mean": 13.555721,
+          "std": 1.892462,
+          "p10": 10.178,
+          "p50": 14.207,
+          "p90": 14.502
+        },
+        "vibration": {
+          "mean": 0.527615,
+          "std": 0.317818,
+          "p10": 0.12826,
+          "p50": 0.5012,
+          "p90": 0.94434
+        },
+        "dpf_soot_load": {
+          "mean": 0.0,
+          "std": 0.0,
+          "p10": 0.0,
+          "p50": 0.0,
+          "p90": 0.0
+        },
+        "brake_temp": {
+          "mean": 119.179882,
+          "std": 15.723192,
+          "p10": 99.072,
+          "p50": 119.0,
+          "p90": 139.478
+        },
+        "tire_pressure": {
+          "mean": 233.215396,
+          "std": 14.589662,
+          "p10": 214.4,
+          "p50": 233.14,
+          "p90": 252.03
+        },
+        "oil_pressure": {
+          "mean": 45.998992,
+          "std": 18.846814,
+          "p10": 24.14,
+          "p50": 42.91,
+          "p90": 73.92
+        },
+        "fuel_trim_long": {
+          "mean": 2.981744,
+          "std": 2.542276,
+          "p10": -0.2819,
+          "p50": 3.0115,
+          "p90": 6.2209
+        },
+        "dpf_differential_kpa": {
+          "mean": 0.0,
+          "std": 0.0,
+          "p10": 0.0,
+          "p50": 0.0,
+          "p90": 0.0
+        },
+        "egt_c": {
+          "mean": 412.68865,
+          "std": 33.830967,
+          "p10": 371.9,
+          "p50": 409.5,
+          "p90": 456.2
+        },
+        "oil_viscosity_cst": {
+          "mean": 143.718153,
+          "std": 254.000786,
+          "p10": 12.705,
+          "p50": 62.13,
+          "p90": 324.245
+        },
+        "hub_temp_fl_c": {
+          "mean": 23.846889,
+          "std": 17.193306,
+          "p10": 0.22,
+          "p50": 24.63,
+          "p90": 45.96
+        },
+        "bearing_wear_index": {
+          "mean": 0.456542,
+          "std": 0.319218,
+          "p10": 0.0893,
+          "p50": 0.4164,
+          "p90": 0.8491
+        }
+      },
+      "subsystemPriors": {
+        "charging": 0.776162,
+        "cooling": 0.077576,
+        "brakes_tires": 0.050872,
+        "engine_wear": 0.050064,
+        "fuel": 0.029348,
+        "drivetrain": 0.008375,
+        "hub_bearing": 0.007603
+      }
+    },
+    "cargo_van:ram:promaster": {
+      "profileKey": "cargo_van:ram:promaster",
+      "vehicleClass": "cargo_van",
+      "make": "Ram",
+      "model": "ProMaster",
+      "protocol": "OBD2",
+      "powertrain": "gasoline",
+      "trainingSource": "physics_calibrated_v4",
+      "modelVersion": "physics-v4.4.0",
+      "sampleCount": 27180,
+      "failureRate": 0.016998,
+      "baselineMetrics": {
+        "rpm": {
+          "mean": 1919.510197,
+          "std": 512.893045,
+          "p10": 772.48,
+          "p50": 2045.4,
+          "p90": 2405.02
+        },
+        "engine_temp": {
+          "mean": 50.700697,
+          "std": 32.779687,
+          "p10": 12.602,
+          "p50": 45.62,
+          "p90": 97.479
+        },
+        "oil_temp": {
+          "mean": 57.938407,
+          "std": 32.922732,
+          "p10": 19.69,
+          "p50": 52.75,
+          "p90": 105.34
+        },
+        "transmission_temp": {
+          "mean": 87.154951,
+          "std": 7.417049,
+          "p10": 77.46,
+          "p50": 87.33,
+          "p90": 96.56
+        },
+        "fuel_pressure": {
+          "mean": 49.398163,
+          "std": 2.572701,
+          "p10": 46.08,
+          "p50": 49.47,
+          "p90": 52.64
+        },
+        "fuel_rate": {
+          "mean": 9.792221,
+          "std": 10.449902,
+          "p10": 1.129,
+          "p50": 5.943,
+          "p90": 25.6962
+        },
+        "battery_voltage": {
+          "mean": 13.523948,
+          "std": 1.94059,
+          "p10": 9.9123,
+          "p50": 14.208,
+          "p90": 14.506
+        },
+        "vibration": {
+          "mean": 0.522918,
+          "std": 0.317675,
+          "p10": 0.11848,
+          "p50": 0.499,
+          "p90": 0.9461
+        },
+        "dpf_soot_load": {
+          "mean": 0.0,
+          "std": 0.0,
+          "p10": 0.0,
+          "p50": 0.0,
+          "p90": 0.0
+        },
+        "brake_temp": {
+          "mean": 119.140708,
+          "std": 15.813079,
+          "p10": 99.116,
+          "p50": 119.04,
+          "p90": 139.53
+        },
+        "tire_pressure": {
+          "mean": 233.456093,
+          "std": 14.464855,
+          "p10": 214.82,
+          "p50": 233.42,
+          "p90": 251.97
+        },
+        "oil_pressure": {
+          "mean": 46.136927,
+          "std": 18.652975,
+          "p10": 24.578,
+          "p50": 43.17,
+          "p90": 74.01
+        },
+        "fuel_trim_long": {
+          "mean": 2.949407,
+          "std": 2.532334,
+          "p10": -0.277,
+          "p50": 2.992,
+          "p90": 6.128
+        },
+        "dpf_differential_kpa": {
+          "mean": 0.0,
+          "std": 0.0,
+          "p10": 0.0,
+          "p50": 0.0,
+          "p90": 0.0
+        },
+        "egt_c": {
+          "mean": 412.03013,
+          "std": 33.719753,
+          "p10": 370.3,
+          "p50": 408.6,
+          "p90": 455.71
+        },
+        "oil_viscosity_cst": {
+          "mean": 142.712883,
+          "std": 253.588776,
+          "p10": 13.18,
+          "p50": 63.0,
+          "p90": 316.256
+        },
+        "hub_temp_fl_c": {
+          "mean": 23.716121,
+          "std": 16.945577,
+          "p10": 0.53,
+          "p50": 24.53,
+          "p90": 45.73
+        },
+        "bearing_wear_index": {
+          "mean": 0.449877,
+          "std": 0.322571,
+          "p10": 0.0738,
+          "p50": 0.4025,
+          "p90": 0.85964
+        }
+      },
+      "subsystemPriors": {
+        "charging": 0.781494,
+        "cooling": 0.073584,
+        "brakes_tires": 0.048859,
+        "engine_wear": 0.048712,
+        "fuel": 0.030537,
+        "drivetrain": 0.009566,
+        "hub_bearing": 0.007248
+      }
+    },
+    "heavy_duty_j1939:freightliner:cascadia": {
+      "profileKey": "heavy_duty_j1939:freightliner:cascadia",
+      "vehicleClass": "heavy_duty_j1939",
+      "make": "Freightliner",
+      "model": "Cascadia",
+      "protocol": "J1939",
+      "powertrain": "diesel",
+      "trainingSource": "physics_calibrated_v4",
+      "modelVersion": "physics-v4.4.0",
+      "sampleCount": 27180,
+      "failureRate": 0.259603,
+      "baselineMetrics": {
+        "rpm": {
+          "mean": 1501.511968,
+          "std": 430.216099,
+          "p10": 657.6,
+          "p50": 1624.35,
+          "p90": 1919.7
+        },
+        "engine_temp": {
+          "mean": 93.772277,
+          "std": 52.572666,
+          "p10": 18.581,
+          "p50": 133.48,
+          "p90": 143.17
+        },
+        "oil_temp": {
+          "mean": 105.752279,
+          "std": 53.038682,
+          "p10": 29.766,
+          "p50": 146.55,
+          "p90": 154.11
+        },
+        "transmission_temp": {
+          "mean": 85.511977,
+          "std": 7.224793,
+          "p10": 76.15,
+          "p50": 85.57,
+          "p90": 94.76
+        },
+        "fuel_pressure": {
+          "mean": 61.37078,
+          "std": 2.575351,
+          "p10": 58.027,
+          "p50": 61.46,
+          "p90": 64.59
+        },
+        "fuel_rate": {
+          "mean": 40.966328,
+          "std": 37.919159,
+          "p10": 1.026,
+          "p50": 33.909,
+          "p90": 90.9244
+        },
+        "battery_voltage": {
+          "mean": 13.258116,
+          "std": 2.55909,
+          "p10": 7.629,
+          "p50": 14.332,
+          "p90": 14.7536
+        },
+        "vibration": {
+          "mean": 0.748559,
+          "std": 0.475093,
+          "p10": 0.15997,
+          "p50": 0.69655,
+          "p90": 1.42173
+        },
+        "dpf_soot_load": {
+          "mean": 48.361121,
+          "std": 16.412228,
+          "p10": 25.95,
+          "p50": 47.5,
+          "p90": 71.27
+        },
+        "brake_temp": {
+          "mean": 117.889864,
+          "std": 15.902179,
+          "p10": 97.538,
+          "p50": 117.59,
+          "p90": 138.4
+        },
+        "tire_pressure": {
+          "mean": 672.588637,
+          "std": 23.606456,
+          "p10": 642.32,
+          "p50": 672.54,
+          "p90": 702.83
+        },
+        "oil_pressure": {
+          "mean": 38.949776,
+          "std": 21.366478,
+          "p10": 19.13,
+          "p50": 29.58,
+          "p90": 74.016
+        },
+        "fuel_trim_long": {
+          "mean": 3.09689,
+          "std": 2.560067,
+          "p10": -0.1927,
+          "p50": 3.145,
+          "p90": 6.336
+        },
+        "dpf_differential_kpa": {
+          "mean": 4.511821,
+          "std": 0.90061,
+          "p10": 3.30878,
+          "p50": 4.5714,
+          "p90": 5.62516
+        },
+        "egt_c": {
+          "mean": 497.240163,
+          "std": 93.815976,
+          "p10": 405.0,
+          "p50": 462.5,
+          "p90": 653.4
+        },
+        "oil_viscosity_cst": {
+          "mean": 74.961912,
+          "std": 186.879081,
+          "p10": 5.44,
+          "p50": 6.1,
+          "p90": 180.855
+        },
+        "hub_temp_fl_c": {
+          "mean": 69.232624,
+          "std": 42.074391,
+          "p10": 18.902,
+          "p50": 64.6,
+          "p90": 127.04
+        },
+        "bearing_wear_index": {
+          "mean": 0.672907,
+          "std": 0.532284,
+          "p10": 0.1245,
+          "p50": 0.531,
+          "p90": 1.4758
+        }
+      },
+      "subsystemPriors": {
+        "charging": 0.45401,
+        "hub_bearing": 0.246431,
+        "engine_wear": 0.205445,
+        "cooling": 0.081126,
+        "drivetrain": 0.0039,
+        "fuel": 0.002759,
+        "dpf_emissions": 0.002649,
+        "brakes_tires": 0.001876,
+        "turbo_exhaust": 0.001803
+      }
+    },
+    "heavy_duty_j1939:international:lt": {
+      "profileKey": "heavy_duty_j1939:international:lt",
+      "vehicleClass": "heavy_duty_j1939",
+      "make": "International",
+      "model": "LT",
+      "protocol": "J1939",
+      "powertrain": "diesel",
+      "trainingSource": "physics_calibrated_v4",
+      "modelVersion": "physics-v4.4.0",
+      "sampleCount": 28620,
+      "failureRate": 0.253354,
+      "baselineMetrics": {
+        "rpm": {
+          "mean": 1496.054595,
+          "std": 434.354467,
+          "p10": 655.9,
+          "p50": 1620.0,
+          "p90": 1920.1
+        },
+        "engine_temp": {
+          "mean": 93.224739,
+          "std": 52.672837,
+          "p10": 18.35,
+          "p50": 132.92,
+          "p90": 143.05
+        },
+        "oil_temp": {
+          "mean": 105.340017,
+          "std": 53.144406,
+          "p10": 29.97,
+          "p50": 145.96,
+          "p90": 154.09
+        },
+        "transmission_temp": {
+          "mean": 85.580984,
+          "std": 7.254987,
+          "p10": 76.12,
+          "p50": 85.66,
+          "p90": 94.8
+        },
+        "fuel_pressure": {
+          "mean": 61.411051,
+          "std": 2.5783,
+          "p10": 58.06,
+          "p50": 61.5,
+          "p90": 64.64
+        },
+        "fuel_rate": {
+          "mean": 40.542389,
+          "std": 38.023792,
+          "p10": 1.031,
+          "p50": 32.406,
+          "p90": 91.5504
+        },
+        "battery_voltage": {
+          "mean": 13.213332,
+          "std": 2.598594,
+          "p10": 7.614,
+          "p50": 14.327,
+          "p90": 14.752
+        },
+        "vibration": {
+          "mean": 0.739154,
+          "std": 0.47024,
+          "p10": 0.1538,
+          "p50": 0.6843,
+          "p90": 1.4086
+        },
+        "dpf_soot_load": {
+          "mean": 48.319747,
+          "std": 16.356563,
+          "p10": 26.07,
+          "p50": 47.34,
+          "p90": 71.1
+        },
+        "brake_temp": {
+          "mean": 117.798815,
+          "std": 15.722017,
+          "p10": 97.68,
+          "p50": 117.78,
+          "p90": 137.98
+        },
+        "tire_pressure": {
+          "mean": 673.275233,
+          "std": 23.462158,
+          "p10": 643.022,
+          "p50": 673.3,
+          "p90": 703.22
+        },
+        "oil_pressure": {
+          "mean": 39.383599,
+          "std": 21.376762,
+          "p10": 19.58,
+          "p50": 29.88,
+          "p90": 74.24
+        },
+        "fuel_trim_long": {
+          "mean": 2.960881,
+          "std": 2.569585,
+          "p10": -0.332,
+          "p50": 2.981,
+          "p90": 6.223
+        },
+        "dpf_differential_kpa": {
+          "mean": 4.499653,
+          "std": 0.908404,
+          "p10": 3.26984,
+          "p50": 4.5658,
+          "p90": 5.61878
+        },
+        "egt_c": {
+          "mean": 497.010746,
+          "std": 94.235743,
+          "p10": 404.7,
+          "p50": 461.3,
+          "p90": 654.89
+        },
+        "oil_viscosity_cst": {
+          "mean": 76.023,
+          "std": 187.137567,
+          "p10": 5.44,
+          "p50": 6.195,
+          "p90": 179.465
+        },
+        "hub_temp_fl_c": {
+          "mean": 68.106423,
+          "std": 41.66531,
+          "p10": 18.87,
+          "p50": 63.16,
+          "p90": 125.794
+        },
+        "bearing_wear_index": {
+          "mean": 0.653168,
+          "std": 0.532381,
+          "p10": 0.11134,
+          "p50": 0.5091,
+          "p90": 1.44778
+        }
+      },
+      "subsystemPriors": {
+        "charging": 0.45905,
+        "hub_bearing": 0.236618,
+        "engine_wear": 0.207512,
+        "cooling": 0.08232,
+        "drivetrain": 0.004158,
+        "dpf_emissions": 0.003704,
+        "fuel": 0.00318,
+        "turbo_exhaust": 0.001887,
+        "brakes_tires": 0.001572
+      }
+    },
+    "heavy_duty_j1939:kenworth:t680": {
+      "profileKey": "heavy_duty_j1939:kenworth:t680",
+      "vehicleClass": "heavy_duty_j1939",
+      "make": "Kenworth",
+      "model": "T680",
+      "protocol": "J1939",
+      "powertrain": "diesel",
+      "trainingSource": "physics_calibrated_v4",
+      "modelVersion": "physics-v4.4.0",
+      "sampleCount": 29070,
+      "failureRate": 0.256106,
+      "baselineMetrics": {
+        "rpm": {
+          "mean": 1502.821205,
+          "std": 432.188456,
+          "p10": 655.7,
+          "p50": 1624.7,
+          "p90": 1926.13
+        },
+        "engine_temp": {
+          "mean": 94.560753,
+          "std": 52.207311,
+          "p10": 19.268,
+          "p50": 133.93,
+          "p90": 143.09
+        },
+        "oil_temp": {
+          "mean": 106.170497,
+          "std": 52.786991,
+          "p10": 30.36,
+          "p50": 146.68,
+          "p90": 154.08
+        },
+        "transmission_temp": {
+          "mean": 85.639569,
+          "std": 7.258675,
+          "p10": 76.2,
+          "p50": 85.68,
+          "p90": 94.94
+        },
+        "fuel_pressure": {
+          "mean": 61.379613,
+          "std": 2.588063,
+          "p10": 58.0,
+          "p50": 61.47,
+          "p90": 64.6
+        },
+        "fuel_rate": {
+          "mean": 41.138619,
+          "std": 37.797936,
+          "p10": 1.0564,
+          "p50": 34.228,
+          "p90": 91.9966
+        },
+        "battery_voltage": {
+          "mean": 13.257069,
+          "std": 2.561766,
+          "p10": 7.637,
+          "p50": 14.333,
+          "p90": 14.753
+        },
+        "vibration": {
+          "mean": 0.746891,
+          "std": 0.469593,
+          "p10": 0.16285,
+          "p50": 0.6914,
+          "p90": 1.4092
+        },
+        "dpf_soot_load": {
+          "mean": 48.32559,
+          "std": 16.463831,
+          "p10": 25.783,
+          "p50": 47.22,
+          "p90": 71.25
+        },
+        "brake_temp": {
+          "mean": 117.951475,
+          "std": 15.857496,
+          "p10": 97.78,
+          "p50": 117.73,
+          "p90": 138.46
+        },
+        "tire_pressure": {
+          "mean": 672.835644,
+          "std": 23.588599,
+          "p10": 642.43,
+          "p50": 672.91,
+          "p90": 702.965
+        },
+        "oil_pressure": {
+          "mean": 38.895912,
+          "std": 21.105368,
+          "p10": 19.319,
+          "p50": 29.73,
+          "p90": 73.322
+        },
+        "fuel_trim_long": {
+          "mean": 2.98349,
+          "std": 2.582932,
+          "p10": -0.328,
+          "p50": 3.003,
+          "p90": 6.254
+        },
+        "dpf_differential_kpa": {
+          "mean": 4.473637,
+          "std": 0.914438,
+          "p10": 3.24005,
+          "p50": 4.53295,
+          "p90": 5.60275
+        },
+        "egt_c": {
+          "mean": 497.531818,
+          "std": 93.747152,
+          "p10": 404.8,
+          "p50": 462.9,
+          "p90": 654.2
+        },
+        "oil_viscosity_cst": {
+          "mean": 72.348379,
+          "std": 180.234291,
+          "p10": 5.44,
+          "p50": 6.08,
+          "p90": 172.42
+        },
+        "hub_temp_fl_c": {
+          "mean": 69.027777,
+          "std": 42.199841,
+          "p10": 18.638,
+          "p50": 64.2,
+          "p90": 127.542
+        },
+        "bearing_wear_index": {
+          "mean": 0.665792,
+          "std": 0.539579,
+          "p10": 0.1175,
+          "p50": 0.5219,
+          "p90": 1.4768
+        }
+      },
+      "subsystemPriors": {
+        "charging": 0.452632,
+        "hub_bearing": 0.241039,
+        "engine_wear": 0.207534,
+        "cooling": 0.085105,
+        "drivetrain": 0.00399,
+        "dpf_emissions": 0.003027,
+        "fuel": 0.002546,
+        "turbo_exhaust": 0.002167,
+        "brakes_tires": 0.001961
+      }
+    },
+    "heavy_duty_j1939:peterbilt:579": {
+      "profileKey": "heavy_duty_j1939:peterbilt:579",
+      "vehicleClass": "heavy_duty_j1939",
+      "make": "Peterbilt",
+      "model": "579",
+      "protocol": "J1939",
+      "powertrain": "diesel",
+      "trainingSource": "physics_calibrated_v4",
+      "modelVersion": "physics-v4.4.0",
+      "sampleCount": 29475,
+      "failureRate": 0.239796,
+      "baselineMetrics": {
+        "rpm": {
+          "mean": 1501.184442,
+          "std": 433.354724,
+          "p10": 656.2,
+          "p50": 1623.7,
+          "p90": 1924.76
+        },
+        "engine_temp": {
+          "mean": 94.013119,
+          "std": 52.587147,
+          "p10": 18.608,
+          "p50": 133.68,
+          "p90": 143.08
+        },
+        "oil_temp": {
+          "mean": 105.970977,
+          "std": 53.048332,
+          "p10": 29.96,
+          "p50": 146.665,
+          "p90": 154.12
+        },
+        "transmission_temp": {
+          "mean": 85.577593,
+          "std": 7.246679,
+          "p10": 76.14,
+          "p50": 85.65,
+          "p90": 94.87
+        },
+        "fuel_pressure": {
+          "mean": 61.35507,
+          "std": 2.577867,
+          "p10": 57.95,
+          "p50": 61.47,
+          "p90": 64.54
+        },
+        "fuel_rate": {
+          "mean": 41.096535,
+          "std": 37.984558,
+          "p10": 1.0433,
+          "p50": 34.1185,
+          "p90": 92.2302
+        },
+        "battery_voltage": {
+          "mean": 13.234875,
+          "std": 2.578976,
+          "p10": 7.632,
+          "p50": 14.328,
+          "p90": 14.752
+        },
+        "vibration": {
+          "mean": 0.738898,
+          "std": 0.468905,
+          "p10": 0.1575,
+          "p50": 0.68415,
+          "p90": 1.4013
+        },
+        "dpf_soot_load": {
+          "mean": 48.47405,
+          "std": 16.423049,
+          "p10": 26.11,
+          "p50": 47.57,
+          "p90": 71.38
+        },
+        "brake_temp": {
+          "mean": 117.861888,
+          "std": 15.863117,
+          "p10": 97.42,
+          "p50": 117.81,
+          "p90": 138.287
+        },
+        "tire_pressure": {
+          "mean": 672.954216,
+          "std": 23.417179,
+          "p10": 642.72,
+          "p50": 672.89,
+          "p90": 702.96
+        },
+        "oil_pressure": {
+          "mean": 38.980373,
+          "std": 21.321582,
+          "p10": 19.37,
+          "p50": 29.54,
+          "p90": 74.03
+        },
+        "fuel_trim_long": {
+          "mean": 3.059608,
+          "std": 2.550693,
+          "p10": -0.215,
+          "p50": 3.089,
+          "p90": 6.2968
+        },
+        "dpf_differential_kpa": {
+          "mean": 4.489672,
+          "std": 0.917051,
+          "p10": 3.24497,
+          "p50": 4.55815,
+          "p90": 5.61013
+        },
+        "egt_c": {
+          "mean": 497.388358,
+          "std": 93.917023,
+          "p10": 404.9,
+          "p50": 462.3,
+          "p90": 653.07
+        },
+        "oil_viscosity_cst": {
+          "mean": 75.958675,
+          "std": 190.023708,
+          "p10": 5.43,
+          "p50": 6.09,
+          "p90": 180.744
+        },
+        "hub_temp_fl_c": {
+          "mean": 66.82753,
+          "std": 40.909103,
+          "p10": 18.01,
+          "p50": 62.36,
+          "p90": 122.95
+        },
+        "bearing_wear_index": {
+          "mean": 0.619964,
+          "std": 0.518006,
+          "p10": 0.0907,
+          "p50": 0.4816,
+          "p90": 1.38684
+        }
+      },
+      "subsystemPriors": {
+        "charging": 0.458694,
+        "hub_bearing": 0.223138,
+        "engine_wear": 0.215606,
+        "cooling": 0.089601,
+        "drivetrain": 0.003223,
+        "fuel": 0.003189,
+        "dpf_emissions": 0.003087,
+        "turbo_exhaust": 0.001764,
+        "brakes_tires": 0.001696
+      }
+    },
+    "heavy_duty_j1939:volvo:vnl": {
+      "profileKey": "heavy_duty_j1939:volvo:vnl",
+      "vehicleClass": "heavy_duty_j1939",
+      "make": "Volvo",
+      "model": "VNL",
+      "protocol": "J1939",
+      "powertrain": "diesel",
+      "trainingSource": "physics_calibrated_v4",
+      "modelVersion": "physics-v4.4.0",
+      "sampleCount": 28305,
+      "failureRate": 0.248684,
+      "baselineMetrics": {
+        "rpm": {
+          "mean": 1500.551262,
+          "std": 433.971593,
+          "p10": 655.5,
+          "p50": 1624.9,
+          "p90": 1924.2
+        },
+        "engine_temp": {
+          "mean": 94.486988,
+          "std": 52.238913,
+          "p10": 19.15,
+          "p50": 133.81,
+          "p90": 143.01
+        },
+        "oil_temp": {
+          "mean": 106.365093,
+          "std": 52.717114,
+          "p10": 30.38,
+          "p50": 146.6,
+          "p90": 154.07
+        },
+        "transmission_temp": {
+          "mean": 85.608593,
+          "std": 7.226518,
+          "p10": 76.246,
+          "p50": 85.71,
+          "p90": 94.87
+        },
+        "fuel_pressure": {
+          "mean": 61.354426,
+          "std": 2.583764,
+          "p10": 57.978,
+          "p50": 61.47,
+          "p90": 64.54
+        },
+        "fuel_rate": {
+          "mean": 41.133567,
+          "std": 37.980008,
+          "p10": 1.047,
+          "p50": 34.113,
+          "p90": 92.7432
+        },
+        "battery_voltage": {
+          "mean": 13.233582,
+          "std": 2.578436,
+          "p10": 7.633,
+          "p50": 14.331,
+          "p90": 14.753
+        },
+        "vibration": {
+          "mean": 0.74644,
+          "std": 0.469795,
+          "p10": 0.16546,
+          "p50": 0.6901,
+          "p90": 1.41032
+        },
+        "dpf_soot_load": {
+          "mean": 48.247798,
+          "std": 16.387852,
+          "p10": 25.94,
+          "p50": 47.2,
+          "p90": 71.19
+        },
+        "brake_temp": {
+          "mean": 118.032566,
+          "std": 15.855959,
+          "p10": 97.74,
+          "p50": 117.87,
+          "p90": 138.46
+        },
+        "tire_pressure": {
+          "mean": 673.022847,
+          "std": 23.554024,
+          "p10": 642.903,
+          "p50": 672.89,
+          "p90": 703.41
+        },
+        "oil_pressure": {
+          "mean": 38.823752,
+          "std": 21.061329,
+          "p10": 19.45,
+          "p50": 29.74,
+          "p90": 73.12
+        },
+        "fuel_trim_long": {
+          "mean": 3.071824,
+          "std": 2.580302,
+          "p10": -0.23,
+          "p50": 3.099,
+          "p90": 6.3569
+        },
+        "dpf_differential_kpa": {
+          "mean": 4.491357,
+          "std": 0.902277,
+          "p10": 3.28165,
+          "p50": 4.54585,
+          "p90": 5.6137
+        },
+        "egt_c": {
+          "mean": 497.675551,
+          "std": 94.191756,
+          "p10": 404.9,
+          "p50": 462.3,
+          "p90": 655.8
+        },
+        "oil_viscosity_cst": {
+          "mean": 72.994524,
+          "std": 184.181056,
+          "p10": 5.44,
+          "p50": 6.09,
+          "p90": 173.58
+        },
+        "hub_temp_fl_c": {
+          "mean": 67.798544,
+          "std": 41.394463,
+          "p10": 18.28,
+          "p50": 63.1,
+          "p90": 124.74
+        },
+        "bearing_wear_index": {
+          "mean": 0.646288,
+          "std": 0.526963,
+          "p10": 0.1022,
+          "p50": 0.50995,
+          "p90": 1.4451
+        }
+      },
+      "subsystemPriors": {
+        "charging": 0.451616,
+        "hub_bearing": 0.232786,
+        "engine_wear": 0.215298,
+        "cooling": 0.084897,
+        "dpf_emissions": 0.00431,
+        "drivetrain": 0.003321,
+        "fuel": 0.003286,
+        "turbo_exhaust": 0.002367,
+        "brakes_tires": 0.00212
+      }
+    },
+    "light_duty_truck:chevrolet:silverado": {
+      "profileKey": "light_duty_truck:chevrolet:silverado",
+      "vehicleClass": "light_duty_truck",
+      "make": "Chevrolet",
+      "model": "Silverado",
+      "protocol": "OBD2",
+      "powertrain": "gasoline",
+      "trainingSource": "physics_calibrated_v4",
+      "modelVersion": "physics-v4.4.0",
+      "sampleCount": 27225,
+      "failureRate": 0.010468,
+      "baselineMetrics": {
+        "rpm": {
+          "mean": 1954.467504,
+          "std": 498.963745,
+          "p10": 783.3,
+          "p50": 2068.15,
+          "p90": 2421.9
+        },
+        "engine_temp": {
+          "mean": 57.987789,
+          "std": 34.605606,
+          "p10": 15.86,
+          "p50": 53.82,
+          "p90": 107.06
+        },
+        "oil_temp": {
+          "mean": 65.195371,
+          "std": 34.656351,
+          "p10": 23.06,
+          "p50": 61.13,
+          "p90": 114.17
+        },
+        "transmission_temp": {
+          "mean": 87.851038,
+          "std": 7.403616,
+          "p10": 78.08,
+          "p50": 88.06,
+          "p90": 97.22
+        },
+        "fuel_pressure": {
+          "mean": 49.431278,
+          "std": 2.585212,
+          "p10": 46.06,
+          "p50": 49.53,
+          "p90": 52.66
+        },
+        "fuel_rate": {
+          "mean": 13.30791,
+          "std": 11.736148,
+          "p10": 1.255,
+          "p50": 10.2995,
+          "p90": 30.5991
+        },
+        "battery_voltage": {
+          "mean": 13.604247,
+          "std": 1.771984,
+          "p10": 10.8605,
+          "p50": 14.181,
+          "p90": 14.473
+        },
+        "vibration": {
+          "mean": 0.5543,
+          "std": 0.326307,
+          "p10": 0.1481,
+          "p50": 0.5264,
+          "p90": 0.9873
+        },
+        "dpf_soot_load": {
+          "mean": 0.0,
+          "std": 0.0,
+          "p10": 0.0,
+          "p50": 0.0,
+          "p90": 0.0
+        },
+        "brake_temp": {
+          "mean": 114.409823,
+          "std": 15.881093,
+          "p10": 94.21,
+          "p50": 114.2,
+          "p90": 135.08
+        },
+        "tire_pressure": {
+          "mean": 234.044485,
+          "std": 14.515808,
+          "p10": 215.479,
+          "p50": 234.08,
+          "p90": 252.821
+        },
+        "oil_pressure": {
+          "mean": 42.989931,
+          "std": 18.17799,
+          "p10": 22.903,
+          "p50": 39.27,
+          "p90": 69.127
+        },
+        "fuel_trim_long": {
+          "mean": 2.847822,
+          "std": 2.508881,
+          "p10": -0.376,
+          "p50": 2.884,
+          "p90": 5.9974
+        },
+        "dpf_differential_kpa": {
+          "mean": 0.0,
+          "std": 0.0,
+          "p10": 0.0,
+          "p50": 0.0,
+          "p90": 0.0
+        },
+        "egt_c": {
+          "mean": 413.410522,
+          "std": 31.657655,
+          "p10": 373.74,
+          "p50": 411.6,
+          "p90": 454.7
+        },
+        "oil_viscosity_cst": {
+          "mean": 118.248099,
+          "std": 230.580301,
+          "p10": 10.89,
+          "p50": 45.87,
+          "p90": 258.774
+        },
+        "hub_temp_fl_c": {
+          "mean": 24.533228,
+          "std": 17.192049,
+          "p10": 0.96,
+          "p50": 25.32,
+          "p90": 46.67
+        },
+        "bearing_wear_index": {
+          "mean": 0.502297,
+          "std": 0.370866,
+          "p10": 0.1034,
+          "p50": 0.4335,
+          "p90": 0.96478
+        }
+      },
+      "subsystemPriors": {
+        "charging": 0.739357,
+        "cooling": 0.096529,
+        "engine_wear": 0.068283,
+        "fuel": 0.037135,
+        "drivetrain": 0.022553,
+        "brakes_tires": 0.020202,
+        "hub_bearing": 0.015941
+      }
+    },
+    "light_duty_truck:ford:f-150": {
+      "profileKey": "light_duty_truck:ford:f-150",
+      "vehicleClass": "light_duty_truck",
+      "make": "Ford",
+      "model": "F-150",
+      "protocol": "OBD2",
+      "powertrain": "gasoline",
+      "trainingSource": "physics_calibrated_v4",
+      "modelVersion": "physics-v4.4.0",
+      "sampleCount": 29655,
+      "failureRate": 0.011398,
+      "baselineMetrics": {
+        "rpm": {
+          "mean": 1956.805212,
+          "std": 498.692174,
+          "p10": 782.6,
+          "p50": 2071.2,
+          "p90": 2422.1
+        },
+        "engine_temp": {
+          "mean": 58.352508,
+          "std": 34.817825,
+          "p10": 15.523,
+          "p50": 54.46,
+          "p90": 107.57
+        },
+        "oil_temp": {
+          "mean": 65.648842,
+          "std": 34.846033,
+          "p10": 23.04,
+          "p50": 61.76,
+          "p90": 114.656
+        },
+        "transmission_temp": {
+          "mean": 87.82718,
+          "std": 7.508225,
+          "p10": 78.06,
+          "p50": 88.04,
+          "p90": 97.29
+        },
+        "fuel_pressure": {
+          "mean": 49.377686,
+          "std": 2.566963,
+          "p10": 46.05,
+          "p50": 49.46,
+          "p90": 52.57
+        },
+        "fuel_rate": {
+          "mean": 13.397579,
+          "std": 11.721217,
+          "p10": 1.265,
+          "p50": 10.5295,
+          "p90": 30.7948
+        },
+        "battery_voltage": {
+          "mean": 13.587372,
+          "std": 1.815,
+          "p10": 10.7124,
+          "p50": 14.181,
+          "p90": 14.475
+        },
+        "vibration": {
+          "mean": 0.569652,
+          "std": 0.331455,
+          "p10": 0.1539,
+          "p50": 0.541,
+          "p90": 1.0171
+        },
+        "dpf_soot_load": {
+          "mean": 0.0,
+          "std": 0.0,
+          "p10": 0.0,
+          "p50": 0.0,
+          "p90": 0.0
+        },
+        "brake_temp": {
+          "mean": 114.431391,
+          "std": 15.903922,
+          "p10": 94.04,
+          "p50": 114.37,
+          "p90": 134.939
+        },
+        "tire_pressure": {
+          "mean": 232.780783,
+          "std": 14.539295,
+          "p10": 214.11,
+          "p50": 232.79,
+          "p90": 251.37
+        },
+        "oil_pressure": {
+          "mean": 42.402576,
+          "std": 18.213892,
+          "p10": 22.54,
+          "p50": 38.6,
+          "p90": 68.785
+        },
+        "fuel_trim_long": {
+          "mean": 3.037411,
+          "std": 2.553611,
+          "p10": -0.2441,
+          "p50": 3.0725,
+          "p90": 6.256
+        },
+        "dpf_differential_kpa": {
+          "mean": 0.0,
+          "std": 0.0,
+          "p10": 0.0,
+          "p50": 0.0,
+          "p90": 0.0
+        },
+        "egt_c": {
+          "mean": 413.398324,
+          "std": 31.564821,
+          "p10": 373.7,
+          "p50": 411.7,
+          "p90": 454.1
+        },
+        "oil_viscosity_cst": {
+          "mean": 118.074487,
+          "std": 230.176405,
+          "p10": 10.78,
+          "p50": 45.09,
+          "p90": 262.394
+        },
+        "hub_temp_fl_c": {
+          "mean": 24.594183,
+          "std": 17.324841,
+          "p10": 1.0,
+          "p50": 25.41,
+          "p90": 46.81
+        },
+        "bearing_wear_index": {
+          "mean": 0.529343,
+          "std": 0.38214,
+          "p10": 0.08269,
+          "p50": 0.48245,
+          "p90": 1.00621
+        }
+      },
+      "subsystemPriors": {
+        "charging": 0.739639,
+        "cooling": 0.097859,
+        "engine_wear": 0.072231,
+        "fuel": 0.03507,
+        "drivetrain": 0.021076,
+        "brakes_tires": 0.019052,
+        "hub_bearing": 0.015073
+      }
+    },
+    "light_duty_truck:ford:f-250": {
+      "profileKey": "light_duty_truck:ford:f-250",
+      "vehicleClass": "light_duty_truck",
+      "make": "Ford",
+      "model": "F-250",
+      "protocol": "OBD2",
+      "powertrain": "gasoline",
+      "trainingSource": "physics_calibrated_v4",
+      "modelVersion": "physics-v4.4.0",
+      "sampleCount": 30060,
+      "failureRate": 0.012142,
+      "baselineMetrics": {
+        "rpm": {
+          "mean": 1954.721999,
+          "std": 499.929926,
+          "p10": 783.59,
+          "p50": 2073.9,
+          "p90": 2420.2
+        },
+        "engine_temp": {
+          "mean": 58.133529,
+          "std": 34.826554,
+          "p10": 15.64,
+          "p50": 54.315,
+          "p90": 107.024
+        },
+        "oil_temp": {
+          "mean": 65.474293,
+          "std": 34.907858,
+          "p10": 22.89,
+          "p50": 61.63,
+          "p90": 115.02
+        },
+        "transmission_temp": {
+          "mean": 87.915312,
+          "std": 7.472754,
+          "p10": 78.04,
+          "p50": 88.15,
+          "p90": 97.37
+        },
+        "fuel_pressure": {
+          "mean": 49.374691,
+          "std": 2.579728,
+          "p10": 46.03,
+          "p50": 49.47,
+          "p90": 52.57
+        },
+        "fuel_rate": {
+          "mean": 13.280951,
+          "std": 11.701775,
+          "p10": 1.246,
+          "p50": 10.3965,
+          "p90": 30.7813
+        },
+        "battery_voltage": {
+          "mean": 13.573398,
+          "std": 1.836338,
+          "p10": 10.5688,
+          "p50": 14.182,
+          "p90": 14.471
+        },
+        "vibration": {
+          "mean": 0.565059,
+          "std": 0.32964,
+          "p10": 0.15518,
+          "p50": 0.5365,
+          "p90": 1.0038
+        },
+        "dpf_soot_load": {
+          "mean": 0.0,
+          "std": 0.0,
+          "p10": 0.0,
+          "p50": 0.0,
+          "p90": 0.0
+        },
+        "brake_temp": {
+          "mean": 114.442958,
+          "std": 15.968171,
+          "p10": 94.19,
+          "p50": 114.28,
+          "p90": 134.95
+        },
+        "tire_pressure": {
+          "mean": 232.678487,
+          "std": 14.398035,
+          "p10": 214.065,
+          "p50": 232.67,
+          "p90": 251.12
+        },
+        "oil_pressure": {
+          "mean": 42.456136,
+          "std": 18.20227,
+          "p10": 22.46,
+          "p50": 38.75,
+          "p90": 68.7
+        },
+        "fuel_trim_long": {
+          "mean": 2.986665,
+          "std": 2.506935,
+          "p10": -0.2547,
+          "p50": 3.031,
+          "p90": 6.1357
+        },
+        "dpf_differential_kpa": {
+          "mean": 0.0,
+          "std": 0.0,
+          "p10": 0.0,
+          "p50": 0.0,
+          "p90": 0.0
+        },
+        "egt_c": {
+          "mean": 413.462307,
+          "std": 31.628611,
+          "p10": 373.9,
+          "p50": 411.8,
+          "p90": 454.3
+        },
+        "oil_viscosity_cst": {
+          "mean": 120.174099,
+          "std": 235.139792,
+          "p10": 10.75,
+          "p50": 45.38,
+          "p90": 263.676
+        },
+        "hub_temp_fl_c": {
+          "mean": 24.570903,
+          "std": 17.289927,
+          "p10": 0.757,
+          "p50": 25.3,
+          "p90": 46.83
+        },
+        "bearing_wear_index": {
+          "mean": 0.51192,
+          "std": 0.382012,
+          "p10": 0.099,
+          "p50": 0.44565,
+          "p90": 0.98361
+        }
+      },
+      "subsystemPriors": {
+        "charging": 0.740053,
+        "cooling": 0.094278,
+        "engine_wear": 0.075882,
+        "fuel": 0.035163,
+        "drivetrain": 0.020426,
+        "brakes_tires": 0.019627,
+        "hub_bearing": 0.014571
+      }
+    },
+    "light_duty_truck:ram:2500": {
+      "profileKey": "light_duty_truck:ram:2500",
+      "vehicleClass": "light_duty_truck",
+      "make": "Ram",
+      "model": "2500",
+      "protocol": "OBD2",
+      "powertrain": "gasoline",
+      "trainingSource": "physics_calibrated_v4",
+      "modelVersion": "physics-v4.4.0",
+      "sampleCount": 27360,
+      "failureRate": 0.012975,
+      "baselineMetrics": {
+        "rpm": {
+          "mean": 1951.773199,
+          "std": 497.380383,
+          "p10": 781.6,
+          "p50": 2067.4,
+          "p90": 2422.3
+        },
+        "engine_temp": {
+          "mean": 58.201203,
+          "std": 34.805386,
+          "p10": 15.849,
+          "p50": 54.205,
+          "p90": 107.87
+        },
+        "oil_temp": {
+          "mean": 65.496021,
+          "std": 34.907377,
+          "p10": 23.061,
+          "p50": 61.38,
+          "p90": 115.199
+        },
+        "transmission_temp": {
+          "mean": 87.823757,
+          "std": 7.406355,
+          "p10": 78.16,
+          "p50": 87.99,
+          "p90": 97.139
+        },
+        "fuel_pressure": {
+          "mean": 49.408944,
+          "std": 2.58144,
+          "p10": 46.05,
+          "p50": 49.51,
+          "p90": 52.62
+        },
+        "fuel_rate": {
+          "mean": 13.341785,
+          "std": 11.747806,
+          "p10": 1.271,
+          "p50": 10.307,
+          "p90": 30.639
+        },
+        "battery_voltage": {
+          "mean": 13.593698,
+          "std": 1.801319,
+          "p10": 10.793,
+          "p50": 14.182,
+          "p90": 14.4745
+        },
+        "vibration": {
+          "mean": 0.558187,
+          "std": 0.32513,
+          "p10": 0.1515,
+          "p50": 0.5291,
+          "p90": 0.9941
+        },
+        "dpf_soot_load": {
+          "mean": 0.0,
+          "std": 0.0,
+          "p10": 0.0,
+          "p50": 0.0,
+          "p90": 0.0
+        },
+        "brake_temp": {
+          "mean": 114.209465,
+          "std": 15.857964,
+          "p10": 93.834,
+          "p50": 114.17,
+          "p90": 134.586
+        },
+        "tire_pressure": {
+          "mean": 232.872468,
+          "std": 14.693206,
+          "p10": 213.832,
+          "p50": 232.84,
+          "p90": 251.84
+        },
+        "oil_pressure": {
+          "mean": 42.558535,
+          "std": 18.163839,
+          "p10": 22.58,
+          "p50": 38.98,
+          "p90": 68.64
+        },
+        "fuel_trim_long": {
+          "mean": 3.027054,
+          "std": 2.532587,
+          "p10": -0.195,
+          "p50": 3.028,
+          "p90": 6.27
+        },
+        "dpf_differential_kpa": {
+          "mean": 0.0,
+          "std": 0.0,
+          "p10": 0.0,
+          "p50": 0.0,
+          "p90": 0.0
+        },
+        "egt_c": {
+          "mean": 413.299722,
+          "std": 31.549242,
+          "p10": 373.63,
+          "p50": 411.8,
+          "p90": 454.17
+        },
+        "oil_viscosity_cst": {
+          "mean": 118.795366,
+          "std": 230.486468,
+          "p10": 10.66,
+          "p50": 45.71,
+          "p90": 261.896
+        },
+        "hub_temp_fl_c": {
+          "mean": 24.552695,
+          "std": 17.180432,
+          "p10": 0.97,
+          "p50": 25.4,
+          "p90": 46.69
+        },
+        "bearing_wear_index": {
+          "mean": 0.510851,
+          "std": 0.369341,
+          "p10": 0.09532,
+          "p50": 0.4537,
+          "p90": 0.96678
+        }
+      },
+      "subsystemPriors": {
+        "charging": 0.736404,
+        "cooling": 0.100841,
+        "engine_wear": 0.073648,
+        "fuel": 0.036038,
+        "brakes_tires": 0.019481,
+        "drivetrain": 0.018531,
+        "hub_bearing": 0.015058
+      }
+    },
+    "medium_duty:ford:f-650": {
+      "profileKey": "medium_duty:ford:f-650",
+      "vehicleClass": "medium_duty",
+      "make": "Ford",
+      "model": "F-650",
+      "protocol": "J1939",
+      "powertrain": "diesel",
+      "trainingSource": "physics_calibrated_v4",
+      "modelVersion": "physics-v4.4.0",
+      "sampleCount": 27540,
+      "failureRate": 0.035585,
+      "baselineMetrics": {
+        "rpm": {
+          "mean": 1763.431592,
+          "std": 441.82173,
+          "p10": 779.6,
+          "p50": 1856.4,
+          "p90": 2208.5
+        },
+        "engine_temp": {
+          "mean": 86.705045,
+          "std": 47.605406,
+          "p10": 20.558,
+          "p50": 95.41,
+          "p90": 141.962
+        },
+        "oil_temp": {
+          "mean": 94.809426,
+          "std": 48.1591,
+          "p10": 28.04,
+          "p50": 103.46,
+          "p90": 149.36
+        },
+        "transmission_temp": {
+          "mean": 87.235605,
+          "std": 7.30876,
+          "p10": 77.7,
+          "p50": 87.41,
+          "p90": 96.61
+        },
+        "fuel_pressure": {
+          "mean": 61.400735,
+          "std": 2.571025,
+          "p10": 58.03,
+          "p50": 61.51,
+          "p90": 64.61
+        },
+        "fuel_rate": {
+          "mean": 23.755941,
+          "std": 20.567969,
+          "p10": 1.136,
+          "p50": 22.1445,
+          "p90": 49.9257
+        },
+        "battery_voltage": {
+          "mean": 13.646643,
+          "std": 2.018672,
+          "p10": 9.5017,
+          "p50": 14.337,
+          "p90": 14.631
+        },
+        "vibration": {
+          "mean": 0.793404,
+          "std": 0.4661,
+          "p10": 0.2168,
+          "p50": 0.736,
+          "p90": 1.4588
+        },
+        "dpf_soot_load": {
+          "mean": 48.200903,
+          "std": 16.396974,
+          "p10": 25.93,
+          "p50": 47.2,
+          "p90": 71.12
+        },
+        "brake_temp": {
+          "mean": 117.217125,
+          "std": 15.904009,
+          "p10": 96.86,
+          "p50": 117.15,
+          "p90": 137.67
+        },
+        "tire_pressure": {
+          "mean": 553.244616,
+          "std": 14.480438,
+          "p10": 534.731,
+          "p50": 553.29,
+          "p90": 571.8
+        },
+        "oil_pressure": {
+          "mean": 32.914773,
+          "std": 18.821259,
+          "p10": 15.134,
+          "p50": 26.42,
+          "p90": 60.076
+        },
+        "fuel_trim_long": {
+          "mean": 2.973137,
+          "std": 2.534397,
+          "p10": -0.2734,
+          "p50": 3.0,
+          "p90": 6.2
+        },
+        "dpf_differential_kpa": {
+          "mean": 4.744715,
+          "std": 0.777984,
+          "p10": 3.75502,
+          "p50": 4.7672,
+          "p90": 5.73226
+        },
+        "egt_c": {
+          "mean": 513.664374,
+          "std": 91.56486,
+          "p10": 412.9,
+          "p50": 491.3,
+          "p90": 656.39
+        },
+        "oil_viscosity_cst": {
+          "mean": 86.845873,
+          "std": 217.473395,
+          "p10": 5.84,
+          "p50": 13.78,
+          "p90": 197.952
+        },
+        "hub_temp_fl_c": {
+          "mean": 39.307559,
+          "std": 23.748695,
+          "p10": 9.442,
+          "p50": 38.235,
+          "p90": 70.34
+        },
+        "bearing_wear_index": {
+          "mean": 0.786891,
+          "std": 0.632698,
+          "p10": 0.12562,
+          "p50": 0.6443,
+          "p90": 1.70466
+        }
+      },
+      "subsystemPriors": {
+        "charging": 0.471532,
+        "engine_wear": 0.274001,
+        "cooling": 0.132752,
+        "hub_bearing": 0.043137,
+        "drivetrain": 0.029847,
+        "dpf_emissions": 0.016921,
+        "turbo_exhaust": 0.014343,
+        "fuel": 0.012818,
+        "brakes_tires": 0.004648
+      }
+    },
+    "medium_duty:freightliner:m2": {
+      "profileKey": "medium_duty:freightliner:m2",
+      "vehicleClass": "medium_duty",
+      "make": "Freightliner",
+      "model": "M2",
+      "protocol": "J1939",
+      "powertrain": "diesel",
+      "trainingSource": "physics_calibrated_v4",
+      "modelVersion": "physics-v4.4.0",
+      "sampleCount": 27900,
+      "failureRate": 0.033835,
+      "baselineMetrics": {
+        "rpm": {
+          "mean": 1766.318955,
+          "std": 439.257825,
+          "p10": 781.63,
+          "p50": 1860.0,
+          "p90": 2204.77
+        },
+        "engine_temp": {
+          "mean": 86.55651,
+          "std": 47.685634,
+          "p10": 20.436,
+          "p50": 94.47,
+          "p90": 142.03
+        },
+        "oil_temp": {
+          "mean": 94.633581,
+          "std": 48.247773,
+          "p10": 27.861,
+          "p50": 102.575,
+          "p90": 149.34
+        },
+        "transmission_temp": {
+          "mean": 87.268561,
+          "std": 7.332159,
+          "p10": 77.79,
+          "p50": 87.4,
+          "p90": 96.59
+        },
+        "fuel_pressure": {
+          "mean": 61.375814,
+          "std": 2.590153,
+          "p10": 57.99,
+          "p50": 61.49,
+          "p90": 64.59
+        },
+        "fuel_rate": {
+          "mean": 23.460791,
+          "std": 20.364158,
+          "p10": 1.1112,
+          "p50": 21.746,
+          "p90": 49.3666
+        },
+        "battery_voltage": {
+          "mean": 13.663721,
+          "std": 1.989597,
+          "p10": 9.7638,
+          "p50": 14.337,
+          "p90": 14.631
+        },
+        "vibration": {
+          "mean": 0.790673,
+          "std": 0.468031,
+          "p10": 0.2087,
+          "p50": 0.7339,
+          "p90": 1.45428
+        },
+        "dpf_soot_load": {
+          "mean": 48.262322,
+          "std": 16.394081,
+          "p10": 25.86,
+          "p50": 47.24,
+          "p90": 71.206
+        },
+        "brake_temp": {
+          "mean": 117.213144,
+          "std": 15.95797,
+          "p10": 96.95,
+          "p50": 116.93,
+          "p90": 137.844
+        },
+        "tire_pressure": {
+          "mean": 552.773047,
+          "std": 14.652563,
+          "p10": 534.01,
+          "p50": 552.78,
+          "p90": 571.475
+        },
+        "oil_pressure": {
+          "mean": 32.842903,
+          "std": 18.786691,
+          "p10": 14.83,
+          "p50": 26.44,
+          "p90": 60.553
+        },
+        "fuel_trim_long": {
+          "mean": 3.048474,
+          "std": 2.547899,
+          "p10": -0.224,
+          "p50": 3.081,
+          "p90": 6.247
+        },
+        "dpf_differential_kpa": {
+          "mean": 4.727844,
+          "std": 0.78379,
+          "p10": 3.7293,
+          "p50": 4.7518,
+          "p90": 5.71524
+        },
+        "egt_c": {
+          "mean": 513.273596,
+          "std": 90.916939,
+          "p10": 413.9,
+          "p50": 490.9,
+          "p90": 654.1
+        },
+        "oil_viscosity_cst": {
+          "mean": 86.446202,
+          "std": 213.07089,
+          "p10": 5.84,
+          "p50": 14.03,
+          "p90": 199.569
+        },
+        "hub_temp_fl_c": {
+          "mean": 39.123703,
+          "std": 23.377557,
+          "p10": 9.356,
+          "p50": 38.23,
+          "p90": 69.65
+        },
+        "bearing_wear_index": {
+          "mean": 0.774769,
+          "std": 0.61633,
+          "p10": 0.14737,
+          "p50": 0.62035,
+          "p90": 1.64249
+        }
+      },
+      "subsystemPriors": {
+        "charging": 0.463871,
+        "engine_wear": 0.277849,
+        "cooling": 0.139104,
+        "hub_bearing": 0.038566,
+        "drivetrain": 0.026487,
+        "dpf_emissions": 0.017634,
+        "turbo_exhaust": 0.016523,
+        "fuel": 0.014516,
+        "brakes_tires": 0.005448
+      }
+    },
+    "passenger_car:toyota:camry": {
+      "profileKey": "passenger_car:toyota:camry",
+      "vehicleClass": "passenger_car",
+      "make": "Toyota",
+      "model": "Camry",
+      "protocol": "OBD2",
+      "powertrain": "gasoline",
+      "trainingSource": "physics_calibrated_v4",
+      "modelVersion": "physics-v4.4.0",
+      "sampleCount": 27585,
+      "failureRate": 0.02186,
+      "baselineMetrics": {
+        "rpm": {
+          "mean": 1942.173836,
+          "std": 494.031741,
+          "p10": 823.2,
+          "p50": 2058.3,
+          "p90": 2408.6
+        },
+        "engine_temp": {
+          "mean": 36.204136,
+          "std": 21.804121,
+          "p10": 8.38,
+          "p50": 35.32,
+          "p90": 64.49
+        },
+        "oil_temp": {
+          "mean": 43.42067,
+          "std": 21.835196,
+          "p10": 15.59,
+          "p50": 42.45,
+          "p90": 71.88
+        },
+        "transmission_temp": {
+          "mean": 87.422401,
+          "std": 7.382121,
+          "p10": 77.843,
+          "p50": 87.57,
+          "p90": 96.83
+        },
+        "fuel_pressure": {
+          "mean": 49.400378,
+          "std": 2.586163,
+          "p10": 46.03,
+          "p50": 49.51,
+          "p90": 52.62
+        },
+        "fuel_rate": {
+          "mean": 4.967746,
+          "std": 4.749381,
+          "p10": 1.057,
+          "p50": 2.873,
+          "p90": 11.9256
+        },
+        "battery_voltage": {
+          "mean": 13.484666,
+          "std": 1.771396,
+          "p10": 10.59,
+          "p50": 14.086,
+          "p90": 14.382
+        },
+        "vibration": {
+          "mean": 0.53156,
+          "std": 0.301299,
+          "p10": 0.14318,
+          "p50": 0.5132,
+          "p90": 0.93192
+        },
+        "dpf_soot_load": {
+          "mean": 0.0,
+          "std": 0.0,
+          "p10": 0.0,
+          "p50": 0.0,
+          "p90": 0.0
+        },
+        "brake_temp": {
+          "mean": 117.295649,
+          "std": 15.84581,
+          "p10": 97.035,
+          "p50": 117.11,
+          "p90": 137.98
+        },
+        "tire_pressure": {
+          "mean": 213.294769,
+          "std": 14.429083,
+          "p10": 194.81,
+          "p50": 213.345,
+          "p90": 231.79
+        },
+        "oil_pressure": {
+          "mean": 53.529672,
+          "std": 17.566565,
+          "p10": 33.0,
+          "p50": 50.85,
+          "p90": 81.766
+        },
+        "fuel_trim_long": {
+          "mean": 2.933436,
+          "std": 2.535574,
+          "p10": -0.316,
+          "p50": 2.968,
+          "p90": 6.1394
+        },
+        "dpf_differential_kpa": {
+          "mean": 0.0,
+          "std": 0.0,
+          "p10": 0.0,
+          "p50": 0.0,
+          "p90": 0.0
+        },
+        "egt_c": {
+          "mean": 407.765397,
+          "std": 28.169972,
+          "p10": 371.5,
+          "p50": 406.8,
+          "p90": 443.7
+        },
+        "oil_viscosity_cst": {
+          "mean": 185.570319,
+          "std": 272.172698,
+          "p10": 32.19,
+          "p50": 97.43,
+          "p90": 412.6
+        },
+        "hub_temp_fl_c": {
+          "mean": 20.5151,
+          "std": 16.499431,
+          "p10": -2.2,
+          "p50": 21.385,
+          "p90": 42.077
+        },
+        "bearing_wear_index": {
+          "mean": 0.496597,
+          "std": 0.32067,
+          "p10": 0.0874,
+          "p50": 0.488,
+          "p90": 0.9155
+        }
+      },
+      "subsystemPriors": {
+        "charging": 0.746311,
+        "brakes_tires": 0.136995,
+        "cooling": 0.049882,
+        "fuel": 0.027914,
+        "engine_wear": 0.015588,
+        "hub_bearing": 0.012072,
+        "drivetrain": 0.011238
+      }
+    },
+    "passenger_car:toyota:rav4": {
+      "profileKey": "passenger_car:toyota:rav4",
+      "vehicleClass": "passenger_car",
+      "make": "Toyota",
+      "model": "RAV4",
+      "protocol": "OBD2",
+      "powertrain": "hybrid",
+      "trainingSource": "physics_calibrated_v4",
+      "modelVersion": "physics-v4.4.0",
+      "sampleCount": 26865,
+      "failureRate": 0.022446,
+      "baselineMetrics": {
+        "rpm": {
+          "mean": 1936.376044,
+          "std": 495.773489,
+          "p10": 820.6,
+          "p50": 2057.4,
+          "p90": 2398.8
+        },
+        "engine_temp": {
+          "mean": 36.306035,
+          "std": 21.94654,
+          "p10": 8.24,
+          "p50": 35.49,
+          "p90": 65.192
+        },
+        "oil_temp": {
+          "mean": 43.483153,
+          "std": 21.95395,
+          "p10": 15.532,
+          "p50": 42.62,
+          "p90": 72.218
+        },
+        "transmission_temp": {
+          "mean": 87.381812,
+          "std": 7.376046,
+          "p10": 77.82,
+          "p50": 87.59,
+          "p90": 96.65
+        },
+        "fuel_pressure": {
+          "mean": 49.354875,
+          "std": 2.572202,
+          "p10": 46.03,
+          "p50": 49.46,
+          "p90": 52.54
+        },
+        "fuel_rate": {
+          "mean": 4.980788,
+          "std": 4.778016,
+          "p10": 1.051,
+          "p50": 2.823,
+          "p90": 11.9808
+        },
+        "battery_voltage": {
+          "mean": 13.490236,
+          "std": 1.751703,
+          "p10": 10.74,
+          "p50": 14.087,
+          "p90": 14.383
+        },
+        "vibration": {
+          "mean": 0.531388,
+          "std": 0.301871,
+          "p10": 0.1398,
+          "p50": 0.5144,
+          "p90": 0.932
+        },
+        "dpf_soot_load": {
+          "mean": 0.0,
+          "std": 0.0,
+          "p10": 0.0,
+          "p50": 0.0,
+          "p90": 0.0
+        },
+        "brake_temp": {
+          "mean": 117.242457,
+          "std": 15.810833,
+          "p10": 96.879,
+          "p50": 117.12,
+          "p90": 137.63
+        },
+        "tire_pressure": {
+          "mean": 212.861306,
+          "std": 14.364012,
+          "p10": 194.498,
+          "p50": 212.84,
+          "p90": 231.45
+        },
+        "oil_pressure": {
+          "mean": 53.223207,
+          "std": 17.615401,
+          "p10": 32.7,
+          "p50": 50.42,
+          "p90": 81.63
+        },
+        "fuel_trim_long": {
+          "mean": 3.031504,
+          "std": 2.544001,
+          "p10": -0.253,
+          "p50": 3.078,
+          "p90": 6.2697
+        },
+        "dpf_differential_kpa": {
+          "mean": 0.0,
+          "std": 0.0,
+          "p10": 0.0,
+          "p50": 0.0,
+          "p90": 0.0
+        },
+        "egt_c": {
+          "mean": 407.616707,
+          "std": 28.159726,
+          "p10": 371.3,
+          "p50": 406.7,
+          "p90": 443.72
+        },
+        "oil_viscosity_cst": {
+          "mean": 187.722027,
+          "std": 278.95315,
+          "p10": 31.95,
+          "p50": 96.54,
+          "p90": 410.832
+        },
+        "hub_temp_fl_c": {
+          "mean": 20.42547,
+          "std": 16.441253,
+          "p10": -2.29,
+          "p50": 21.23,
+          "p90": 41.875
+        },
+        "bearing_wear_index": {
+          "mean": 0.497861,
+          "std": 0.319361,
+          "p10": 0.0994,
+          "p50": 0.4711,
+          "p90": 0.9264
+        }
+      },
+      "subsystemPriors": {
+        "charging": 0.742788,
+        "brakes_tires": 0.140108,
+        "cooling": 0.050065,
+        "fuel": 0.027322,
+        "engine_wear": 0.016788,
+        "hub_bearing": 0.012246,
+        "drivetrain": 0.010683
+      }
+    }
+  }
+}

@@ -64,6 +64,7 @@ class TelemetrySender(
     private val latestMeta = ConcurrentHashMap<String, Any?>()
     @Volatile private var latestConnected = false
     @Volatile private var latestPacketAt = 0L
+    @Volatile private var lastEnqueuedPacketAt = 0L
     @Volatile private var cachedVin: String? = null
     @Volatile private var activeProtocol = "OBD2"
     @Volatile private var adapterMetadata: TelemetryAdapterDto? = null
@@ -79,6 +80,7 @@ class TelemetrySender(
         latestMeta.clear()
         latestConnected = if (activeProtocol == "OBD2") obd.isConnected() else false
         latestPacketAt = 0L
+        lastEnqueuedPacketAt = 0L
         debug = debug.copy(lastError = "", protocol = activeProtocol, supportedPidCount = 0)
         job = scope.launch {
             if (activeProtocol == "OBD2") discoverObdCapabilities()
@@ -102,13 +104,17 @@ class TelemetrySender(
 
     private suspend fun enqueueCurrentBatch() {
         if (activeProtocol == "OBD2") refreshObdDiagnostics()
-        val metrics = latestMetrics.toMutableMap()
-        cachedVin?.let { metrics["vin"] = it }
+        val packetAt = latestPacketAt
+        val hasFreshMetrics = packetAt > lastEnqueuedPacketAt && latestMetrics.isNotEmpty()
+        val metrics = if (hasFreshMetrics) latestMetrics.toMutableMap() else mutableMapOf()
+        if (hasFreshMetrics) cachedVin?.let { metrics["vin"] = it }
         metrics[heartbeatKey] = System.currentTimeMillis()
         val frames = drainFrameSample()
         val vehicleId = resolveVehicleId()
         if (vehicleId.isNullOrBlank() || (metrics.size == 1 && frames.isEmpty() && !latestConnected)) return
-        val lastVehiclePacketAt = latestPacketAt.takeIf { it > 0L }?.let { Instant.ofEpochMilli(it) }
+        val lastVehiclePacketAt = packetAt.takeIf { hasFreshMetrics || frames.isNotEmpty() }
+            ?.takeIf { it > 0L }
+            ?.let { Instant.ofEpochMilli(it) }
         val capturedAt = lastVehiclePacketAt ?: Instant.now()
         val busDataActive = frames.isNotEmpty() || metrics.any { (key, value) ->
             key != heartbeatKey && key != "vin" && value != null
@@ -131,6 +137,7 @@ class TelemetrySender(
         )
         try {
             AppGraph.telemetryOutbox.enqueue(request)
+            if (hasFreshMetrics) lastEnqueuedPacketAt = packetAt
             val result = AppGraph.telemetryOutbox.flush(ApiClient.api)
             debug = debug.copy(
                 lastSendAt = if (result.sent > 0) System.currentTimeMillis() else debug.lastSendAt,
@@ -180,8 +187,10 @@ class TelemetrySender(
         latestMetrics.clear()
         metrics.forEach { (key, value) -> if (value != null && value.isFinite()) latestMetrics[key] = value }
         latestConnected = obdConnected
-        latestPacketAt = packetAt
-        if (metrics.isNotEmpty()) debug = debug.copy(lastObdReadAt = packetAt)
+        if (latestMetrics.isNotEmpty()) {
+            latestPacketAt = packetAt
+            debug = debug.copy(lastObdReadAt = packetAt)
+        }
     }
 
     fun updateJ1939Frame(frame: CanFrame) {

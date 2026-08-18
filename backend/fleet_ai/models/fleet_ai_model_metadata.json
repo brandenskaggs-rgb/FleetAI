@@ -1,0 +1,393 @@
+{
+  "model_file": "C:\\Dev\\Fleet AI\\Fleet AI\\fleet_ai\\models\\fleet_ai_model.pkl",
+  "modelVersion": "physics-v4.4.0",
+  "trainingSource": "physics_calibrated_v4",
+  "features": [
+    "vehicle_class_code",
+    "protocol_code",
+    "make_code",
+    "powertrain_code",
+    "model_year",
+    "odometer_miles",
+    "engine_hours",
+    "drive_cycle_phase_code",
+    "time_since_start_min",
+    "rpm",
+    "engine_temp",
+    "oil_temp",
+    "transmission_temp",
+    "fuel_pressure",
+    "fuel_rate",
+    "battery_voltage",
+    "vibration",
+    "dpf_soot_load",
+    "brake_temp",
+    "tire_pressure",
+    "ambient_temp_c",
+    "elevation_ft",
+    "payload_ratio",
+    "road_grade_pct",
+    "idle_hours_day",
+    "stop_go_ratio",
+    "long_haul_ratio",
+    "towing_ratio",
+    "maintenance_neglect",
+    "sensor_missing_rate",
+    "engine_temp_delta_30d",
+    "fuel_pressure_delta_30d",
+    "battery_voltage_delta_30d",
+    "vibration_delta_30d",
+    "dpf_soot_delta_30d",
+    "brake_temp_delta_30d",
+    "egr_flow_rate",
+    "coolant_oil_delta",
+    "maf_throttle_ratio",
+    "intake_ambient_delta",
+    "dpf_differential_kpa",
+    "oil_pressure",
+    "fuel_trim_short",
+    "fuel_trim_long",
+    "idle_heat_soak",
+    "throttle_lag_score",
+    "turbo_boost_kpa",
+    "exhaust_back_pressure",
+    "engine_efficiency",
+    "rpm_variance_load_adj",
+    "coolant_temp_oscillation",
+    "air_density_kg_m3",
+    "aero_drag_kw",
+    "rolling_resistance_kw",
+    "road_load_kw",
+    "volumetric_efficiency_pct",
+    "bsfc_g_per_kwh",
+    "charge_density_ratio",
+    "egt_c",
+    "turbo_outlet_temp_c",
+    "scr_inlet_temp_c",
+    "def_consumption_rate_pct",
+    "thermal_lag",
+    "heat_soak_delta_c",
+    "egr_cooler_fouling",
+    "oil_viscosity_cst",
+    "lubrication_regime_index",
+    "oil_tbn",
+    "bearing_wear_index",
+    "bearing_spall_stage",
+    "hub_temp_fl_c",
+    "hub_temp_fr_c",
+    "hub_temp_rl_c",
+    "hub_temp_rr_c",
+    "dpf_ash_pct",
+    "dpf_in_regen",
+    "battery_soh_pct",
+    "battery_soc_pct",
+    "alternator_deficit_w",
+    "cranking_voltage_v",
+    "sensor_coolant_error_c",
+    "sensor_maf_error_pct",
+    "sensor_o2_lag_ms",
+    "hubTempFL_accel_h24",
+    "hubTempFR_accel_h24",
+    "hubTempRL_accel_h24",
+    "hubTempRR_accel_h24",
+    "coolantTemp_accel_h24",
+    "oilTemp_accel_h24",
+    "batteryVoltage_accel_h24",
+    "dpfSootLoad_accel_h24",
+    "bearingFreqScore_accel_h24",
+    "turboBearingTemp_accel_h24"
+  ],
+  "featureCount": 93,
+  "rows": 450000,
+  "failure_rate": 0.092691,
+  "accuracy": 0.990273,
+  "precision": 0.951526,
+  "recall": 0.943576,
+  "f1": 0.947535,
+  "roc_auc": 0.998902,
+  "threshold": 0.77,
+  "thresholds": {
+    "balanced": 0.77,
+    "high_precision": 0.55,
+    "high_recall": 0.18,
+    "launch_default": 0.77
+  },
+  "rf_weight": 0.46,
+  "hgb_weight": 0.54,
+  "model_name": "mixed_fleet_rf_hgb_ensemble",
+  "vehicle_classes": [
+    "cargo_van",
+    "heavy_duty_j1939",
+    "light_duty_truck",
+    "medium_duty",
+    "passenger_car"
+  ],
+  "holdout": {
+    "rows": 5840,
+    "accuracy": 0.976027,
+    "precision": 0.983721,
+    "recall": 0.962822,
+    "f1": 0.97316,
+    "roc_auc": 0.997861,
+    "brier_score": 0.022101,
+    "brier_skill_score": 0.910752,
+    "prevalence": 0.45137,
+    "calibration": {
+      "slope": 1.6886,
+      "intercept": -1.2404,
+      "note": "logistic regression of actual on logit(predicted); slope=1, intercept=0 is perfect"
+    },
+    "reliability_curve": [
+      {
+        "mean_predicted": 0.0178,
+        "fraction_positive": 0.0
+      },
+      {
+        "mean_predicted": 0.1415,
+        "fraction_positive": 0.0074
+      },
+      {
+        "mean_predicted": 0.2512,
+        "fraction_positive": 0.0185
+      },
+      {
+        "mean_predicted": 0.3515,
+        "fraction_positive": 0.1023
+      },
+      {
+        "mean_predicted": 0.4502,
+        "fraction_positive": 0.3973
+      },
+      {
+        "mean_predicted": 0.544,
+        "fraction_positive": 0.3125
+      },
+      {
+        "mean_predicted": 0.6496,
+        "fraction_positive": 0.3
+      },
+      {
+        "mean_predicted": 0.7556,
+        "fraction_positive": 0.5833
+      },
+      {
+        "mean_predicted": 0.8606,
+        "fraction_positive": 0.8411
+      },
+      {
+        "mean_predicted": 0.9875,
+        "fraction_positive": 0.9967
+      }
+    ],
+    "risk_bands": [
+      {
+        "band": "0.0-0.1",
+        "rows": 2570,
+        "brier": 0.000948,
+        "mean_pred": 0.0178,
+        "frac_actual": 0.0
+      },
+      {
+        "band": "0.1-0.2",
+        "rows": 270,
+        "brier": 0.026185,
+        "mean_pred": 0.1415,
+        "frac_actual": 0.0074
+      },
+      {
+        "band": "0.2-0.3",
+        "rows": 108,
+        "brier": 0.072446,
+        "mean_pred": 0.2512,
+        "frac_actual": 0.0185
+      },
+      {
+        "band": "0.3-0.4",
+        "rows": 88,
+        "brier": 0.15459,
+        "mean_pred": 0.3515,
+        "frac_actual": 0.1023
+      },
+      {
+        "band": "0.4-0.5",
+        "rows": 73,
+        "brier": 0.241795,
+        "mean_pred": 0.4502,
+        "frac_actual": 0.3973
+      },
+      {
+        "band": "0.5-0.6",
+        "rows": 48,
+        "brier": 0.260159,
+        "mean_pred": 0.544,
+        "frac_actual": 0.3125
+      },
+      {
+        "band": "0.6-0.7",
+        "rows": 60,
+        "brier": 0.335996,
+        "mean_pred": 0.6496,
+        "frac_actual": 0.3
+      },
+      {
+        "band": "0.7-0.8",
+        "rows": 72,
+        "brier": 0.270017,
+        "mean_pred": 0.7556,
+        "frac_actual": 0.5833
+      },
+      {
+        "band": "0.8-0.9",
+        "rows": 151,
+        "brier": 0.1325,
+        "mean_pred": 0.8606,
+        "frac_actual": 0.8411
+      },
+      {
+        "band": "0.9-1.0",
+        "rows": 2400,
+        "brier": 0.003495,
+        "mean_pred": 0.9875,
+        "frac_actual": 0.9967
+      }
+    ],
+    "noise_robustness": {
+      "threshold_used": 0.7699999999999997,
+      "tiers": {
+        "clean": {
+          "true_negative_rows": 1234,
+          "fp_rate_raw_rf": 0.013776,
+          "fp_rate_raw_hgb": 0.014587,
+          "fp_rate_blended_uncalibrated": 0.012156,
+          "fp_rate_calibrated_final": 0.012966
+        },
+        "medium": {
+          "true_negative_rows": 1004,
+          "fp_rate_raw_rf": 0.006972,
+          "fp_rate_raw_hgb": 0.034861,
+          "fp_rate_blended_uncalibrated": 0.012948,
+          "fp_rate_calibrated_final": 0.01494
+        },
+        "noisy": {
+          "true_negative_rows": 966,
+          "fp_rate_raw_rf": 0.005176,
+          "fp_rate_raw_hgb": 0.030021,
+          "fp_rate_blended_uncalibrated": 0.010352,
+          "fp_rate_calibrated_final": 0.011387
+        }
+      },
+      "noisy_tier_calibration": {
+        "slope": 1.718,
+        "intercept": -0.9243,
+        "rows": 1946
+      }
+    },
+    "note": "heavy_duty seed=777 out-of-sample holdout"
+  },
+  "featureImportance": [
+    {
+      "feature": "drive_cycle_phase_code",
+      "importance": 0.070382
+    },
+    {
+      "feature": "hub_temp_rl_c",
+      "importance": 0.068956
+    },
+    {
+      "feature": "hub_temp_fr_c",
+      "importance": 0.059305
+    },
+    {
+      "feature": "battery_voltage",
+      "importance": 0.057716
+    },
+    {
+      "feature": "maf_throttle_ratio",
+      "importance": 0.054008
+    },
+    {
+      "feature": "rpm",
+      "importance": 0.045789
+    },
+    {
+      "feature": "hub_temp_rr_c",
+      "importance": 0.045541
+    },
+    {
+      "feature": "idle_hours_day",
+      "importance": 0.0363
+    },
+    {
+      "feature": "hub_temp_fl_c",
+      "importance": 0.03043
+    },
+    {
+      "feature": "bearingFreqScore_accel_h24",
+      "importance": 0.029553
+    },
+    {
+      "feature": "aero_drag_kw",
+      "importance": 0.027134
+    },
+    {
+      "feature": "battery_voltage_delta_30d",
+      "importance": 0.026249
+    },
+    {
+      "feature": "hubTempRL_accel_h24",
+      "importance": 0.024914
+    },
+    {
+      "feature": "bsfc_g_per_kwh",
+      "importance": 0.024751
+    },
+    {
+      "feature": "hubTempFR_accel_h24",
+      "importance": 0.024356
+    },
+    {
+      "feature": "alternator_deficit_w",
+      "importance": 0.023609
+    },
+    {
+      "feature": "hubTempFL_accel_h24",
+      "importance": 0.022129
+    },
+    {
+      "feature": "idle_heat_soak",
+      "importance": 0.020341
+    },
+    {
+      "feature": "battery_soc_pct",
+      "importance": 0.020132
+    },
+    {
+      "feature": "bearing_wear_index",
+      "importance": 0.019147
+    },
+    {
+      "feature": "hubTempRR_accel_h24",
+      "importance": 0.017775
+    },
+    {
+      "feature": "egr_cooler_fouling",
+      "importance": 0.01633
+    },
+    {
+      "feature": "rolling_resistance_kw",
+      "importance": 0.013852
+    },
+    {
+      "feature": "bearing_spall_stage",
+      "importance": 0.013693
+    },
+    {
+      "feature": "scr_inlet_temp_c",
+      "importance": 0.011119
+    }
+  ],
+  "brier_score": 0.01027,
+  "physics_engine": "v4.4 \u2014 ISA/aero/BSFC/thermal/Walther/L10/DPF/Peukert/sensor-drift + isotonic calibration + shared registry",
+  "calibrated": false,
+  "notes": "Physics-informed synthetic priors v4.3. v4.2 audit fixes retained. v4.3 adds: (5) training/inference vehicle specs unified (mass, engine_kw, Cd, Crr, frontal_m2 now identical); (6) grade generator produces realistic downhill grades normal(0.5,2.0) clipped to [-5.5,8.5]%; (7) hub bearing omega floor removed \u2014 zero speed produces zero friction heat. Natural-balance training (8.5% real failure rate) + Platt isotonic calibration. Bearing life from field-calibrated L10; DPF from sawtooth regen state machine; battery from Peukert + Arrhenius aging; oil from Walther viscosity equation."
+}

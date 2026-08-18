@@ -366,41 +366,52 @@ function buildTelemetrySample(normalized, extra = {}) {
   const engine = normalized.engine || {};
   const vehicle = normalized.vehicle || {};
   const electrical = normalized.electrical || {};
+  const metrics = {
+    rpm: engine.rpm ?? null,
+    vehicleSpeed: vehicle.speedKph ?? null,
+    coolantTemp: engine.coolantTempC ?? null,
+    oilTemp: engine.oilTempC ?? null,
+    batteryVoltage: electrical.batteryVoltageV ?? null,
+    engineLoad: engine.engineLoadPct ?? null,
+    engineTorque: engine.torquePct ?? null,
+    fuelRate: engine.fuelRateLph ?? null,
+    intakeAirTemp: engine.intakeAirTempC ?? null,
+    maf: engine.mafGramsPerSec ?? null,
+    throttlePos: engine.throttlePosPct ?? null,
+    intakeManifoldPressure: engine.mapKpa ?? engine.boostKpa ?? null,
+    dpfSootLoad: engine.dpfSootLoadPct ?? null,
+    ambientTemp: engine.ambientTempC ?? null,
+    fuelLevel: vehicle.fuelLevelPct ?? null
+  };
+  const raw = Object.assign({}, extra.rawPids || {}, extra.derivedMetrics || {});
+  delete raw.heartbeatMs;
+  const timestamp = normalized.timestamp || new Date().toISOString();
+  const fingerprint = crypto
+    .createHash("sha256")
+    .update(JSON.stringify([normalized.vehicleId || null, timestamp, metrics, raw]))
+    .digest("hex")
+    .slice(0, 24);
   return {
-    id: makeId("TS"),
+    id: `TS_${fingerprint}`,
     orgId: normalized.orgId || null,
     vehicleId: normalized.vehicleId || null,
     driverId: extra.driverId || null,
-    ts: normalized.timestamp || new Date().toISOString(),
+    ts: timestamp,
     odometer: vehicle.odometerKm ?? null,
     engineHours: vehicle.engineHours ?? null,
-    metrics: {
-      rpm: engine.rpm ?? null,
-      vehicleSpeed: vehicle.speedKph ?? null,
-      coolantTemp: engine.coolantTempC ?? null,
-      oilTemp: engine.oilTempC ?? null,
-      batteryVoltage: electrical.batteryVoltageV ?? null,
-      engineLoad: engine.engineLoadPct ?? null,
-      engineTorque: engine.torquePct ?? null,
-      fuelRate: engine.fuelRateLph ?? null,
-      intakeAirTemp: engine.intakeAirTempC ?? null,
-      maf: engine.mafGramsPerSec ?? null,
-      throttlePos: engine.throttlePosPct ?? null,
-      intakeManifoldPressure: engine.mapKpa ?? engine.boostKpa ?? null,
-      dpfSootLoad: engine.dpfSootLoadPct ?? null,
-      ambientTemp: engine.ambientTempC ?? null,
-      fuelLevel: vehicle.fuelLevelPct ?? null
-    },
-    raw: Object.assign({}, extra.rawPids || {}, extra.derivedMetrics || {})
+    metrics,
+    raw
   };
 }
 
 function appendTelemetrySample(data, sample, retentionLimit = 50000) {
   data.telemetrySamples = Array.isArray(data.telemetrySamples) ? data.telemetrySamples : [];
+  if (sample?.id && data.telemetrySamples.some((existing) => existing?.id === sample.id)) return false;
   data.telemetrySamples.push(sample);
   if (data.telemetrySamples.length > retentionLimit) {
     data.telemetrySamples = data.telemetrySamples.slice(-retentionLimit);
   }
+  return true;
 }
 
 function getSamplesForVehicle(data, vehicleId) {
@@ -413,9 +424,15 @@ function getLatestSample(samples) {
 }
 
 function usableTelemetrySamples(samples) {
-  return (Array.isArray(samples) ? samples : []).filter((sample) =>
+  const usable = (Array.isArray(samples) ? samples : []).filter((sample) =>
     METRIC_KEYS.some((key) => toNumber(sample?.metrics?.[key]) != null)
   );
+  const unique = new Map();
+  usable.forEach((sample) => {
+    const key = `${sample?.vehicleId || ""}:${sample?.ts || ""}:${JSON.stringify(sample?.metrics || {})}`;
+    unique.set(key, sample);
+  });
+  return Array.from(unique.values());
 }
 
 function computeRouteSignature(samples) {

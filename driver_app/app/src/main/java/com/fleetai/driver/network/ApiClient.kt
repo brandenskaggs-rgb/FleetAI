@@ -60,15 +60,11 @@ object ApiClient {
                 )
                 throw IllegalStateException("BASE_URL_NOT_CONFIGURED")
             }
-            val newUrl = if (baseUrl != null) {
-                request.url.newBuilder()
-                    .scheme(baseUrl.scheme)
-                    .host(baseUrl.host)
-                    .port(baseUrl.port)
-                    .build()
-            } else {
-                request.url
-            }
+            val newUrl = request.url.newBuilder()
+                .scheme(baseUrl.scheme)
+                .host(baseUrl.host)
+                .port(baseUrl.port)
+                .build()
             if (BuildConfig.DEBUG && (baseUrl.host == "localhost" || baseUrl.host == "127.0.0.1")) {
                 _diagnostics.value = _diagnostics.value.copy(
                     baseUrl = baseUrl.toString(),

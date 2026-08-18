@@ -38,7 +38,7 @@
     "test:pairing-bootstrap": "node tests/pairing-bootstrap.test.js",
     "test:j1939": "node tests/j1939-ingest.test.js",
     "test:j1939:replay": "node scripts/replay-j1939-capture.js",
-    "test:integration": "node tests/telemetry-chain.test.js && node tests/j1939-ingest.test.js && node tests/telemetry-route.test.js && node tests/driver-app-contract.test.js && node tests/security-boundary.test.js && node tests/pairing-bootstrap.test.js && node tests/vehicle-recovery.test.js && node tests/customer-provisioning.test.js && node tests/org-conversion-recovery.test.js && node tests/account-store-consistency.test.js && node tests/auth-first-login.test.js"
+    "test:integration": "node tests/telemetry-chain.test.js && node tests/j1939-ingest.test.js && node tests/telemetry-route.test.js && node tests/telemetry-prediction-coordinator.test.js && node tests/driver-app-contract.test.js && node tests/security-boundary.test.js && node tests/pairing-bootstrap.test.js && node tests/vehicle-recovery.test.js && node tests/customer-provisioning.test.js && node tests/org-conversion-recovery.test.js && node tests/account-store-consistency.test.js && node tests/auth-first-login.test.js"
   },
   "keywords": [],
   "author": "",

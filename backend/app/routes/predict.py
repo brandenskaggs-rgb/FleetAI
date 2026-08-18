@@ -6,6 +6,7 @@ GET  /model/status       — per-vehicle model readiness
 GET  /baselines/{key}    — fetch a stored MlBaselineProfile
 """
 from __future__ import annotations
+import json
 import logging
 import time
 from typing import Any, Optional
@@ -20,7 +21,7 @@ from ..ml.diagnosis import run_diagnosis
 from ..ml.fleet import compute_fleet_normalization, fleet_risk_boost
 from ..ml.isolation_forest import VehicleIsolationForest
 from ..ml.ensemble import compute_ensemble, get_class_threshold
-from ..ml.pretrained import score_pretrained
+from ..ml.pretrained import is_pretrained_loaded, score_pretrained
 from ..ml.stage2 import STAGE1_THRESHOLD, get_stage2_meta, score_stage2
 from ..ml.stage3 import STAGE3_HIGH, STAGE3_LOW, evaluate_stage3, get_stage3_buffer_stats
 from ..ml.stack import (
@@ -52,6 +53,19 @@ _welford_state: dict[str, dict[str, dict]] = {}
 
 # In-memory IF cache keyed by vehicleId
 _if_cache: dict[str, VehicleIsolationForest] = {}
+
+
+def _dedupe_samples(samples: list[dict]) -> list[dict]:
+    """Keep one copy of each physical ECU observation while preserving order."""
+    unique: dict[str, dict] = {}
+    for sample in samples:
+        sample_id = str(sample.get("id") or "").strip()
+        timestamp = str(sample.get("ts") or sample.get("timestamp") or "").strip()
+        metrics = sample.get("metrics") if isinstance(sample.get("metrics"), dict) else {}
+        observation = json.dumps(metrics, sort_keys=True, separators=(",", ":"), default=str)
+        key = f"{timestamp}:{observation}" if timestamp else sample_id or observation
+        unique[key] = sample
+    return list(unique.values())
 
 
 def _welford_update(state: dict, value: float) -> dict:
@@ -163,7 +177,7 @@ async def predict(req: PredictRequest) -> dict:
     # ── 1. Gather samples ─────────────────────────────────────────────────────
     db_samples = await pg_db.get_recent_samples(vehicle_id, limit=5000)
     # Merge: request samples take precedence (they may be fresher)
-    all_samples = db_samples + req.samples if req.samples else db_samples
+    all_samples = _dedupe_samples(db_samples + req.samples if req.samples else db_samples)
     if not all_samples:
         return {
             "vehicleId": vehicle_id,
@@ -415,8 +429,16 @@ async def predict(req: PredictRequest) -> dict:
 # ── GET /model/status ─────────────────────────────────────────────────────────
 
 @router.get("/model/status")
-async def model_status(vehicleId: str) -> dict:
-    """Return model readiness for a vehicle without running a prediction."""
+async def model_status(vehicleId: Optional[str] = None) -> dict:
+    """Return global service status or readiness for one vehicle."""
+    if not vehicleId:
+        return {
+            "service": "theorem",
+            "ready": True,
+            "pretrainedLoaded": is_pretrained_loaded(),
+            "database": {"available": pg_db.is_available()},
+            "cachedVehicleModels": len(_if_cache),
+        }
     vif = await _get_or_load_vif(vehicleId, None)
     w_state = _welford_state.get(vehicleId, {})
     min_count = min((ws.get("count", 0) for ws in w_state.values()), default=0)

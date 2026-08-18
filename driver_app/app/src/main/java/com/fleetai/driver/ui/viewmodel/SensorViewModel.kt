@@ -306,21 +306,21 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
                     Log.w("FleetAI", "[OBD] read error: $loopError")
                 }
                 lastReadError = loopError
-                val boost = deriveBoost(mapValue, baroValue)
+                val boost = deriveBoost(map.value, baro.value)
                 sender.updateSnapshot(
                     metrics = mapOf(
-                        "rpm" to rpmValue,
-                        "speedKph" to speedValue,
-                        "coolantTempC" to coolantValue,
-                        "intakeAirTempC" to intakeValue,
-                        "batteryVoltageV" to voltageValue,
-                        "engineLoadPct" to loadValue,
-                        "throttlePosPct" to throttleValue,
-                        "mapKpa" to mapValue,
-                        "baroKpa" to baroValue,
-                        "mafGramsPerSec" to mafValue,
-                        "fuelLevelPct" to fuelLevelValue,
-                        "oilTempC" to oilTempValue,
+                        "rpm" to rpm.value,
+                        "speedKph" to speed.value,
+                        "coolantTempC" to coolant.value,
+                        "intakeAirTempC" to intake.value,
+                        "batteryVoltageV" to voltage.value,
+                        "engineLoadPct" to load.value,
+                        "throttlePosPct" to throttle.value,
+                        "mapKpa" to map.value,
+                        "baroKpa" to baro.value,
+                        "mafGramsPerSec" to maf.value,
+                        "fuelLevelPct" to fuelLevel.value,
+                        "oilTempC" to oilTemp.value,
                         "boostPsi" to boost
                     ),
                     obdConnected = true,
@@ -328,18 +328,18 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
                 )
 
                 val liveSignalCount = listOf(
-                    rpmValue,
-                    speedValue,
-                    coolantValue,
-                    voltageValue,
-                    intakeValue,
-                    loadValue,
-                    throttleValue,
-                    mapValue,
-                    baroValue,
-                    mafValue,
-                    fuelLevelValue,
-                    oilTempValue
+                    rpm.value,
+                    speed.value,
+                    coolant.value,
+                    voltage.value,
+                    intake.value,
+                    load.value,
+                    throttle.value,
+                    map.value,
+                    baro.value,
+                    maf.value,
+                    fuelLevel.value,
+                    oilTemp.value
                 ).count { it != null }
                 _status.value = if (liveSignalCount > 0) {
                     "Live vehicle data - $liveSignalCount signals"

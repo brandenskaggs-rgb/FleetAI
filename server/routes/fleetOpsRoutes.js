@@ -370,6 +370,11 @@ function registerFleetOpsRoutes(app, deps) {
       const adapterResponding = hasAdapterDiagnostic
         ? prepared.decoded.meta.adapterResponding === true
         : obdConnected === true;
+      const previousSnapshot = telemetryLatest.get(vehicleId) || null;
+      const duplicateBusSample = busDataActive
+        && previousSnapshot?.busDataActive === true
+        && previousSnapshot.lastObdPacketAt === (prepared.quality.lastFrameAt || normalizedTs)
+        && JSON.stringify(previousSnapshot.metrics || {}) === JSON.stringify(metrics || {});
       const snapshot = {
         vehicleId,
         driverId: req.device
@@ -400,7 +405,7 @@ function registerFleetOpsRoutes(app, deps) {
         captureQuality: prepared.quality,
         deviceDiagnostics: prepared.decoded.meta || {}
       };
-      if (busDataActive) {
+      if (busDataActive && !duplicateBusSample) {
         storeNormalizedSnapshot(data, prepared.normalized, {
           driverId: snapshot.driverId,
           deviceId: snapshot.deviceId,
@@ -430,7 +435,7 @@ function registerFleetOpsRoutes(app, deps) {
       }
       telemetryLatest.set(vehicleId, snapshot);
       recordTelemetryActivity(snapshot);
-      if (busDataActive) triggerTelemetryPipeline();
+      if (busDataActive && !duplicateBusSample) triggerTelemetryPipeline();
 
       // Fan out to the fleet manager's dashboard in real time. Resolved from
       // the pairing for a device, otherwise looked up from the vehicle, so a
@@ -441,7 +446,14 @@ function registerFleetOpsRoutes(app, deps) {
       }
       broadcastTelemetry(snapshot, snapshotOrgId);
 
-      res.json({ ok: true, success: true, stored: busDataActive, linkOnly: !busDataActive, snapshot });
+      res.json({
+        ok: true,
+        success: true,
+        stored: busDataActive && !duplicateBusSample,
+        duplicateSample: duplicateBusSample,
+        linkOnly: !busDataActive,
+        snapshot
+      });
     } catch (err) {
       if (err instanceof TelemetryPayloadError) {
         return res.status(err.statusCode).json({ ok: false, success: false, error: err.message });
