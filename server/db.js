@@ -147,28 +147,33 @@ async function insertAlert(alert) {
     await getPrisma().alert.upsert({ where: { id: alert.id }, update: {}, create });
     return alert.id;
   }
-  const existing = await getPrisma().alert.findUnique({ where: { dedupeKey } });
-  const reopening = Boolean(existing?.resolved);
-  const row = await getPrisma().alert.upsert({
-    where: { dedupeKey },
-    update: {
-      orgId: alert.orgId || null,
-      vehicleId: alert.vehicleId,
-      type: alert.type,
-      severity: alert.severity,
-      explanation: alert.explanation || null,
-      recommendedChecks: alert.recommendedChecks || [],
-      resolved: false,
-      resolvedAt: null,
-      ...(reopening ? {
-        acknowledged: false,
-        ackAt: null,
-        createdAt: toDate(alert.createdAt)
-      } : {})
-    },
-    create
+  return getPrisma().$transaction(async (tx) => {
+    const existing = await tx.alert.findFirst({ where: { dedupeKey }, orderBy: { createdAt: "desc" } });
+    if (!existing) {
+      const row = await tx.alert.create({ data: create });
+      return row.id;
+    }
+    const reopening = Boolean(existing.resolved);
+    const row = await tx.alert.update({
+      where: { id: existing.id },
+      data: {
+        orgId: alert.orgId || null,
+        vehicleId: alert.vehicleId,
+        type: alert.type,
+        severity: alert.severity,
+        explanation: alert.explanation || null,
+        recommendedChecks: alert.recommendedChecks || [],
+        resolved: false,
+        resolvedAt: null,
+        ...(reopening ? {
+          acknowledged: false,
+          ackAt: null,
+          createdAt: toDate(alert.createdAt)
+        } : {})
+      }
+    });
+    return row.id;
   });
-  return row.id;
 }
 
 async function resolveInactiveMlAlerts(vehicleId, activeDedupeKeys = []) {

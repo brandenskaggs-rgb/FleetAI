@@ -525,7 +525,7 @@ model Recommendation {
 
 model Alert {
   id                String    @id @default(cuid())
-  dedupeKey         String?   @unique
+  dedupeKey         String?
   orgId             String?
   vehicleId         String
   type              String
@@ -544,6 +544,7 @@ model Alert {
   @@index([vehicleId, createdAt])
   @@index([orgId, createdAt])
   @@index([resolved])
+  @@index([dedupeKey])
 }
 
 model Event {
