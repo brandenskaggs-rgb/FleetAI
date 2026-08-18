@@ -693,6 +693,7 @@ app.use((req, res, next) => {
   if (!isPairingPath(req.path)) return next();
   const start = Date.now();
   res.on("finish", () => {
+    if (IS_PROD && res.statusCode < 400) return;
     const raw = typeof req.rawBody === "string" ? req.rawBody : "";
     console.log("[PAIR-RAW]", {
       method: req.method,
@@ -979,7 +980,9 @@ registerLegacyPairingRoutes(app, {
   generateDriverPin,
   isExpired,
   lastDataWriteAtRef: () => lastDataWriteAt,
-  log: (...args) => console.log(...args)
+  log: (...args) => {
+    if (!IS_PROD || args[0] !== "[PAIR-REQ]") console.log(...args);
+  }
 });
 
 
@@ -3987,12 +3990,6 @@ async function startServer() {
     console.warn(`[AUTH] could not ensure ORG_DEFAULT exists: ${err.message}`);
   }
   const httpServer = app.listen(PORT, HOST, () => {
-  const keyLen = SETUP_KEY.length;
-  const keyMasked = keyLen >= 6
-    ? `${SETUP_KEY.slice(0, 3)}***${SETUP_KEY.slice(-3)}`
-    : keyLen > 0
-      ? `${SETUP_KEY.slice(0, 1)}***`
-      : "";
   console.log(`[env] __dirname=${__dirname}`);
   console.log(`[env] server.js path=${__filename}`);
   console.log(`[env] Node=${process.version}`);
@@ -4011,8 +4008,7 @@ async function startServer() {
   if (!SETUP_KEY) {
     console.warn("[env] warning: FLEETAI_SETUP_KEY is missing or empty");
   }
-  console.log(`[env] FLEETAI_SETUP_KEY present=${SETUP_KEY ? "true" : "false"} length=${keyLen} masked=${keyMasked}`);
-  console.log(`Setup mode: ${SETUP_KEY ? "enabled if no super admin" : "disabled (no key)"}`);
+  console.log(`Admin bootstrap: ${SETUP_ALLOWED ? "enabled" : "disabled"}`);
   const logStartupUsers = () => {
     readData().then((data) => {
       reportDataIntegrity(data);
