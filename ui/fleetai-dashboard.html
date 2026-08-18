@@ -127,7 +127,8 @@
     #btnAdvisorToggle{display:block;margin-left:auto}
     .advisorPanel{display:none;background:var(--panel);border:0;border-radius:4px;box-shadow:var(--shadow);overflow:hidden;margin-bottom:10px}
     .opsAdvisorDock.open .advisorPanel{display:block}
-    .advisorThread{height:250px;overflow:auto;padding:12px;display:grid;gap:10px}.msg{padding:10px;border-radius:12px;background:var(--panel2);color:var(--text)}.msg.user{background:var(--primary-soft)}
+    .advisorThread{height:280px;overflow:auto;padding:14px 16px;display:flex;flex-direction:column;gap:16px;scroll-behavior:smooth}.msg{max-width:92%;padding:0;background:transparent;color:var(--text);font-size:13.5px;line-height:1.62}.msg.assistant{align-self:flex-start}.msg.user{align-self:flex-end;background:var(--primary);color:#fff;border-radius:14px 14px 3px 14px;padding:10px 13px;box-shadow:0 6px 18px color-mix(in srgb,var(--primary) 14%,transparent)}.msgRole{margin-bottom:5px;color:var(--muted);font-size:10px;font-family:var(--mono);font-weight:700;letter-spacing:.7px;text-transform:uppercase}.msg p{margin:0 0 9px}.msg p:last-child{margin-bottom:0}.msg ul{margin:5px 0 0;padding-left:18px}.msg li+li{margin-top:5px}.msg strong{font-weight:800}.msg code{font-family:var(--mono);font-size:.92em;background:var(--input);padding:1px 4px;border-radius:3px}.msg.thinking{color:var(--muted)}
+    .advisorActions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.advisorActions .btn,.advisorActions a.btn{display:inline-flex;align-items:center;text-decoration:none;background:var(--input)}.advisorReports{margin-top:22px}.advisorReports h4{margin:0 0 10px;font:700 13px/1.2 var(--display)}.advisorReportRow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px;align-items:center;padding:11px 0;box-shadow:inset 0 -1px 0 var(--divider)}.advisorReportRow:last-child{box-shadow:none}.advisorReportRow strong{display:block;font-size:13px}.advisorReportRow span{color:var(--muted);font-size:11px}
     .advisorForm{display:flex;gap:8px;padding:12px}
     .advisorForm input{flex:1}
     .srOnly{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}.mobileOnly{display:none}
@@ -258,7 +259,7 @@
   <div class="opsAdvisorDock" id="opsAdvisorDock">
     <div class="advisorPanel">
       <div class="cardHead"><div><h3>AI Advisor</h3><div class="cardMeta" id="advisorDockStatus">Checking advisor service...</div></div><button class="btn ghost" id="btnCloseAdvisor" type="button">Close</button></div>
-      <div class="advisorThread" id="advisorThread"><div class="msg">AI Advisor is ready. Ask about risk, maintenance planning, compliance readiness, or cost exposure.</div></div>
+      <div class="advisorThread" id="advisorThread"><div class="msg assistant"><div class="msgRole">Fleet Advisor</div><p>Hi. Ask me about a vehicle, an alert, maintenance priorities, or anything else happening across the fleet.</p></div></div>
       <form class="advisorForm" id="advisorDockForm"><input class="form-input" id="advisorDockInput" aria-label="Ask Fleet Advisor" placeholder="Ask a fleet operations question..." /><button class="btn primary" type="submit">Send</button></form>
     </div>
     <button class="btn primary" id="btnAdvisorToggle" type="button">AI Advisor</button>
@@ -466,9 +467,77 @@
     function stopGpsPolling(){ if(state.gpsTimer){ clearInterval(state.gpsTimer); state.gpsTimer=null; } }
     function renderCameraChannels(){ genericPanel("cameras","Camera Channels","Camera status appears only after a supported provider is connected",`<div class="cameraGrid">${["Front","Driver","Rear"].map(x=>`<div class="cameraTile"><div><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:10px;opacity:.35" aria-hidden="true"><rect x="2" y="6" width="16" height="12" rx="2"/><path d="m18 9 4-2v10l-4-2"/></svg><h3>${x}</h3><p class="muted">Not connected</p></div></div>`).join("")}</div><div id="clipList" style="margin-top:14px"></div>`); }
     function renderClipList(){ const el=$("clipList"); if(el) el.innerHTML=`<div class="muted">No camera clips are available.</div>`; }
-    function renderQuickPrompts(){ genericPanel("advisor","Fleet Advisor","Ask operational questions grounded in fleet data",`<div class="cardMeta" id="advisorPageStatus">Checking advisor service...</div><div class="sectionActions">${["Which vehicles need service first?","Summarize compliance risk","Find cost outliers","Explain coolant drift"].map(q=>`<button class="btn" data-prompt="${esc(q)}">${esc(q)}</button>`).join("")}</div><div class="advisorThread" id="advisorPageThread"><div class="msg">Choose a prompt or ask Fleet Advisor from the dock.</div></div>`); }
-    async function aiAdvisorCheckStatus(){ try{ const s=await apiGet("/api/advisor/status"); const label=s.available?`Connected to ${s.provider} · ${s.model}`:(s.enabled?`${s.provider} API key is not configured`:"AI features are disabled"); [$("advisorDockStatus"),$("advisorPageStatus")].filter(Boolean).forEach(el=>el.textContent=label); }catch(_){[$("advisorDockStatus"),$("advisorPageStatus")].filter(Boolean).forEach(el=>el.textContent="Advisor service status unavailable");} }
-    async function sendAdvisor(query){ const thread=$("advisorThread"); thread.insertAdjacentHTML("beforeend",`<div class="msg user">${esc(query)}</div><div class="msg" id="advisorLoading">Fleet Advisor is thinking...</div>`); try{ const r=await apiPost(["/api/advisor/message","/api/ai/chat"],{query,message:query,vehicleId:state.selectedVehicleId}); $("advisorLoading")?.remove(); thread.insertAdjacentHTML("beforeend",`<div class="msg">${esc(r.reply||r.data?.reply||"No response generated.")}</div>`);}catch(e){$("advisorLoading")?.remove(); thread.insertAdjacentHTML("beforeend",`<div class="msg">Advisor is unavailable: ${esc(e.message)}</div>`);} thread.scrollTop=thread.scrollHeight; }
+    function renderQuickPrompts(){ genericPanel("advisor","Fleet Advisor","Ask about the fleet in plain language",`<div class="cardMeta" id="advisorPageStatus">Checking advisor service...</div><div class="sectionActions">${["What needs my attention today?","Summarize the latest drive","Build a fleet risk report","What maintenance is overdue?","Are there HOS concerns?"].map(q=>`<button class="btn" data-prompt="${esc(q)}">${esc(q)}</button>`).join("")}</div><div class="advisorThread" id="advisorPageThread"><div class="msg assistant"><div class="msgRole">Fleet Advisor</div><p>Ask about vehicles, drives, reports, maintenance, inspections, fuel, or compliance. I will use the latest records available to this workspace.</p></div></div><div class="advisorReports"><h4>Recent advisor reports</h4><div id="advisorReportList" class="muted">Loading reports...</div></div>`); }
+    async function loadAdvisorArtifacts(){
+      const list=$("advisorReportList");if(!list)return;
+      try{
+        const response=await apiGet("/api/advisor/artifacts");
+        const reports=Array.isArray(response?.data)?response.data:[];
+        list.innerHTML=reports.length?reports.slice(0,8).map(report=>`<div class="advisorReportRow"><div><strong>${esc(report.title)}</strong><span>${esc(report.type)} report · ${esc(report.createdAt?new Date(report.createdAt).toLocaleString():"")}</span></div><button class="btn" type="button" data-advisor-download="${esc(report.downloadUrl)}">Download</button></div>`).join(""):`<span>No advisor reports have been generated yet.</span>`;
+      }catch(error){list.textContent=`Reports couldn't be loaded: ${error.message}`;}
+    }
+    async function aiAdvisorCheckStatus(){ try{ const s=await apiGet("/api/advisor/status"); const label=s.available?`Connected to ${s.provider} · ${s.model}`:(s.enabled?`${s.provider} API key is not configured`:"AI features are disabled"); [$("advisorDockStatus"),$("advisorPageStatus")].filter(Boolean).forEach(el=>el.textContent=label); }catch(_){[$("advisorDockStatus"),$("advisorPageStatus")].filter(Boolean).forEach(el=>el.textContent="Advisor service status unavailable");} await loadAdvisorArtifacts(); }
+    function formatAdvisorText(value){
+      const source=String(value||"").replace(/\r\n?/g,"\n").replace(/^#{1,6}\s+/gm,"").trim();
+      if(!source) return "<p>I couldn't generate a useful answer from the current fleet record.</p>";
+      const inline=(text)=>esc(text).replace(/\*\*([^*\n]+)\*\*/g,"<strong>$1</strong>").replace(/__([^_\n]+)__/g,"<strong>$1</strong>").replace(/`([^`\n]+)`/g,"<code>$1</code>");
+      return source.split(/\n{2,}/).map(block=>{
+        const lines=block.split("\n").map(line=>line.trim()).filter(Boolean);
+        if(lines.length&&lines.every(line=>/^[-*]\s+/.test(line))) return `<ul>${lines.map(line=>`<li>${inline(line.replace(/^[-*]\s+/,""))}</li>`).join("")}</ul>`;
+        return `<p>${lines.map(line=>inline(line.replace(/^[-*]\s+/,""))).join("<br>")}</p>`;
+      }).join("");
+    }
+    function appendAdvisorMessage(role,content,extras=""){
+      const html=role==="user"?`<div class="msg user">${esc(content)}</div>`:`<div class="msg assistant"><div class="msgRole">Fleet Advisor</div>${formatAdvisorText(content)}${extras}</div>`;
+      [$("advisorThread"),$("advisorPageThread")].filter(Boolean).forEach(thread=>{thread.insertAdjacentHTML("beforeend",html);thread.scrollTop=thread.scrollHeight;});
+    }
+    function advisorResultActions(result){
+      const artifacts=Array.isArray(result?.artifacts)?result.artifacts:[];
+      const proposed=Array.isArray(result?.proposedActions)?result.proposedActions:[];
+      state.advisorActions=state.advisorActions||{};
+      proposed.forEach(action=>{state.advisorActions[action.id]=action;});
+      const links=artifacts.map(artifact=>`<button class="btn" type="button" data-advisor-download="${esc(artifact.downloadUrl)}">${esc(`Download ${artifact.type} report`)}</button>`);
+      const buttons=proposed.map(action=>`<button class="btn primary" type="button" data-advisor-action="${esc(action.id)}">${esc(action.label||"Confirm action")}</button>`);
+      return links.length||buttons.length?`<div class="advisorActions">${links.join("")}${buttons.join("")}</div>`:"";
+    }
+    async function executeAdvisorAction(actionId,button){
+      const action=state.advisorActions?.[actionId];
+      if(!action) return;
+      button.disabled=true;
+      const original=button.textContent;
+      button.textContent="Working...";
+      try{
+        const result=await apiPost("/api/advisor/actions/execute",{action:action.action,payload:action.payload,confirmed:true});
+        delete state.advisorActions[actionId];
+        button.textContent="Completed";
+        appendAdvisorMessage("assistant",result.message||"The requested action is complete.");
+      }catch(error){
+        button.disabled=false;
+        button.textContent=original;
+        appendAdvisorMessage("assistant",`I couldn't complete that action. ${error.message}`);
+      }
+    }
+    async function sendAdvisor(query){
+      const history=state.advisor.slice(-8);
+      state.advisor.push({role:"user",content:query});
+      appendAdvisorMessage("user",query);
+      const loadingId=`advisorLoading-${Date.now()}`;
+      const thread=$("advisorThread");
+      thread?.insertAdjacentHTML("beforeend",`<div class="msg assistant thinking" id="${loadingId}"><div class="msgRole">Fleet Advisor</div><p>Looking at the latest fleet records...</p></div>`);
+      if(thread) thread.scrollTop=thread.scrollHeight;
+      try{
+        const r=await apiPost(["/api/advisor/message","/api/ai/chat"],{query,message:query,vehicleId:state.selectedVehicleId,history});
+        $(loadingId)?.remove();
+        const reply=r.reply||r.data?.reply||"I couldn't generate a useful answer from the current fleet record.";
+        state.advisor.push({role:"assistant",content:reply});
+        state.advisor=state.advisor.slice(-10);
+        appendAdvisorMessage("assistant",reply,advisorResultActions(r));
+        if(Array.isArray(r.artifacts)&&r.artifacts.length) loadAdvisorArtifacts();
+      }catch(e){
+        $(loadingId)?.remove();
+        appendAdvisorMessage("assistant",`I can't reach the advisor service right now. ${e.message}`);
+      }
+    }
     async function loadMaintenanceLogs(){ loadMaintenanceLogsV2("maintenance"); }
     async function loadMaintenanceLogsV2(target="maintenance-logs"){
       const isQueue = target === "maintenance";
@@ -873,7 +942,7 @@
       $("btnLoadHistory")?.addEventListener("click",loadTelemetryHistory); $("btnExportTelemetry")?.addEventListener("click",()=>exportVisibleTable("telemetry-history"));
       $("dashboardGlobalSearch").addEventListener("input",event=>filterActiveView(event.target.value));
       $("telemetryVehicleSelect")?.addEventListener("change",event=>{state.selectedVehicleId=event.target.value;loadLiveSensors();});
-      document.addEventListener("click",event=>{const exportButton=event.target.closest("[data-export]");if(exportButton)exportVisibleTable(exportButton.dataset.export);const prompt=event.target.closest("[data-prompt]");if(prompt){$("opsAdvisorDock").classList.add("open");sendAdvisor(prompt.dataset.prompt);}});
+      document.addEventListener("click",event=>{const exportButton=event.target.closest("[data-export]");if(exportButton)exportVisibleTable(exportButton.dataset.export);const prompt=event.target.closest("[data-prompt]");if(prompt){$("opsAdvisorDock").classList.add("open");sendAdvisor(prompt.dataset.prompt);}const advisorAction=event.target.closest("[data-advisor-action]");if(advisorAction)executeAdvisorAction(advisorAction.dataset.advisorAction,advisorAction);const advisorDownload=event.target.closest("[data-advisor-download]");if(advisorDownload){const link=document.createElement("a");link.href=advisorDownload.dataset.advisorDownload;link.download="";document.body.appendChild(link);link.click();link.remove();}});
       window.addEventListener("hashchange",()=>renderRoute(routeFromHash()));
     }
     async function init(){

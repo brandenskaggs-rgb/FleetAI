@@ -98,6 +98,7 @@ model Org {
   tenantSettings  TenantSettings?
   fleetAddon      FleetAddon?
   diagnosticScans DiagnosticScan[]
+  advisorArtifacts AdvisorArtifact[]
 
   @@index([status])
 }
@@ -624,6 +625,22 @@ model AiReport {
   vehicle Vehicle @relation(fields: [vehicleId], references: [vehicleId])
 
   @@index([vehicleId, createdAt])
+}
+
+model AdvisorArtifact {
+  id          String   @id @default(cuid())
+  orgId       String
+  userId      String?
+  type        String
+  title       String
+  request     String
+  content     Json
+  createdAt   DateTime @default(now())
+
+  org Org @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, createdAt])
+  @@index([type])
 }
 
 // ─────────────────────────────────────────────

@@ -1,5 +1,8 @@
 const db = require("../db");
 const { completeChat, getAiProviderStatus } = require("../services/aiProviderService");
+const { buildAdvisorMessages } = require("../services/advisorConversation");
+const { buildFleetAdvisorContext } = require("../services/advisorContextService");
+const { buildReportArtifact, planAdvisorActions, renderReportHtml, renderReportText } = require("../services/advisorAgentService");
 
 function registerSolutionRoutes(app, deps) {
   const {
@@ -653,34 +656,53 @@ function registerSolutionRoutes(app, deps) {
       const orgId = resolveRequestOrgId(req, data);
       if (!orgId) return res.status(400).json({ error: "orgId required" });
 
-      const vehicles = data.vehicles.filter((v) => matchesOrg(v, orgId)).slice(0, 20);
-      const alerts = (Array.isArray(data.alerts) ? data.alerts : []).filter((a) => matchesOrg(a, orgId)).slice(0, 10);
-      data.maintenanceLogs = Array.isArray(data.maintenanceLogs) ? data.maintenanceLogs : [];
-      const recentMaint = data.maintenanceLogs.filter((l) => matchesOrg(l, orgId)).slice(0, 10);
-
-      const context = {
-        vehicles: vehicles.map((v) => ({
-          id: v.vehicleId || v.id,
-          name: v.unitName || v.name,
-          year: v.year,
-          make: v.make,
-          model: v.model,
-          type: v.vehicleType
-        })),
-        activeAlerts: alerts.map((a) => ({ type: a.type, severity: a.severity, vehicleId: a.vehicleId, createdAt: a.createdAt })),
-        recentMaintenance: recentMaint.map((l) => ({ vehicleId: l.vehicleId, type: l.serviceType || l.type, date: l.performedAt || l.createdAt, cost: l.cost }))
-      };
+      const context = await buildFleetAdvisorContext({
+        db,
+        orgId,
+        query: message,
+        selectedVehicleId: sanitizeString(req.body.vehicleId || "", 80),
+        legacyData: data
+      });
 
       try {
-        const completion = await completeChat([
-          { role: "system", content: `You are the Fleet AI advisor — an expert fleet management assistant. Answer questions using the fleet data provided. Be concise, practical, and action-oriented. If data is insufficient, say so honestly. Fleet context: ${JSON.stringify(context)}` },
-          { role: "user", content: message }
-        ], { temperature: 0.3, maxTokens: 600 });
+        const messages = buildAdvisorMessages({
+          context,
+          history: req.body.history,
+          message,
+          sanitizeString
+        });
+        const completion = await completeChat(messages, { temperature: 0.55, maxTokens: 700 });
+        const plannedActions = planAdvisorActions(message, context);
+        const artifacts = [];
+        for (const action of plannedActions.filter((item) => item.action === "generate_report" && item.mode === "automatic")) {
+          const artifact = await db.getPrisma().advisorArtifact.create({
+            data: buildReportArtifact({
+              action,
+              context,
+              reply: completion.content,
+              request: message,
+              userId: req.customer?.userId || req.employee?.userId || req.employee?.id || null
+            })
+          });
+          artifacts.push({
+            id: artifact.id,
+            type: artifact.type,
+            title: artifact.title,
+            createdAt: artifact.createdAt,
+            downloadUrl: `/api/advisor/artifacts/${encodeURIComponent(artifact.id)}/download`
+          });
+        }
+        const proposedActions = plannedActions
+          .filter((item) => item.mode === "confirmation_required")
+          .map((item) => ({ ...item, id: makeId("ACT") }));
         return res.json({
           ok: true,
           reply: sanitizeString(completion.content, 3000),
           source: completion.provider,
-          model: completion.model
+          model: completion.model,
+          artifacts,
+          proposedActions,
+          retrieved: context.recordCounts
         });
       } catch (error) {
         console.warn(`[AI-ADVISOR] ${error.code || "AI_ERROR"} status=${error.status || 0}`);
@@ -690,6 +712,67 @@ function registerSolutionRoutes(app, deps) {
           message: error.retryable ? "AI Advisor is temporarily unavailable. Try again shortly." : "AI Advisor configuration needs attention."
         });
       }
+    } catch (err) { next(err); }
+  });
+
+  app.get("/api/advisor/artifacts", requireEmployeeOrCustomerApi, async (req, res, next) => {
+    try {
+      const data = await ensureCollections(await readData());
+      const orgId = resolveRequestOrgId(req, data);
+      if (!orgId) return res.status(400).json({ error: "orgId required" });
+      const artifacts = await db.getPrisma().advisorArtifact.findMany({
+        where: { orgId },
+        orderBy: { createdAt: "desc" },
+        take: 30,
+        select: { id: true, type: true, title: true, request: true, createdAt: true }
+      });
+      res.json({ ok: true, data: artifacts.map((artifact) => ({ ...artifact, downloadUrl: `/api/advisor/artifacts/${encodeURIComponent(artifact.id)}/download` })) });
+    } catch (err) { next(err); }
+  });
+
+  app.get("/api/advisor/artifacts/:id/download", requireEmployeeOrCustomerApi, async (req, res, next) => {
+    try {
+      const data = await ensureCollections(await readData());
+      const orgId = resolveRequestOrgId(req, data);
+      if (!orgId) return res.status(400).json({ error: "orgId required" });
+      const artifact = await db.getPrisma().advisorArtifact.findFirst({ where: { id: req.params.id, orgId } });
+      if (!artifact) return res.status(404).json({ ok: false, error: "report_not_found" });
+      const textFormat = String(req.query.format || "").toLowerCase() === "txt";
+      const filename = `${artifact.type || "fleet"}-report-${artifact.id.slice(-8)}.${textFormat ? "txt" : "html"}`.replace(/[^a-zA-Z0-9._-]/g, "-");
+      res.setHeader("Content-Type", textFormat ? "text/plain; charset=utf-8" : "text/html; charset=utf-8");
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+      res.send(textFormat ? renderReportText(artifact) : renderReportHtml(artifact));
+    } catch (err) { next(err); }
+  });
+
+  app.post("/api/advisor/actions/execute", requireEmployeeOrCustomerApi, async (req, res, next) => {
+    try {
+      if (req.body?.confirmed !== true) return res.status(400).json({ ok: false, error: "confirmation_required" });
+      if (sanitizeString(req.body?.action || "", 80) !== "create_work_order") {
+        return res.status(400).json({ ok: false, error: "unsupported_advisor_action" });
+      }
+      const role = String(req.customer?.role || req.employee?.role || "").toUpperCase();
+      if (["CUSTOMER_VIEWER", "VIEWER"].includes(role)) return res.status(403).json({ ok: false, error: "insufficient_role" });
+      const data = await ensureCollections(await readData());
+      const orgId = resolveRequestOrgId(req, data);
+      if (!orgId) return res.status(400).json({ error: "orgId required" });
+      const payload = req.body?.payload && typeof req.body.payload === "object" ? req.body.payload : {};
+      const vehicleId = sanitizeString(payload.vehicleId || "", 80);
+      const vehicle = await db.getPrisma().vehicle.findFirst({ where: { vehicleId, orgId }, select: { vehicleId: true, unitName: true } });
+      if (!vehicle) return res.status(404).json({ ok: false, error: "vehicle_not_found" });
+      const title = sanitizeString(payload.title || "Advisor maintenance follow-up", 180);
+      const description = sanitizeString(payload.description || "", 1000) || null;
+      const requestedPriority = sanitizeString(payload.priority || "normal", 20).toLowerCase();
+      const priority = ["normal", "medium", "high", "critical"].includes(requestedPriority) ? requestedPriority : "normal";
+      const workOrder = await db.getPrisma().workOrder.create({
+        data: { orgId, vehicleId, title, description, priority, status: "open" },
+        select: { id: true, vehicleId: true, title: true, priority: true, status: true, createdAt: true }
+      });
+      res.status(201).json({
+        ok: true,
+        data: workOrder,
+        message: `Created work order ${workOrder.id} for ${vehicle.unitName || vehicle.vehicleId}.`
+      });
     } catch (err) { next(err); }
   });
 
