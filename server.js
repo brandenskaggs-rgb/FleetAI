@@ -3358,13 +3358,23 @@ async function runTelemetryPipeline() {
           anomalyScore: prediction.anomalyScore != null ? prediction.anomalyScore / 100 : null,
           confidence: prediction.confidence,
           risk: prediction.risk,
+          historySpanHours: prediction.historySpanHours,
+          chargingEvidence: prediction.chargingEvidence,
           climateContext: prediction.climateContext,
           insufficientHistory: prediction.insufficientData
         };
         const mlAlerts = ml.generateAlertsFromState(oldState);
         for (const alert of mlAlerts) {
-          try { await sqliteDb.insertAlert(alert); } catch (_) { /* dedup via upsert ignore */ }
+          try {
+            await sqliteDb.insertAlert(alert);
+          } catch (alertError) {
+            console.warn(`[ML-PIPELINE] alert write ${vehicleId}/${alert.type}:`, alertError.message);
+          }
         }
+        await sqliteDb.resolveInactiveMlAlerts(
+          vehicleId,
+          mlAlerts.map((alert) => alert.dedupeKey).filter(Boolean)
+        );
       } catch (err) {
         console.warn(`[ML-PIPELINE] vehicle ${vehicleId}:`, err.message);
       }

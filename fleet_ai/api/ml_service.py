@@ -157,10 +157,19 @@ def _num(value: Any, default: Optional[float] = None) -> Optional[float]:
 
 
 def latest_metric(samples: List[TelemetrySample], names: List[str], default: Optional[float] = None) -> Optional[float]:
+    normalized_names = {name.lower() for name in names}
     for sample in reversed(samples):
         data = {**(sample.raw or {}), **(sample.metrics or {})}
         for name in names:
             val = _num(data.get(name))
+            if val is None:
+                continue
+            # Adapter transitions can briefly emit zero-filled frames. Those
+            # frames are transport artifacts, not physical charging evidence.
+            if {"battery_voltage", "batteryvoltage"} & normalized_names and not 5 <= val <= 40:
+                continue
+            if "rpm" in normalized_names and not 0 <= val <= 10_000:
+                continue
             if val is not None:
                 return val
     return default

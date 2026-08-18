@@ -124,27 +124,68 @@ async function getAllModelStates() {
 
 // ─── Alerts ───────────────────────────────────────────────────────────────────
 
+function buildAlertDedupeKey(alert) {
+  const key = String(alert?.dedupeKey || "").trim();
+  return key || null;
+}
+
 async function insertAlert(alert) {
   await ensureVehicleStub(alert.vehicleId);
-  await getPrisma().alert.upsert({
-    where: { id: alert.id },
-    update: {},
-    create: {
-      id: alert.id,
+  const dedupeKey = buildAlertDedupeKey(alert);
+  const create = {
+    id: alert.id,
+    dedupeKey,
+    orgId: alert.orgId || null,
+    vehicleId: alert.vehicleId,
+    type: alert.type,
+    severity: alert.severity,
+    explanation: alert.explanation || null,
+    recommendedChecks: alert.recommendedChecks || [],
+    createdAt: toDate(alert.createdAt)
+  };
+  if (!dedupeKey) {
+    await getPrisma().alert.upsert({ where: { id: alert.id }, update: {}, create });
+    return alert.id;
+  }
+  const existing = await getPrisma().alert.findUnique({ where: { dedupeKey } });
+  const reopening = Boolean(existing?.resolved);
+  const row = await getPrisma().alert.upsert({
+    where: { dedupeKey },
+    update: {
       orgId: alert.orgId || null,
       vehicleId: alert.vehicleId,
       type: alert.type,
       severity: alert.severity,
       explanation: alert.explanation || null,
       recommendedChecks: alert.recommendedChecks || [],
-      createdAt: toDate(alert.createdAt)
-    }
+      resolved: false,
+      resolvedAt: null,
+      ...(reopening ? {
+        acknowledged: false,
+        ackAt: null,
+        createdAt: toDate(alert.createdAt)
+      } : {})
+    },
+    create
   });
+  return row.id;
+}
+
+async function resolveInactiveMlAlerts(vehicleId, activeDedupeKeys = []) {
+  if (!vehicleId) return 0;
+  const dedupeKey = { startsWith: `ML:${vehicleId}:` };
+  if (activeDedupeKeys.length) dedupeKey.notIn = activeDedupeKeys;
+  const result = await getPrisma().alert.updateMany({
+    where: { vehicleId, resolved: false, dedupeKey },
+    data: { resolved: true, resolvedAt: new Date() }
+  });
+  return result.count;
 }
 
 function rowToAlert(row) {
   return {
     id: row.id,
+    dedupeKey: row.dedupeKey || null,
     orgId: row.orgId,
     vehicleId: row.vehicleId,
     type: row.type,
@@ -1252,6 +1293,8 @@ module.exports = {
   getModelState,
   getAllModelStates,
   insertAlert,
+  buildAlertDedupeKey,
+  resolveInactiveMlAlerts,
   getAlertsForVehicle,
   getAlertsForOrg,
   getAlertById,

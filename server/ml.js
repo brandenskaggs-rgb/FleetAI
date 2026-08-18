@@ -42,6 +42,24 @@ function toNumber(value) {
   return Number.isFinite(num) ? num : null;
 }
 
+function metricNumber(metricKey, value) {
+  const number = toNumber(value);
+  if (number == null) return null;
+  if (metricKey === "batteryVoltage" && (number < 5 || number > 40)) return null;
+  if (metricKey === "rpm" && (number < 0 || number > 10_000)) return null;
+  if (metricKey === "vehicleSpeed" && (number < 0 || number > 300)) return null;
+  return number;
+}
+
+function median(values) {
+  if (!values.length) return null;
+  const sorted = values.slice().sort((a, b) => a - b);
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2
+    ? sorted[middle]
+    : (sorted[middle - 1] + sorted[middle]) / 2;
+}
+
 function computeSlope(values) {
   const n = values.length;
   if (n < 2) return 0;
@@ -149,11 +167,11 @@ function computeBaselines(samples) {
   const baselines = {};
   METRIC_KEYS.forEach((key) => {
     const timestampedValues = samples
-      .map((s) => ({ ts: s.ts, value: s.metrics?.[key] }))
-      .filter((item) => item.ts && toNumber(item.value) !== null);
+      .map((s) => ({ ts: s.ts, value: metricNumber(key, s.metrics?.[key]) }))
+      .filter((item) => item.ts && item.value !== null);
     baselines[key] = timestampedValues.length >= 2
       ? computeTimeWeightedBaseline(timestampedValues)
-      : computeBaseline(samples.map((s) => toNumber(s.metrics?.[key])).filter((v) => v != null));
+      : computeBaseline(samples.map((s) => metricNumber(key, s.metrics?.[key])).filter((v) => v != null));
   });
   return baselines;
 }
@@ -185,7 +203,7 @@ function computeSeasonalBaselines(samples) {
     const season = getSeasonFromTimestamp(sample.ts);
     if (!seasonalValues[season]) return;
     METRIC_KEYS.forEach((key) => {
-      const value = toNumber(sample.metrics?.[key]);
+      const value = metricNumber(key, sample.metrics?.[key]);
       if (value != null) seasonalValues[season][key].push(value);
     });
   });
@@ -228,7 +246,7 @@ function computeAnomaly(latest, baselines, seasonalBaselines = null, seasonKey =
   let scoreSum = 0;
   let weightSum = 0;
   METRIC_KEYS.forEach((key) => {
-    const value = toNumber(latest.metrics?.[key]);
+    const value = metricNumber(key, latest.metrics?.[key]);
     const baseline = resolveBaseline(key, baselines, seasonalBaselines, seasonKey);
     if (value == null || !baseline || baseline.mean == null || !baseline.std) return;
     const z = Math.abs((value - baseline.mean) / (baseline.std || 1));
@@ -300,7 +318,91 @@ function computeClimateContext(samples, baselines, seasonalBaselines, seasonKey)
   };
 }
 
-function computeRisk(samples, baselines, climateContext = null) {
+function sustainedLowWindow(points, threshold) {
+  let current = null;
+  let longest = null;
+  for (const point of points) {
+    const timestampMs = new Date(point.ts).getTime();
+    if (!Number.isFinite(timestampMs) || point.voltage > threshold) {
+      current = null;
+      continue;
+    }
+    const gapMs = current ? timestampMs - current.endMs : 0;
+    if (!current || gapMs < 0 || gapMs > 45_000) {
+      current = {
+        startMs: timestampMs,
+        endMs: timestampMs,
+        count: 1,
+        minVoltage: point.voltage
+      };
+    } else {
+      current.endMs = timestampMs;
+      current.count += 1;
+      current.minVoltage = Math.min(current.minVoltage, point.voltage);
+    }
+    const durationMs = current.endMs - current.startMs;
+    if (!longest || durationMs > longest.durationMs || (durationMs === longest.durationMs && current.count > longest.count)) {
+      longest = Object.assign({}, current, { durationMs });
+    }
+  }
+  return longest;
+}
+
+function computeChargingEvidence(samples) {
+  const sorted = (Array.isArray(samples) ? samples : [])
+    .slice()
+    .sort((a, b) => new Date(a.ts) - new Date(b.ts));
+  const latestSampleMs = sorted.length ? new Date(sorted[sorted.length - 1].ts).getTime() : NaN;
+  const points = sorted.map((sample) => ({
+    ts: sample.ts,
+    voltage: metricNumber("batteryVoltage", sample.metrics?.batteryVoltage),
+    rpm: metricNumber("rpm", sample.metrics?.rpm)
+  })).filter((point) => point.voltage != null && point.rpm != null && point.rpm >= 400);
+
+  if (points.length < 6) {
+    return { available: false, status: "insufficient_data", engineRunningSampleCount: points.length };
+  }
+
+  const typicalVoltage = median(points.map((point) => point.voltage));
+  const systemVoltage = typicalVoltage != null && typicalVoltage >= 18 ? 24 : 12;
+  const scale = systemVoltage / 12;
+  const warningThreshold = 12.2 * scale;
+  const criticalThreshold = 11.8 * scale;
+  const warningWindow = sustainedLowWindow(points, warningThreshold);
+  const criticalWindow = sustainedLowWindow(points, criticalThreshold);
+  const qualifies = (window, minimumDurationMs, minimumSamples) => Boolean(
+    window
+      && window.durationMs >= minimumDurationMs
+      && window.count >= minimumSamples
+      && Number.isFinite(latestSampleMs)
+      && latestSampleMs - window.endMs <= 10 * 60_000
+  );
+  const critical = qualifies(criticalWindow, 60_000, 4);
+  const warning = !critical && qualifies(warningWindow, 3 * 60_000, 8);
+  const activeWindow = critical ? criticalWindow : warning ? warningWindow : null;
+  const recentValues = points.slice(-20).map((point) => point.voltage);
+  const status = critical ? "critical" : warning ? "warning" : "normal";
+  const durationMinutes = activeWindow ? activeWindow.durationMs / 60_000 : 0;
+  const explanation = activeWindow
+    ? `Charging voltage stayed at or below ${(critical ? criticalThreshold : warningThreshold).toFixed(1)} V for ${durationMinutes.toFixed(1)} minutes while the engine was running; minimum observed voltage was ${activeWindow.minVoltage.toFixed(2)} V.`
+    : `No sustained low charging voltage was confirmed while the engine was running. Typical observed voltage was ${typicalVoltage.toFixed(2)} V.`;
+
+  return {
+    available: true,
+    status,
+    systemVoltage,
+    engineRunningSampleCount: points.length,
+    typicalVoltage: Math.round(typicalVoltage * 1000) / 1000,
+    recentMedianVoltage: Math.round(median(recentValues) * 1000) / 1000,
+    minimumVoltage: Math.round(Math.min(...points.map((point) => point.voltage)) * 1000) / 1000,
+    warningThreshold,
+    criticalThreshold,
+    sustainedLowMinutes: Math.round(durationMinutes * 10) / 10,
+    explanation
+  };
+}
+
+function computeRisk(samples, baselines, climateContext = null, chargingEvidence = null) {
   const lastSamples = samples.slice(-MIN_SAMPLES);
   const result = {
     cooling: null,
@@ -308,8 +410,11 @@ function computeRisk(samples, baselines, climateContext = null) {
     fuel: null
   };
   const toRisk = (value) => Math.round(clamp(value, 0, 1) * 100);
-  const computeMetricTrend = (metric) => {
-    const values = lastSamples.map((s) => toNumber(s.metrics?.[metric])).filter((v) => v != null);
+  const computeMetricTrend = (metric, predicate = () => true) => {
+    const values = lastSamples
+      .filter(predicate)
+      .map((s) => metricNumber(metric, s.metrics?.[metric]))
+      .filter((v) => v != null);
     if (values.length < MIN_SAMPLES) return null;
     const baseline = baselines[metric];
     if (!baseline || baseline.mean == null) return null;
@@ -329,17 +434,26 @@ function computeRisk(samples, baselines, climateContext = null) {
       reason: "Coolant temperature trend vs baseline with seasonal climate weighting."
     };
   }
-  const charging = computeMetricTrend("batteryVoltage");
+  const charging = computeMetricTrend(
+    "batteryVoltage",
+    (sample) => (metricNumber("rpm", sample.metrics?.rpm) ?? 0) >= 400
+  );
   if (charging) {
     const drop = charging.baselineMean ? Math.max(0, (charging.baselineMean - charging.current) / charging.baselineMean) : 0;
     const coldStress = clamp((((-(climateContext?.ambientAnomalyZ ?? 0)) - 1) / 2), 0, 1);
     const climateShift = clamp(Math.abs(climateContext?.climateShift30dC ?? 0) / 12, 0, 1);
-    const risk = clamp(drop * 1.4 + Math.abs(charging.slope) * 0.1 + (coldStress * 0.22) + (climateShift * 0.06), 0, 1);
+    const evidenceFloor = chargingEvidence?.status === "critical"
+      ? 0.9
+      : chargingEvidence?.status === "warning" ? 0.72 : 0;
+    const risk = Math.max(
+      evidenceFloor,
+      clamp(drop * 1.4 + Math.abs(charging.slope) * 0.1 + (coldStress * 0.22) + (climateShift * 0.06), 0, 0.69)
+    );
     result.charging = {
       risk7: toRisk(risk * 0.6),
       risk14: toRisk(risk * 0.8),
       risk30: toRisk(risk),
-      reason: "Voltage sag/instability detected with cold-weather stress weighting."
+      reason: chargingEvidence?.explanation || "Engine-running voltage trend compared with the learned baseline."
     };
   }
   const fuelRate = computeMetricTrend("fuelRate");
@@ -425,7 +539,7 @@ function getLatestSample(samples) {
 
 function usableTelemetrySamples(samples) {
   const usable = (Array.isArray(samples) ? samples : []).filter((sample) =>
-    METRIC_KEYS.some((key) => toNumber(sample?.metrics?.[key]) != null)
+    METRIC_KEYS.some((key) => metricNumber(key, sample?.metrics?.[key]) != null)
   );
   const unique = new Map();
   usable.forEach((sample) => {
@@ -433,6 +547,14 @@ function usableTelemetrySamples(samples) {
     unique.set(key, sample);
   });
   return Array.from(unique.values());
+}
+
+function sampleSpanHours(samples) {
+  const timestamps = (Array.isArray(samples) ? samples : [])
+    .map((sample) => new Date(sample.ts).getTime())
+    .filter(Number.isFinite);
+  if (timestamps.length < 2) return 0;
+  return (Math.max(...timestamps) - Math.min(...timestamps)) / 3_600_000;
 }
 
 function computeRouteSignature(samples) {
@@ -461,12 +583,16 @@ function computeModelState(data, vehicleId) {
   const seasonKey = latest ? getSeasonFromTimestamp(latest.ts) : "unknown";
   const coverage = computeCoverage(baselines);
   const climateContext = computeClimateContext(samples, baselines, seasonalBaselines, seasonKey);
+  const historySpanHours = sampleSpanHours(samples);
+  const chargingEvidence = computeChargingEvidence(samples);
   if (sampleCount < MIN_SAMPLES || coverage === 0) {
     return {
       vehicleId,
       orgId: latest?.orgId || null,
       sampleCount,
       coverage,
+      historySpanHours,
+      chargingEvidence,
       insufficientHistory: true,
       climateContext,
       updatedAt: new Date().toISOString(),
@@ -474,7 +600,7 @@ function computeModelState(data, vehicleId) {
     };
   }
   const anomaly = computeAnomaly(latest, baselines, seasonalBaselines, seasonKey);
-  const risk = computeRisk(samples, baselines, climateContext);
+  const risk = computeRisk(samples, baselines, climateContext, chargingEvidence);
   const confidence = confidenceFrom(sampleCount, coverage);
   return {
     vehicleId,
@@ -486,6 +612,8 @@ function computeModelState(data, vehicleId) {
     topContributors: anomaly.contributors,
     confidence,
     risk,
+    historySpanHours,
+    chargingEvidence,
     climateContext,
     updatedAt: new Date().toISOString(),
     routeSignature: computeRouteSignature(samples)
@@ -678,9 +806,11 @@ function generateAlertsFromState(state) {
   if (!state || state.insufficientHistory) return [];
   const alerts = [];
   const confidence = state.confidence || 0;
+  const historySpanHours = Number(state.historySpanHours) || 0;
   const pushAlert = (type, severity, explanation, checks) => {
     alerts.push({
       id: makeId("ALERT"),
+      dedupeKey: `ML:${state.vehicleId}:${type}`,
       orgId: state.orgId || null,
       vehicleId: state.vehicleId,
       type,
@@ -690,7 +820,7 @@ function generateAlertsFromState(state) {
       recommendedChecks: checks
     });
   };
-  if (state.anomalyScore != null && state.anomalyScore >= 0.7 && confidence >= 0.5) {
+  if (historySpanHours >= 1 && state.anomalyScore != null && state.anomalyScore >= 0.7 && confidence >= 0.5) {
     const severity = state.anomalyScore >= 0.85 ? "critical" : "warning";
     pushAlert("GENERAL", severity, "Anomaly score exceeded threshold with sufficient confidence.", [
       "Review recent telemetry history.",
@@ -699,30 +829,31 @@ function generateAlertsFromState(state) {
     ]);
   }
   const coolingRisk = state.risk?.cooling?.risk14;
-  if (coolingRisk != null && coolingRisk >= 70) {
-    pushAlert("COOLING", coolingRisk >= 85 ? "critical" : "warning", "Cooling system risk elevated over 14 days.", [
+  if (historySpanHours >= 6 && coolingRisk != null && coolingRisk >= 70) {
+    pushAlert("COOLING", coolingRisk >= 85 ? "critical" : "warning", "The projected 14-day cooling risk exceeded the alert threshold after at least six hours of telemetry history.", [
       "Inspect coolant levels and hoses.",
       "Review recent temperature spikes.",
       "Schedule cooling system inspection."
     ]);
   }
   const chargingRisk = state.risk?.charging?.risk14;
-  if (chargingRisk != null && chargingRisk >= 70) {
-    pushAlert("CHARGING", chargingRisk >= 85 ? "critical" : "warning", "Charging system risk elevated over 14 days.", [
-      "Inspect battery and alternator output.",
-      "Check voltage stability at idle.",
-      "Confirm recent electrical service."
+  const chargingEvidence = state.chargingEvidence;
+  if (chargingRisk != null && ["warning", "critical"].includes(chargingEvidence?.status)) {
+    pushAlert("CHARGING", chargingEvidence.status, chargingEvidence.explanation, [
+      "Verify charging voltage with a calibrated meter under load.",
+      "Inspect battery terminals, grounds, belt, and alternator connections.",
+      "Review charging-system DTCs and repeat the check across another drive cycle."
     ]);
   }
   const fuelRisk = state.risk?.fuel?.risk14;
-  if (fuelRisk != null && fuelRisk >= 70) {
-    pushAlert("FUEL_SYSTEM", fuelRisk >= 85 ? "critical" : "warning", "Fuel system risk elevated over 14 days.", [
+  if (historySpanHours >= 6 && fuelRisk != null && fuelRisk >= 70) {
+    pushAlert("FUEL_SYSTEM", fuelRisk >= 85 ? "critical" : "warning", "The projected 14-day fuel-system risk exceeded the alert threshold after at least six hours of telemetry history.", [
       "Check fuel filters and lines.",
       "Review fuel rate anomalies.",
       "Verify injector health."
     ]);
   }
-  if (state.climateContext?.extremeWeatherStress && confidence >= 0.4) {
+  if (historySpanHours >= 6 && state.climateContext?.extremeWeatherStress && confidence >= 0.4) {
     pushAlert("CLIMATE_STRESS", "warning", "Extreme ambient conditions detected relative to learned seasonal baseline.", [
       "Review route weather exposure and idling policy.",
       "Inspect cooling and charging systems for climate stress.",
@@ -831,19 +962,21 @@ function computeFullPrediction(samples, vehicleId) {
   const seasonKey = latest ? getSeasonFromTimestamp(latest.ts) : "unknown";
   const coverage = computeCoverage(baselines);
   const climateContext = computeClimateContext(sorted, baselines, seasonalBaselines, seasonKey);
+  const historySpanHours = sampleSpanHours(sorted);
+  const chargingEvidence = computeChargingEvidence(sorted);
 
   // Per-sensor risk scores (0-100) and weeks-to-failure projections
   const sensorRisks = {};
   const weeksToFailure = {};
 
   METRIC_KEYS.forEach((key) => {
-    const current = toNumber(latest.metrics?.[key]);
+    const current = metricNumber(key, latest.metrics?.[key]);
     if (current == null) return;
     const baseline = baselines[key];
     sensorRisks[key] = computeSensorRiskScore(key, current, baseline);
 
     const values = sorted
-      .map((s) => toNumber(s.metrics?.[key]))
+      .map((s) => metricNumber(key, s.metrics?.[key]))
       .filter((v) => v != null);
     const wtf = computeWeeksToFailure(values, key);
     if (wtf != null) weeksToFailure[key] = wtf;
@@ -863,11 +996,14 @@ function computeFullPrediction(samples, vehicleId) {
     : { score: null, contributors: [] };
 
   const risk = usableSamples.length >= MIN_SAMPLES
-    ? computeRisk(sorted, baselines, climateContext)
+    ? computeRisk(sorted, baselines, climateContext, chargingEvidence)
     : null;
 
   const confidence = confidenceFrom(usableSamples.length, coverage);
-  const signatures = detectMultivariateSignatures(latest.metrics);
+  const signatures = detectMultivariateSignatures(latest.metrics).filter((signature) =>
+    signature.id !== "charging_failure"
+      || ["warning", "critical"].includes(chargingEvidence.status)
+  );
 
   return {
     vehicleId,
@@ -880,11 +1016,15 @@ function computeFullPrediction(samples, vehicleId) {
     anomalyScore: anomaly.score != null ? Math.round(anomaly.score * 100) : null,
     topContributors: anomaly.contributors,
     risk,
+    historySpanHours,
+    chargingEvidence,
     climateContext,
     confidence,
     coverage,
     signatures,
-    currentMetrics: latest.metrics,
+    currentMetrics: Object.fromEntries(
+      METRIC_KEYS.map((key) => [key, metricNumber(key, latest.metrics?.[key])])
+    ),
     updatedAt: new Date().toISOString()
   };
 }
@@ -898,6 +1038,7 @@ module.exports = {
   computeModelState,
   upsertModelState,
   computeFullPrediction,
+  computeChargingEvidence,
   computeWeeksToFailure,
   computeSensorRiskScore,
   classifySensorTier,

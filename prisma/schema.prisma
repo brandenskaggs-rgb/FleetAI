@@ -525,6 +525,7 @@ model Recommendation {
 
 model Alert {
   id                String    @id @default(cuid())
+  dedupeKey         String?   @unique
   orgId             String?
   vehicleId         String
   type              String
