@@ -41,7 +41,8 @@ const prepared = prepareTelemetryIngest({
   frames: [
     { id: 0x0cf00400, data: [0, 0, 0, 0xe0, 0x2e, 0xff, 0xff, 0xff] },
     { id: 0x18feee00, data: [130, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff] },
-    { id: 0x18fef200, data: [0xf4, 0x01, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff] }
+    { id: 0x18fef200, data: [0xf4, 0x01, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff] },
+    { id: 0x18f0010b, data: [0x54, 100, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff] }
   ]
 }, context);
 
@@ -49,14 +50,18 @@ assert.strictEqual(prepared.adapter.protocol, "J1939");
 assert.strictEqual(prepared.normalized.engine.rpm, 1500);
 assert.strictEqual(prepared.normalized.engine.coolantTempC, 90);
 assert.strictEqual(prepared.normalized.engine.fuelRateLph, 25);
+assert.strictEqual(prepared.normalized.brakes.brakePedalPositionPct, 40);
+assert.strictEqual(prepared.normalized.brakes.serviceBrakeActive, 1);
+assert.strictEqual(prepared.normalized.brakes.absActive, 1);
+assert.strictEqual(prepared.normalized.brakes.tractionControlBrakeActive, 1);
 assert.strictEqual(prepared.normalized.orgId, "ORG_A");
-assert.strictEqual(prepared.frames.length, 3);
+assert.strictEqual(prepared.frames.length, 4);
 assert.strictEqual(prepared.frames[0].pgn, 61444);
 assert.strictEqual(prepared.frames[0].sourceAddress, 0);
 assert.strictEqual(prepared.frames[0].priority, 3);
 assert.strictEqual(prepared.capture.bitrate, 500000);
 assert.strictEqual(prepared.capture.connectorProfile, "GREEN_9_PIN");
-assert.strictEqual(prepared.quality.uniquePgnCount, 3);
+assert.strictEqual(prepared.quality.uniquePgnCount, 4);
 assert.strictEqual(prepared.decoded.meta.captureBytes, 1200);
 assert.strictEqual(prepared.decoded.meta.appVersion, "1.4");
 assert.strictEqual(prepared.decoded.meta.appVersionCode, 5);

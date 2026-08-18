@@ -15,7 +15,21 @@ const READING_KEYS = [
   "egtC", "dpfSootLoadPct", "regenActive",
   "engineOilPressureKpa", "fuelDeliveryPressureKpa", "engineOilLevelPct",
   "actualTorquePct", "driverDemandTorquePct", "ambientTempC", "barometricPressureKpa",
-  "instantFuelEconomyKmPerL", "tripDistanceKm", "alternatorVoltageV"
+  "instantFuelEconomyKmPerL", "tripDistanceKm", "alternatorVoltageV", "mapKpa", "boostPsi",
+  "shortTermFuelTrimBank1Pct", "longTermFuelTrimBank1Pct", "shortTermFuelTrimBank2Pct", "longTermFuelTrimBank2Pct",
+  "fuelPressureKpa", "fuelRailPressureRelativeKpa", "fuelRailGaugePressureKpa", "fuelRailAbsolutePressureKpa",
+  "ignitionTimingAdvanceDeg", "commandedEgrPct", "egrErrorPct", "commandedEvapPurgePct",
+  "commandedEquivalenceRatio", "fuelInjectionTimingDeg", "absoluteLoadPct",
+  "o2B1S1VoltageV", "o2B1S2VoltageV", "o2B2S1VoltageV", "o2B2S2VoltageV",
+  "catalystTempB1S1C", "catalystTempB2S1C", "catalystTempB1S2C", "catalystTempB2S2C",
+  "relativeThrottlePosPct", "absoluteThrottleBPosPct", "absoluteThrottleCPosPct",
+  "acceleratorPedalDPosPct", "acceleratorPedalEPosPct", "acceleratorPedalFPosPct",
+  "relativeAcceleratorPedalPct", "acceleratorPedalPosPct", "commandedThrottleActuatorPct", "referenceTorqueNm",
+  "engineRunTimeSec", "distanceWithMilOnKm", "warmupsSinceClear", "distanceSinceClearKm",
+  "milRunTimeMin", "timeSinceClearMin",
+  "evapSystemVaporPressurePa", "absoluteEvapVaporPressureKpa", "evapSystemVaporPressureWidePa",
+  "ethanolFuelPct", "hybridBatteryRemainingPct", "odometerKm",
+  "brakePedalPositionPct", "serviceBrakeActive", "absActive", "tractionControlBrakeActive"
 ];
 
 function hasAnyReading(obj) {
@@ -72,7 +86,23 @@ function normalizeMetrics(input) {
     fuelDeliveryPressureKpa: metrics.fuelDeliveryPressureKpa ?? null,
     engineOilLevelPct: metrics.engineOilLevelPct ?? null,
     actualTorquePct: metrics.actualTorquePct ?? null,
-    driverDemandTorquePct: metrics.driverDemandTorquePct ?? null
+    driverDemandTorquePct: metrics.driverDemandTorquePct ?? null,
+    mapKpa: metrics.mapKpa ?? null,
+    boostPsi: metrics.boostPsi ?? null,
+    absoluteLoadPct: metrics.absoluteLoadPct ?? null,
+    ignitionTimingAdvanceDeg: metrics.ignitionTimingAdvanceDeg ?? null,
+    referenceTorqueNm: metrics.referenceTorqueNm ?? null,
+    shortTermFuelTrimBank1Pct: metrics.shortTermFuelTrimBank1Pct ?? metrics.stft1 ?? metrics.shortTermFuelTrim ?? null,
+    longTermFuelTrimBank1Pct: metrics.longTermFuelTrimBank1Pct ?? metrics.ltft1 ?? metrics.longTermFuelTrim ?? null,
+    shortTermFuelTrimBank2Pct: metrics.shortTermFuelTrimBank2Pct ?? null,
+    longTermFuelTrimBank2Pct: metrics.longTermFuelTrimBank2Pct ?? null,
+    fuelPressureKpa: metrics.fuelPressureKpa ?? null,
+    fuelRailPressureRelativeKpa: metrics.fuelRailPressureRelativeKpa ?? null,
+    fuelRailGaugePressureKpa: metrics.fuelRailGaugePressureKpa ?? null,
+    fuelRailAbsolutePressureKpa: metrics.fuelRailAbsolutePressureKpa ?? null,
+    commandedEquivalenceRatio: metrics.commandedEquivalenceRatio ?? null,
+    fuelInjectionTimingDeg: metrics.fuelInjectionTimingDeg ?? null,
+    engineRunTimeSec: metrics.engineRunTimeSec ?? null
   };
 
   const electrical = {
@@ -86,18 +116,61 @@ function normalizeMetrics(input) {
     engineHours: metrics.engineHours ?? null,
     fuelLevelPct: metrics.fuelLevelPct ?? null,
     tripDistanceKm: metrics.tripDistanceKm ?? null,
-    instantFuelEconomyKmPerL: metrics.instantFuelEconomyKmPerL ?? null
+    instantFuelEconomyKmPerL: metrics.instantFuelEconomyKmPerL ?? null,
+    distanceWithMilOnKm: metrics.distanceWithMilOnKm ?? null,
+    warmupsSinceClear: metrics.warmupsSinceClear ?? null,
+    distanceSinceClearKm: metrics.distanceSinceClearKm ?? null,
+    milRunTimeMin: metrics.milRunTimeMin ?? null,
+    timeSinceClearMin: metrics.timeSinceClearMin ?? null,
+    hybridBatteryRemainingPct: metrics.hybridBatteryRemainingPct ?? null
   };
 
   const emissions = {
     egtC: metrics.egtC ?? null,
     dpfSootLoadPct: metrics.dpfSootLoadPct ?? null,
-    regenActive: metrics.regenActive ?? null
+    regenActive: metrics.regenActive ?? null,
+    o2B1S1VoltageV: metrics.o2B1S1VoltageV ?? null,
+    o2B1S2VoltageV: metrics.o2B1S2VoltageV ?? null,
+    o2B2S1VoltageV: metrics.o2B2S1VoltageV ?? null,
+    o2B2S2VoltageV: metrics.o2B2S2VoltageV ?? null,
+    catalystTempB1S1C: metrics.catalystTempB1S1C ?? null,
+    catalystTempB2S1C: metrics.catalystTempB2S1C ?? null,
+    catalystTempB1S2C: metrics.catalystTempB1S2C ?? null,
+    catalystTempB2S2C: metrics.catalystTempB2S2C ?? null,
+    commandedEgrPct: metrics.commandedEgrPct ?? null,
+    egrErrorPct: metrics.egrErrorPct ?? null,
+    commandedEvapPurgePct: metrics.commandedEvapPurgePct ?? null,
+    evapSystemVaporPressurePa: metrics.evapSystemVaporPressurePa ?? null,
+    absoluteEvapVaporPressureKpa: metrics.absoluteEvapVaporPressureKpa ?? null,
+    evapSystemVaporPressureWidePa: metrics.evapSystemVaporPressureWidePa ?? null
   };
 
   const environment = {
     ambientTempC: metrics.ambientTempC ?? null,
     barometricPressureKpa: metrics.barometricPressureKpa ?? metrics.baroKpa ?? null
+  };
+
+  const controls = {
+    relativeThrottlePosPct: metrics.relativeThrottlePosPct ?? null,
+    absoluteThrottleBPosPct: metrics.absoluteThrottleBPosPct ?? null,
+    absoluteThrottleCPosPct: metrics.absoluteThrottleCPosPct ?? null,
+    acceleratorPedalDPosPct: metrics.acceleratorPedalDPosPct ?? null,
+    acceleratorPedalEPosPct: metrics.acceleratorPedalEPosPct ?? null,
+    acceleratorPedalFPosPct: metrics.acceleratorPedalFPosPct ?? null,
+    acceleratorPedalPosPct: metrics.acceleratorPedalPosPct ?? null,
+    relativeAcceleratorPedalPct: metrics.relativeAcceleratorPedalPct ?? null,
+    commandedThrottleActuatorPct: metrics.commandedThrottleActuatorPct ?? null
+  };
+
+  const brakes = {
+    brakePedalPositionPct: metrics.brakePedalPositionPct ?? null,
+    serviceBrakeActive: metrics.serviceBrakeActive ?? null,
+    absActive: metrics.absActive ?? null,
+    tractionControlBrakeActive: metrics.tractionControlBrakeActive ?? null
+  };
+
+  const fuel = {
+    ethanolFuelPct: metrics.ethanolFuelPct ?? null
   };
 
   const active = Array.isArray(dtc.active) ? dtc.active : [];
@@ -118,6 +191,9 @@ function normalizeMetrics(input) {
     vehicle,
     emissions,
     environment,
+    controls,
+    brakes,
+    fuel,
     dtc: {
       active: active.map(toObj),
       pending: pending.map(toObj)

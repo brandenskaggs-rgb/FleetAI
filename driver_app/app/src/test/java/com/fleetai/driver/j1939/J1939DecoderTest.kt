@@ -26,5 +26,15 @@ class J1939DecoderTest {
         assertTrue(result.activeDtcs.contains("SPN 110 FMI 0 OC 3"))
     }
 
+    @Test
+    fun decodesElectronicBrakeControllerSignals() {
+        // EBC1: traction active, ABS active, service brake active, pedal at 40%.
+        val result = decoder.decode(frame(0x18F0010B, byteArrayOf(0x54, 100, -1, -1, -1, -1, -1, -1)))
+        assertEquals(1.0, result.metrics["tractionControlBrakeActive"]!!, 0.001)
+        assertEquals(1.0, result.metrics["absActive"]!!, 0.001)
+        assertEquals(1.0, result.metrics["serviceBrakeActive"]!!, 0.001)
+        assertEquals(40.0, result.metrics["brakePedalPositionPct"]!!, 0.001)
+    }
+
     private fun frame(id: Long, data: ByteArray) = CanFrame(id, data, 1_000L)
 }

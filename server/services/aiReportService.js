@@ -3,56 +3,18 @@
 // This service receives those computed values and asks the LLM to narrate them.
 // Never passes raw telemetry or asks the LLM to calculate anything.
 
-const https = require("https");
 const db = require("../db");
-const { makeId } = require("../db");
-
-const AI_MODEL = process.env.AI_MODEL || "llama-3.3-70b-versatile";
-const GROQ_API_KEY = process.env.GROQ_API_KEY || "";
-const AI_ENABLED = (process.env.AI_ENABLED || "").toLowerCase() === "true";
+const { completeChat, getAiProviderStatus } = require("./aiProviderService");
 
 // Cooldown: don't regenerate a report within this many minutes
 const REPORT_COOLDOWN_MINUTES = Number(process.env.REPORT_COOLDOWN_MINUTES || 60);
 
-function callGroq(prompt) {
-  return new Promise((resolve, reject) => {
-    if (!GROQ_API_KEY) return reject(new Error("GROQ_API_KEY not configured"));
-    const body = JSON.stringify({
-      model: AI_MODEL,
-      messages: [{ role: "user", content: prompt }],
-      max_tokens: 600,
-      temperature: 0.3
-    });
-    const req = https.request(
-      {
-        hostname: "api.groq.com",
-        path: "/openai/v1/chat/completions",
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${GROQ_API_KEY}`,
-          "Content-Length": Buffer.byteLength(body)
-        }
-      },
-      (res) => {
-        let raw = "";
-        res.on("data", (chunk) => { raw += chunk; });
-        res.on("end", () => {
-          try {
-            const parsed = JSON.parse(raw);
-            if (parsed.error) return reject(new Error(parsed.error.message));
-            resolve(parsed.choices?.[0]?.message?.content?.trim() || "");
-          } catch (err) {
-            reject(err);
-          }
-        });
-      }
-    );
-    req.on("error", reject);
-    req.setTimeout(15000, () => { req.destroy(); reject(new Error("Groq timeout")); });
-    req.write(body);
-    req.end();
-  });
+async function callGroq(prompt) {
+  const completion = await completeChat(
+    [{ role: "user", content: prompt }],
+    { provider: "groq", maxTokens: 600, temperature: 0.3, timeoutMs: 20_000 }
+  );
+  return completion;
 }
 
 function formatSensorRiskTable(sensorRisks) {
@@ -135,10 +97,8 @@ Do not repeat the raw numbers table — just narrate them naturally in the parag
 // prediction = output of computeFullPrediction()
 // vehicleMeta = { vin, year, make } from vehicle_capabilities
 async function generateReport(prediction, vehicleMeta = {}) {
-  if (!AI_ENABLED) {
-    return { narrative: buildFallbackNarrative(prediction), source: "deterministic" };
-  }
-  if (!GROQ_API_KEY) {
+  const providerStatus = getAiProviderStatus("groq");
+  if (!providerStatus.available) {
     return { narrative: buildFallbackNarrative(prediction), source: "deterministic" };
   }
 
@@ -153,11 +113,17 @@ async function generateReport(prediction, vehicleMeta = {}) {
 
   const prompt = buildPrompt(prediction, vehicleMeta);
   let narrative;
+  let source = "groq";
+  let modelUsed = providerStatus.model;
   try {
-    narrative = await callGroq(prompt);
+    const completion = await callGroq(prompt);
+    narrative = completion.content;
+    modelUsed = completion.model;
   } catch (err) {
-    console.warn("[AI-REPORT] Groq call failed, using deterministic fallback:", err.message);
+    console.warn(`[AI-REPORT] Groq call failed, using deterministic fallback: ${err.code || "AI_ERROR"}`);
     narrative = buildFallbackNarrative(prediction);
+    source = "deterministic_fallback";
+    modelUsed = null;
   }
 
   let reportId = null;
@@ -167,7 +133,7 @@ async function generateReport(prediction, vehicleMeta = {}) {
       vehicleId: prediction.vehicleId,
       narrative,
       predictionSnapshot: prediction,
-      modelUsed: AI_MODEL,
+      modelUsed,
       createdAt: new Date().toISOString()
     });
   } catch (err) {
@@ -179,8 +145,8 @@ async function generateReport(prediction, vehicleMeta = {}) {
     vehicleId: prediction.vehicleId,
     narrative,
     createdAt: new Date().toISOString(),
-    modelUsed: AI_MODEL,
-    source: "groq"
+    modelUsed,
+    source
   };
 }
 

@@ -5,7 +5,7 @@ const { prepareTelemetryIngest, TelemetryPayloadError } = require("../telematics
 const { appendFrames } = require("../telematics/storage/telemetryStore");
 
 function normalizedReadingCount(normalized) {
-  return ["engine", "electrical", "vehicle", "emissions", "environment"]
+  return ["engine", "electrical", "vehicle", "emissions", "environment", "controls", "brakes", "fuel"]
     .flatMap((group) => Object.values(normalized?.[group] || {}))
     .filter((value) => value !== null && value !== undefined && value !== "").length;
 }

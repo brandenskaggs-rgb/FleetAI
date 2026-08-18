@@ -9,7 +9,9 @@
  */
 const assert = require("assert");
 const { normalizeMetrics } = require("../server/telematics/normalize/normalizeMetrics");
-const { computeFullPrediction, computeModelState } = require("../server/ml");
+const { decodeObd2Frames } = require("../server/telematics/decoders/obd2PidDecoder");
+const { buildSensorView } = require("../server/telematics/diagnostics/sensorCatalog");
+const { buildTelemetrySample, computeFullPrediction, computeModelState } = require("../server/ml");
 
 let pass = 0, fail = 0;
 function check(name, cond, detail) {
@@ -79,6 +81,30 @@ check("fuel survives",      norm.vehicle.fuelLevelPct === metrics.fuelLevelPct, 
 check("oil temp survives",  norm.engine.oilTempC === metrics.oilTempC,             String(norm.engine.oilTempC));
 const anyNonNull = Object.values(norm.engine).some((v) => v !== null);
 check("NOT all-null (the bug)", anyNonNull);
+
+const expanded = decodeObd2Frames([
+  { mode: 1, pid: 0x0a, data: [0x20] },
+  { mode: 1, pid: 0x23, data: [0x00, 0x64] },
+  { mode: 1, pid: 0x0e, data: [0x80] },
+  { mode: 1, pid: 0x3c, data: [0x0f, 0xa0] },
+  { mode: 1, pid: 0x49, data: [0x80] }
+]);
+const expandedNorm = normalizeMetrics({
+  protocol: "OBD2",
+  decoded: { ...expanded, meta: { supportedPids: ["010A", "0123", "010E", "013C", "0149"] } }
+});
+check("fuel pressure survives", expandedNorm.engine.fuelPressureKpa === 96);
+check("fuel rail pressure survives", expandedNorm.engine.fuelRailGaugePressureKpa === 1000);
+check("ignition timing survives", expandedNorm.engine.ignitionTimingAdvanceDeg === 0);
+check("catalyst temperature survives", expandedNorm.emissions.catalystTempB1S1C === 360);
+check("accelerator position survives", Math.abs(expandedNorm.controls.acceleratorPedalDPosPct - 50.196) < 0.01);
+const expandedView = buildSensorView(expandedNorm, expandedNorm.meta);
+check("sensor inventory reports expanded signals", expandedView.counts.reporting >= 5);
+check("capability metadata matches canonical PID format", expandedView.readings.find(r => r.key === "fuelPressureKpa")?.supported === true);
+const expandedSample = buildTelemetrySample(expandedNorm);
+check("ML snapshot retains fuel pressure", expandedSample.metrics.fuelPressure === 96);
+check("ML snapshot retains rail pressure", expandedSample.metrics.fuelRailPressureGauge === 1000);
+check("ML snapshot retains catalyst temperature", expandedSample.metrics.catalystTempB1S1 === 360);
 
 // ── 4. Broadcast scoping ─────────────────────────────────────────────────────
 console.log("\n4. Real-time fan-out scoping");

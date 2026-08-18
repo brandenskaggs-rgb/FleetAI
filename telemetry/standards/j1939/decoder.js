@@ -26,10 +26,21 @@ function decodeSpns(pgn, data) {
   if (!items) return [];
   const out = [];
   for (const spn of items) {
-    const slice = data.slice(spn.start, spn.start + spn.length);
-    if (slice.length < spn.length) continue;
-    const raw = bytesToInt(slice);
-    const value = raw === (Math.pow(2, spn.length * 8) - 1) ? null : raw * spn.scale + spn.offset;
+    let raw;
+    let unavailableValue;
+    if (spn.bitLength) {
+      const byte = data[spn.start];
+      if (byte == null) continue;
+      raw = (byte >> spn.bitOffset) & ((1 << spn.bitLength) - 1);
+      unavailableValue = (1 << spn.bitLength) - 1;
+    } else {
+      const slice = data.slice(spn.start, spn.start + spn.length);
+      if (slice.length < spn.length) continue;
+      raw = bytesToInt(slice);
+      unavailableValue = Math.pow(2, spn.length * 8) - 1;
+    }
+    const invalid = raw === unavailableValue || (spn.validMaxRaw != null && raw > spn.validMaxRaw);
+    const value = invalid ? null : raw * spn.scale + spn.offset;
     out.push({ spn: spn.spn, name: spn.name, value, unit: spn.unit });
   }
   return out;

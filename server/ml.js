@@ -25,6 +25,38 @@ const METRIC_KEYS = [
   "fuelLevel"
 ];
 
+// Optional standardized signals improve evidence when an ECU advertises them,
+// but they do not reduce coverage for vehicles that do not implement them.
+const OPTIONAL_METRIC_KEYS = [
+  "mapKpa",
+  "absoluteLoad",
+  "ignitionTiming",
+  "fuelPressure",
+  "fuelRailPressureRelative",
+  "fuelRailPressureGauge",
+  "fuelRailPressureAbsolute",
+  "equivalenceRatio",
+  "fuelInjectionTiming",
+  "stft1",
+  "ltft1",
+  "stft2",
+  "ltft2",
+  "o2B1S1Voltage",
+  "o2B1S2Voltage",
+  "o2B2S1Voltage",
+  "o2B2S2Voltage",
+  "catalystTempB1S1",
+  "catalystTempB2S1",
+  "catalystTempB1S2",
+  "catalystTempB2S2",
+  "commandedEgr",
+  "egrError",
+  "acceleratorPedal",
+  "brakePedalPosition"
+];
+
+const ANALYSIS_METRIC_KEYS = [...METRIC_KEYS, ...OPTIONAL_METRIC_KEYS];
+
 const RISK_METRICS = {
   cooling: ["coolantTemp"],
   charging: ["batteryVoltage"],
@@ -166,7 +198,7 @@ function computeTimeWeightedBaseline(timestampedValues) {
 
 function computeBaselines(samples) {
   const baselines = {};
-  METRIC_KEYS.forEach((key) => {
+  ANALYSIS_METRIC_KEYS.forEach((key) => {
     const timestampedValues = samples
       .map((s) => ({ ts: s.ts, value: metricNumber(key, s.metrics?.[key]) }))
       .filter((item) => item.ts && item.value !== null);
@@ -195,7 +227,7 @@ function computeSeasonalBaselines(samples) {
   const seasons = ["winter", "spring", "summer", "fall"];
   seasons.forEach((season) => {
     seasonalValues[season] = {};
-    METRIC_KEYS.forEach((key) => {
+    ANALYSIS_METRIC_KEYS.forEach((key) => {
       seasonalValues[season][key] = [];
     });
   });
@@ -203,7 +235,7 @@ function computeSeasonalBaselines(samples) {
   samples.forEach((sample) => {
     const season = getSeasonFromTimestamp(sample.ts);
     if (!seasonalValues[season]) return;
-    METRIC_KEYS.forEach((key) => {
+    ANALYSIS_METRIC_KEYS.forEach((key) => {
       const value = metricNumber(key, sample.metrics?.[key]);
       if (value != null) seasonalValues[season][key].push(value);
     });
@@ -212,7 +244,7 @@ function computeSeasonalBaselines(samples) {
   const seasonalBaselines = {};
   Object.entries(seasonalValues).forEach(([season, byMetric]) => {
     seasonalBaselines[season] = {};
-    METRIC_KEYS.forEach((key) => {
+    ANALYSIS_METRIC_KEYS.forEach((key) => {
       seasonalBaselines[season][key] = computeBaseline(byMetric[key]);
     });
   });
@@ -246,7 +278,7 @@ function computeAnomaly(latest, baselines, seasonalBaselines = null, seasonKey =
   const contributors = [];
   let scoreSum = 0;
   let weightSum = 0;
-  METRIC_KEYS.forEach((key) => {
+  ANALYSIS_METRIC_KEYS.forEach((key) => {
     const value = metricNumber(key, latest.metrics?.[key]);
     const baseline = resolveBaseline(key, baselines, seasonalBaselines, seasonKey);
     if (value == null || !baseline || baseline.mean == null || !baseline.std) return;
@@ -493,6 +525,9 @@ function buildTelemetrySample(normalized, extra = {}) {
   const engine = normalized.engine || {};
   const vehicle = normalized.vehicle || {};
   const electrical = normalized.electrical || {};
+  const emissions = normalized.emissions || {};
+  const controls = normalized.controls || {};
+  const brakes = normalized.brakes || {};
   const metrics = {
     rpm: engine.rpm ?? null,
     vehicleSpeed: vehicle.speedKph ?? null,
@@ -508,7 +543,35 @@ function buildTelemetrySample(normalized, extra = {}) {
     intakeManifoldPressure: engine.mapKpa ?? engine.boostKpa ?? null,
     dpfSootLoad: engine.dpfSootLoadPct ?? null,
     ambientTemp: engine.ambientTempC ?? null,
-    fuelLevel: vehicle.fuelLevelPct ?? null
+    fuelLevel: vehicle.fuelLevelPct ?? null,
+    mapKpa: engine.mapKpa ?? null,
+    absoluteLoad: engine.absoluteLoadPct ?? null,
+    ignitionTiming: engine.ignitionTimingAdvanceDeg ?? null,
+    fuelPressure: engine.fuelPressureKpa ?? null,
+    fuelRailPressureRelative: engine.fuelRailPressureRelativeKpa ?? null,
+    fuelRailPressureGauge: engine.fuelRailGaugePressureKpa ?? null,
+    fuelRailPressureAbsolute: engine.fuelRailAbsolutePressureKpa ?? null,
+    equivalenceRatio: engine.commandedEquivalenceRatio ?? null,
+    fuelInjectionTiming: engine.fuelInjectionTimingDeg ?? null,
+    stft1: engine.shortTermFuelTrimBank1Pct ?? engine.stft1 ?? null,
+    ltft1: engine.longTermFuelTrimBank1Pct ?? engine.ltft1 ?? null,
+    stft2: engine.shortTermFuelTrimBank2Pct ?? null,
+    ltft2: engine.longTermFuelTrimBank2Pct ?? null,
+    o2B1S1Voltage: emissions.o2B1S1VoltageV ?? null,
+    o2B1S2Voltage: emissions.o2B1S2VoltageV ?? null,
+    o2B2S1Voltage: emissions.o2B2S1VoltageV ?? null,
+    o2B2S2Voltage: emissions.o2B2S2VoltageV ?? null,
+    catalystTempB1S1: emissions.catalystTempB1S1C ?? null,
+    catalystTempB2S1: emissions.catalystTempB2S1C ?? null,
+    catalystTempB1S2: emissions.catalystTempB1S2C ?? null,
+    catalystTempB2S2: emissions.catalystTempB2S2C ?? null,
+    commandedEgr: emissions.commandedEgrPct ?? null,
+    egrError: emissions.egrErrorPct ?? null,
+    acceleratorPedal: controls.acceleratorPedalDPosPct
+      ?? controls.acceleratorPedalEPosPct
+      ?? controls.relativeAcceleratorPedalPct
+      ?? null,
+    brakePedalPosition: brakes.brakePedalPositionPct ?? null
   };
   const raw = Object.assign({}, extra.rawPids || {}, extra.derivedMetrics || {});
   delete raw.heartbeatMs;
@@ -983,6 +1046,9 @@ function computeFullPrediction(samples, vehicleId, vehicleMeta = {}) {
   const sensorRisks = {};
   const weeksToFailure = {};
 
+  // Only established health features affect the launch health score. Optional
+  // PIDs are retained for baselines/evidence, but fast-cycling O2 or pedal data
+  // must not create a maintenance risk merely because it moved normally.
   METRIC_KEYS.forEach((key) => {
     const current = metricNumber(key, latest.metrics?.[key]);
     if (current == null) return;
@@ -1037,7 +1103,7 @@ function computeFullPrediction(samples, vehicleId, vehicleMeta = {}) {
     coverage,
     signatures,
     currentMetrics: Object.fromEntries(
-      METRIC_KEYS.map((key) => [key, metricNumber(key, latest.metrics?.[key])])
+      ANALYSIS_METRIC_KEYS.map((key) => [key, metricNumber(key, latest.metrics?.[key])])
     ),
     updatedAt: new Date().toISOString()
   };
@@ -1046,6 +1112,7 @@ function computeFullPrediction(samples, vehicleId, vehicleMeta = {}) {
 module.exports = {
   MIN_SAMPLES,
   METRIC_KEYS,
+  OPTIONAL_METRIC_KEYS,
   SENSOR_DANGER_THRESHOLDS,
   buildTelemetrySample,
   appendTelemetrySample,

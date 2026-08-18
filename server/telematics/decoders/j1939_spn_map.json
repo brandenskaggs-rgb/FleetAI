@@ -23,6 +23,10 @@
   "171": { "metric": "ambientAirTempC",          "scale": 0.03125,   "offset": -273, "unit": "C"    },
   "1636":{ "metric": "engineOilLevelPct",        "scale": 0.4,       "offset": 0,    "unit": "%"    },
   "100": { "metric": "engineOilPressureKpa",     "scale": 4,         "offset": 0,    "unit": "kPa"  },
+  "521": { "metric": "brakePedalPositionPct",    "scale": 0.4,       "offset": 0,    "unit": "%"    },
+  "562": { "metric": "tractionControlBrakeActive","scale": 1,        "offset": 0,    "unit": "state" },
+  "563": { "metric": "absActive",                 "scale": 1,         "offset": 0,    "unit": "state" },
+  "1121":{ "metric": "serviceBrakeActive",        "scale": 1,         "offset": 0,    "unit": "state" },
 
   "241": { "metric": "tpmsFrontLeftKpa",         "scale": 8,         "offset": 0,    "unit": "kPa", "requires2015": true },
   "242": { "metric": "tpmsFrontRightKpa",        "scale": 8,         "offset": 0,    "unit": "kPa", "requires2015": true },

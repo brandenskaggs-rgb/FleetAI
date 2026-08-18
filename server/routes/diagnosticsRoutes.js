@@ -71,7 +71,7 @@ function registerDiagnosticsRoutes(app, deps) {
       ok: true,
       groups: GROUPS,
       sensors: SENSORS.map((s) => ({
-        key: s.key, label: s.label, unit: s.unit, group: s.group,
+        key: s.key, path: s.path, label: s.label, unit: s.unit, group: s.group,
         spn: s.spn, pid: s.pid, normal: s.normal, boolean: Boolean(s.boolean)
       }))
     });

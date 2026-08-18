@@ -1,4 +1,10 @@
 const SPN_CATALOG = {
+  61441: [
+    { spn: 562, name: "traction_control_brake_active", start: 0, bitOffset: 2, bitLength: 2, validMaxRaw: 1, scale: 1, offset: 0, unit: "state" },
+    { spn: 563, name: "abs_active", start: 0, bitOffset: 4, bitLength: 2, validMaxRaw: 1, scale: 1, offset: 0, unit: "state" },
+    { spn: 1121, name: "service_brake_active", start: 0, bitOffset: 6, bitLength: 2, validMaxRaw: 1, scale: 1, offset: 0, unit: "state" },
+    { spn: 521, name: "brake_pedal_position", start: 1, length: 1, validMaxRaw: 250, scale: 0.4, offset: 0, unit: "pct" }
+  ],
   61444: [
     { spn: 190, name: "engine_speed", start: 3, length: 2, scale: 0.125, offset: 0, unit: "rpm" },
     { spn: 512, name: "driver_demand_torque", start: 1, length: 1, scale: 1, offset: -125, unit: "pct" },

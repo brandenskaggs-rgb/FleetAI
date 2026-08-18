@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "profiles": [
+    {
+      "id": "gm-gmx521-2010-llt",
+      "name": "2010 Chevrolet Camaro 3.6L LLT",
+      "match": {
+        "wmi": ["1G1", "2G1"],
+        "modelYearCodes": ["A"],
+        "engineVinCodes": ["V"]
+      },
+      "source": {
+        "name": "General Motors 2010 OBD Grouping Summary",
+        "url": "https://gsitlc.ext.gm.com/gmspo/mode6/pdf/2010/2010%20OBD%20Grouping%20Summary.pdf",
+        "scope": "Vehicle-family identification only; extended PID commands require an authorized definition source"
+      },
+      "sensors": []
+    }
+  ]
+}

@@ -1,6 +1,89 @@
 package com.fleetai.driver.obd
 
 object ObdParser {
+    fun parsePid(command: String, response: String): Map<String, Double> {
+        val normalized = command.replace(" ", "").uppercase()
+        if (!normalized.startsWith("01") || normalized.length != 4) return emptyMap()
+        val pid = normalized.substring(2)
+        val bytes = extractBytes(response, "41 $pid") ?: return emptyMap()
+        fun a() = bytes.getOrNull(0)
+        fun u16() = if (bytes.size >= 2) bytes[0] * 256 + bytes[1] else null
+        fun u32() = if (bytes.size >= 4) {
+            ((bytes[0].toLong() shl 24) or (bytes[1].toLong() shl 16) or
+                (bytes[2].toLong() shl 8) or bytes[3].toLong()).toDouble()
+        } else null
+        fun pct() = a()?.let { it * 100.0 / 255.0 }
+        fun trim() = a()?.let { (it - 128) * 100.0 / 128.0 }
+        fun temp() = a()?.minus(40)?.toDouble()
+        fun catalystTemp() = u16()?.let { it / 10.0 - 40.0 }
+        fun torque() = a()?.minus(125)?.toDouble()
+        val pair: Pair<String, Double?> = when (pid) {
+            "04" -> "engineLoadPct" to pct()
+            "05" -> "coolantTempC" to temp()
+            "06" -> "shortTermFuelTrimBank1Pct" to trim()
+            "07" -> "longTermFuelTrimBank1Pct" to trim()
+            "08" -> "shortTermFuelTrimBank2Pct" to trim()
+            "09" -> "longTermFuelTrimBank2Pct" to trim()
+            "0A" -> "fuelPressureKpa" to a()?.times(3.0)
+            "0B" -> "mapKpa" to a()?.toDouble()
+            "0C" -> "rpm" to u16()?.div(4.0)
+            "0D" -> "speedKph" to a()?.toDouble()
+            "0E" -> "ignitionTimingAdvanceDeg" to a()?.div(2.0)?.minus(64.0)
+            "0F" -> "intakeAirTempC" to temp()
+            "10" -> "mafGramsPerSec" to u16()?.div(100.0)
+            "11" -> "throttlePosPct" to pct()
+            "14" -> "o2B1S1VoltageV" to a()?.div(200.0)
+            "15" -> "o2B1S2VoltageV" to a()?.div(200.0)
+            "18" -> "o2B2S1VoltageV" to a()?.div(200.0)
+            "19" -> "o2B2S2VoltageV" to a()?.div(200.0)
+            "1F" -> "engineRunTimeSec" to u16()?.toDouble()
+            "21" -> "distanceWithMilOnKm" to u16()?.toDouble()
+            "22" -> "fuelRailPressureRelativeKpa" to u16()?.times(0.079)
+            "23" -> "fuelRailGaugePressureKpa" to u16()?.times(10.0)
+            "2C" -> "commandedEgrPct" to pct()
+            "2D" -> "egrErrorPct" to trim()
+            "2E" -> "commandedEvapPurgePct" to pct()
+            "2F" -> "fuelLevelPct" to pct()
+            "30" -> "warmupsSinceClear" to a()?.toDouble()
+            "31" -> "distanceSinceClearKm" to u16()?.toDouble()
+            "32" -> "evapSystemVaporPressurePa" to u16()?.div(4.0)?.minus(8192.0)
+            "33" -> "barometricPressureKpa" to a()?.toDouble()
+            "3C" -> "catalystTempB1S1C" to catalystTemp()
+            "3D" -> "catalystTempB2S1C" to catalystTemp()
+            "3E" -> "catalystTempB1S2C" to catalystTemp()
+            "3F" -> "catalystTempB2S2C" to catalystTemp()
+            "42" -> "batteryVoltageV" to u16()?.div(1000.0)
+            "43" -> "absoluteLoadPct" to u16()?.times(100.0)?.div(255.0)
+            "44" -> "commandedEquivalenceRatio" to u16()?.times(2.0)?.div(65536.0)
+            "45" -> "relativeThrottlePosPct" to pct()
+            "46" -> "ambientTempC" to temp()
+            "47" -> "absoluteThrottleBPosPct" to pct()
+            "48" -> "absoluteThrottleCPosPct" to pct()
+            "49" -> "acceleratorPedalDPosPct" to pct()
+            "4A" -> "acceleratorPedalEPosPct" to pct()
+            "4B" -> "acceleratorPedalFPosPct" to pct()
+            "4C" -> "commandedThrottleActuatorPct" to pct()
+            "4D" -> "milRunTimeMin" to u16()?.toDouble()
+            "4E" -> "timeSinceClearMin" to u16()?.toDouble()
+            "52" -> "ethanolFuelPct" to pct()
+            "53" -> "absoluteEvapVaporPressureKpa" to u16()?.div(200.0)
+            "54" -> "evapSystemVaporPressureWidePa" to u16()?.minus(32767.0)
+            "59" -> "fuelRailAbsolutePressureKpa" to u16()?.times(10.0)
+            "5A" -> "relativeAcceleratorPedalPct" to pct()
+            "5B" -> "hybridBatteryRemainingPct" to pct()
+            "5C" -> "oilTempC" to temp()
+            "5D" -> "fuelInjectionTimingDeg" to u16()?.div(128.0)?.minus(210.0)
+            "5E" -> "fuelRateLph" to u16()?.times(0.05)
+            "61" -> "driverDemandTorquePct" to torque()
+            "62" -> "actualTorquePct" to torque()
+            "63" -> "referenceTorqueNm" to u16()?.toDouble()
+            "A6" -> "odometerKm" to u32()?.div(10.0)
+            else -> "" to null
+        }
+        val value = pair.second
+        return if (pair.first.isNotEmpty() && value != null && value.isFinite()) mapOf(pair.first to value) else emptyMap()
+    }
+
     fun hasResponse(response: String, mode: String, pid: String): Boolean {
         val tokens = tokenizeHex(response)
         val expected = listOf(mode.uppercase(), pid.uppercase())
@@ -72,16 +155,20 @@ object ObdParser {
     }
 
     fun parseVin(response: String): String? {
-        // Accept typical multi-line 09 02 response, pull ASCII bytes after the service/header tokens
-        val cleaned = response.replace("\r", " ").replace(">", " ").trim()
-        val parts = cleaned.split(" ").filter { it.isNotBlank() }
-        if (!parts.any { it.equals("49", true) }) return null
-        // Remove mode/service tokens (49 02 xx) if present
-        val asciiBytes = parts.dropWhile { it.equals("49", true) || it.equals("02", true) || it.length != 2 }
+        val tokens = tokenizeHex(response)
+        val start = tokens.windowed(2).indexOf(listOf("49", "02"))
+        if (start < 0) return null
+        // The byte after 49 02 is the message count/record number. ELM line
+        // labels such as "0:" and "1:" are discarded by tokenizeHex().
+        val vin = tokens.drop(start + 3)
             .mapNotNull { it.toIntOrNull(16) }
-        if (asciiBytes.isEmpty()) return null
-        val vin = asciiBytes.map { it.toChar() }.joinToString("").trim()
-        return vin.ifBlank { null }
+            .filter { it in 0x20..0x7e }
+            .map { it.toChar() }
+            .joinToString("")
+            .filter { it.isLetterOrDigit() }
+            .take(17)
+            .uppercase()
+        return vin.takeIf { it.length == 17 }
     }
 
     fun parseIntake(response: String): Double? {

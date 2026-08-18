@@ -91,6 +91,18 @@ function sanitizeTelemetryMeta(meta) {
     throw new TelemetryPayloadError("meta must be an object");
   }
   const output = {};
+  if (Array.isArray(meta.supportedPids)) {
+    output.supportedPids = [...new Set(meta.supportedPids
+      .map((value) => boundedText(value, 4).toUpperCase())
+      .filter((value) => /^01[0-9A-F]{2}$/.test(value)))]
+      .slice(0, 256);
+  }
+  if (Array.isArray(meta.supportedSpns)) {
+    output.supportedSpns = [...new Set(meta.supportedSpns
+      .map(Number)
+      .filter((value) => Number.isInteger(value) && value > 0 && value <= 524287))]
+      .slice(0, 1024);
+  }
   const vin = boundedText(meta.vin, 17).toUpperCase();
   if (vin && /^[A-HJ-NPR-Z0-9]{11,17}$/.test(vin)) output.vin = vin;
   const connector = boundedText(meta.connectorProfile, 40);

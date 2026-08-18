@@ -46,7 +46,11 @@ function normalizeMetricName(name) {
     fuel_level: "fuelLevelPct",
     trip_distance: "tripDistanceKm",
     fuel_delivery_pressure: "fuelDeliveryPressureKpa",
-    accelerator_pedal_position: "acceleratorPedalPosPct"
+    accelerator_pedal_position: "acceleratorPedalPosPct",
+    brake_pedal_position: "brakePedalPositionPct",
+    service_brake_active: "serviceBrakeActive",
+    abs_active: "absActive",
+    traction_control_brake_active: "tractionControlBrakeActive"
   };
   return map[name] || null;
 }
@@ -111,6 +115,8 @@ function decodeJ1939Frames(frames) {
     // Path 1: already extracted SPN/value by upstream device.
     const spn = frame.spn || frame.spnId;
     if (spn != null) {
+      const spnNumber = Number(spn);
+      if (Number.isInteger(spnNumber)) meta.supportedSpns.push(spnNumber);
       // SPN 237 = VIN character data (text, not numeric)
       if (String(spn) === "237" && frame.vinString) {
         const vin = String(frame.vinString).trim().toUpperCase();
@@ -144,12 +150,14 @@ function decodeJ1939Frames(frames) {
 
     const decodedSpns = decodeSpns(resolved.pgn, resolved.data);
     decodedSpns.forEach((item) => {
+      if (!meta.supportedSpns.includes(item.spn)) meta.supportedSpns.push(item.spn);
       const metricKey = normalizeMetricName(item.name);
       if (!metricKey || item.value == null || Number.isNaN(item.value)) return;
       metrics[metricKey] = item.value;
     });
   });
 
+  meta.supportedSpns = [...new Set(meta.supportedSpns)].sort((a, b) => a - b);
   return { metrics, dtc, meta };
 }
 

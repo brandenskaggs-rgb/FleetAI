@@ -1,4 +1,5 @@
 const db = require("../db");
+const { completeChat, getAiProviderStatus } = require("../services/aiProviderService");
 
 function registerSolutionRoutes(app, deps) {
   const {
@@ -633,19 +634,24 @@ function registerSolutionRoutes(app, deps) {
   });
 
   // ── AI ADVISOR CHAT ────────────────────────────────────────────────────────
+  app.get("/api/advisor/status", requireEmployeeOrCustomerApi, (req, res) => {
+    res.json({ ok: true, ...getAiProviderStatus() });
+  });
+
   app.post("/api/advisor/message", requireEmployeeOrCustomerApi, async (req, res, next) => {
     try {
-      const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
-      const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
-      if (!OPENAI_API_KEY) {
-        return res.json({ ok: true, reply: "AI Advisor is not configured. Add OPENAI_API_KEY to your .env file to enable it." });
+      const status = getAiProviderStatus();
+      if (!status.available) {
+        const reason = status.enabled ? `${status.provider} is not configured` : "AI features are disabled";
+        return res.status(503).json({ ok: false, error: "advisor_unavailable", message: reason });
       }
 
-      const message = sanitizeString(req.body.message || req.body.content || "", 2000);
+      const message = sanitizeString(req.body.message || req.body.query || req.body.content || "", 2000);
       if (!message) return res.status(400).json({ error: "message required" });
 
       const data = await ensureCollections(await readData());
       const orgId = resolveRequestOrgId(req, data);
+      if (!orgId) return res.status(400).json({ error: "orgId required" });
 
       const vehicles = data.vehicles.filter((v) => matchesOrg(v, orgId)).slice(0, 20);
       const alerts = (Array.isArray(data.alerts) ? data.alerts : []).filter((a) => matchesOrg(a, orgId)).slice(0, 10);
@@ -653,44 +659,37 @@ function registerSolutionRoutes(app, deps) {
       const recentMaint = data.maintenanceLogs.filter((l) => matchesOrg(l, orgId)).slice(0, 10);
 
       const context = {
-        vehicles: vehicles.map((v) => ({ id: v.vehicleId || v.id, name: v.unitName || v.name, vin: v.vin, type: v.vehicleType })),
+        vehicles: vehicles.map((v) => ({
+          id: v.vehicleId || v.id,
+          name: v.unitName || v.name,
+          year: v.year,
+          make: v.make,
+          model: v.model,
+          type: v.vehicleType
+        })),
         activeAlerts: alerts.map((a) => ({ type: a.type, severity: a.severity, vehicleId: a.vehicleId, createdAt: a.createdAt })),
         recentMaintenance: recentMaint.map((l) => ({ vehicleId: l.vehicleId, type: l.serviceType || l.type, date: l.performedAt || l.createdAt, cost: l.cost }))
       };
 
-      const https = require("https");
-      const payload = JSON.stringify({
-        model: OPENAI_MODEL,
-        messages: [
+      try {
+        const completion = await completeChat([
           { role: "system", content: `You are the Fleet AI advisor — an expert fleet management assistant. Answer questions using the fleet data provided. Be concise, practical, and action-oriented. If data is insufficient, say so honestly. Fleet context: ${JSON.stringify(context)}` },
           { role: "user", content: message }
-        ],
-        temperature: 0.4,
-        max_tokens: 600
-      });
-
-      const response = await new Promise((resolve, reject) => {
-        const req2 = https.request({
-          hostname: "api.openai.com",
-          path: "/v1/chat/completions",
-          method: "POST",
-          headers: { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(payload), Authorization: `Bearer ${OPENAI_API_KEY}` }
-        }, (r) => {
-          let raw = "";
-          r.on("data", (c) => (raw += c));
-          r.on("end", () => resolve({ status: r.statusCode, body: raw }));
+        ], { temperature: 0.3, maxTokens: 600 });
+        return res.json({
+          ok: true,
+          reply: sanitizeString(completion.content, 3000),
+          source: completion.provider,
+          model: completion.model
         });
-        req2.on("error", reject);
-        req2.write(payload);
-        req2.end();
-      });
-
-      if (response.status >= 200 && response.status < 300) {
-        const parsed = JSON.parse(response.body || "{}");
-        const reply = parsed?.choices?.[0]?.message?.content || "No response generated.";
-        return res.json({ ok: true, reply: sanitizeString(reply, 3000) });
+      } catch (error) {
+        console.warn(`[AI-ADVISOR] ${error.code || "AI_ERROR"} status=${error.status || 0}`);
+        return res.status(503).json({
+          ok: false,
+          error: "advisor_temporarily_unavailable",
+          message: error.retryable ? "AI Advisor is temporarily unavailable. Try again shortly." : "AI Advisor configuration needs attention."
+        });
       }
-      return res.json({ ok: true, reply: "The AI service is temporarily unavailable. Please try again shortly." });
     } catch (err) { next(err); }
   });
 

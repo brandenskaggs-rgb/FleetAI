@@ -10,6 +10,7 @@ import com.fleetai.driver.network.CanFrameDto
 import com.fleetai.driver.network.TelemetryAdapterDto
 import com.fleetai.driver.network.TelemetryIngestRequest
 import com.fleetai.driver.network.TelemetryDtcDto
+import com.fleetai.driver.obd.ExtendedPidProfile
 import java.time.Instant
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
@@ -93,13 +94,35 @@ class TelemetrySender(
 
     private suspend fun discoverObdCapabilities() {
         try {
-            val supported = obd.discoverSupportedPids()
-            debug = debug.copy(supportedPidCount = supported.size)
+            val supported = obd.supportedPidsSnapshot().ifEmpty { obd.discoverSupportedPids() }
+            updateObdCapabilities(supported)
         } catch (error: Exception) {
             debug = debug.copy(lastError = error.message ?: "discover_pid_error", errors = debug.errors + 1)
         }
         cachedVin = runCatching { obd.readVin() }.getOrNull()
         refreshObdDiagnostics()
+    }
+
+    fun updateObdCapabilities(supported: Set<String>) {
+        val normalized = supported.map { it.replace(" ", "").uppercase() }.distinct().sorted()
+        latestMeta["supportedPids"] = normalized
+        debug = debug.copy(supportedPidCount = normalized.size)
+    }
+
+    fun updateExtendedProfile(profile: ExtendedPidProfile?) {
+        if (profile == null) {
+            latestMeta.remove("extendedPidProfile")
+            latestMeta.remove("extendedPidProfileName")
+            latestMeta.remove("extendedPidSource")
+            latestMeta.remove("extendedPidSourceScope")
+            latestMeta.remove("extendedPidCount")
+            return
+        }
+        latestMeta["extendedPidProfile"] = profile.id
+        latestMeta["extendedPidProfileName"] = profile.name
+        latestMeta["extendedPidSource"] = profile.source.name
+        latestMeta["extendedPidSourceScope"] = profile.source.scope
+        latestMeta["extendedPidCount"] = profile.sensors.size
     }
 
     private suspend fun enqueueCurrentBatch() {

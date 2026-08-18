@@ -116,6 +116,7 @@
     .inspectionChecklist{border:0;margin:20px 0;padding:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px 18px}.inspectionChecklist legend{font-weight:700;margin-bottom:10px}.inspectionChecklist label{display:flex;align-items:center;gap:7px;color:var(--muted);font-size:13px}.inspectionChecklist input{accent-color:var(--primary)}
     textarea{min-height:78px;resize:vertical}.sectionActions{display:flex;gap:8px;flex-wrap:wrap}.muted{color:var(--muted)}.mono{font-family:var(--mono)}
     .scheduleList{display:grid;gap:8px}.scheduleItem{display:flex;gap:10px;align-items:center;justify-content:space-between;border:0;border-radius:3px;padding:13px 12px;background:var(--panel2)}.scheduleDate{font-family:var(--mono);color:var(--primary)}
+    .sensorInventory{margin-top:18px}.sensorInventoryHead{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:14px}.sensorInventoryHead h3{margin:0;font:700 17px/1.2 var(--display)}.sensorInventoryHead p{margin:5px 0 0;color:var(--muted);font-size:12px}.sensorGroups{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.sensorGroup{background:var(--panel);border-radius:4px;padding:18px 20px;box-shadow:0 1px 2px rgba(15,23,42,.04),0 8px 24px rgba(15,23,42,.04)}.sensorGroup h4{margin:0 0 10px;font:700 13px/1.2 var(--display);text-transform:uppercase;letter-spacing:.55px;color:var(--muted)}.sensorReading{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;padding:9px 0;box-shadow:inset 0 -1px 0 var(--divider)}.sensorReading:last-child{box-shadow:none}.sensorReadingName{font-size:13px;font-weight:650}.sensorReadingMeta{margin-top:2px;color:var(--muted);font-size:10.5px;font-family:var(--mono)}.sensorReadingValue{text-align:right;font-family:var(--mono);font-size:13px;font-weight:700}.sensorReading.unsupported{opacity:.52}.sensorSummary{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.sensorEmpty{grid-column:1/-1;padding:18px 0;color:var(--muted)}
     .bar{height:8px;background:var(--surface2);border-radius:999px;overflow:hidden}.bar span{display:block;height:100%;background:var(--primary);border-radius:999px}
     .skeleton{height:48px;border-radius:12px;background:linear-gradient(90deg,var(--panel2),color-mix(in srgb,var(--panel2) 60%,var(--border)),var(--panel2));background-size:200% 100%;animation:shimmer 1.1s linear infinite}@keyframes shimmer{to{background-position:-200% 0}}
     .inlineError{margin-top:9px;color:var(--muted);font-size:12px}.inlineError strong{color:var(--warn)}
@@ -130,8 +131,8 @@
     .advisorForm{display:flex;gap:8px;padding:12px}
     .advisorForm input{flex:1}
     .srOnly{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}.mobileOnly{display:none}
-    @media (max-width:1180px){.app-header{grid-template-columns:1fr auto}.search{display:none}.headerActions{grid-column:2}.overviewHero,.grid4,.commandStrip{grid-template-columns:repeat(2,minmax(0,1fr))}.grid3,.cameraGrid{grid-template-columns:1fr 1fr}.inspectionChecklist{grid-template-columns:repeat(2,minmax(0,1fr))}}
-    @media (max-width:760px){body{overflow:auto}.app{height:auto;min-height:100vh;grid-template-columns:0 minmax(0,1fr)}.sidebar{position:fixed;z-index:60;width:264px;opacity:0;transform:translateX(-18px);pointer-events:none}.app.nav-collapsed .sidebar{display:none}.app:not(.nav-collapsed) .sidebar{display:block;opacity:1;transform:none;pointer-events:auto}.main{grid-column:2;height:auto;padding:0 16px 96px}.app-header{display:flex;flex-wrap:wrap;gap:8px;padding:14px 0 10px}.crumb{width:100%}.crumb p{display:none}.headerActions{width:100%;display:flex;flex-wrap:nowrap;justify-content:flex-start;gap:2px}.headerActions .chip,#btnAddTeamMember,#btnExportReport{display:none!important}.headerActions .btn{padding:0 9px}.overviewHero,.grid2,.grid3,.grid4,.commandStrip,.form-grid,.cameraGrid{grid-template-columns:1fr}.viewHeader{padding:20px 0 14px}.viewHeader h2{font-size:27px}.viewHeader p{font-size:13px}.heroPanel,.planPanel{padding:22px}.inspectionChecklist{grid-template-columns:1fr}.opsAdvisorDock{right:12px;bottom:12px;max-width:calc(100vw - 24px)}.mobileOnly{display:inline-flex}}
+    @media (max-width:1180px){.app-header{grid-template-columns:1fr auto}.search{display:none}.headerActions{grid-column:2}.overviewHero,.grid4,.commandStrip{grid-template-columns:repeat(2,minmax(0,1fr))}.grid3,.cameraGrid,.sensorGroups{grid-template-columns:1fr 1fr}.inspectionChecklist{grid-template-columns:repeat(2,minmax(0,1fr))}}
+    @media (max-width:760px){body{overflow:auto}.app{height:auto;min-height:100vh;grid-template-columns:0 minmax(0,1fr)}.sidebar{position:fixed;z-index:60;width:264px;opacity:0;transform:translateX(-18px);pointer-events:none}.app.nav-collapsed .sidebar{display:none}.app:not(.nav-collapsed) .sidebar{display:block;opacity:1;transform:none;pointer-events:auto}.main{grid-column:2;height:auto;padding:0 16px 96px}.app-header{display:flex;flex-wrap:wrap;gap:8px;padding:14px 0 10px}.crumb{width:100%}.crumb p{display:none}.headerActions{width:100%;display:flex;flex-wrap:nowrap;justify-content:flex-start;gap:2px}.headerActions .chip,#btnAddTeamMember,#btnExportReport{display:none!important}.headerActions .btn{padding:0 9px}.overviewHero,.grid2,.grid3,.grid4,.commandStrip,.form-grid,.cameraGrid,.sensorGroups{grid-template-columns:1fr}.viewHeader{padding:20px 0 14px}.viewHeader h2{font-size:27px}.viewHeader p{font-size:13px}.heroPanel,.planPanel{padding:22px}.inspectionChecklist{grid-template-columns:1fr}.opsAdvisorDock{right:12px;bottom:12px;max-width:calc(100vw - 24px)}.mobileOnly{display:inline-flex}}
   </style>
 </head>
 <body>
@@ -215,6 +216,7 @@
           <div class="commandMetric"><div class="commandMetric__label">Battery</div><div class="commandMetric__value" id="liveBattery">--</div><div class="commandMetric__sub">Electrical signal</div></div>
         </div>
         <div class="card"><div class="cardHead"><div><h3>Live Sensor Readings</h3><div class="cardMeta"><span id="telemetryStatus" class="pill warn">Waiting</span><span id="telemetryEcuDetail" class="muted">Waiting for tablet diagnostics</span></div></div><div class="form-group"><label class="form-label" for="telemetryVehicleSelect">Vehicle</label><select class="form-select" id="telemetryVehicleSelect"></select></div></div><div class="cardBody tableWrap"><table class="table"><thead><tr><th>Time</th><th>Vehicle</th><th>RPM</th><th>Speed</th><th>Coolant</th><th>Battery</th><th>Engine Load</th></tr></thead><tbody id="telemetryRows"></tbody></table><div class="inlineError" id="telemetryError"></div></div></div>
+        <div class="sensorInventory"><div class="sensorInventoryHead"><div><h3>ECU Signal Inventory</h3><p>Every standardized signal advertised by this vehicle, grouped by system.</p></div><div class="sensorSummary" id="sensorSummary"><span class="pill warn">Awaiting capability scan</span></div></div><div class="sensorGroups" id="telemetrySensorGrid"><div class="sensorEmpty">Select a vehicle and wait for its next telemetry frame.</div></div><div class="inlineError" id="sensorInventoryError"></div></div>
       </section>
 
       <section id="view-telemetry-history" class="section hide">
@@ -255,7 +257,7 @@
 
   <div class="opsAdvisorDock" id="opsAdvisorDock">
     <div class="advisorPanel">
-      <div class="cardHead"><div><h3>AI Advisor</h3><div class="cardMeta">Decision support for maintenance, compliance, and operations</div></div><button class="btn ghost" id="btnCloseAdvisor" type="button">Close</button></div>
+      <div class="cardHead"><div><h3>AI Advisor</h3><div class="cardMeta" id="advisorDockStatus">Checking advisor service...</div></div><button class="btn ghost" id="btnCloseAdvisor" type="button">Close</button></div>
       <div class="advisorThread" id="advisorThread"><div class="msg">AI Advisor is ready. Ask about risk, maintenance planning, compliance readiness, or cost exposure.</div></div>
       <form class="advisorForm" id="advisorDockForm"><input class="form-input" id="advisorDockInput" aria-label="Ask Fleet Advisor" placeholder="Ask a fleet operations question..." /><button class="btn primary" type="submit">Send</button></form>
     </div>
@@ -268,7 +270,7 @@
     "use strict";
     const $ = (id) => document.getElementById(id);
     const state = {
-      activeRoute:"dashboard", user:null, orgId:"", vehicles:[], drivers:[], selectedVehicleId:"",
+      activeRoute:"dashboard", user:null, orgId:"", vehicles:[], drivers:[], selectedVehicleId:"", sensorLastRefresh:0,
       selectedDriver:"", telemetryRows:[], telemetryLastAt:0, telemetryFreshnessTimer:null, msgSse:null, telemetrySse:null, gpsTimer:null, leafletMap:null,
       mapMarkers:[], cache:{}, advisor:[]
     };
@@ -332,7 +334,7 @@
       "parts-inventory":["loadPartsInventory"], "dot-compliance":["loadDotCompliance"], recalls:["loadRecalls"], "cost-analytics":["loadCostAnalytics"],
       "driver-scores":["loadDriverScores"], gps:["loadGpsMap"], webhooks:["loadWebhooks"], "alert-subscriptions":["loadAlertSubscriptions"],
       "predictive-scheduler":["loadPredictiveScheduler"], "compliance-report":["initComplianceReport"], messages:["loadMessages"], cameras:["renderCameraChannels","renderClipList"],
-      advisor:["renderQuickPrompts","aiAdvisorCheckStatus"], telemetry:["telemetryStreamConnect"], dashboard:["loadDashboard"], alerts:["loadAlerts"], safety:["loadSafetyEvents"], compliance:["loadHosCompliance"], reports:["initReports"], settings:["loadSettings"]
+      advisor:["renderQuickPrompts","aiAdvisorCheckStatus"], telemetry:["telemetryStreamConnect","loadLiveSensors"], dashboard:["loadDashboard"], alerts:["loadAlerts"], safety:["loadSafetyEvents"], compliance:["loadHosCompliance"], reports:["initReports"], settings:["loadSettings"]
     };
     const esc = (v) => String(v ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
     const num = (v,d="--") => Number.isFinite(Number(v)) ? Number(v).toLocaleString() : d;
@@ -362,7 +364,7 @@
       const res = await fetch(url,{credentials:"include",headers:{"Content-Type":"application/json",...(opts.headers||{})},...opts});
       const text = await res.text(); let json = null; try{ json = text ? JSON.parse(text) : null; }catch(_){}
       if(res.status === 401){ location.href = "/customer-login.html"; return null; }
-      if(!res.ok) throw new Error(json?.error || json?.message || `HTTP ${res.status}`);
+      if(!res.ok) throw new Error(json?.message || json?.error || `HTTP ${res.status}`);
       return json;
     }
     async function apiGet(urls){ const list = Array.isArray(urls) ? urls : [urls]; let last; for(const url of list){ try{return await fetchJson(url);}catch(e){last=e;} } throw last; }
@@ -447,9 +449,9 @@
     function stopGpsPolling(){ if(state.gpsTimer){ clearInterval(state.gpsTimer); state.gpsTimer=null; } }
     function renderCameraChannels(){ genericPanel("cameras","Camera Channels","Camera status appears only after a supported provider is connected",`<div class="cameraGrid">${["Front","Driver","Rear"].map(x=>`<div class="cameraTile"><div><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:10px;opacity:.35" aria-hidden="true"><rect x="2" y="6" width="16" height="12" rx="2"/><path d="m18 9 4-2v10l-4-2"/></svg><h3>${x}</h3><p class="muted">Not connected</p></div></div>`).join("")}</div><div id="clipList" style="margin-top:14px"></div>`); }
     function renderClipList(){ const el=$("clipList"); if(el) el.innerHTML=`<div class="muted">No camera clips are available.</div>`; }
-    function renderQuickPrompts(){ genericPanel("advisor","Fleet Advisor","Ask operational questions grounded in fleet data",`<div class="sectionActions">${["Which vehicles need service first?","Summarize compliance risk","Find cost outliers","Explain coolant drift"].map(q=>`<button class="btn" data-prompt="${esc(q)}">${esc(q)}</button>`).join("")}</div><div class="advisorThread" id="advisorPageThread"><div class="msg">Choose a prompt or ask Fleet Advisor from the dock.</div></div>`); }
-    async function aiAdvisorCheckStatus(){ return null; }
-    async function sendAdvisor(query){ const thread=$("advisorThread"); thread.insertAdjacentHTML("beforeend",`<div class="msg user">${esc(query)}</div><div class="msg" id="advisorLoading">Fleet Advisor is thinking...</div>`); try{ const r=await apiPost(["/api/advisor/query","/api/advisor/message","/api/ai/chat"],{query,message:query,vehicleId:state.selectedVehicleId}); $("advisorLoading")?.remove(); thread.insertAdjacentHTML("beforeend",`<div class="msg">${esc(r.reply||r.data?.reply||"No response generated.")}</div>`);}catch(e){$("advisorLoading")?.remove(); thread.insertAdjacentHTML("beforeend",`<div class="msg">Advisor is unavailable: ${esc(e.message)}</div>`);} thread.scrollTop=thread.scrollHeight; }
+    function renderQuickPrompts(){ genericPanel("advisor","Fleet Advisor","Ask operational questions grounded in fleet data",`<div class="cardMeta" id="advisorPageStatus">Checking advisor service...</div><div class="sectionActions">${["Which vehicles need service first?","Summarize compliance risk","Find cost outliers","Explain coolant drift"].map(q=>`<button class="btn" data-prompt="${esc(q)}">${esc(q)}</button>`).join("")}</div><div class="advisorThread" id="advisorPageThread"><div class="msg">Choose a prompt or ask Fleet Advisor from the dock.</div></div>`); }
+    async function aiAdvisorCheckStatus(){ try{ const s=await apiGet("/api/advisor/status"); const label=s.available?`Connected to ${s.provider} · ${s.model}`:(s.enabled?`${s.provider} API key is not configured`:"AI features are disabled"); [$("advisorDockStatus"),$("advisorPageStatus")].filter(Boolean).forEach(el=>el.textContent=label); }catch(_){[$("advisorDockStatus"),$("advisorPageStatus")].filter(Boolean).forEach(el=>el.textContent="Advisor service status unavailable");} }
+    async function sendAdvisor(query){ const thread=$("advisorThread"); thread.insertAdjacentHTML("beforeend",`<div class="msg user">${esc(query)}</div><div class="msg" id="advisorLoading">Fleet Advisor is thinking...</div>`); try{ const r=await apiPost(["/api/advisor/message","/api/ai/chat"],{query,message:query,vehicleId:state.selectedVehicleId}); $("advisorLoading")?.remove(); thread.insertAdjacentHTML("beforeend",`<div class="msg">${esc(r.reply||r.data?.reply||"No response generated.")}</div>`);}catch(e){$("advisorLoading")?.remove(); thread.insertAdjacentHTML("beforeend",`<div class="msg">Advisor is unavailable: ${esc(e.message)}</div>`);} thread.scrollTop=thread.scrollHeight; }
     async function loadMaintenanceLogs(){ loadMaintenanceLogsV2("maintenance"); }
     async function loadMaintenanceLogsV2(target="maintenance-logs"){
       const isQueue = target === "maintenance";
@@ -750,6 +752,44 @@
       battery:  ["electrical.batteryVoltageV", "batteryVoltage", "battery_voltage", "batteryVoltageV"],
       load:     ["engine.engineLoadPct", "engineLoad", "engine_load", "engineLoadPct"]
     };
+    const SENSOR_GROUP_LABELS = {
+      engine:"Engine", fuel:"Fuel delivery", electrical:"Electrical", emissions:"Emissions",
+      vehicle:"Vehicle", controls:"Driver controls", brakes:"Brakes", lifecycle:"Lifecycle", environment:"Environment"
+    };
+    function sensorStatePill(stateName){
+      const value=String(stateName||"unknown").toLowerCase();
+      if(value==="unsupported") return `<span class="pill">Not exposed</span>`;
+      const cls=value==="critical"?"bad":value==="watch"||value==="unknown"?"warn":"good";
+      return `<span class="pill ${cls}">${esc(value)}</span>`;
+    }
+    function formatSensorValue(reading){
+      if(reading.value===null||reading.value===undefined) return reading.supported?"No current value":"Not exposed";
+      if(reading.boolean) return Number(reading.value)===1||reading.raw===true?"Active":"Inactive";
+      const value=Number(reading.value);
+      const display=Number.isFinite(value)?value.toLocaleString(undefined,{maximumFractionDigits:3}):String(reading.value);
+      return `${display}${reading.unit?` ${reading.unit}`:""}`;
+    }
+    function renderSensorInventory(payload){
+      const readings=Array.isArray(payload?.readings)?payload.readings:[];
+      const grid=$("telemetrySensorGrid");
+      if(!grid) return;
+      const order=["engine","fuel","electrical","controls","brakes","emissions","vehicle","lifecycle","environment"];
+      const groups=order.map(group=>[group,readings.filter(reading=>reading.group===group)]).filter(([,items])=>items.length);
+      grid.innerHTML=groups.length?groups.map(([group,items])=>`<div class="sensorGroup"><h4>${esc(SENSOR_GROUP_LABELS[group]||group)}</h4>${items.map(reading=>`<div class="sensorReading ${reading.supported===false?"unsupported":""}"><div><div class="sensorReadingName">${esc(reading.label||reading.key)}</div><div class="sensorReadingMeta">${esc(reading.pid?`PID ${reading.pid}`:reading.spn?`SPN ${reading.spn}`:"Derived signal")}</div></div><div><div class="sensorReadingValue">${esc(formatSensorValue(reading))}</div>${sensorStatePill(reading.state)}</div></div>`).join("")}</div>`).join(""):`<div class="sensorEmpty">No standardized ECU signals have been reported for this vehicle.</div>`;
+      const counts=payload?.counts||{};
+      if($("sensorSummary")) $("sensorSummary").innerHTML=`<span class="pill good">${num(counts.reporting,0)} reporting</span><span class="pill warn">${num(counts.unsupported,0)} not exposed</span>${counts.watch?`<span class="pill warn">${num(counts.watch)} watch</span>`:""}${counts.critical?`<span class="pill bad">${num(counts.critical)} critical</span>`:""}`;
+    }
+    async function loadLiveSensors(){
+      const vehicleId=$("telemetryVehicleSelect")?.value||state.selectedVehicleId;
+      if(!vehicleId){ renderSensorInventory({readings:[],counts:{}}); return; }
+      try{
+        const data=await apiGet(`/api/diagnostics/sensors?vehicleId=${encodeURIComponent(vehicleId)}`);
+        state.sensorLastRefresh=Date.now();
+        renderSensorInventory(data);
+        err("sensorInventoryError",data?.stale?"Latest signal frame is more than two minutes old.":"");
+      }catch(e){ err("sensorInventoryError",e.message); }
+    }
+    window.loadLiveSensors=loadLiveSensors;
     function addTelemetryRow(d){
       state.telemetryRows.unshift(d);
       state.telemetryLastAt=Date.now();
@@ -795,6 +835,7 @@
         + `<td>${num(telemetryValue(x, TELEMETRY_PATHS.battery))}</td>`
         + `<td>${num(telemetryValue(x, TELEMETRY_PATHS.load))}</td></tr>`
       ).join("");
+      if(state.activeRoute==="telemetry"&&Date.now()-state.sensorLastRefresh>5000) loadLiveSensors();
     }
     function pollAlertCount(){ apiGet("/api/ml/alerts").then(r=>{ const n=unwrap(r).filter(a=>a.status!=="resolved" && !a.resolved).length; const el=$("alertCount"); if(el) el.textContent=String(n); }).catch(()=>{}); }
     async function logout(){ try{ await apiPost("/api/auth/customer/logout",{}); }catch(_){} location.href="/customer-login.html"; }
@@ -805,7 +846,7 @@
       $("btnAdvisorToggle").onclick=()=>$("opsAdvisorDock").classList.toggle("open"); $("btnCloseAdvisor").onclick=()=>$("opsAdvisorDock").classList.remove("open");
       $("btnLoadHistory")?.addEventListener("click",loadTelemetryHistory); $("btnExportTelemetry")?.addEventListener("click",()=>exportVisibleTable("telemetry-history"));
       $("dashboardGlobalSearch").addEventListener("input",event=>filterActiveView(event.target.value));
-      $("telemetryVehicleSelect")?.addEventListener("change",event=>{state.selectedVehicleId=event.target.value;});
+      $("telemetryVehicleSelect")?.addEventListener("change",event=>{state.selectedVehicleId=event.target.value;loadLiveSensors();});
       document.addEventListener("click",event=>{const exportButton=event.target.closest("[data-export]");if(exportButton)exportVisibleTable(exportButton.dataset.export);const prompt=event.target.closest("[data-prompt]");if(prompt){$("opsAdvisorDock").classList.add("open");sendAdvisor(prompt.dataset.prompt);}});
       window.addEventListener("hashchange",()=>renderRoute(routeFromHash()));
     }

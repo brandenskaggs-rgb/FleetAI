@@ -11,11 +11,15 @@ import com.fleetai.driver.data.model.SensorStatus
 import com.fleetai.driver.data.model.Trend
 import com.fleetai.driver.obd.ObdParser
 import com.fleetai.driver.obd.ObdService
+import com.fleetai.driver.obd.ExtendedPidDefinition
+import com.fleetai.driver.obd.ExtendedPidProfileCatalog
 import com.fleetai.driver.j1939.UsbJ1939Transport
 import com.fleetai.driver.j1939.J1939BusProfile
 import com.fleetai.driver.j1939.J1939ConnectorProfile
 import com.fleetai.driver.telemetry.J1939Runtime
 import com.fleetai.driver.telemetry.J1939TelemetryService
+import com.fleetai.driver.telemetry.J1979Spec
+import com.fleetai.driver.telemetry.PidSpec
 import com.fleetai.driver.telemetry.TelemetrySender
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -31,8 +35,12 @@ import kotlin.random.Random
 class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
     data class UnitPrefs(val tempF: Boolean = true, val speedMph: Boolean = true)
     private data class PidReadResult(val value: Double?, val error: String?)
+    private data class PidMetricsReadResult(val values: Map<String, Double>, val error: String?)
 
     private val obd = ObdService.manager
+    private val extendedPidCatalog by lazy {
+        ExtendedPidProfileCatalog.load(com.fleetai.driver.AppGraph.appContext)
+    }
     private val usbJ1939 = UsbJ1939Transport(com.fleetai.driver.AppGraph.appContext)
     private val sender = TelemetrySender(
         obd = obd,
@@ -255,7 +263,19 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
     private fun startPolling() {
         stopPolling()
         pollJob = viewModelScope.launch(Dispatchers.IO) {
-            var backoffMs = 0L
+            val supported = runCatching { obd.discoverSupportedPids() }.getOrDefault(emptySet())
+            sender.updateObdCapabilities(supported)
+            val plan = J1979Spec.pollingPlan(supported)
+            val vin = runCatching { obd.readVin() }.getOrNull()
+            val extendedProfile = runCatching { extendedPidCatalog.match(vin) }.getOrNull()
+            val extendedPlan = extendedProfile?.sensors.orEmpty()
+            sender.updateExtendedProfile(extendedProfile)
+            val latestValues = mutableMapOf<String, Double>()
+            val updatedAt = mutableMapOf<String, Long>()
+            val lastPolledAt = mutableMapOf<String, Long>()
+            if (plan.isEmpty()) {
+                _status.value = "ECU connected - no supported live PIDs advertised"
+            }
             while (isActive) {
                 if (!obd.isConnected()) {
                     _status.value = "Not connected"
@@ -264,116 +284,137 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
                     continue
                 }
                 val now = System.currentTimeMillis()
-                val rpm = readPidValue("010C") { ObdParser.parseRpm(it) }
-                val speed = readPidValue("010D") { ObdParser.parseSpeed(it) }
-                val coolant = readPidValue("0105") { ObdParser.parseCoolant(it) }
-                val voltage = readPidValue("0142") { ObdParser.parseVoltage(it) }
-                val intake = readPidValue("010F") { ObdParser.parseIntake(it) }
-                val load = readPidValue("0104") { ObdParser.parseLoad(it) }
-                val throttle = readPidValue("0111") { ObdParser.parseThrottle(it) }
-                val map = readPidValue("010B") { ObdParser.parseMap(it) }
-                val baro = readPidValue("0133") { ObdParser.parseBaro(it) }
-                val maf = readPidValue("0110") { ObdParser.parseMaf(it) }
-                val fuelLevel = readPidValue("012F") { ObdParser.parseFuelLevel(it) }
-                val oilTemp = readPidValue("015C") { ObdParser.parseOilTemp(it) }
-                val rpmValue = withLastGood("010C", rpm.value, now)
-                val speedValue = withLastGood("010D", speed.value, now)
-                val coolantValue = withLastGood("0105", coolant.value, now)
-                val voltageValue = withLastGood("0142", voltage.value, now)
-                val intakeValue = withLastGood("010F", intake.value, now)
-                val loadValue = withLastGood("0104", load.value, now)
-                val throttleValue = withLastGood("0111", throttle.value, now)
-                val mapValue = withLastGood("010B", map.value, now)
-                val baroValue = withLastGood("0133", baro.value, now)
-                val mafValue = withLastGood("0110", maf.value, now)
-                val fuelLevelValue = withLastGood("012F", fuelLevel.value, now)
-                val oilTempValue = withLastGood("015C", oilTemp.value, now)
-                val loopError = listOf(
-                    rpm.error,
-                    speed.error,
-                    coolant.error,
-                    voltage.error,
-                    intake.error,
-                    load.error,
-                    throttle.error,
-                    map.error,
-                    baro.error,
-                    maf.error,
-                    fuelLevel.error,
-                    oilTemp.error
-                ).firstOrNull { !it.isNullOrBlank() }
+                val due = plan
+                    .filter { now - (lastPolledAt[it.command] ?: 0L) >= it.minIntervalMs }
+                    .sortedByDescending {
+                        val overdue = (now - (lastPolledAt[it.command] ?: 0L)).toDouble() / it.minIntervalMs
+                        overdue + (2 - it.priority) * 0.5
+                    }
+                    .take(if (extendedPlan.isEmpty()) 6 else 5)
+                val extendedDue = extendedPlan
+                    .filter { now - (lastPolledAt[it.command] ?: 0L) >= it.minIntervalMs }
+                    .sortedByDescending {
+                        val overdue = (now - (lastPolledAt[it.command] ?: 0L)).toDouble() / it.minIntervalMs
+                        overdue + (3 - it.priority) * 0.5
+                    }
+                    .take(1)
+                if (due.isEmpty() && extendedDue.isEmpty()) {
+                    delay(100)
+                    continue
+                }
+                var loopError: String? = null
+                due.forEach { spec ->
+                    val result = readPidMetrics(spec.command)
+                    lastPolledAt[spec.command] = System.currentTimeMillis()
+                    if (result.values.isNotEmpty()) {
+                        result.values.forEach { (key, value) ->
+                            latestValues[key] = value
+                            updatedAt[key] = System.currentTimeMillis()
+                        }
+                    } else if (loopError == null) {
+                        loopError = result.error
+                    }
+                }
+                extendedDue.forEach { definition ->
+                    val reading = runCatching { obd.readExtendedPid(definition) }.getOrNull()
+                    lastPolledAt[definition.command] = System.currentTimeMillis()
+                    if (reading != null) {
+                        latestValues[reading.key] = reading.value
+                        updatedAt[reading.key] = System.currentTimeMillis()
+                    } else if (loopError == null) {
+                        loopError = "No validated response for ${definition.name}"
+                    }
+                }
                 if (loopError != null && loopError != lastReadError) {
                     Log.w("FleetAI", "[OBD] read error: $loopError")
                 }
                 lastReadError = loopError
-                val boost = deriveBoost(map.value, baro.value)
+                plan.forEach { spec ->
+                    val age = now - (updatedAt[spec.key] ?: 0L)
+                    val ttl = (spec.minIntervalMs * 4).coerceIn(15_000L, 60_000L)
+                    if (age > ttl) latestValues.remove(spec.key)
+                }
+                extendedPlan.forEach { definition ->
+                    val age = now - (updatedAt[definition.key] ?: 0L)
+                    val ttl = (definition.minIntervalMs * 4).coerceIn(15_000L, 60_000L)
+                    if (age > ttl) latestValues.remove(definition.key)
+                }
+                deriveBoost(latestValues["mapKpa"], latestValues["barometricPressureKpa"])?.let {
+                    latestValues["boostPsi"] = it
+                    updatedAt["boostPsi"] = now
+                }
                 sender.updateSnapshot(
-                    metrics = mapOf(
-                        "rpm" to rpm.value,
-                        "speedKph" to speed.value,
-                        "coolantTempC" to coolant.value,
-                        "intakeAirTempC" to intake.value,
-                        "batteryVoltageV" to voltage.value,
-                        "engineLoadPct" to load.value,
-                        "throttlePosPct" to throttle.value,
-                        "mapKpa" to map.value,
-                        "baroKpa" to baro.value,
-                        "mafGramsPerSec" to maf.value,
-                        "fuelLevelPct" to fuelLevel.value,
-                        "oilTempC" to oilTemp.value,
-                        "boostPsi" to boost
-                    ),
+                    metrics = latestValues.toMap(),
                     obdConnected = true,
                     packetAt = now
                 )
 
-                val liveSignalCount = listOf(
-                    rpm.value,
-                    speed.value,
-                    coolant.value,
-                    voltage.value,
-                    intake.value,
-                    load.value,
-                    throttle.value,
-                    map.value,
-                    baro.value,
-                    maf.value,
-                    fuelLevel.value,
-                    oilTemp.value
-                ).count { it != null }
+                val liveSignalCount = latestValues.values.count { it.isFinite() }
                 _status.value = if (liveSignalCount > 0) {
-                    "Live vehicle data - $liveSignalCount signals"
+                    "Live vehicle data - $liveSignalCount of ${plan.size + extendedPlan.size} supported signals"
                 } else {
                     "Adapter connected - waiting for ECU data"
                 }
 
                 val unit = _unitPrefs.value
-                val coreReadings = listOfNotNull(
-                    buildReading("010C", "RPM", rpmValue, "rpm", now, decimals = 0),
-                    buildReading("010D", "Speed", speedValue?.let { if (unit.speedMph) it * 0.621371 else it }, if (unit.speedMph) "mph" else "kph", now, decimals = 0),
-                    buildReading("0105", "Coolant Temp", applyTempUnit(coolantValue, unit.tempF), if (unit.tempF) "F" else "C", now),
-                    buildReading("010F", "Intake Temp", applyTempUnit(intakeValue, unit.tempF), if (unit.tempF) "F" else "C", now),
-                    buildReading("0142", "Voltage", voltageValue, "V", now, decimals = 2),
-                    buildReading("0104", "Engine Load", loadValue?.times(100)?.div(100.0), "%", now),
-                    buildReading("010B", "MAP", mapValue, "kPa", now),
-                    buildReading("0111", "Throttle", throttleValue, "%", now)
-                )
-                val advanced = listOfNotNull(
-                    buildReading("0110", "MAF", mafValue, "g/s", now, decimals = 2),
-                    buildReading("012F", "Fuel Level", fuelLevelValue, "%", now),
-                    buildReading("0133", "BARO", baroValue, "kPa", now),
-                    buildReading("015C", "Oil Temp", applyTempUnit(oilTempValue, unit.tempF), if (unit.tempF) "F" else "C", now),
-                    boost?.let { buildReading("BOOST", "Boost (Derived)", it, "psi", now, derived = true, decimals = 2) }
-                )
-                _readings.value = coreReadings + advanced
-                if (lastReadError == null) {
-                    backoffMs = 0L
-                    delay(800)
-                } else {
-                    backoffMs = if (backoffMs == 0L) 400L else (backoffMs * 2).coerceAtMost(2000L)
-                    delay(backoffMs)
+                val liveReadings = plan.sortedWith(compareBy<PidSpec> { it.priority }.thenBy { it.name }).map { spec ->
+                    var value = latestValues[spec.key]
+                    var displayUnit = spec.unit
+                    if (spec.key == "speedKph" && unit.speedMph) {
+                        value = value?.times(0.621371)
+                        displayUnit = "mph"
+                    }
+                    if (spec.key.endsWith("TempC") && unit.tempF) {
+                        value = applyTempUnit(value, true)
+                        displayUnit = "F"
+                    }
+                    val decimals = when (spec.unit) {
+                        "rpm", "kph", "km", "count", "s", "min", "Nm" -> 0
+                        "V", "lambda", "g/s", "L/h" -> 2
+                        else -> 1
+                    }
+                    buildReading(spec.command, spec.name, value, displayUnit, updatedAt[spec.key] ?: 0L, decimals = decimals)
+                }.toMutableList()
+                extendedPlan.sortedWith(compareBy<ExtendedPidDefinition> { it.priority }.thenBy { it.name }).forEach { definition ->
+                    var value = latestValues[definition.key]
+                    var displayUnit = definition.unit
+                    if (definition.key.endsWith("TempC") && unit.tempF) {
+                        value = applyTempUnit(value, true)
+                        displayUnit = "F"
+                    }
+                    liveReadings += buildReading(
+                        definition.command,
+                        definition.name,
+                        value,
+                        displayUnit,
+                        updatedAt[definition.key] ?: 0L,
+                        decimals = if (definition.unit == "V") 2 else 1
+                    )
                 }
+                latestValues["boostPsi"]?.let {
+                    liveReadings += buildReading("BOOST", "Boost", it, "psi", updatedAt["boostPsi"] ?: now, derived = true, decimals = 2)
+                }
+                _readings.value = liveReadings
+                delay(if (lastReadError == null) 100L else 250L)
             }
+        }
+    }
+
+    private suspend fun readPidMetrics(command: String): PidMetricsReadResult {
+        return try {
+            val raw = obd.readPid(command) ?: return PidMetricsReadResult(emptyMap(), "No response from adapter")
+            val values = ObdParser.parsePid(command, raw)
+            val error = if (values.isEmpty()) {
+                when {
+                    raw.contains("NO DATA", ignoreCase = true) -> "ECU returned NO DATA for $command"
+                    raw.contains("UNABLE TO CONNECT", ignoreCase = true) -> "Adapter cannot reach the ECU"
+                    raw.contains("BUS", ignoreCase = true) -> raw.take(80)
+                    else -> "Unrecognized response for $command"
+                }
+            } else null
+            PidMetricsReadResult(values, error)
+        } catch (err: Exception) {
+            PidMetricsReadResult(emptyMap(), err.message ?: "obd_read_error")
         }
     }
 
@@ -535,7 +576,11 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
             Display("engineHours", "SPN 247", "Engine Hours", "h"),
             Display("odometerKm", "SPN 245", "Total Distance", "km"),
             Display("egtC", "SPN 173", "Exhaust Temperature", if (unit.tempF) "F" else "C"),
-            Display("ambientTempC", "SPN 171", "Ambient Temperature", if (unit.tempF) "F" else "C")
+            Display("ambientTempC", "SPN 171", "Ambient Temperature", if (unit.tempF) "F" else "C"),
+            Display("brakePedalPositionPct", "SPN 521", "Brake Pedal Position", "%"),
+            Display("serviceBrakeActive", "SPN 1121", "Service Brake Active", "state", 0),
+            Display("absActive", "SPN 563", "ABS Active", "state", 0),
+            Display("tractionControlBrakeActive", "SPN 562", "Traction Brake Active", "state", 0)
         )
         return displays.mapNotNull { display ->
             var value = metrics[display.key] ?: return@mapNotNull null

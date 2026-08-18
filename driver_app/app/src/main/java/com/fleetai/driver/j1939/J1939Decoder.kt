@@ -48,8 +48,18 @@ class J1939Decoder {
             for (offset in 0..3) value = value or ((bytes[index + offset].toLong() and 0xff) shl (offset * 8))
             return value.takeUnless { it == 0xffffffffL }
         }
+        fun twoBitState(index: Int, shift: Int): Double? {
+            val raw = u8(index)?.shr(shift)?.and(0x03) ?: return null
+            return raw.takeIf { it <= 1 }?.toDouble()
+        }
 
         when (pgn) {
+            61441 -> {
+                twoBitState(0, 2)?.let { metrics["tractionControlBrakeActive"] = it }
+                twoBitState(0, 4)?.let { metrics["absActive"] = it }
+                twoBitState(0, 6)?.let { metrics["serviceBrakeActive"] = it }
+                u8(1)?.takeIf { it <= 250 }?.let { metrics["brakePedalPositionPct"] = it * 0.4 }
+            }
             61444 -> {
                 u16(3)?.let { metrics["rpm"] = it * 0.125 }
                 u8(1)?.let { metrics["driverDemandTorquePct"] = it - 125.0 }

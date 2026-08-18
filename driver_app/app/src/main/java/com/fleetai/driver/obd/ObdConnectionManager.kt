@@ -51,6 +51,7 @@ class ObdConnectionManager(private val context: Context) {
     @Volatile private var activeTransport = Transport.NONE
     private val commandMutex = Mutex()
     @Volatile private var diagnostics = ObdDiagnostics()
+    @Volatile private var supportedPids: Set<String> = emptySet()
 
     companion object {
         // Veepeak OBDCheck BLE / ELM327 BLE clone profile
@@ -216,13 +217,45 @@ class ObdConnectionManager(private val context: Context) {
         synchronized(bleRxLock) { bleRxBuffer.clear() }
         while (bleResponseChannel.tryReceive().isSuccess) { /* drain stale responses */ }
         diagnostics = ObdDiagnostics()
+        supportedPids = emptySet()
     }
 
     suspend fun readPid(command: String): String? = withContext(Dispatchers.IO) {
         sendCommand(command)
     }
 
+    suspend fun readExtendedPid(definition: ExtendedPidDefinition): ExtendedPidReading? =
+        withContext(Dispatchers.IO) {
+            ExtendedPidSafety.validate(definition)
+            val header = ExtendedPidSafety.normalizeHex(definition.requestHeader)
+            val command = ExtendedPidSafety.normalizeHex(definition.command)
+            val defaultHeader = if (header.length == 8) "18DB33F1" else "7DF"
+            commandMutex.withLock {
+                var raw: String? = null
+                try {
+                    val headerResult = sendCommandUnlocked("ATSH$header")
+                    if (headerResult.isNullOrBlank() || headerResult.contains("?")) return@withLock null
+                    raw = sendCommandUnlocked(command)
+                    val reading = raw?.let { ExtendedPidDecoder.decode(definition, it) }
+                    diagnostics = diagnostics.copy(
+                        ecuResponding = diagnostics.ecuResponding || reading != null,
+                        lastCommand = command.take(20),
+                        lastResponse = ObdResponseDiagnostics.preview(raw),
+                        failureReason = if (reading != null) "" else diagnostics.failureReason,
+                        updatedAt = System.currentTimeMillis()
+                    )
+                    reading
+                } finally {
+                    // Manufacturer requests use a physical ECU header. Always
+                    // restore the functional header before standard polling resumes.
+                    sendCommandUnlocked("ATSH$defaultHeader")
+                }
+            }
+        }
+
     fun diagnosticsSnapshot(): ObdDiagnostics = diagnostics
+
+    fun supportedPidsSnapshot(): Set<String> = supportedPids
 
     suspend fun readDtcs(): List<String> = withContext(Dispatchers.IO) {
         ObdParser.parseDtcs(sendCommand("03") ?: return@withContext emptyList())
@@ -238,13 +271,14 @@ class ObdConnectionManager(private val context: Context) {
 
     suspend fun discoverSupportedPids(): Set<String> {
         val supported = mutableSetOf<String>()
-        listOf("0100", "0120", "0140", "0160", "0180").forEach { cmd ->
+        listOf("0100", "0120", "0140", "0160", "0180", "01A0", "01C0").forEach { cmd ->
             try {
                 val resp = sendCommand(cmd) ?: return@forEach
                 ObdParser.parseSupportedPids(resp).forEach { supported.add(it) }
             } catch (_: Exception) { }
         }
-        return supported
+        supportedPids = supported.toSet()
+        return supportedPids
     }
 
     // ── BLE connect ────────────────────────────────────────────────────────────
@@ -340,6 +374,10 @@ class ObdConnectionManager(private val context: Context) {
     // ── Command dispatch ───────────────────────────────────────────────────────
 
     private suspend fun sendCommand(command: String): String? = commandMutex.withLock {
+        sendCommandUnlocked(command)
+    }
+
+    private suspend fun sendCommandUnlocked(command: String): String? {
         val response = when (activeTransport) {
             Transport.BLE  -> sendCommandBle(command)
             Transport.SPP  -> sendCommandSpp(command)
@@ -362,7 +400,7 @@ class ObdConnectionManager(private val context: Context) {
                 updatedAt = System.currentTimeMillis()
             )
         }
-        response
+        return response
     }
 
     @SuppressLint("MissingPermission")

@@ -2496,6 +2496,10 @@ function buildSnapshotFromNormalized(normalized, extra) {
   const vehicle = normalized.vehicle || {};
   const electrical = normalized.electrical || {};
   const environment = normalized.environment || {};
+  const emissions = normalized.emissions || {};
+  const controls = normalized.controls || {};
+  const brakes = normalized.brakes || {};
+  const fuel = normalized.fuel || {};
   const dtcActive = Array.isArray(normalized.dtc?.active) ? normalized.dtc.active : [];
   const dtcCodes = dtcActive.map((d) => d.code).filter(Boolean);
   return {
@@ -2510,6 +2514,7 @@ function buildSnapshotFromNormalized(normalized, extra) {
     dtcCodes,
     rawPids: extra.rawPids || {},
     derivedMetrics: extra.derivedMetrics || {},
+    normalizedMetrics: { engine, vehicle, electrical, environment, emissions, controls, brakes, fuel },
     coolantTemp: engine.coolantTempC ?? null,
     batteryVoltage: electrical.batteryVoltageV ?? null,
     engineLoad: engine.engineLoadPct ?? null,
@@ -2525,10 +2530,29 @@ function buildSnapshotFromNormalized(normalized, extra) {
     speedKph: vehicle.speedKph ?? null,
     fuelLevelPct: vehicle.fuelLevelPct ?? null,
     fuelRateLph: engine.fuelRateLph ?? null,
+    oilTempC: engine.oilTempC ?? null,
+    throttlePosPct: engine.throttlePosPct ?? null,
+    mapKpa: engine.mapKpa ?? null,
+    absoluteLoadPct: engine.absoluteLoadPct ?? null,
+    ignitionTimingAdvanceDeg: engine.ignitionTimingAdvanceDeg ?? null,
+    fuelPressureKpa: engine.fuelPressureKpa ?? null,
+    fuelRailPressureRelativeKpa: engine.fuelRailPressureRelativeKpa ?? null,
+    fuelRailGaugePressureKpa: engine.fuelRailGaugePressureKpa ?? null,
+    fuelRailAbsolutePressureKpa: engine.fuelRailAbsolutePressureKpa ?? null,
+    commandedEquivalenceRatio: engine.commandedEquivalenceRatio ?? null,
+    fuelInjectionTimingDeg: engine.fuelInjectionTimingDeg ?? null,
+    shortTermFuelTrimBank1Pct: engine.shortTermFuelTrimBank1Pct ?? null,
+    longTermFuelTrimBank1Pct: engine.longTermFuelTrimBank1Pct ?? null,
+    shortTermFuelTrimBank2Pct: engine.shortTermFuelTrimBank2Pct ?? null,
+    longTermFuelTrimBank2Pct: engine.longTermFuelTrimBank2Pct ?? null,
+    brakePedalPositionPct: brakes.brakePedalPositionPct ?? null,
+    serviceBrakeActive: brakes.serviceBrakeActive ?? null,
+    absActive: brakes.absActive ?? null,
+    tractionControlBrakeActive: brakes.tractionControlBrakeActive ?? null,
     instantFuelEconomyKmPerL: vehicle.instantFuelEconomyKmPerL ?? null,
     ambientTempC: environment.ambientTempC ?? null,
     barometricPressureKpa: environment.barometricPressureKpa ?? null,
-    egtC: normalized.emissions?.egtC ?? null,
+    egtC: emissions.egtC ?? null,
     sourceProtocol: normalized.sourceProtocol || "UNKNOWN",
     vin: normalized.meta?.vin || null
   };
@@ -2568,6 +2592,43 @@ function addTelemetryRecordsFromNormalized(data, snapshot) {
   if (snapshot.fuelRateLph != null) toRecord("fuel_rate", snapshot.fuelRateLph, "L/h");
   if (snapshot.egtC != null) toRecord("exhaust_temp", snapshot.egtC, "C");
   if (snapshot.ambientTempC != null) toRecord("ambient_temp", snapshot.ambientTempC, "C");
+  const normalized = snapshot.normalizedMetrics || {};
+  const descriptors = [
+    ["oil_temp", normalized.engine?.oilTempC, "C"],
+    ["intake_air_temp", normalized.engine?.intakeAirTempC, "C"],
+    ["map_pressure", normalized.engine?.mapKpa, "kPa"],
+    ["absolute_engine_load", normalized.engine?.absoluteLoadPct, "%"],
+    ["throttle_position", normalized.engine?.throttlePosPct, "%"],
+    ["ignition_timing", normalized.engine?.ignitionTimingAdvanceDeg, "deg"],
+    ["fuel_pressure", normalized.engine?.fuelPressureKpa, "kPa"],
+    ["fuel_rail_pressure_relative", normalized.engine?.fuelRailPressureRelativeKpa, "kPa"],
+    ["fuel_rail_pressure_gauge", normalized.engine?.fuelRailGaugePressureKpa, "kPa"],
+    ["fuel_rail_pressure_absolute", normalized.engine?.fuelRailAbsolutePressureKpa, "kPa"],
+    ["commanded_equivalence_ratio", normalized.engine?.commandedEquivalenceRatio, "lambda"],
+    ["fuel_injection_timing", normalized.engine?.fuelInjectionTimingDeg, "deg"],
+    ["stft_bank_1", normalized.engine?.shortTermFuelTrimBank1Pct, "%"],
+    ["ltft_bank_1", normalized.engine?.longTermFuelTrimBank1Pct, "%"],
+    ["stft_bank_2", normalized.engine?.shortTermFuelTrimBank2Pct, "%"],
+    ["ltft_bank_2", normalized.engine?.longTermFuelTrimBank2Pct, "%"],
+    ["o2_b1s1_voltage", normalized.emissions?.o2B1S1VoltageV, "V"],
+    ["o2_b1s2_voltage", normalized.emissions?.o2B1S2VoltageV, "V"],
+    ["o2_b2s1_voltage", normalized.emissions?.o2B2S1VoltageV, "V"],
+    ["o2_b2s2_voltage", normalized.emissions?.o2B2S2VoltageV, "V"],
+    ["catalyst_temp_b1s1", normalized.emissions?.catalystTempB1S1C, "C"],
+    ["catalyst_temp_b2s1", normalized.emissions?.catalystTempB2S1C, "C"],
+    ["catalyst_temp_b1s2", normalized.emissions?.catalystTempB1S2C, "C"],
+    ["catalyst_temp_b2s2", normalized.emissions?.catalystTempB2S2C, "C"],
+    ["commanded_egr", normalized.emissions?.commandedEgrPct, "%"],
+    ["egr_error", normalized.emissions?.egrErrorPct, "%"],
+    ["accelerator_pedal_d", normalized.controls?.acceleratorPedalDPosPct, "%"],
+    ["accelerator_pedal_e", normalized.controls?.acceleratorPedalEPosPct, "%"],
+    ["relative_accelerator_pedal", normalized.controls?.relativeAcceleratorPedalPct, "%"],
+    ["brake_pedal_position", normalized.brakes?.brakePedalPositionPct, "%"],
+    ["service_brake_active", normalized.brakes?.serviceBrakeActive, "boolean"],
+    ["abs_active", normalized.brakes?.absActive, "boolean"],
+    ["traction_control_brake_active", normalized.brakes?.tractionControlBrakeActive, "boolean"]
+  ];
+  descriptors.forEach(([identifier, value, unit]) => toRecord(identifier, value, unit));
   storeTelemetryRecords(data, records);
 }
 
@@ -3745,6 +3806,7 @@ app.get("/api/diagnostics", (req, res) => {
     ["DELETE", "/api/orgs/:orgId"],
     ["GET", "/api/me"],
     ["GET", "/api/orgs/:orgId/public-profile"],
+    ["GET", "/api/advisor/status"],
     ["POST", "/api/advisor/message"],
     ["POST", "/api/ai/chat"],
     ["POST", "/api/ai/advisor"],

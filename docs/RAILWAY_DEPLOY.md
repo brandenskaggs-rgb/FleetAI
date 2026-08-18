@@ -63,10 +63,13 @@ Set these in **Railway → Settings → Variables**. Never commit them to the re
 
 | Variable | Default | Notes |
 |----------|---------|-------|
-| `OPENAI_API_KEY` | — | Required for GPT-4o-mini maintenance narratives |
-| `OPENAI_MODEL` | `gpt-4o-mini` | Override if needed |
-| `OPENAI_EXPLANATIONS_ENABLED` | `false` | Set `true` to activate |
-| `AI_ENABLED` | `false` | Master AI toggle |
+| `AI_ENABLED` | `false` | Set `true` to enable Advisor chat and AI report narratives |
+| `AI_PROVIDER` | `groq` | Advisor provider; `groq` is preferred when `GROQ_API_KEY` is configured |
+| `GROQ_API_KEY` | — | Required for Groq Advisor chat and AI report narratives |
+| `GROQ_MODEL` | `openai/gpt-oss-120b` | Groq production model; replaces retired Llama 3.3 defaults |
+| `OPENAI_API_KEY` | — | Optional when deliberately using `AI_PROVIDER=openai` |
+| `OPENAI_MODEL` | `gpt-4o-mini` | OpenAI provider override |
+| `OPENAI_EXPLANATIONS_ENABLED` | `false` | Enables separate OpenAI ML explanations when configured |
 | `ALERTS_ENABLED` | `true` | In-app alert generation |
 | `FLEETAI_PYTHON_ML_ENABLED` | `false` | Set `true` only if ML service is reachable |
 | `FLEETAI_ML_SERVICE_URL` | `http://127.0.0.1:8010` | External ML service URL if enabled |
