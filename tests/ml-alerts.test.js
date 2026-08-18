@@ -68,4 +68,15 @@ const dashboard = fs.readFileSync(path.join(__dirname, "..", "ui", "fleetai-dash
 assert.match(dashboard, /r\.explanation\|\|r\.message/);
 assert.match(dashboard, /data-resolve/);
 
+const serverSource = fs.readFileSync(path.join(__dirname, "..", "server.js"), "utf8");
+assert.match(serverSource, /async function discoverVehicleContext\(data\)/);
+assert.match(serverSource, /primaryVehicles = await sqliteDb\.listVehicles\(\)/);
+assert.match(serverSource, /vehicleById\.get\(vehicleId\)\?\.orgId/);
+const pipelineSource = serverSource.slice(
+  serverSource.indexOf("async function runTelemetryPipeline()"),
+  serverSource.indexOf("function triggerTelemetryPipeline()")
+);
+assert.doesNotMatch(pipelineSource, /const vehicles = \(data\.vehicles \|\| \[\]\)\.map/);
+assert.doesNotMatch(serverSource, /const vehicles = \(data\.vehicles \|\| \[\]\)\.map/);
+
 console.log("ML charging evidence and alert regression tests passed");

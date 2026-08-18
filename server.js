@@ -3203,20 +3203,33 @@ function buildMetricsSnapshot(label, agg) {
   };
 }
 
+async function discoverVehicleContext(data) {
+    const jsonVehicles = Array.isArray(data.vehicles) ? data.vehicles : [];
+    const primaryVehicles = await sqliteDb.listVehicles().catch((error) => {
+      console.warn("[ML-PIPELINE] primary vehicle discovery failed:", error.message);
+      return [];
+    });
+    const vehicleById = new Map();
+    [...jsonVehicles, ...primaryVehicles].forEach((vehicle) => {
+      if (vehicle?.vehicleId) vehicleById.set(vehicle.vehicleId, vehicle);
+    });
+  return { vehicleById, vehicleIds: Array.from(vehicleById.keys()) };
+}
+
 async function runTelemetryPipeline() {
   if (!ALERTS_ENABLED) return;
   if (telemetryPipelineRunning) return;
   telemetryPipelineRunning = true;
   try {
     const data = await readData();
-    const vehicles = (data.vehicles || []).map((v) => v.vehicleId);
+    const { vehicleById, vehicleIds: vehicles } = await discoverVehicleContext(data);
     const now = Date.now();
 
     for (const vehicleId of vehicles) {
       const records = getTelemetryRecordsForVehicle(data, vehicleId);
       if (!records.length) continue;
 
-      const orgId = resolveOrgIdForVehicle(data, vehicleId);
+      const orgId = vehicleById.get(vehicleId)?.orgId || resolveOrgIdForVehicle(data, vehicleId);
       const coolantAgg = buildAggregateSnapshot(records, TELEMETRY_ALIASES.coolant, now, COOLANT_OVERHEAT_THRESHOLD);
       const batteryAgg = buildAggregateSnapshot(records, TELEMETRY_ALIASES.battery, now, null);
       const fuelAgg = buildAggregateSnapshot(records, TELEMETRY_ALIASES.fuelEff, now, null);
@@ -3258,7 +3271,7 @@ async function runTelemetryPipeline() {
             type: "COOLING_TREND_ANOMALY",
             severity,
             metrics_snapshot: buildMetricsSnapshot("coolant_temp", coolantAgg),
-            context: { vehicle: (data.vehicles || []).find((v) => v.vehicleId === vehicleId) }
+            context: { vehicle: vehicleById.get(vehicleId) || null }
           });
         }
       }
@@ -3281,7 +3294,7 @@ async function runTelemetryPipeline() {
             type: "BATTERY_CHARGING_ANOMALY",
             severity,
             metrics_snapshot: buildMetricsSnapshot("battery_voltage", batteryAgg),
-            context: { vehicle: (data.vehicles || []).find((v) => v.vehicleId === vehicleId) }
+            context: { vehicle: vehicleById.get(vehicleId) || null }
           });
         }
       }
@@ -3298,7 +3311,7 @@ async function runTelemetryPipeline() {
             type: "FUEL_EFFICIENCY_OR_COMBUSTION_ANOMALY",
             severity,
             metrics_snapshot: buildMetricsSnapshot("fuel_efficiency", fuelAgg),
-            context: { vehicle: (data.vehicles || []).find((v) => v.vehicleId === vehicleId) }
+            context: { vehicle: vehicleById.get(vehicleId) || null }
           });
         }
       }
@@ -3310,8 +3323,9 @@ async function runTelemetryPipeline() {
       try {
         const samples = await sqliteDb.getSamplesForVehicle(vehicleId, { limit: 5000 });
         if (!samples.length) continue;
-        const orgId = resolveOrgIdForVehicle(data, vehicleId)
-          || await sqliteDb.getVehicleOrgId(vehicleId, "").catch(() => "");
+        const orgId = vehicleById.get(vehicleId)?.orgId
+          || await sqliteDb.getVehicleOrgId(vehicleId, "").catch(() => "")
+          || resolveOrgIdForVehicle(data, vehicleId);
         const vehicleMeta = (await sqliteDb.getVehicleCapabilities(vehicleId)) || {};
         const latestSample = samples[samples.length - 1] || null;
         const dtcCodes = latestSample?.raw?.activeDTCs || latestSample?.metrics?.activeDTCs || [];
@@ -3408,7 +3422,7 @@ async function runBaselineJob(force) {
   baselineJobRunning = true;
   try {
     const data = await readData();
-    const vehicles = (data.vehicles || []).map((v) => v.vehicleId);
+    const { vehicleIds: vehicles } = await discoverVehicleContext(data);
     vehicles.forEach((vehicleId) => {
       const baselines = computeBaselinesForVehicle(data, vehicleId);
       upsertBaselines(data, vehicleId, baselines);
@@ -3426,10 +3440,10 @@ async function runPatternDetection(force) {
   patternJobRunning = true;
   try {
     const data = await readData();
-    const vehicles = (data.vehicles || []).map((v) => v.vehicleId);
+    const { vehicleById, vehicleIds: vehicles } = await discoverVehicleContext(data);
     const now = Date.now();
     for (const vehicleId of vehicles) {
-      const orgId = resolveOrgIdForVehicle(data, vehicleId);
+      const orgId = vehicleById.get(vehicleId)?.orgId || resolveOrgIdForVehicle(data, vehicleId);
       for (const rule of PREDICTIVE_RULES) {
         if (rule.metricKey === "dtcCodes") {
           const { current, previous } = computeDtcStats(data, vehicleId, rule.windowDays);
