@@ -140,7 +140,7 @@ async function migrateJsonStore(data) {
       create: {
         orgId,
         plan: billing.plan || "PILOT_CORE",
-        priceMonthly: toDecimal(billing.priceMonthly) || 59,
+        priceMonthly: toDecimal(billing.priceMonthly) || 50,
         status: billing.status || "NONE",
         activatedAt: toDate(billing.activatedAt),
         nextBillAt: toDate(billing.nextBillAt),

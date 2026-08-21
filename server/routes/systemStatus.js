@@ -28,15 +28,11 @@ function registerSystemStatusRoutes(app, deps) {
 
   app.get("/api/auth/health", async (req, res) => {
     try {
-      const data = await readData();
-      const users = Array.isArray(data.users) ? data.users : [];
-      const bootstrapAllowed = SETUP_ALLOWED && Boolean(SETUP_KEY);
+      await readData();
       res.status(200).json({
         ok: true,
-        usersLoaded: users.length,
-        lastLoadedAt: getDataLoadStatus().lastDataLoadAt,
-        dataLoadStatus: getDataLoadStatus().dataLoadStatus,
-        bootstrapAllowed
+        service: "auth",
+        status: getDataLoadStatus().dataLoadStatus === "error" ? "degraded" : "ok"
       });
     } catch (err) {
       res.status(500).json({ ok: false, error: err.message || "auth_health_error" });
@@ -145,9 +141,7 @@ function registerSystemStatusRoutes(app, deps) {
       lastTelemetryAt: latest ? new Date(latest.tsMs).toISOString() : null,
       ageMs,
       source: "tablet",
-      vehicleId: latest ? latest.vehicleId : null,
-      driverId: latest ? latest.driverId : null,
-      activePair: latest
+      activePair: latest ? { connected: true, lastTelemetryAt: new Date(latest.tsMs).toISOString() } : null
     };
   }
 

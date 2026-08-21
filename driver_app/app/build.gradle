@@ -12,8 +12,8 @@ android {
         applicationId "com.fleetai.driver"
         minSdk 26
         targetSdk 34
-        versionCode 6
-        versionName "1.5"
+        versionCode 7
+        versionName "1.6"
 
         // Set FLEETAI_BASE_URL in gradle.properties or via -PFLEETAI_BASE_URL=https://...
         // to point the driver app at your Fleet AI server (e.g. the Railway deployment).

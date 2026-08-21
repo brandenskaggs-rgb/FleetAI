@@ -461,7 +461,7 @@ function viewTemplate() {
                 <label class="fieldGroup">
                   <span>Billing plan</span>
                   <select id="orgDetailPlanSelect">
-                    <option value="PILOT_CORE">Pilot: $59/vehicle/month</option>
+                    <option value="PILOT_CORE">Pilot: $50/vehicle/month</option>
                     <option value="CORE_STANDARD">Standard (Contact Sales)</option>
                   </select>
                 </label>
@@ -711,7 +711,7 @@ function viewTemplateExtended() {
                   <select id="billingOrgSelect"></select>
                 </label>
                 <label class="fieldGroup">
-                  <span>Plan (Pilot: $59/vehicle/month)</span>
+                  <span>Plan (Pilot: $50/vehicle/month)</span>
                   <input id="billingPlanDisplay" type="text" disabled />
                 </label>
                 <label class="fieldGroup">
@@ -771,7 +771,7 @@ function viewTemplateExtended() {
             <div class="panelBody">
               <div class="detailBlock">
                 <div class="detailLabel">Pilot plan</div>
-                <div class="detailValue">Pilot: $59/vehicle/month</div>
+                <div class="detailValue">Pilot: $50/vehicle/month</div>
               </div>
               <div class="detailBlock">
                 <div class="detailLabel">Billing cadence</div>
@@ -2037,7 +2037,7 @@ function updateBillingFields() {
     return;
   }
   $("billingSaveNote").textContent = roleAllowsOrgEdit() ? "Changes save immediately." : "Read-only access.";
-  $("billingPlanDisplay").value = org.billingPlan === "CORE_STANDARD" ? "Standard (Contact Sales)" : "Pilot: $59/vehicle/month";
+  $("billingPlanDisplay").value = org.billingPlan === "CORE_STANDARD" ? "Standard (Contact Sales)" : "Pilot: $50/vehicle/month";
   $("billingContactName").value = org.billingContactName || "";
   $("billingEmail").value = org.billingEmail || "";
   $("billingMethod").value = org.paymentMethodType || "CARD";

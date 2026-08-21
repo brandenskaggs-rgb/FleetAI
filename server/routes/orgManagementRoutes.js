@@ -3,7 +3,7 @@ const crypto = require('crypto');
 const db = require('../db');
 const {
   makeId, nowIso, addAudit, sanitizeString, normalizeEmail, parseNumberField,
-  isExpired, generateTempPassword
+  isExpired, generateTempPassword, publicUserView
 } = require('../lib/utils');
 const {
   normalizeOrgStatus, normalizeLeadStatus,
@@ -12,8 +12,75 @@ const {
 const { validateBody, schemas } = require('../middleware/validate');
 
 function registerOrgManagementRoutes(app, deps) {
-  const { readData, writeData, requireEmployeeApi, requireCustomerApi, requireRole, getRateState, prismaAuthAdapter } = deps;
+  const { readData, writeData, requireEmployeeApi, requireCustomerApi, requireRole, getRateState, prismaAuthAdapter, revokeUserSessions } = deps;
   const employeeRoles = new Set(["SUPER_ADMIN", "ADMIN", "SUPPORT", "SALES"]);
+  const customerAdminRoles = new Set(["ORG_ADMIN", "CUSTOMER_ADMIN", "CUSTOMER"]);
+
+  function requireCustomerAdmin(req, res, next) {
+    return requireCustomerApi(req, res, () => {
+      const role = String(req.customer?.role || "").toUpperCase();
+      if (!customerAdminRoles.has(role)) {
+        return res.status(403).json({ ok: false, error: "customer_admin_required" });
+      }
+      return next();
+    });
+  }
+
+  function serializeBilling(row, data) {
+    const defaults = defaultBillingSettings(data);
+    if (!row) return defaults;
+    return {
+      plan: row.plan,
+      priceMonthly: Number(row.priceMonthly),
+      status: row.status,
+      activatedAt: row.activatedAt?.toISOString?.() || row.activatedAt || null,
+      nextBillAt: row.nextBillAt?.toISOString?.() || row.nextBillAt || null,
+      vehicleCount: Number(row.vehicleCount || 0),
+      contractTermMonths: Number(row.contractTermMonths || 0),
+      notes: row.notes || ""
+    };
+  }
+
+  function serializePaymentMethod(row) {
+    if (!row) return defaultPaymentMethod();
+    return {
+      type: row.type,
+      billingName: row.billingName,
+      billingEmail: row.billingEmail,
+      last4: row.last4,
+      expMonth: row.expMonth,
+      expYear: row.expYear,
+      brand: row.brand,
+      postalCode: row.postalCode,
+      accountType: row.accountType,
+      routingLast4: row.routingLast4,
+      accountLast4: row.accountLast4,
+      updatedAt: row.updatedAt?.toISOString?.() || row.updatedAt || null
+    };
+  }
+
+  async function loadOrgBilling(orgId, data) {
+    const row = await db.getPrisma().orgBillingSettings.findUnique({ where: { orgId } });
+    return serializeBilling(row, data);
+  }
+
+  async function saveOrgBilling(orgId, billing) {
+    const values = {
+      plan: sanitizeString(billing.plan || "PILOT_CORE", 80),
+      priceMonthly: parseNumberField(billing.priceMonthly, 50),
+      status: billing.status,
+      activatedAt: billing.activatedAt ? new Date(billing.activatedAt) : null,
+      nextBillAt: billing.nextBillAt ? new Date(billing.nextBillAt) : null,
+      vehicleCount: Math.max(0, Math.trunc(parseNumberField(billing.vehicleCount, 0) || 0)),
+      contractTermMonths: Math.max(0, Math.trunc(parseNumberField(billing.contractTermMonths, 0) || 0)),
+      notes: sanitizeString(billing.notes || "", 2000)
+    };
+    return db.getPrisma().orgBillingSettings.upsert({
+      where: { orgId },
+      create: { orgId, ...values },
+      update: values
+    });
+  }
 
   // Mirrors core org identity (name/status/email/phone) into Prisma so any
   // Vehicle/Driver/Pairing created against this orgId has a valid FK target,
@@ -266,7 +333,7 @@ function registerOrgManagementRoutes(app, deps) {
         if (status !== "ACTIVE" || plan !== "PILOT_CORE") return sum;
         const count = Number(o.activeVehicles ?? o.fleetSizeEstimate ?? 0);
         const vehicles = Number.isFinite(count) ? count : 0;
-        return sum + vehicles * 59;
+        return sum + vehicles * 50;
       }, 0);
       const leadsByStatus = leads.reduce((acc, l) => {
         const status = normalizeLeadStatus(l.status || l.stage);
@@ -589,7 +656,7 @@ function registerOrgManagementRoutes(app, deps) {
       const data = await readData();
       await reconcileEmployeeUsers(data, { persist: true });
       const employees = (data.users || []).filter(isEmployeeUser);
-      res.json({ ok: true, data: employees });
+      res.json({ ok: true, data: employees.map(publicUserView) });
     } catch (err) {
       next(err);
     }
@@ -827,6 +894,7 @@ function registerOrgManagementRoutes(app, deps) {
       if (prismaAuthAdapter) {
         await prismaAuthAdapter.saveData({ users: [user], orgs: [authOrgRecord(org)] });
       }
+      if (typeof revokeUserSessions === "function") await revokeUserSessions(user.id);
       await writeData(data);
       res.json({ ok: true, data: { email: user.email, tempPassword } });
     } catch (err) {
@@ -834,7 +902,7 @@ function registerOrgManagementRoutes(app, deps) {
     }
   });
   
-  app.get("/api/invites", requireEmployeeApi, async (req, res, next) => {
+  app.get("/api/invites", requireEmployeeApi, requireRole(["SUPER_ADMIN"]), async (req, res, next) => {
     try {
       const data = await readData();
       res.json({ ok: true, data: data.invites || [] });
@@ -846,14 +914,19 @@ function registerOrgManagementRoutes(app, deps) {
   app.post("/api/invites", requireEmployeeApi, requireRole(["SUPER_ADMIN"]), async (req, res, next) => {
     const { orgId, type } = req.body || {};
     if (!orgId || !type) return res.status(400).json({ error: "orgId and type required" });
+    const normalizedType = String(type).trim().toUpperCase();
+    if (!["CUSTOMER", "FLEET_MANAGER", "DRIVER"].includes(normalizedType)) {
+      return res.status(400).json({ error: "Invalid invite type." });
+    }
     try {
       const data = await readData();
+      if (!findOrgById(data.orgs, orgId)) return res.status(404).json({ error: "Organization not found" });
       const token = crypto.randomBytes(16).toString("hex");
       const hours = data.settings?.inviteExpiryHours || 72;
       const invite = {
         id: makeId("INV"),
         orgId,
-        type,
+        type: normalizedType,
         token,
         expiresAt: new Date(Date.now() + hours * 3600000).toISOString(),
         createdAt: nowIso(),
@@ -899,17 +972,17 @@ function registerOrgManagementRoutes(app, deps) {
   app.get("/api/org/billing", requireCustomerApi, async (req, res, next) => {
     try {
       const data = await readData();
-      const billing = Object.assign({}, defaultBillingSettings(data), data.orgBillingSettings || {});
+      const billing = await loadOrgBilling(req.customer.orgId, data);
       res.json({ ok: true, data: billing });
     } catch (err) {
       next(err);
     }
   });
   
-  app.post("/api/org/billing", requireCustomerApi, async (req, res, next) => {
+  app.post("/api/org/billing", requireCustomerAdmin, async (req, res, next) => {
     try {
       const data = await readData();
-      const current = Object.assign({}, defaultBillingSettings(data), data.orgBillingSettings || {});
+      const current = await loadOrgBilling(req.customer.orgId, data);
       const updates = req.body || {};
       const allowedStatus = ["NONE", "PILOT", "ACTIVE"];
       if (updates.status && !allowedStatus.includes(updates.status)) {
@@ -917,7 +990,7 @@ function registerOrgManagementRoutes(app, deps) {
       }
       const nextBilling = Object.assign({}, current, updates);
       nextBilling.plan = nextBilling.plan || "PILOT_CORE";
-      nextBilling.priceMonthly = nextBilling.priceMonthly || data.settings?.defaultPilotPrice || 59;
+      nextBilling.priceMonthly = nextBilling.priceMonthly || data.settings?.defaultPilotPrice || 50;
       if (updates.status === "ACTIVE" && !current.activatedAt) {
         const activatedAt = nowIso();
         const nextDate = new Date();
@@ -929,10 +1002,10 @@ function registerOrgManagementRoutes(app, deps) {
         nextBilling.activatedAt = null;
         nextBilling.nextBillAt = null;
       }
-      data.orgBillingSettings = nextBilling;
-      addAudit(data, "ORG_BILLING_UPDATED", "org");
+      const saved = await saveOrgBilling(req.customer.orgId, nextBilling);
+      addAudit(data, "ORG_BILLING_UPDATED", req.customer.orgId);
       await writeData(data);
-      res.json({ ok: true, data: nextBilling });
+      res.json({ ok: true, data: serializeBilling(saved, data) });
     } catch (err) {
       next(err);
     }
@@ -941,17 +1014,17 @@ function registerOrgManagementRoutes(app, deps) {
   app.get("/api/org/billing-settings", requireCustomerApi, async (req, res, next) => {
     try {
       const data = await readData();
-      const billing = Object.assign({}, defaultBillingSettings(data), data.orgBillingSettings || {});
+      const billing = await loadOrgBilling(req.customer.orgId, data);
       res.json({ ok: true, data: billing });
     } catch (err) {
       next(err);
     }
   });
   
-  app.post("/api/org/billing-settings", requireCustomerApi, async (req, res, next) => {
+  app.post("/api/org/billing-settings", requireCustomerAdmin, async (req, res, next) => {
     try {
       const data = await readData();
-      const current = Object.assign({}, defaultBillingSettings(data), data.orgBillingSettings || {});
+      const current = await loadOrgBilling(req.customer.orgId, data);
       const updates = req.body || {};
       const allowedStatus = ["NONE", "PILOT", "ACTIVE"];
       if (updates.status && !allowedStatus.includes(updates.status)) {
@@ -959,7 +1032,7 @@ function registerOrgManagementRoutes(app, deps) {
       }
       const nextBilling = Object.assign({}, current, updates);
       nextBilling.plan = nextBilling.plan || "PILOT_CORE";
-      nextBilling.priceMonthly = nextBilling.priceMonthly || data.settings?.defaultPilotPrice || 59;
+      nextBilling.priceMonthly = nextBilling.priceMonthly || data.settings?.defaultPilotPrice || 50;
       if (updates.status === "ACTIVE" && !current.activatedAt) {
         const activatedAt = nowIso();
         const nextDate = new Date();
@@ -971,10 +1044,10 @@ function registerOrgManagementRoutes(app, deps) {
         nextBilling.activatedAt = null;
         nextBilling.nextBillAt = null;
       }
-      data.orgBillingSettings = nextBilling;
-      addAudit(data, "ORG_BILLING_UPDATED", "org");
+      const saved = await saveOrgBilling(req.customer.orgId, nextBilling);
+      addAudit(data, "ORG_BILLING_UPDATED", req.customer.orgId);
       await writeData(data);
-      res.json({ ok: true, data: nextBilling });
+      res.json({ ok: true, data: serializeBilling(saved, data) });
     } catch (err) {
       next(err);
     }
@@ -992,15 +1065,14 @@ function registerOrgManagementRoutes(app, deps) {
   
   app.get("/api/org/payment-method", requireCustomerApi, async (req, res, next) => {
     try {
-      const data = await readData();
-      const payment = Object.assign({}, defaultPaymentMethod(), data.paymentMethod || {});
+      const payment = serializePaymentMethod(await db.getPrisma().paymentMethod.findUnique({ where: { orgId: req.customer.orgId } }));
       res.json({ ok: true, data: payment });
     } catch (err) {
       next(err);
     }
   });
   
-  app.post("/api/org/payment-method", requireCustomerApi, async (req, res, next) => {
+  app.post("/api/org/payment-method", requireCustomerAdmin, async (req, res, next) => {
     try {
       const payload = req.body || {};
       const allowedTypes = ["CARD_STUB", "ACH_STUB"];
@@ -1014,6 +1086,7 @@ function registerOrgManagementRoutes(app, deps) {
         return res.status(400).json({ error: "Billing email must be valid." });
       }
       const data = await readData();
+      let payment;
       if (payload.type === "CARD_STUB") {
         if (!/^\d{4}$/.test(payload.last4 || "")) {
           return res.status(400).json({ error: "Card last 4 must be exactly 4 digits." });
@@ -1027,7 +1100,7 @@ function registerOrgManagementRoutes(app, deps) {
         if (!Number.isFinite(expYear) || expYear < currentYear) {
           return res.status(400).json({ error: "Expiration year must be current year or later." });
         }
-        data.paymentMethod = {
+        payment = {
           type: payload.type,
           billingName: payload.billingName.trim(),
           billingEmail: payload.billingEmail.trim(),
@@ -1051,7 +1124,7 @@ function registerOrgManagementRoutes(app, deps) {
         if (!accountType) {
           return res.status(400).json({ error: "Account type required." });
         }
-        data.paymentMethod = {
+        payment = {
           type: payload.type,
           billingName: payload.billingName.trim(),
           billingEmail: payload.billingEmail.trim(),
@@ -1066,9 +1139,16 @@ function registerOrgManagementRoutes(app, deps) {
           updatedAt: nowIso()
         };
       }
-      addAudit(data, "PAYMENT_METHOD_UPDATED", "org");
+      const values = Object.assign({}, payment);
+      delete values.updatedAt;
+      const saved = await db.getPrisma().paymentMethod.upsert({
+        where: { orgId: req.customer.orgId },
+        create: { orgId: req.customer.orgId, ...values },
+        update: values
+      });
+      addAudit(data, "PAYMENT_METHOD_UPDATED", req.customer.orgId);
       await writeData(data);
-      res.json({ ok: true, data: data.paymentMethod });
+      res.json({ ok: true, data: serializePaymentMethod(saved) });
     } catch (err) {
       next(err);
     }
@@ -1092,7 +1172,15 @@ function registerOrgManagementRoutes(app, deps) {
       if (isExpired(invite.expiresAt)) {
         return res.status(410).json({ error: "Invite expired" });
       }
-      res.json({ ok: true, data: invite });
+      res.json({
+        ok: true,
+        data: {
+          id: invite.id,
+          orgId: invite.orgId,
+          type: invite.type,
+          expiresAt: invite.expiresAt
+        }
+      });
     } catch (err) {
       next(err);
     }
@@ -1111,7 +1199,9 @@ function registerOrgManagementRoutes(app, deps) {
       if (isExpired(invite.expiresAt)) {
         return res.status(410).json({ error: "Invite expired" });
       }
-      const userEmail = (email || "").toLowerCase();
+      const org = findOrgById(data.orgs, invite.orgId);
+      if (!org) return res.status(410).json({ error: "Invite organization is no longer available" });
+      const userEmail = (email || "").trim().toLowerCase();
       if (!userEmail || !/^[^@]+@[^@]+\.[^@]+$/.test(userEmail)) {
         return res.status(400).json({ error: "Valid email required." });
       }
@@ -1125,7 +1215,8 @@ function registerOrgManagementRoutes(app, deps) {
         FLEET_MANAGER: "CUSTOMER_ADMIN",
         DRIVER: "CUSTOMER_USER"
       };
-      const role = roleByInviteType[String(invite.type || "CUSTOMER").toUpperCase()] || "ORG_ADMIN";
+      const role = roleByInviteType[String(invite.type || "").toUpperCase()];
+      if (!role) return res.status(400).json({ error: "Invite type is invalid" });
       const passwordHash = await bcrypt.hash(password, 12);
       const user = {
         id: makeId("USR"),
@@ -1146,7 +1237,6 @@ function registerOrgManagementRoutes(app, deps) {
         lastLoginAt: null,
         passwordHash
       };
-      const org = findOrgById(data.orgs, user.orgId);
       if (prismaAuthAdapter) {
         await prismaAuthAdapter.saveData({
           users: [user],

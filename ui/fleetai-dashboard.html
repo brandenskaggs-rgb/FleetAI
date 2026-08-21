@@ -788,6 +788,9 @@
       const vehicleId = $("pairVehicleSelect")?.value;
       const driverId = $("pairDriverSelect")?.value;
       if(!vehicleId||!driverId){$("pairingDebugError").textContent="Select a vehicle and driver first.";return;}
+      const generateButton=$("btnGeneratePairCode");
+      if(generateButton?.disabled)return;
+      if(generateButton)generateButton.disabled=true;
       try{
         $("pairingDebugStatus").textContent="generating...";
         $("pairingDebugError").textContent="none";
@@ -805,7 +808,7 @@
       }catch(e){
         $("pairingDebugStatus").textContent="failed";
         $("pairingDebugError").textContent=e.message;
-      }
+      }finally{if(generateButton)generateButton.disabled=false;}
     }
     async function loadPairingTables(){
       try{

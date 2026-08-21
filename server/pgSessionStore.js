@@ -33,6 +33,13 @@ async function deleteSession(id) {
   } catch (_) {}
 }
 
+async function deleteSessionsForUser(userId, exceptId = null) {
+  if (!process.env.DATABASE_URL || !userId) return;
+  const where = { userId };
+  if (exceptId) where.id = { not: exceptId };
+  await getPrisma().session.deleteMany({ where });
+}
+
 async function loadActiveSessions() {
   if (!process.env.DATABASE_URL) return [];
   try {
@@ -65,4 +72,4 @@ async function pruneExpiredSessions() {
   } catch (_) {}
 }
 
-module.exports = { upsertSession, deleteSession, loadActiveSessions, pruneExpiredSessions };
+module.exports = { upsertSession, deleteSession, deleteSessionsForUser, loadActiveSessions, pruneExpiredSessions };

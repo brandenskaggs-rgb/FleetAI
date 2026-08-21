@@ -118,7 +118,7 @@ model OrgBillingSettings {
   id                 String    @id @default(cuid())
   orgId              String    @unique
   plan               String    @default("PILOT_CORE")
-  priceMonthly       Decimal   @default(59) @db.Decimal(10, 2)
+  priceMonthly       Decimal   @default(50) @db.Decimal(10, 2)
   status             String    @default("NONE")
   activatedAt        DateTime?
   nextBillAt         DateTime?
@@ -229,7 +229,7 @@ model Driver {
 
 model Pairing {
   id          String    @id @default(cuid())
-  pairCode    String?
+  pairCode    String?   @unique
   vehicleId   String?
   driverId    String?
   deviceId    String?

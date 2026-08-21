@@ -54,6 +54,7 @@ const { requireApiKey, generateApiKey } = require("./server/middleware/apiKeyAut
 const { mergePythonAndNodePrediction, deriveSensorRisksFromPython } = require("./server/lib/mlMerge");
 const { validateBody, schemas } = require("./server/middleware/validate");
 const pgSessionStore = require("./server/pgSessionStore");
+const { bindCustomerTenant } = require("./server/middleware/tenantScope");
 
 /**
  * Fleet AI server entry and routing map (Step 0 audit)
@@ -210,6 +211,7 @@ function isOriginAllowed(origin) {
 }
 
 function isTrustedBrowserOrigin(req) {
+  if (String(req.headers["sec-fetch-site"] || "").toLowerCase() === "cross-site") return false;
   const origin = req.headers.origin;
   if (!origin) return true;
   if (!IS_PROD) return true;
@@ -276,6 +278,9 @@ function validateRuntimeConfig() {
     }
     if (SETUP_ALLOWED) {
       warnings.push("FLEETAI_ALLOW_SETUP is enabled in production. Disable it after initial bootstrap.");
+      if (!SETUP_KEY || SETUP_KEY.length < 32) {
+        errors.push("FLEETAI_SETUP_KEY must be a strong value (32+ chars) while production setup is enabled.");
+      }
     }
     if (!CORS_ALLOWED_ORIGINS.length) {
       errors.push("CORS_ALLOWED_ORIGINS must be set in production. Set it to your public hostname (e.g. https://fleet.example.com).");
@@ -416,7 +421,7 @@ const DEFAULT_DATA = {
     accentColor: ""
   },
   settings: {
-    defaultPilotPrice: 59,
+    defaultPilotPrice: 50,
     inviteExpiryHours: 72,
     maintenanceMode: false
   },
@@ -428,7 +433,7 @@ const DEFAULT_DATA = {
   addonQuotes: [],
   orgBillingSettings: {
     plan: "PILOT_CORE",
-    priceMonthly: 59,
+    priceMonthly: 50,
     status: "NONE",
     activatedAt: null,
     nextBillAt: null,
@@ -879,30 +884,13 @@ app.get("/set-password.html", (req, res) => {
 
 // Health check (must be before static middleware)
 async function healthPayload() {
-  const data = await readData();
-  const users = data.users || [];
-  const employeeUsers = users.filter((u) => String(u.role || "").toUpperCase().includes("SUPER")
-    || String(u.role || "").toUpperCase().includes("EMP")).length;
-  const customerUsers = users.filter((u) => {
-    const role = String(u.role || "").toUpperCase();
-    return role.startsWith("CUSTOMER") || role === "ORG_ADMIN" || role === "CUSTOMER_ADMIN";
-  }).length;
+  await readData();
   return {
     ok: true,
     service: "fleet-ai",
+    status: dataLoadStatus === "error" ? "degraded" : "ok",
     timestamp: new Date().toISOString(),
-    version: APP_VERSION,
-    data: {
-      status: dataLoadStatus,
-      lastError: dataLoadError,
-      note: dataLoadNote,
-      lastWriteAt: lastDataWriteAt
-    },
-    auth: {
-      users: users.length,
-      employeeUsers,
-      customerUsers
-    }
+    version: APP_VERSION
   };
 }
 
@@ -1629,8 +1617,15 @@ function setSessionCookie(res, sessionId) {
   );
 }
 
+function appendSetCookie(res, cookie) {
+  const current = res.getHeader("Set-Cookie");
+  if (!current) return res.setHeader("Set-Cookie", cookie);
+  const values = Array.isArray(current) ? current : [current];
+  return res.setHeader("Set-Cookie", [...values, cookie]);
+}
+
 function clearSessionCookie(res) {
-  res.setHeader("Set-Cookie", `${SESSION_COOKIE}=; ${buildCookieAttributes(0)}`);
+  appendSetCookie(res, `${SESSION_COOKIE}=; ${buildCookieAttributes(0)}`);
 }
 
 function getSession(req) {
@@ -1667,16 +1662,39 @@ function revokeSessionIdentity(session) {
   pgSessionStore.deleteSession(session.id).catch(() => {});
 }
 
+async function revokeUserSessions(userId, exceptId = null) {
+  if (!userId) return;
+  for (const store of [sessionStore, customerSessionStore]) {
+    for (const [id, session] of store.entries()) {
+      if (session.userId === userId && id !== exceptId) store.delete(id);
+    }
+  }
+  persistSessionStoresSoon();
+  await pgSessionStore.deleteSessionsForUser(userId, exceptId).catch(() => {});
+}
+
 async function validateSessionIdentity(session, expectedScope) {
-  if (!session || !String(process.env.DATABASE_URL || "").trim()) return session;
-  const prisma = sqliteDb.getPrisma();
-  const user = session.userId
-    ? await prisma.user.findUnique({ where: { id: session.userId } })
-    : await prisma.user.findUnique({ where: { email: normalizeEmail(session.email) } });
+  if (!session) return null;
+  let user = null;
+  let tenantExists = false;
+  if (String(process.env.DATABASE_URL || "").trim()) {
+    const prisma = sqliteDb.getPrisma();
+    user = session.userId
+      ? await prisma.user.findUnique({ where: { id: session.userId }, include: { org: { select: { id: true } } } })
+      : await prisma.user.findUnique({ where: { email: normalizeEmail(session.email) }, include: { org: { select: { id: true } } } });
+    tenantExists = Boolean(user?.orgId && user?.org?.id === user.orgId);
+  } else {
+    const data = await readData();
+    user = (data.users || []).find((candidate) => session.userId
+      ? candidate.id === session.userId
+      : normalizeEmail(candidate.email) === normalizeEmail(session.email)) || null;
+    tenantExists = Boolean(user?.orgId && (data.orgs || []).some((org) => (org.id || org.orgId) === user.orgId));
+  }
   const active = Boolean(user) && user.isActive !== false && user.active !== false
     && !["INACTIVE", "DISABLED", "LOCKED", "DELETED"].includes(String(user.status || "").toUpperCase());
   const scopeMatches = Boolean(user) && (expectedScope === "customer" ? customerRole(user.role) : !customerRole(user.role));
-  if (!active || !scopeMatches) {
+  const tenantValid = expectedScope !== "customer" || tenantExists;
+  if (!active || !scopeMatches || !tenantValid) {
     revokeSessionIdentity(session);
     return null;
   }
@@ -1731,7 +1749,7 @@ function setNoStore(res) {
 }
 
 function clearCustomerSessionCookie(res) {
-  res.setHeader("Set-Cookie", `${CUSTOMER_SESSION_COOKIE}=; ${buildCookieAttributes(0)}`);
+  appendSetCookie(res, `${CUSTOMER_SESSION_COOKIE}=; ${buildCookieAttributes(0)}`);
 }
 
 function getCustomerSession(req) {
@@ -1861,6 +1879,7 @@ async function requireCustomerApi(req, res, next) {
       return res.status(401).json({ error: "Unauthorized" });
     }
     req.customer = validated;
+    if (!bindCustomerTenant(req, res, validated, { enforceReadOnly: true })) return;
     next();
   } catch (err) {
     next(err);
@@ -1876,13 +1895,23 @@ async function requireEmployeeOrCustomerApi(req, res, next) {
   try {
     const validatedEmployee = employee ? await validateSessionIdentity(employee, "employee") : null;
     const validatedCustomer = customer ? await validateSessionIdentity(customer, "customer") : null;
+    if (employee && !validatedEmployee) clearSessionCookie(res);
+    if (customer && !validatedCustomer) clearCustomerSessionCookie(res);
     if (!validatedEmployee && !validatedCustomer) {
-      if (employee) clearSessionCookie(res);
-      else clearCustomerSessionCookie(res);
       return res.status(401).json({ error: "Unauthorized" });
     }
-    if (validatedEmployee) req.employee = validatedEmployee;
-    if (validatedCustomer) req.customer = validatedCustomer;
+    if (validatedEmployee) {
+      req.employee = validatedEmployee;
+      req.authScope = {
+        kind: "employee",
+        orgId: validatedEmployee.orgId || null,
+        userId: validatedEmployee.userId || null,
+        role: validatedEmployee.role || null
+      };
+    } else if (validatedCustomer) {
+      req.customer = validatedCustomer;
+      if (!bindCustomerTenant(req, res, validatedCustomer, { enforceReadOnly: true })) return;
+    }
     return next();
   } catch (err) {
     return next(err);
@@ -3689,6 +3718,7 @@ registerOrgManagementRoutes(app, {
   writeData,
   requireEmployeeApi: (req, res, next) => requireEmployeeApi(req, res, next),
   requireCustomerApi: (req, res, next) => requireCustomerApi(req, res, next),
+  revokeUserSessions,
   requireRole: (roles) => requireRole(roles),
   getRateState,
   prismaAuthAdapter
@@ -3736,6 +3766,9 @@ registerAuthRoutes(app, {
   formatAuthError,
   setNoStore,
   requireCustomerApi: (req, res, next) => requireCustomerApi(req, res, next),
+  requireEmployeeApi: (req, res, next) => requireEmployeeApi(req, res, next),
+  validateSessionIdentity,
+  revokeUserSessions,
   getCustomerSession,
   clearCustomerSessionCookie,
   customerSessionStore,
@@ -3886,7 +3919,7 @@ app.get("/api/diagnostics", (req, res) => {
 });
 
 // Route inventory — operator-gated (was public).
-app.get("/api/diagnostics/routes", requireEmployeeOrCustomerApi, (req, res) => {
+app.get("/api/diagnostics/routes", requireEmployeeApi, (req, res) => {
   const routes = collectRoutes().filter((route) => route.path.startsWith("/api"));
   res.json({ ok: true, routes });
 });
@@ -3895,7 +3928,7 @@ app.get("/api/diagnostics/routes", requireEmployeeOrCustomerApi, (req, res) => {
 // complete route inventory to anyone, unauthenticated, in production. Now
 // operator-gated, and the filesystem paths are only ever exposed outside
 // production.
-app.get("/api/debug/routes", requireEmployeeOrCustomerApi, (req, res) => {
+app.get("/api/debug/routes", requireEmployeeApi, (req, res) => {
   const payload = { port: PORT, routes: collectRoutes() };
   if (!IS_PROD) {
     payload.cwd = process.cwd();

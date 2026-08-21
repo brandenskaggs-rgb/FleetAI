@@ -197,10 +197,19 @@ function registerLegacyPairingRoutes(app, deps) {
   // Now: more attempts, and a hard failure instead of a silent collision. A
   // caller seeing PAIRING_CODE_ALLOCATION_FAILED can retry; a driver sent to
   // the wrong truck cannot.
-  async function allocateUniquePairingCode(maxAttempts = 12) {
+  async function createPairingWithUniqueCode({ vehicleId, driverId, orgId }, maxAttempts = 12) {
     for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
       const candidate = generateDigits(6);
-      if (!(await db.isPairingCodeInUse(candidate))) return candidate;
+      if (await db.isPairingCodeInUse(candidate)) continue;
+      try {
+        return await db.createPairing(createPairingFields({ vehicleId, driverId, orgId, pairingCode: candidate }));
+      } catch (err) {
+        // pairCode is unique in PostgreSQL. If another server instance chose
+        // the same candidate between our check and insert, retry instead of
+        // returning a code that could resolve to the wrong assignment.
+        if (err?.code === "P2002") continue;
+        throw err;
+      }
     }
     const err = new Error("Could not allocate an unused pairing code");
     err.code = "PAIRING_CODE_ALLOCATION_FAILED";
@@ -235,16 +244,14 @@ function registerLegacyPairingRoutes(app, deps) {
       const targets = await loadPairingTargets(req, res, vehicleId, driverId);
       if (!targets) return;
       const now = nowIso();
-      const samePairings = await db.findActivePairingsForPair(vehicleId, driverId);
+      const samePairings = await db.findNonExpiredPairingsForVehicleOrDriver(vehicleId, driverId);
       let replacedAssignmentId = null;
       for (const p of samePairings) {
         await db.updatePairing(p.id, { status: "expired", expiresAt: now });
         replacedAssignmentId = replacedAssignmentId || p.id;
       }
 
-      const pairingCode = await allocateUniquePairingCode();
-      const fields = createPairingFields({ vehicleId, driverId, orgId: targets.orgId, pairingCode });
-      const pairing = await db.createPairing(fields);
+      const pairing = await createPairingWithUniqueCode({ vehicleId, driverId, orgId: targets.orgId });
 
       const payload = {
         ok: true,
@@ -307,9 +314,7 @@ function registerLegacyPairingRoutes(app, deps) {
       for (const p of toReplace) {
         await db.updatePairing(p.id, { status: "replaced", expiresAt: now });
       }
-      const pairingCode = await allocateUniquePairingCode();
-      const fields = createPairingFields({ vehicleId, driverId, orgId: targets.orgId, pairingCode });
-      const pairing = await db.createPairing(fields);
+      const pairing = await createPairingWithUniqueCode({ vehicleId, driverId, orgId: targets.orgId });
       res.json({
         ok: true,
         pairId: pairing.id,
@@ -359,7 +364,10 @@ function registerLegacyPairingRoutes(app, deps) {
         pushPairingDebug(pairingDebug.claims, { time: nowIso(), deviceId: input.deviceId, status: "not_found" });
         return res.status(404).json({ ok: false, error: "PAIRING_CODE_INVALID_OR_EXPIRED", message: "Invalid or expired pairing code", legacyError: "Invalid code", ...(debugMode ? { debug: { normalized: input } } : {}) });
       }
-      if (isExpired(pairing.expiresAt) || isExpired(pairing.driverPinExpiresAt)) {
+      // expiresAt controls only the one-time pending claim window. An active
+      // tablet remains authenticated until dispatch explicitly revokes or
+      // replaces it, or the vehicle changes organizations.
+      if (pairing.status !== "active" && (isExpired(pairing.expiresAt) || isExpired(pairing.driverPinExpiresAt))) {
         log("[PAIR-CLAIM] expired", { pairingId: pairing.id, deviceId: input.deviceId });
         await db.updatePairing(pairing.id, { status: "expired" });
         pushPairingDebug(pairingDebug.claims, { time: nowIso(), orgId: pairing.orgId, pairId: pairing.id, vehicleId: pairing.vehicleId, driverId: pairing.driverId, status: "expired" });
@@ -402,20 +410,26 @@ function registerLegacyPairingRoutes(app, deps) {
       }
       const fallbackLabel = `Tablet-${input.deviceId.slice(-4) || "UNK"}`;
       const deviceLabel = input.deviceName || pairing.deviceLabel || fallbackLabel;
-      const updated = await db.updatePairing(pairing.id, {
-        status: "active",
+      const claimed = await db.claimPendingPairingAndIssueToken(pairing.id, {
         deviceId: input.deviceId,
         deviceLabel,
         claimedAt: nowIso()
       });
+      if (!claimed) {
+        pushPairingDebug(pairingDebug.claims, { time: nowIso(), orgId: pairing.orgId, pairId: pairing.id, vehicleId: pairing.vehicleId, driverId: pairing.driverId, status: "claim_conflict" });
+        return res.status(409).json({
+          ok: false,
+          error: "PAIRING_CLAIM_CONFLICT",
+          message: "This pairing was claimed by another request. Retry only from the originally paired tablet."
+        });
+      }
+      const updated = claimed.pairing;
       log("[PAIR-CLAIM] success", { pairingId: updated.id, deviceId: updated.deviceId });
       pushPairingDebug(pairingDebug.claims, { time: nowIso(), orgId: updated.orgId, pairId: updated.id, vehicleId: updated.vehicleId, driverId: updated.driverId, status: updated.status });
-      // Issue the device session token. The raw value is returned only to the
-      // claiming tablet; only its hash is persisted. A same-device recovery
-      // mints a replacement and invalidates the previous token.
-      const deviceToken = await db.issueDeviceToken(updated.id);
+      // The atomic claim already persisted the token hash. The raw value is
+      // returned only to the winning tablet request.
       const [vehicle, driver] = await Promise.all([db.getVehicleByVehicleId(updated.vehicleId), db.getDriverByDriverId(updated.driverId)]);
-      res.json(pairingClaimPayload(updated, { ...input, route: req.path }, deviceToken, vehicle, driver, debugMode));
+      res.json(pairingClaimPayload(updated, { ...input, route: req.path }, claimed.deviceToken, vehicle, driver, debugMode));
     } catch (err) {
       next(err);
     }
@@ -570,9 +584,7 @@ function registerLegacyPairingRoutes(app, deps) {
     try {
       const targets = await loadPairingTargets(req, res, vehicleId, driverId);
       if (!targets) return;
-      const pairingCode = await allocateUniquePairingCode();
-      const fields = createPairingFields({ vehicleId, driverId, orgId: targets.orgId, pairingCode });
-      const pairing = await db.createPairing(fields);
+      const pairing = await createPairingWithUniqueCode({ vehicleId, driverId, orgId: targets.orgId });
       res.json({ ok: true, pairingId: pairing.id, pairingCode: pairing.pairingCode, driverPin: pairing.driverPin, expiresAt: pairing.expiresAt });
     } catch (err) {
       next(err);

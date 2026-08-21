@@ -27,24 +27,41 @@ async function initRedis() {
 const redisReady = initRedis().catch(() => {});
 
 function createRateLimiter({ windowMs = 60000, max = 100, keyPrefix = "rl" } = {}) {
-  const store = (_redisReady && _redisClient)
-    ? new RedisStore({ sendCommand: (...args) => _redisClient.sendCommand(args), prefix: keyPrefix })
-    : undefined; // express-rate-limit built-in in-memory fallback
-  return rateLimit({
-    windowMs,
-    max,
-    standardHeaders: true,
-    legacyHeaders: false,
-    keyGenerator: (req) => `${keyPrefix}:${req.headers["x-api-key"] || ipKeyGenerator(req.ip)}`,
-    store,
-    handler: (req, res) => {
-      res.status(429).json({
-        success: false,
-        error: { code: "RATE_LIMITED", message: "Too many requests. Please slow down." },
-        timestamp: new Date().toISOString()
+  let limiterPromise = null;
+  const getLimiter = () => {
+    if (!limiterPromise) {
+      limiterPromise = redisReady.then(() => {
+        const store = (_redisReady && _redisClient)
+          ? new RedisStore({ sendCommand: (...args) => _redisClient.sendCommand(args), prefix: keyPrefix })
+          : undefined;
+        return rateLimit({
+          windowMs,
+          max,
+          standardHeaders: true,
+          legacyHeaders: false,
+          keyGenerator: (req) => `${keyPrefix}:${req.headers["x-api-key"] || ipKeyGenerator(req.ip)}`,
+          store,
+          handler: (req, res) => {
+            res.status(429).json({
+              success: false,
+              error: { code: "RATE_LIMITED", message: "Too many requests. Please slow down." },
+              timestamp: new Date().toISOString()
+            });
+          }
+        });
       });
     }
-  });
+    return limiterPromise;
+  };
+
+  return async function initializedRateLimiter(req, res, next) {
+    try {
+      const limiter = await getLimiter();
+      return limiter(req, res, next);
+    } catch (err) {
+      return next(err);
+    }
+  };
 }
 
 const defaultLimiter = createRateLimiter({ windowMs: 60000, max: 100, keyPrefix: "api" });

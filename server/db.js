@@ -558,6 +558,7 @@ async function getVehicleByVin(vin) {
 
 async function transferVehicleToOrg(vehicleId, orgId, patch = {}) {
   const prisma = getPrisma();
+  const revokedAt = new Date();
   const vehicleData = {
     orgId,
     unitName: patch.unitName || undefined,
@@ -568,7 +569,19 @@ async function transferVehicleToOrg(vehicleId, orgId, patch = {}) {
     model: patch.model || undefined
   };
   const operations = [
-    prisma.pairing.updateMany({ where: { vehicleId }, data: { orgId } }),
+    // A tablet session must never survive a tenant transfer. The new owner can
+    // issue a fresh pairing after assigning one of its own drivers.
+    prisma.pairing.updateMany({
+      where: { vehicleId },
+      data: {
+        orgId,
+        status: "expired",
+        expiresAt: revokedAt,
+        revokedAt,
+        deviceTokenHash: null,
+        deviceTokenIssuedAt: null
+      }
+    }),
     prisma.telemetrySample.updateMany({ where: { vehicleId }, data: { orgId } }),
     prisma.telemetrySnapshot.updateMany({ where: { vehicleId }, data: { orgId } }),
     prisma.telemetryRecord.updateMany({ where: { vehicleId }, data: { orgId } }),
@@ -920,8 +933,8 @@ function rowToPairing(row) {
     // lifetime. The separate field name is kept because the Android app and
     // tablet both read it, but callers must not infer that the PIN outlives, or
     // expires before, the pairing itself. In practice the PIN stops mattering
-    // earlier than either: once the pairing is claimed its status becomes
-    // "active" and the claim handler no longer consults the PIN at all.
+    // earlier than either for a different tablet: once claimed, status and
+    // deviceId prevent another device from taking over the assignment.
     driverPinExpiresAt: expiresAtIso,
     claimedAt: row.claimedAt instanceof Date ? row.claimedAt.toISOString() : row.claimedAt,
     revokedAt: row.revokedAt instanceof Date ? row.revokedAt.toISOString() : row.revokedAt,
@@ -999,9 +1012,39 @@ async function issueDeviceToken(pairingId) {
   return raw;
 }
 
-// Resolves a bearer token to its pairing. Returns null unless the pairing is
-// still active and unexpired, so revoking or expiring a pairing immediately
-// kills the device's access without a separate session store.
+// Atomically claims a pending pairing and issues its first device token. The
+// status predicate is the compare-and-set guard: if another tablet won the
+// claim, updateMany returns zero and no second token is minted.
+async function claimPendingPairingAndIssueToken(pairingId, { deviceId, deviceLabel, claimedAt } = {}) {
+  if (!pairingId || !deviceId) return null;
+  const prisma = getPrisma();
+  const raw = `dev_${crypto.randomBytes(32).toString("hex")}`;
+  const now = new Date();
+  const result = await prisma.pairing.updateMany({
+    where: {
+      id: pairingId,
+      status: "pending",
+      revokedAt: null,
+      OR: [{ expiresAt: null }, { expiresAt: { gt: now } }]
+    },
+    data: {
+      status: "active",
+      deviceId,
+      deviceLabel: deviceLabel || null,
+      claimedAt: claimedAt ? new Date(claimedAt) : now,
+      deviceTokenHash: hashDeviceToken(raw),
+      deviceTokenIssuedAt: now
+    }
+  });
+  if (result.count !== 1) return null;
+  const row = await prisma.pairing.findUnique({ where: { id: pairingId } });
+  return row ? { pairing: rowToPairing(row), deviceToken: raw } : null;
+}
+
+// Resolves a bearer token to its pairing. Returns null unless the assignment
+// is still active, so revoking/replacing it immediately kills device access
+// without a separate session store. The pending claim-code expiry does not
+// terminate an already active tablet session.
 async function findPairingByDeviceToken(rawToken) {
   const token = String(rawToken || "");
   if (!token.startsWith("dev_")) return null;
@@ -1009,12 +1052,18 @@ async function findPairingByDeviceToken(rawToken) {
   // unique (see prisma/schema.prisma for why). Functionally identical here —
   // the hash of 32 random bytes identifies exactly one row.
   const row = await getPrisma().pairing.findFirst({
-    where: { deviceTokenHash: hashDeviceToken(token) }
+    where: { deviceTokenHash: hashDeviceToken(token) },
+    include: {
+      vehicle: { select: { orgId: true } },
+      driver: { select: { orgId: true } }
+    }
   });
   if (!row) return null;
   if (row.status !== "active") return null;
   if (row.revokedAt) return null;
-  if (row.expiresAt && new Date(row.expiresAt).getTime() <= Date.now()) return null;
+  // expiresAt is the one-time claim-code window. Once status is active, token
+  // lifetime is controlled by explicit revoke/replace/tenant-transfer state.
+  if (!row.orgId || row.vehicle?.orgId !== row.orgId || row.driver?.orgId !== row.orgId) return null;
   return rowToPairing(row);
 }
 
@@ -1039,7 +1088,7 @@ async function findActivePairingsForPair(vehicleId, driverId) {
 async function findNonExpiredPairingsForVehicleOrDriver(vehicleId, driverId) {
   const rows = await getPrisma().pairing.findMany({
     where: {
-      status: { not: "expired" },
+      status: { in: ["pending", "active"] },
       OR: [{ vehicleId }, { driverId }]
     }
   });
@@ -1047,12 +1096,10 @@ async function findNonExpiredPairingsForVehicleOrDriver(vehicleId, driverId) {
 }
 
 async function isPairingCodeInUse(code) {
-  const now = new Date();
-  const rows = await getPrisma().pairing.findMany({
-    where: { pairCode: code, status: { in: ["pending", "active"] } },
-    select: { expiresAt: true }
-  });
-  return rows.some((r) => !r.expiresAt || r.expiresAt.getTime() > now.getTime());
+  return Boolean(await getPrisma().pairing.findFirst({
+    where: { pairCode: code },
+    select: { id: true }
+  }));
 }
 
 async function getActivePairingForVehicle(vehicleId) {
@@ -1092,19 +1139,17 @@ async function listPendingUnexpiredPairings() {
 // above, which despite its route's name actually lists "pending" pairings. Used by
 // the /api/pairings/debug admin view, mirroring the original's separate definition.
 async function listClaimedActivePairings() {
-  const now = new Date();
   const rows = await getPrisma().pairing.findMany({
-    where: { status: "active", OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] },
+    where: { status: "active", revokedAt: null },
     orderBy: { createdAt: "desc" }
   });
   return rows.map(rowToPairing);
 }
 
 async function getPairingStatusSummary() {
-  const now = new Date();
   const [mostRecent, activeClaimsCount] = await Promise.all([
     getPrisma().pairing.findFirst({ orderBy: { createdAt: "desc" }, select: { createdAt: true } }),
-    getPrisma().pairing.count({ where: { status: "active", OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] } })
+    getPrisma().pairing.count({ where: { status: "active", revokedAt: null } })
   ]);
   return {
     lastPairCodeCreatedAt: mostRecent?.createdAt instanceof Date ? mostRecent.createdAt.toISOString() : null,
@@ -1114,10 +1159,9 @@ async function getPairingStatusSummary() {
 
 async function getPairingHealthCounts() {
   const now = new Date();
-  const unexpired = { OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] };
   const [active, pending] = await Promise.all([
-    getPrisma().pairing.count({ where: { status: "active", ...unexpired } }),
-    getPrisma().pairing.count({ where: { status: "pending", ...unexpired } })
+    getPrisma().pairing.count({ where: { status: "active", revokedAt: null } }),
+    getPrisma().pairing.count({ where: { status: "pending", OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] } })
   ]);
   return { active, pending };
 }
@@ -1294,6 +1338,7 @@ module.exports = {
   listOpenDiagnosticScans,
   hashDeviceToken,
   issueDeviceToken,
+  claimPendingPairingAndIssueToken,
   findPairingByDeviceToken,
   revokeDeviceToken,
   insertTelemetrySample,

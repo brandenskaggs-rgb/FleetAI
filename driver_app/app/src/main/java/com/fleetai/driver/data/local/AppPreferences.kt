@@ -8,7 +8,6 @@ import androidx.datastore.preferences.preferencesDataStore
 import com.fleetai.driver.data.model.ThemeMode
 import com.fleetai.driver.j1939.J1939BusProfile
 import com.fleetai.driver.j1939.J1939ConnectorProfile
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import java.util.UUID
@@ -125,15 +124,15 @@ class AppPreferences(private val context: Context) {
     }
 
     suspend fun ensureDeviceId(): String {
-        val existing = deviceId.first()
-        if (existing.isNotBlank()) {
-            return existing
-        }
-        val created = UUID.randomUUID().toString()
+        var resolved = ""
         context.appDataStore.edit { prefs ->
-            prefs[deviceIdKey] = created
+            resolved = prefs[deviceIdKey].orEmpty()
+            if (resolved.isBlank()) {
+                resolved = UUID.randomUUID().toString()
+                prefs[deviceIdKey] = resolved
+            }
         }
-        return created
+        return resolved
     }
 
     suspend fun setThemeMode(mode: ThemeMode) {

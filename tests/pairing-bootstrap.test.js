@@ -54,6 +54,15 @@ async function claim(app, body) {
   return res;
 }
 
+async function generate(app, body) {
+  const handlers = app.routes.get("POST /api/pairing/generate");
+  assert(handlers, "pairing generate route missing");
+  const req = { body, query: {}, params: {}, headers: {}, path: "/api/pairing/generate", customer: { orgId: "ORG_1" } };
+  const res = fakeResponse();
+  await handlers[handlers.length - 1](req, res, (err) => { if (err) throw err; });
+  return res;
+}
+
 function pairing(overrides = {}) {
   return Object.assign({
     id: "PAIR_1",
@@ -81,8 +90,10 @@ async function testPendingClaimBootstrapsCompleteSession() {
   const app = fakeApp();
   await withDbMocks({
     findPairingByCode: async () => pairing(),
-    updatePairing: async (_id, patch) => pairing({ ...patch }),
-    issueDeviceToken: async () => "dev_test_token",
+    claimPendingPairingAndIssueToken: async (_id, patch) => ({
+      pairing: pairing({ ...patch, status: "active" }),
+      deviceToken: "dev_test_token"
+    }),
     getVehicleByVehicleId: async () => ({ vehicleId: "VEH_1", unitName: "Unit 1" }),
     getDriverByDriverId: async () => ({ driverId: "DRV_1", firstName: "Sam", lastName: "Driver" })
   }, async () => {
@@ -144,14 +155,31 @@ async function testOtherDeviceRemainsBlocked() {
   });
 }
 
-async function testExpiredCodeCannotRecover() {
+async function testActiveDeviceCanRecoverAfterClaimWindowExpires() {
+  const app = fakeApp();
+  let issued = false;
+  await withDbMocks({
+    findPairingByCode: async () => pairing({ status: "active", deviceId: "TABLET_1" }),
+    issueDeviceToken: async () => { issued = true; return "dev_recovered"; },
+    getVehicleByVehicleId: async () => ({ vehicleId: "VEH_1", unitName: "Unit 1" }),
+    getDriverByDriverId: async () => ({ driverId: "DRV_1", firstName: "Sam", lastName: "Driver" })
+  }, async () => {
+    registerLegacyPairingRoutes(app, deps({ isExpired: () => true }));
+    const res = await claim(app, claimBody());
+    assert.strictEqual(res.statusCode, 200);
+    assert.strictEqual(res.body.deviceToken, "dev_recovered");
+    assert.strictEqual(issued, true);
+  });
+}
+
+async function testExpiredPendingCodeCannotBeClaimed() {
   const app = fakeApp();
   let issued = false;
   let expired = false;
   await withDbMocks({
-    findPairingByCode: async () => pairing({ status: "active", deviceId: "TABLET_1" }),
+    findPairingByCode: async () => pairing({ status: "pending" }),
     updatePairing: async (_id, patch) => { expired = patch.status === "expired"; return pairing({ ...patch }); },
-    issueDeviceToken: async () => { issued = true; }
+    claimPendingPairingAndIssueToken: async () => { issued = true; }
   }, async () => {
     registerLegacyPairingRoutes(app, deps({ isExpired: () => true }));
     const res = await claim(app, claimBody());
@@ -162,14 +190,82 @@ async function testExpiredCodeCannotRecover() {
   });
 }
 
+async function testConcurrentPendingClaimFailsClosed() {
+  const app = fakeApp();
+  await withDbMocks({
+    findPairingByCode: async () => pairing(),
+    claimPendingPairingAndIssueToken: async () => null
+  }, async () => {
+    registerLegacyPairingRoutes(app, deps());
+    const res = await claim(app, claimBody());
+    assert.strictEqual(res.statusCode, 409);
+    assert.strictEqual(res.body.error, "PAIRING_CLAIM_CONFLICT");
+  });
+}
+
+async function testGenerationExpiresConflictingAssignments() {
+  const app = fakeApp();
+  const expiredIds = [];
+  let conflictLookup = null;
+  await withDbMocks({
+    getVehicleByVehicleId: async () => ({ vehicleId: "VEH_1", unitName: "Unit 1", orgId: "ORG_1" }),
+    getDriverByDriverId: async () => ({ driverId: "DRV_1", firstName: "Sam", lastName: "Driver", orgId: "ORG_1" }),
+    findNonExpiredPairingsForVehicleOrDriver: async (vehicleId, driverId) => {
+      conflictLookup = { vehicleId, driverId };
+      return [pairing({ id: "PAIR_OLD", vehicleId: "VEH_1", driverId: "DRV_OLD", status: "active" })];
+    },
+    updatePairing: async (id) => { expiredIds.push(id); return pairing({ id, status: "expired" }); },
+    isPairingCodeInUse: async () => false,
+    createPairing: async (fields) => pairing({ id: "PAIR_NEW", ...fields })
+  }, async () => {
+    registerLegacyPairingRoutes(app, deps());
+    const res = await generate(app, { vehicleId: "VEH_1", driverId: "DRV_1" });
+    assert.strictEqual(res.statusCode, 200);
+    assert.deepStrictEqual(conflictLookup, { vehicleId: "VEH_1", driverId: "DRV_1" });
+    assert.deepStrictEqual(expiredIds, ["PAIR_OLD"]);
+    assert.strictEqual(res.body.pairingCode, "123456");
+  });
+}
+
+async function testGenerationRetriesDatabaseCodeCollision() {
+  const app = fakeApp();
+  const candidates = ["111111", "222222"];
+  let creates = 0;
+  await withDbMocks({
+    getVehicleByVehicleId: async () => ({ vehicleId: "VEH_1", unitName: "Unit 1", orgId: "ORG_1" }),
+    getDriverByDriverId: async () => ({ driverId: "DRV_1", firstName: "Sam", lastName: "Driver", orgId: "ORG_1" }),
+    findNonExpiredPairingsForVehicleOrDriver: async () => [],
+    isPairingCodeInUse: async () => false,
+    createPairing: async (fields) => {
+      creates += 1;
+      if (creates === 1) {
+        const err = new Error("unique collision");
+        err.code = "P2002";
+        throw err;
+      }
+      return pairing({ id: "PAIR_NEW", ...fields });
+    }
+  }, async () => {
+    registerLegacyPairingRoutes(app, deps({ generateDigits: () => candidates.shift() || "333333" }));
+    const res = await generate(app, { vehicleId: "VEH_1", driverId: "DRV_1" });
+    assert.strictEqual(res.statusCode, 200);
+    assert.strictEqual(res.body.pairingCode, "222222");
+    assert.strictEqual(creates, 2);
+  });
+}
+
 function testAndroidPairingFirstContract() {
   const root = path.join(__dirname, "..");
   const app = fs.readFileSync(path.join(root, "driver_app", "app", "src", "main", "java", "com", "fleetai", "driver", "FleetAIDriverApp.kt"), "utf8");
   const repository = fs.readFileSync(path.join(root, "driver_app", "app", "src", "main", "java", "com", "fleetai", "driver", "data", "repository", "DefaultDriverRepository.kt"), "utf8");
   const preferences = fs.readFileSync(path.join(root, "driver_app", "app", "src", "main", "java", "com", "fleetai", "driver", "data", "local", "AppPreferences.kt"), "utf8");
+  const pairingScreen = fs.readFileSync(path.join(root, "driver_app", "app", "src", "main", "java", "com", "fleetai", "driver", "ui", "screens", "PairDeviceScreen.kt"), "utf8");
+  const dashboard = fs.readFileSync(path.join(root, "ui", "fleetai-dashboard.html"), "utf8");
   assert(app.includes("!sessionState.isLoggedIn || sessionState.vehicleId.isBlank()"), "fresh tablets must enter pairing before authenticated app routes");
   assert(repository.includes("preferences.saveClaimedSession("), "pairing must persist one complete scoped session");
   assert(preferences.includes("suspend fun saveClaimedSession("), "atomic claimed-session storage is required");
+  assert(pairingScreen.includes("enabled = !isSubmitting"), "tablet pairing must reject duplicate taps while a claim is in flight");
+  assert(/async function generatePairingPacket\(\)[\s\S]*generateButton\.disabled=true[\s\S]*finally/.test(dashboard), "dashboard pairing generation must reject duplicate clicks");
 }
 
 (async () => {
@@ -177,9 +273,13 @@ function testAndroidPairingFirstContract() {
   await testSameDeviceCanRecoverTokenWithPin();
   await testSameDeviceCannotRecoverWithWrongPin();
   await testOtherDeviceRemainsBlocked();
-  await testExpiredCodeCannotRecover();
+  await testActiveDeviceCanRecoverAfterClaimWindowExpires();
+  await testExpiredPendingCodeCannotBeClaimed();
+  await testConcurrentPendingClaimFailsClosed();
+  await testGenerationExpiresConflictingAssignments();
+  await testGenerationRetriesDatabaseCodeCollision();
   testAndroidPairingFirstContract();
-  console.log("Pairing bootstrap tests: 6 passed, 0 failed");
+  console.log("Pairing bootstrap tests: 10 passed, 0 failed");
 })().catch((err) => {
   console.error("Pairing bootstrap tests failed:", err.stack || err.message);
   process.exitCode = 1;

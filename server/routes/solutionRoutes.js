@@ -16,14 +16,13 @@ function registerSolutionRoutes(app, deps) {
     requireEmployeeOrCustomerApi
   } = deps;
 
-  // Vehicles/drivers moved to Prisma this session (see server/db.js) — the flat
-  // file's data.vehicles/data.drivers are now permanently empty, so every route
-  // below that used to read them from `data` needs them fetched here instead.
-  // Unfiltered (all orgs) to match the flat file's old shape exactly; each
-  // route already applies its own matchesOrg(item, orgId) filter downstream.
-  async function ensureCollections(data) {
-    data.vehicles = await db.listVehicles();
-    data.drivers = await db.listDrivers();
+  // Fetch customer fleet records at the database boundary. Downstream filters
+  // remain in place as defense in depth for the mixed employee/customer routes.
+  async function ensureCollections(data, req) {
+    const customerOrgId = sanitizeString(req?.customer?.orgId || "", 80);
+    const scope = customerOrgId ? { orgId: customerOrgId } : {};
+    data.vehicles = await db.listVehicles(scope);
+    data.drivers = await db.listDrivers(scope);
     data.dvirRecords = Array.isArray(data.dvirRecords) ? data.dvirRecords : [];
     data.dispatchJobs = Array.isArray(data.dispatchJobs) ? data.dispatchJobs : [];
     data.parts = Array.isArray(data.parts) ? data.parts : [];
@@ -131,7 +130,7 @@ function registerSolutionRoutes(app, deps) {
 
   app.get("/api/fleet/addons", requireEmployeeOrCustomerApi, async (req, res, next) => {
     try {
-      const data = await ensureCollections(await readData());
+      const data = await ensureCollections(await readData(), req);
       const orgId = resolveRequestOrgId(req, data);
       if (!orgId) return res.status(400).json({ error: "orgId required" });
       const existing = data.fleetAddons.find((row) => matchesOrg(row, orgId));
@@ -148,7 +147,7 @@ function registerSolutionRoutes(app, deps) {
 
   app.post("/api/fleet/addons", requireEmployeeOrCustomerApi, async (req, res, next) => {
     try {
-      const data = await ensureCollections(await readData());
+      const data = await ensureCollections(await readData(), req);
       const orgId = resolveRequestOrgId(req, data);
       if (!orgId) return res.status(400).json({ error: "orgId required" });
       const record = {
@@ -173,7 +172,7 @@ function registerSolutionRoutes(app, deps) {
 
   app.post("/api/fleet/addons/request-quote", requireEmployeeOrCustomerApi, async (req, res, next) => {
     try {
-      const data = await ensureCollections(await readData());
+      const data = await ensureCollections(await readData(), req);
       const orgId = resolveRequestOrgId(req, data);
       if (!orgId) return res.status(400).json({ error: "orgId required" });
       const addonId = sanitizeString(req.body?.addonId || "", 80);
@@ -197,7 +196,7 @@ function registerSolutionRoutes(app, deps) {
 
   app.get("/api/predictive/recommendations", requireEmployeeOrCustomerApi, async (req, res, next) => {
     try {
-      const data = await ensureCollections(await readData());
+      const data = await ensureCollections(await readData(), req);
       const orgId = resolveRequestOrgId(req, data);
       if (!orgId) return res.status(400).json({ error: "orgId required" });
       const vehicleId = sanitizeString(req.query.vehicleId || "", 80);
@@ -216,7 +215,7 @@ function registerSolutionRoutes(app, deps) {
 
   app.get("/api/dvir", requireEmployeeOrCustomerApi, async (req, res, next) => {
     try {
-      const data = await ensureCollections(await readData());
+      const data = await ensureCollections(await readData(), req);
       const orgId = resolveRequestOrgId(req, data);
       if (!orgId) return res.status(400).json({ error: "orgId required" });
 
@@ -240,7 +239,7 @@ function registerSolutionRoutes(app, deps) {
 
   app.post("/api/dvir", requireEmployeeOrCustomerApi, async (req, res, next) => {
     try {
-      const data = await ensureCollections(await readData());
+      const data = await ensureCollections(await readData(), req);
       const orgId = resolveRequestOrgId(req, data);
       if (!orgId) return res.status(400).json({ error: "orgId required" });
 
@@ -285,7 +284,7 @@ function registerSolutionRoutes(app, deps) {
 
   app.get("/api/dispatch/jobs", requireEmployeeOrCustomerApi, async (req, res, next) => {
     try {
-      const data = await ensureCollections(await readData());
+      const data = await ensureCollections(await readData(), req);
       const orgId = resolveRequestOrgId(req, data);
       if (!orgId) return res.status(400).json({ error: "orgId required" });
       const status = sanitizeString(req.query.status || "", 40);
@@ -300,7 +299,7 @@ function registerSolutionRoutes(app, deps) {
 
   app.post("/api/dispatch/jobs", requireEmployeeOrCustomerApi, async (req, res, next) => {
     try {
-      const data = await ensureCollections(await readData());
+      const data = await ensureCollections(await readData(), req);
       const orgId = resolveRequestOrgId(req, data);
       if (!orgId) return res.status(400).json({ error: "orgId required" });
 
@@ -348,7 +347,7 @@ function registerSolutionRoutes(app, deps) {
 
   app.get("/api/parts", requireEmployeeOrCustomerApi, async (req, res, next) => {
     try {
-      const data = await ensureCollections(await readData());
+      const data = await ensureCollections(await readData(), req);
       const orgId = resolveRequestOrgId(req, data);
       if (!orgId) return res.status(400).json({ error: "orgId required" });
       const parts = data.parts
@@ -363,7 +362,7 @@ function registerSolutionRoutes(app, deps) {
 
   app.post("/api/parts", requireEmployeeOrCustomerApi, async (req, res, next) => {
     try {
-      const data = await ensureCollections(await readData());
+      const data = await ensureCollections(await readData(), req);
       const orgId = resolveRequestOrgId(req, data);
       if (!orgId) return res.status(400).json({ error: "orgId required" });
 
@@ -399,7 +398,7 @@ function registerSolutionRoutes(app, deps) {
 
   app.get("/api/dot-compliance", requireEmployeeOrCustomerApi, async (req, res, next) => {
     try {
-      const data = await ensureCollections(await readData());
+      const data = await ensureCollections(await readData(), req);
       const orgId = resolveRequestOrgId(req, data);
       if (!orgId) return res.status(400).json({ error: "orgId required" });
       const dvirRecords = data.dvirRecords.filter((record) => matchesOrg(record, orgId));
@@ -423,7 +422,7 @@ function registerSolutionRoutes(app, deps) {
   // ── NHTSA RECALL SYNC ──────────────────────────────────────────────────────
   app.get("/api/recalls", requireEmployeeOrCustomerApi, async (req, res, next) => {
     try {
-      const data = await ensureCollections(await readData());
+      const data = await ensureCollections(await readData(), req);
       const orgId = resolveRequestOrgId(req, data);
       data.recalls = Array.isArray(data.recalls) ? data.recalls : [];
       const recalls = orgId ? data.recalls.filter((r) => matchesOrg(r, orgId)) : data.recalls;
@@ -433,7 +432,7 @@ function registerSolutionRoutes(app, deps) {
 
   app.post("/api/recalls/sync", requireEmployeeOrCustomerApi, async (req, res, next) => {
     try {
-      const data = await ensureCollections(await readData());
+      const data = await ensureCollections(await readData(), req);
       const orgId = resolveRequestOrgId(req, data);
       if (!orgId) return res.status(400).json({ error: "orgId required" });
       data.recalls = Array.isArray(data.recalls) ? data.recalls : [];
@@ -491,7 +490,7 @@ function registerSolutionRoutes(app, deps) {
 
   app.patch("/api/recalls/:id", requireEmployeeOrCustomerApi, async (req, res, next) => {
     try {
-      const data = await ensureCollections(await readData());
+      const data = await ensureCollections(await readData(), req);
       data.recalls = Array.isArray(data.recalls) ? data.recalls : [];
       const recall = data.recalls.find((r) => r.id === req.params.id);
       if (!recall) return res.status(404).json({ error: "Recall not found" });
@@ -508,7 +507,7 @@ function registerSolutionRoutes(app, deps) {
   // ── COST ANALYTICS ─────────────────────────────────────────────────────────
   app.get("/api/cost-analytics", requireEmployeeOrCustomerApi, async (req, res, next) => {
     try {
-      const data = await ensureCollections(await readData());
+      const data = await ensureCollections(await readData(), req);
       const orgId = resolveRequestOrgId(req, data);
       data.maintenanceLogs = Array.isArray(data.maintenanceLogs) ? data.maintenanceLogs : [];
       data.fuelEvents = Array.isArray(data.fuelEvents) ? data.fuelEvents : [];
@@ -557,7 +556,7 @@ function registerSolutionRoutes(app, deps) {
   // ── DRIVER BEHAVIOR SCORING ────────────────────────────────────────────────
   app.get("/api/driver-scores", requireEmployeeOrCustomerApi, async (req, res, next) => {
     try {
-      const data = await ensureCollections(await readData());
+      const data = await ensureCollections(await readData(), req);
       const orgId = resolveRequestOrgId(req, data);
       data.telemetry = Array.isArray(data.telemetry) ? data.telemetry : [];
 
@@ -598,7 +597,7 @@ function registerSolutionRoutes(app, deps) {
   // ── WEBHOOKS ───────────────────────────────────────────────────────────────
   app.get("/api/webhooks", requireEmployeeOrCustomerApi, async (req, res, next) => {
     try {
-      const data = await ensureCollections(await readData());
+      const data = await ensureCollections(await readData(), req);
       const orgId = resolveRequestOrgId(req, data);
       data.webhooks = Array.isArray(data.webhooks) ? data.webhooks : [];
       res.json({ ok: true, data: data.webhooks.filter((w) => matchesOrg(w, orgId)) });
@@ -607,7 +606,7 @@ function registerSolutionRoutes(app, deps) {
 
   app.post("/api/webhooks", requireEmployeeOrCustomerApi, async (req, res, next) => {
     try {
-      const data = await ensureCollections(await readData());
+      const data = await ensureCollections(await readData(), req);
       const orgId = resolveRequestOrgId(req, data);
       if (!orgId) return res.status(400).json({ error: "orgId required" });
       data.webhooks = Array.isArray(data.webhooks) ? data.webhooks : [];
@@ -623,7 +622,7 @@ function registerSolutionRoutes(app, deps) {
 
   app.delete("/api/webhooks/:id", requireEmployeeOrCustomerApi, async (req, res, next) => {
     try {
-      const data = await ensureCollections(await readData());
+      const data = await ensureCollections(await readData(), req);
       data.webhooks = Array.isArray(data.webhooks) ? data.webhooks : [];
       const webhook = data.webhooks.find((item) => item.id === req.params.id);
       if (!webhook) return res.status(404).json({ error: "Webhook not found" });
@@ -652,7 +651,7 @@ function registerSolutionRoutes(app, deps) {
       const message = sanitizeString(req.body.message || req.body.query || req.body.content || "", 2000);
       if (!message) return res.status(400).json({ error: "message required" });
 
-      const data = await ensureCollections(await readData());
+      const data = await ensureCollections(await readData(), req);
       const orgId = resolveRequestOrgId(req, data);
       if (!orgId) return res.status(400).json({ error: "orgId required" });
 
@@ -717,7 +716,7 @@ function registerSolutionRoutes(app, deps) {
 
   app.get("/api/advisor/artifacts", requireEmployeeOrCustomerApi, async (req, res, next) => {
     try {
-      const data = await ensureCollections(await readData());
+      const data = await ensureCollections(await readData(), req);
       const orgId = resolveRequestOrgId(req, data);
       if (!orgId) return res.status(400).json({ error: "orgId required" });
       const artifacts = await db.getPrisma().advisorArtifact.findMany({
@@ -732,7 +731,7 @@ function registerSolutionRoutes(app, deps) {
 
   app.get("/api/advisor/artifacts/:id/download", requireEmployeeOrCustomerApi, async (req, res, next) => {
     try {
-      const data = await ensureCollections(await readData());
+      const data = await ensureCollections(await readData(), req);
       const orgId = resolveRequestOrgId(req, data);
       if (!orgId) return res.status(400).json({ error: "orgId required" });
       const artifact = await db.getPrisma().advisorArtifact.findFirst({ where: { id: req.params.id, orgId } });
@@ -753,7 +752,7 @@ function registerSolutionRoutes(app, deps) {
       }
       const role = String(req.customer?.role || req.employee?.role || "").toUpperCase();
       if (["CUSTOMER_VIEWER", "VIEWER"].includes(role)) return res.status(403).json({ ok: false, error: "insufficient_role" });
-      const data = await ensureCollections(await readData());
+      const data = await ensureCollections(await readData(), req);
       const orgId = resolveRequestOrgId(req, data);
       if (!orgId) return res.status(400).json({ error: "orgId required" });
       const payload = req.body?.payload && typeof req.body.payload === "object" ? req.body.payload : {};
@@ -784,7 +783,7 @@ function registerSolutionRoutes(app, deps) {
   // ── GPS LIVE POSITIONS ─────────────────────────────────────────────────────
   app.get("/api/gps/live", requireEmployeeOrCustomerApi, async (req, res, next) => {
     try {
-      const data = await ensureCollections(await readData());
+      const data = await ensureCollections(await readData(), req);
       const orgId = resolveRequestOrgId(req, data);
       if (!orgId) return res.status(400).json({ error: "orgId required" });
       const telemetry = Array.isArray(data.telemetrySnapshots) ? data.telemetrySnapshots : [];
@@ -822,7 +821,7 @@ function registerSolutionRoutes(app, deps) {
   // ── ALERT SUBSCRIPTIONS (Email) ────────────────────────────────────────────
   app.get("/api/alert-subscriptions", requireEmployeeOrCustomerApi, async (req, res, next) => {
     try {
-      const data = await ensureCollections(await readData());
+      const data = await ensureCollections(await readData(), req);
       const orgId = resolveRequestOrgId(req, data);
       data.alertSubscriptions = Array.isArray(data.alertSubscriptions) ? data.alertSubscriptions : [];
       res.json({ ok: true, data: data.alertSubscriptions.filter((s) => matchesOrg(s, orgId)) });
@@ -831,7 +830,7 @@ function registerSolutionRoutes(app, deps) {
 
   app.post("/api/alert-subscriptions", requireEmployeeOrCustomerApi, async (req, res, next) => {
     try {
-      const data = await ensureCollections(await readData());
+      const data = await ensureCollections(await readData(), req);
       const orgId = resolveRequestOrgId(req, data);
       if (!orgId) return res.status(400).json({ error: "orgId required" });
       data.alertSubscriptions = Array.isArray(data.alertSubscriptions) ? data.alertSubscriptions : [];
@@ -850,7 +849,7 @@ function registerSolutionRoutes(app, deps) {
 
   app.delete("/api/alert-subscriptions/:id", requireEmployeeOrCustomerApi, async (req, res, next) => {
     try {
-      const data = await ensureCollections(await readData());
+      const data = await ensureCollections(await readData(), req);
       data.alertSubscriptions = Array.isArray(data.alertSubscriptions) ? data.alertSubscriptions : [];
       const subscription = data.alertSubscriptions.find((item) => item.id === req.params.id);
       if (!subscription) return res.status(404).json({ error: "Subscription not found" });
@@ -903,7 +902,7 @@ function registerSolutionRoutes(app, deps) {
   // ── PREDICTIVE MAINTENANCE AUTO-SCHEDULER ─────────────────────────────────
   app.post("/api/predictive/run", requireEmployeeOrCustomerApi, async (req, res, next) => {
     try {
-      const data = await ensureCollections(await readData());
+      const data = await ensureCollections(await readData(), req);
       const orgId = resolveRequestOrgId(req, data);
       if (!orgId) return res.status(400).json({ error: "orgId required" });
       data.maintenanceLogs = Array.isArray(data.maintenanceLogs) ? data.maintenanceLogs : [];
@@ -962,7 +961,7 @@ function registerSolutionRoutes(app, deps) {
   // ── COMPLIANCE REPORT GENERATOR ────────────────────────────────────────────
   app.get("/api/reports/compliance", requireEmployeeOrCustomerApi, async (req, res, next) => {
     try {
-      const data = await ensureCollections(await readData());
+      const data = await ensureCollections(await readData(), req);
       const orgId = resolveRequestOrgId(req, data);
       if (!orgId) return res.status(400).json({ error: "orgId required" });
       const type = sanitizeString(req.query.type || "full", 20);
@@ -1003,7 +1002,7 @@ function registerSolutionRoutes(app, deps) {
   // ── DRIVER MESSAGING ───────────────────────────────────────────────────────
   app.get("/api/messages", requireEmployeeOrCustomerApi, async (req, res, next) => {
     try {
-      const data = await ensureCollections(await readData());
+      const data = await ensureCollections(await readData(), req);
       const orgId = resolveRequestOrgId(req, data);
       if (!orgId) return res.status(400).json({ error: "orgId required" });
       data.driverMessages = Array.isArray(data.driverMessages) ? data.driverMessages : [];
@@ -1017,7 +1016,7 @@ function registerSolutionRoutes(app, deps) {
 
   app.post("/api/messages", requireEmployeeOrCustomerApi, async (req, res, next) => {
     try {
-      const data = await ensureCollections(await readData());
+      const data = await ensureCollections(await readData(), req);
       const orgId = resolveRequestOrgId(req, data);
       if (!orgId) return res.status(400).json({ error: "orgId required" });
       data.driverMessages = Array.isArray(data.driverMessages) ? data.driverMessages : [];

@@ -20,9 +20,11 @@ function extractBearer(req) {
   const header = req.headers.authorization || req.headers.Authorization || "";
   const match = /^Bearer\s+(.+)$/i.exec(String(header).trim());
   if (match) return match[1].trim();
-  // Tablets running as kiosk web pages cannot always set headers on every
-  // transport (EventSource, for one), so a query token is accepted as well.
-  const q = req.query?.deviceToken || req.query?.device_token;
+  // EventSource cannot set headers. Limit URL tokens to the one SSE endpoint so
+  // normal API requests cannot leak credentials through URL logs or referrers.
+  const allowsQueryToken = String(req.method || "GET").toUpperCase() === "GET"
+    && req.path === "/api/telemetry/stream";
+  const q = allowsQueryToken ? (req.query?.deviceToken || req.query?.device_token) : "";
   return q ? String(q).trim() : "";
 }
 

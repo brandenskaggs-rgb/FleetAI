@@ -18,7 +18,9 @@ function generateApiKey(prefix = "fai") {
 // On success, attaches req.apiKey = { id, orgId, partner, scopes }.
 // Calls next() on success, 401/403 on failure.
 async function requireApiKey(req, res, next) {
-  const raw = req.headers["x-api-key"] || (typeof req.query?.apiKey === "string" ? req.query.apiKey : "");
+  const allowsQueryKey = String(req.method || "GET").toUpperCase() === "GET"
+    && req.path === "/api/partner/stream";
+  const raw = req.headers["x-api-key"] || (allowsQueryKey && typeof req.query?.apiKey === "string" ? req.query.apiKey : "");
   if (!raw) {
     return res.status(401).json({
       success: false,

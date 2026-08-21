@@ -147,12 +147,17 @@ function registerFleetOpsRoutes(app, deps) {
       const existing = existingByVin || existingById;
       if (existing) {
         const sameOrg = existing.orgId === normalizedOrgId;
-        if (!sameOrg && !(await canRecoverBetweenOrgs(existing.orgId, normalizedOrgId))) {
-          return res.status(409).json({
-            ok: false,
-            code: "VEHICLE_IN_OTHER_ORG",
-            error: "That VIN or unit ID belongs to another fleet account. Contact support if the vehicle changed ownership."
-          });
+        if (!sameOrg) {
+          const duplicateOrgMatch = await canRecoverBetweenOrgs(existing.orgId, normalizedOrgId);
+          const explicitAdminRecovery = req.employee?.role === "SUPER_ADMIN"
+            && req.body?.recoverExistingVehicle === true;
+          if (!duplicateOrgMatch || !explicitAdminRecovery) {
+            return res.status(409).json({
+              ok: false,
+              code: "VEHICLE_IN_OTHER_ORG",
+              error: "That VIN or unit ID belongs to another fleet account. A Fleet AI super administrator must explicitly approve an organization recovery or ownership transfer."
+            });
+          }
         }
 
         const recovered = await db.transferVehicleToOrg(existing.vehicleId, normalizedOrgId, submittedVehicle);
@@ -287,9 +292,10 @@ function registerFleetOpsRoutes(app, deps) {
   app.post("/api/orgs/:orgId/drivers", requireEmployeeOrCustomerApi, handleCreateDriver);
   app.delete("/api/orgs/:orgId/drivers/:driverId", requireEmployeeOrCustomerApi, handleDeleteDriver);
 
-  app.get("/api/orgs/:orgId/public-profile", async (req, res, next) => {
+  app.get("/api/orgs/:orgId/public-profile", requireEmployeeOrCustomerApi, async (req, res, next) => {
     try {
       const orgId = sanitizeString(req.params.orgId || "", 80);
+      if (denyCustomerOrgMismatch(req, res, orgId)) return;
       const org = await db.getOrg(orgId);
       res.json({ ok: true, data: { orgId, name: org?.name || "", status: org?.status || "unknown" } });
     } catch (err) {

@@ -21,6 +21,9 @@ function registerAuthRoutes(app, deps) {
     formatAuthError,
     setNoStore,
     requireCustomerApi,
+    requireEmployeeApi,
+    validateSessionIdentity,
+    revokeUserSessions,
     getCustomerSession,
     clearCustomerSessionCookie,
     customerSessionStore,
@@ -208,43 +211,33 @@ function registerAuthRoutes(app, deps) {
     app.all(route, (req, res) => sendRemovedRoute(res, "/api/auth/customer/login"));
   });
 
-  app.get("/api/auth/customer/session", async (req, res) => {
-    const session = getCustomerSession(req);
-    console.log("[CUST-SESSION] check", {
-      hasCookieHeader: Boolean(req.headers.cookie),
-      sessionFound: Boolean(session),
-      ua: req.headers["user-agent"] || "",
-      referer: req.headers.referer || ""
-    });
-    if (!session) {
-      return res.status(401).json({ error: "Not authenticated." });
-    }
-    try {
-      const prisma = getPrisma();
-      const user = session.userId ? await prisma.user.findUnique({ where: { id: session.userId } }) : null;
-      const resolvedOrgId = session.orgId || user?.orgId || null;
-      res.json({ ok: true, user: { id: session.userId, email: session.email, role: session.role, orgId: resolvedOrgId } });
-    } catch {
-      res.json({ ok: true, user: { id: session.userId, email: session.email, role: session.role, orgId: session.orgId || null } });
-    }
+  app.get("/api/auth/customer/session", requireCustomerApi, async (req, res) => {
+    const session = req.customer;
+    res.json({ ok: true, user: { id: session.userId, email: session.email, role: session.role, orgId: session.orgId } });
   });
 
   app.get("/api/auth/whoami", async (req, res) => {
     const employee = getSession(req);
     if (employee) {
-      return res.json({ ok: true, type: "employee", source: "cookie", user: { id: employee.userId || null, email: employee.email, role: employee.role, orgId: employee.orgId || null } });
+      const validated = await validateSessionIdentity(employee, "employee");
+      if (validated) {
+        return res.json({ ok: true, type: "employee", source: "cookie", user: { id: validated.userId || null, email: validated.email, role: validated.role, orgId: validated.orgId || null } });
+      }
+      clearSessionCookie(res);
     }
     const customer = getCustomerSession(req);
     if (!customer) {
       return res.status(401).json({ ok: false, error: "Not authenticated" });
     }
     try {
-      const prisma = getPrisma();
-      const user = customer.userId ? await prisma.user.findUnique({ where: { id: customer.userId } }) : null;
-      const resolvedOrgId = customer.orgId || user?.orgId || null;
-      return res.json({ ok: true, type: "customer", source: "cookie", user: { id: customer.userId, email: customer.email, role: customer.role, orgId: resolvedOrgId } });
+      const validated = await validateSessionIdentity(customer, "customer");
+      if (!validated) {
+        clearCustomerSessionCookie(res);
+        return res.status(401).json({ ok: false, error: "Not authenticated" });
+      }
+      return res.json({ ok: true, type: "customer", source: "cookie", user: { id: validated.userId, email: validated.email, role: validated.role, orgId: validated.orgId } });
     } catch {
-      return res.json({ ok: true, type: "customer", source: "cookie", user: { id: customer.userId, email: customer.email, role: customer.role, orgId: customer.orgId || null } });
+      return res.status(401).json({ ok: false, error: "Not authenticated" });
     }
   });
 
@@ -301,7 +294,7 @@ function registerAuthRoutes(app, deps) {
         return res.status(400).json({ error: "Password reset not required." });
       }
       const now = new Date();
-      await prisma.user.update({
+      const updatedUser = await prisma.user.update({
         where: { id: user.id },
         data: {
           passwordHash: await bcrypt.hash(String(newPassword), 12),
@@ -314,12 +307,9 @@ function registerAuthRoutes(app, deps) {
           lastLoginAt: now
         }
       });
-      req.customer.resetRequired = false;
-      req.customer.mustSetPassword = false;
-      customerSessionStore.set(req.customer.id, req.customer);
-      if (typeof persistSessionStoresSoon === "function") {
-        persistSessionStoresSoon();
-      }
+      await revokeUserSessions(user.id);
+      const session = issueSession("customer", updatedUser);
+      setCustomerSessionCookie(res, session.id);
       res.json({ ok: true, redirectTo: "/ui/fleetai-dashboard.html" });
     } catch (err) {
       next(err);
@@ -348,7 +338,7 @@ function registerAuthRoutes(app, deps) {
       const ok = await bcrypt.compare(String(currentPassword), user.passwordHash || "");
       if (!ok) return res.status(401).json({ error: "Current password is incorrect." });
       const now = new Date();
-      await prisma.user.update({
+      const updatedUser = await prisma.user.update({
         where: { id: user.id },
         data: {
           passwordHash: await bcrypt.hash(String(newPassword), 12),
@@ -361,12 +351,9 @@ function registerAuthRoutes(app, deps) {
           lastLoginAt: now
         }
       });
-      req.customer.resetRequired = false;
-      req.customer.mustSetPassword = false;
-      customerSessionStore.set(req.customer.id, req.customer);
-      if (typeof persistSessionStoresSoon === "function") {
-        persistSessionStoresSoon();
-      }
+      await revokeUserSessions(user.id);
+      const session = issueSession("customer", updatedUser);
+      setCustomerSessionCookie(res, session.id);
       res.json({ ok: true, redirectTo: "/ui/fleetai-dashboard.html" });
     } catch (err) {
       next(err);
@@ -408,11 +395,8 @@ function registerAuthRoutes(app, deps) {
   app.post("/api/employee/logout", handleEmployeeLogout);
   app.post("/api/auth/logout", handleEmployeeLogout);
 
-  app.get("/api/employee/session", (req, res) => {
-    const session = getSession(req);
-    if (!session) {
-      return res.status(401).json({ ok: false, error: "Not authenticated." });
-    }
+  app.get("/api/employee/session", requireEmployeeApi, (req, res) => {
+    const session = req.employee;
     return res.json({
       ok: true,
       employee: {
@@ -434,20 +418,22 @@ function registerAuthRoutes(app, deps) {
     app.handle(req, res);
   });
 
-  app.get("/api/auth/session", (req, res) => {
-    const session = getSession(req);
-    if (!session) {
-      return res.status(401).json({ error: "Not authenticated." });
-    }
+  app.get("/api/auth/session", requireEmployeeApi, (req, res) => {
+    const session = req.employee;
     return res.json({ authenticated: true, user: { id: session.userId || null, email: session.email, role: session.role } });
   });
 
-  app.post("/api/auth/set-password", async (req, res) => {
+  app.post("/api/auth/set-password", loginLimiter, async (req, res) => {
     const token = (req.body?.token || "").trim();
     const newPassword = (req.body?.newPassword || "").trim();
     if (!token || !newPassword) {
       return res.status(400).json(formatAuthError(AUTH_ERRORS.INVALID_CREDENTIALS, {
         message: "token and newPassword are required"
+      }));
+    }
+    if (newPassword.length < 10) {
+      return res.status(400).json(formatAuthError(AUTH_ERRORS.INVALID_CREDENTIALS, {
+        message: "Password must be at least 10 characters."
       }));
     }
     try {
@@ -457,6 +443,7 @@ function registerAuthRoutes(app, deps) {
       }
       const user = result.user;
       const scope = authService.isCustomerRole(user) ? "customer" : "employee";
+      await revokeUserSessions(user.id);
       const session = issueSession(scope, user);
       if (scope === "customer") {
         setCustomerSessionCookie(res, session.id);

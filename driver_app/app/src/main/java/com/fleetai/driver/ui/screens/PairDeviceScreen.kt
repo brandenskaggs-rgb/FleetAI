@@ -129,6 +129,7 @@ fun PairDeviceScreen(
                     Spacer(modifier = Modifier.height(16.dp))
                     FleetButton(
                         text = if (isSubmitting) "Pairing..." else "Pair tablet",
+                        enabled = !isSubmitting,
                         onClick = {
                             if (pairingCode.length != 6) {
                                 statusMessage = "Enter the 6-digit pairing code from dispatch."

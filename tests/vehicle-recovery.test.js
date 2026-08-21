@@ -55,10 +55,16 @@ async function withDbMocks(mocks, fn) {
   }
 }
 
-async function postVehicle(app, body, orgId = "ORG_ACTIVE") {
+async function postVehicle(app, body, orgId = "ORG_ACTIVE", employee = null) {
   const handlers = app.routes.get("POST /api/vehicles");
   assert(handlers, "vehicle create route is missing");
-  const req = { body, query: {}, params: {}, path: "/api/vehicles", customer: { orgId } };
+  const req = { body, query: {}, params: {}, path: "/api/vehicles" };
+  if (employee) {
+    req.employee = employee;
+    req.body.orgId = orgId;
+  } else {
+    req.customer = { orgId };
+  }
   const res = fakeResponse();
   await handlers[handlers.length - 1](req, res, (err) => { if (err) throw err; });
   return res;
@@ -76,7 +82,7 @@ function vehicleInput(overrides = {}) {
   }, overrides);
 }
 
-async function testRecoversHiddenVehicleFromDuplicateOrg() {
+async function testCustomerCannotRecoverHiddenVehicleFromDuplicateOrg() {
   const app = fakeApp();
   let transfer = null;
   const orgs = [
@@ -95,9 +101,38 @@ async function testRecoversHiddenVehicleFromDuplicateOrg() {
   }, async () => {
     registerFleetOpsRoutes(app, dependencies(async () => ({ orgs })));
     const res = await postVehicle(app, vehicleInput());
+    assert.strictEqual(res.statusCode, 409);
+    assert.strictEqual(res.body.code, "VEHICLE_IN_OTHER_ORG");
+    assert.strictEqual(transfer, null);
+  });
+}
+
+async function testSuperAdminCanExplicitlyRecoverDuplicateOrgVehicle() {
+  const app = fakeApp();
+  let transfer = null;
+  const orgs = [
+    { id: "ORG_OLD", primaryContactEmail: "owner@example.com" },
+    { id: "ORG_ACTIVE", primaryContactEmail: "OWNER@example.com" }
+  ];
+  await withDbMocks({
+    getVehicleByVehicleId: async () => null,
+    getVehicleByVin: async () => ({ vehicleId: "Car-01", vin: "1G1FA1RX0A0123456", orgId: "ORG_OLD" }),
+    getOrg: async (id) => orgs.find((org) => org.id === id),
+    transferVehicleToOrg: async (vehicleId, orgId, patch) => {
+      transfer = { vehicleId, orgId, patch };
+      return { vehicleId, orgId, ...patch };
+    },
+    logAudit: async () => {}
+  }, async () => {
+    registerFleetOpsRoutes(app, dependencies(async () => ({ orgs })));
+    const res = await postVehicle(
+      app,
+      vehicleInput({ recoverExistingVehicle: true }),
+      "ORG_ACTIVE",
+      { role: "SUPER_ADMIN" }
+    );
     assert.strictEqual(res.statusCode, 200);
     assert.strictEqual(res.body.recovered, true);
-    assert.strictEqual(res.body.data.vehicleId, "Car-01", "VIN recovery must preserve the existing vehicle identity");
     assert.deepStrictEqual({ vehicleId: transfer.vehicleId, orgId: transfer.orgId }, { vehicleId: "Car-01", orgId: "ORG_ACTIVE" });
   });
 }
@@ -154,11 +189,12 @@ async function testRejectsUnitIdAssignedToDifferentVin() {
 }
 
 (async () => {
-  await testRecoversHiddenVehicleFromDuplicateOrg();
+  await testCustomerCannotRecoverHiddenVehicleFromDuplicateOrg();
+  await testSuperAdminCanExplicitlyRecoverDuplicateOrgVehicle();
   await testRefusesCrossCustomerRecovery();
   await testResurfacesSameOrgVehicle();
   await testRejectsUnitIdAssignedToDifferentVin();
-  console.log("Vehicle recovery tests: 4 passed, 0 failed");
+  console.log("Vehicle recovery tests: 5 passed, 0 failed");
 })().catch((err) => {
   console.error("Vehicle recovery tests failed:", err.stack || err.message);
   process.exitCode = 1;

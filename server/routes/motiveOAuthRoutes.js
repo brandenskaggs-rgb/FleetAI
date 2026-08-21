@@ -33,9 +33,28 @@ const OAUTH_SCOPES = [
 ].join(" ");
 
 function _redirectUri(req) {
+  const configuredBaseUrl = String(process.env.FLEETAI_BASE_URL || "").trim();
+  if (configuredBaseUrl) {
+    try {
+      const configured = new URL(configuredBaseUrl);
+      if (configured.protocol === "https:" || configured.protocol === "http:") {
+        return `${configured.origin}/api/auth/motive/callback`;
+      }
+    } catch (_) {
+      // Invalid production configuration is handled by the existing config checks.
+    }
+  }
   const proto = (req.headers["x-forwarded-proto"] || "").split(",")[0].trim() || (req.secure ? "https" : "http");
   const host = req.headers["x-forwarded-host"] || req.headers.host;
   return `${proto}://${host}/api/auth/motive/callback`;
+}
+
+function statesMatch(expected, received) {
+  const expectedBuffer = Buffer.from(String(expected || ""));
+  const receivedBuffer = Buffer.from(String(received || ""));
+  return expectedBuffer.length > 0 &&
+    expectedBuffer.length === receivedBuffer.length &&
+    crypto.timingSafeEqual(expectedBuffer, receivedBuffer);
 }
 
 function _authUrl(clientId, redirectUri, state) {
@@ -73,9 +92,9 @@ function registerMotiveOAuthRoutes(app, { requireSuperAdmin, sessionStore, getSe
   });
 
   // ── Step 2: OAuth callback — Motive redirects here ────────────────────────
-  // This route is NOT auth-gated because Motive redirects the user's browser here.
-  // State parameter provides CSRF protection.
-  app.get("/api/auth/motive/callback", (req, res) => {
+  // The browser keeps the employee session cookie through the provider redirect.
+  // Require that session as well as a one-time state value before exchanging code.
+  app.get("/api/auth/motive/callback", (req, res, next) => requireSuperAdmin(req, res, next), (req, res) => {
     (async () => {
       const { code, state, error, error_description } = req.query;
 
@@ -88,16 +107,14 @@ function registerMotiveOAuthRoutes(app, { requireSuperAdmin, sessionStore, getSe
         return res.status(400).json({ ok: false, error: "missing_code" });
       }
 
-      // CSRF state validation — only enforce when session is readable
+      // Fail closed: a missing session state is not a valid OAuth callback.
       const session = getSession(req);
-      if (session?.motiveOAuthState) {
-        if (!state || session.motiveOAuthState !== state) {
-          console.error("[MOTIVE-OAUTH] state mismatch — possible CSRF");
-          return res.status(403).json({ ok: false, error: "state_mismatch" });
-        }
-        delete session.motiveOAuthState;
-        sessionStore.set(session.id, session);
+      if (!session || !statesMatch(session.motiveOAuthState, state)) {
+        console.error("[MOTIVE-OAUTH] state mismatch — possible CSRF");
+        return res.status(403).json({ ok: false, error: "state_mismatch" });
       }
+      delete session.motiveOAuthState;
+      sessionStore.set(session.id, session);
 
       const redirectUri = _redirectUri(req);
       const tokens = await motiveOAuth.exchangeCode(code, redirectUri);

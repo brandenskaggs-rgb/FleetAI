@@ -6,7 +6,7 @@
  * GET  /api/telemetry/feedback   — list feedback for a vehicle (admin/org)
  */
 
-const { getPrisma } = require("../db");
+const db = require("../db");
 
 const VALID_OUTCOMES = ["confirmed_breakdown", "false_positive", "no_event"];
 
@@ -24,10 +24,27 @@ function registerFeedbackRoutes(app, deps) {
       return res.status(400).json({ error: `outcome must be one of: ${VALID_OUTCOMES.join(", ")}` });
     }
 
-    const orgId = req.employee?.orgId ?? req.customer?.orgId ?? null;
-
     try {
-      const prisma = getPrisma();
+      const prisma = db.getPrisma();
+      const vehicle = await prisma.vehicle.findUnique({
+        where: { vehicleId: String(vehicleId) },
+        select: { vehicleId: true, orgId: true }
+      });
+      if (!vehicle) return res.status(404).json({ error: "vehicle_not_found" });
+      if (req.customer?.orgId && req.customer.orgId !== vehicle.orgId) {
+        return res.status(403).json({ error: "cross_org_vehicle_denied" });
+      }
+      if (req.employee?.orgId && req.employee.orgId !== vehicle.orgId) {
+        return res.status(403).json({ error: "cross_org_vehicle_denied" });
+      }
+      const orgId = vehicle.orgId;
+      if (predictionRunId) {
+        const run = await prisma.mlPredictionRun.findFirst({
+          where: { id: String(predictionRunId), vehicleId: vehicle.vehicleId, orgId },
+          select: { id: true }
+        });
+        if (!run) return res.status(400).json({ error: "prediction_run_not_found_for_vehicle" });
+      }
       const entry = await prisma.feedbackLog.create({
         data: {
           orgId,
@@ -39,7 +56,7 @@ function registerFeedbackRoutes(app, deps) {
           stage2Score: stage2Score != null ? parseFloat(stage2Score) : null,
           signalAgreement: signalAgreement != null ? parseFloat(signalAgreement) : null,
           features: features && typeof features === "object" ? features : {},
-          reviewedBy: reviewedBy ? String(reviewedBy).slice(0, 100) : (req.employee?.email ?? req.customer?.email ?? null),
+          reviewedBy: req.employee?.email ?? req.customer?.email ?? null,
         },
       });
 
@@ -63,7 +80,7 @@ function registerFeedbackRoutes(app, deps) {
     const orgId = req.employee?.orgId ?? req.customer?.orgId ?? null;
 
     try {
-      const prisma = getPrisma();
+      const prisma = db.getPrisma();
       const where = {};
       if (vehicleId) where.vehicleId = String(vehicleId);
       if (outcome && VALID_OUTCOMES.includes(outcome)) where.outcome = outcome;

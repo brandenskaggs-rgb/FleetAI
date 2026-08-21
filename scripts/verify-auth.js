@@ -130,14 +130,14 @@ async function run() {
       payload: { email: "nobody@example.com", password: CUSTOMER_PASSWORD }
     });
     assert(unknownCustomer.res.status === 401, "Unknown customer should be 401", unknownCustomer.data);
-    assert((unknownCustomer.data.code || unknownCustomer.data.error) === "USER_NOT_FOUND", "Unknown customer wrong error code", unknownCustomer.data);
+    assert((unknownCustomer.data.code || unknownCustomer.data.error) === "INVALID_CREDENTIALS", "Unknown customer must not disclose account existence", unknownCustomer.data);
 
     const unknownEmployee = await requestJson(`${BASE_URL}/api/auth/employee/login`, {
       method: "POST",
       payload: { email: "ghost.employee@example.com", password: EMPLOYEE_PASSWORD }
     });
     assert(unknownEmployee.res.status === 401, "Unknown employee should be 401", unknownEmployee.data);
-    assert((unknownEmployee.data.code || unknownEmployee.data.error) === "USER_NOT_FOUND", "Unknown employee wrong error code", unknownEmployee.data);
+    assert((unknownEmployee.data.code || unknownEmployee.data.error) === "INVALID_CREDENTIALS", "Unknown employee must not disclose account existence", unknownEmployee.data);
 
     const customerSession = await requestJson(`${BASE_URL}/api/auth/customer/session`, {
       cookie: customerCookie

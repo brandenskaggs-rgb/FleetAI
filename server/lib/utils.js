@@ -84,6 +84,20 @@ function parseNumberField(value, fallback = null) {
   return Number.isFinite(num) ? num : fallback;
 }
 
+function publicUserView(user) {
+  if (!user || typeof user !== "object") return null;
+  const fields = [
+    "id", "email", "role", "kind", "orgId", "displayName", "status",
+    "isActive", "active", "verified", "mustSetPassword", "requirePasswordReset",
+    "mustResetPassword", "isTemporaryPassword", "passwordLastSetAt",
+    "lastPasswordChangeAt", "lastLoginAt", "createdAt", "updatedAt"
+  ];
+  return fields.reduce((view, field) => {
+    if (user[field] !== undefined) view[field] = user[field];
+    return view;
+  }, {});
+}
+
 module.exports = {
   makeId,
   nowIso,
@@ -96,5 +110,6 @@ module.exports = {
   safeParseJson,
   addAudit,
   normalizeEmail,
-  parseNumberField
+  parseNumberField,
+  publicUserView
 };

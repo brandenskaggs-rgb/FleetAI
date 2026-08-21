@@ -55,8 +55,9 @@ function validateSetupToken(user, token) {
   if (!user || !token) return false;
   if (!user.setupTokenHash || !user.setupTokenExpiresAt) return false;
   if (Date.now() > Number(user.setupTokenExpiresAt)) return false;
-  const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
-  return tokenHash === user.setupTokenHash;
+  const tokenHash = crypto.createHash("sha256").update(token).digest();
+  const expectedHash = Buffer.from(String(user.setupTokenHash), "hex");
+  return expectedHash.length === tokenHash.length && crypto.timingSafeEqual(tokenHash, expectedHash);
 }
 
 function createAuthService(options) {
@@ -98,12 +99,12 @@ function createAuthService(options) {
     const data = result.data;
     if (!user) {
       logAuth("user lookup", { scope, email: emailNormalized, found: false, storePath });
-      return { ok: false, error: AUTH_ERRORS.USER_NOT_FOUND };
+      return { ok: false, error: AUTH_ERRORS.INVALID_CREDENTIALS };
     }
     logAuth("user lookup", { scope, email: emailNormalized, found: true, userId: user.id || null, role: user.role, storePath });
     if (!isActiveUser(user)) {
       logAuth("inactive user", { scope, email: emailNormalized, userId: user.id || null });
-      return { ok: false, error: AUTH_ERRORS.ACCOUNT_LOCKED };
+      return { ok: false, error: AUTH_ERRORS.INVALID_CREDENTIALS };
     }
     let ok = false;
     try {

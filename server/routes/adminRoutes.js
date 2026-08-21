@@ -15,7 +15,7 @@ async function mirrorAdminOrgToPrisma(org) {
 }
 const { generateApiKey } = require("../middleware/apiKeyAuth");
 const { validateBody, schemas } = require("../middleware/validate");
-const { makeId, nowIso, addAudit, sanitizeString, normalizeEmail, parseNumberField } = require("../lib/utils");
+const { makeId, nowIso, addAudit, sanitizeString, normalizeEmail, parseNumberField, publicUserView } = require("../lib/utils");
 
 // ── Pure helpers (org/lead data helpers) ──────────────────────────────────
 
@@ -44,7 +44,7 @@ function normalizeLeadStatus(value) {
 }
 
 function defaultBilling(orgId, data) {
-  const price = data.settings?.defaultPilotPrice ?? 59;
+  const price = data.settings?.defaultPilotPrice ?? 50;
   return {
     orgId,
     plan: "PILOT",
@@ -58,7 +58,7 @@ function defaultBilling(orgId, data) {
 }
 
 function defaultBillingSettings(data) {
-  const price = (data && data.settings?.defaultPilotPrice) ?? 59;
+  const price = (data && data.settings?.defaultPilotPrice) ?? 50;
   return {
     plan: "PILOT_CORE",
     priceMonthly: price,
@@ -468,7 +468,7 @@ function registerAdminRoutes(app, deps) {
     try {
       const data = await readData();
       await reconcileAdminUsers(data, { persist: true });
-      res.json({ ok: true, data: data.users || [] });
+      res.json({ ok: true, data: (data.users || []).map(publicUserView) });
     } catch (err) {
       next(err);
     }
@@ -485,6 +485,9 @@ function registerAdminRoutes(app, deps) {
     if (!normalizedRole) {
       return res.status(400).json({ error: `Invalid role. Allowed: ${Array.from(ASSIGNABLE_ROLES).join(", ")}` });
     }
+    if (kindForRole(normalizedRole) === "customer" && !orgId) {
+      return res.status(400).json({ error: "Customer users require an organization." });
+    }
     if (password && password.length < 10) {
       return res.status(400).json({ error: "Password must be at least 10 characters." });
     }
@@ -494,6 +497,9 @@ function registerAdminRoutes(app, deps) {
       await reconcileAdminUsers(data, { persist: true });
       const exists = data.users.some((u) => normalizeEmail(u.email) === normalizedEmail);
       if (exists) return res.status(409).json({ error: "User already exists" });
+      if (kindForRole(normalizedRole) === "customer" && !(await getOrg(orgId))) {
+        return res.status(400).json({ error: "Customer organization does not exist." });
+      }
       const passwordHash = password ? await bcrypt.hash(password, 12) : "";
       const user = {
         id: makeId("USR"),
@@ -514,7 +520,7 @@ function registerAdminRoutes(app, deps) {
       data.users.push(user);
       addAudit(data, "USER_CREATED", `${user.id}:${user.email}:${user.role}`);
       await writeData(data);
-      res.json({ ok: true, data: user });
+      res.json({ ok: true, data: publicUserView(user) });
     } catch (err) {
       next(err);
     }
@@ -589,7 +595,7 @@ function registerAdminRoutes(app, deps) {
       addAudit(data, "USER_UPDATED", user.id);
       await saveAdminUserToPrimary(user, data);
       await writeData(data);
-      res.json({ ok: true, data: user });
+      res.json({ ok: true, data: publicUserView(user) });
     } catch (err) {
       next(err);
     }
@@ -612,7 +618,7 @@ function registerAdminRoutes(app, deps) {
       addAudit(data, "USER_ROLE_UPDATED", `${user.id}:${normalizedRole}:by=${req.employee?.email || "unknown"}`);
       await saveAdminUserToPrimary(user, data);
       await writeData(data);
-      res.json({ ok: true, data: user });
+      res.json({ ok: true, data: publicUserView(user) });
     } catch (err) {
       next(err);
     }
@@ -629,7 +635,7 @@ function registerAdminRoutes(app, deps) {
       addAudit(data, "USER_DISABLED", user.id);
       await saveAdminUserToPrimary(user, data);
       await writeData(data);
-      res.json({ ok: true, data: user });
+      res.json({ ok: true, data: publicUserView(user) });
     } catch (err) {
       next(err);
     }

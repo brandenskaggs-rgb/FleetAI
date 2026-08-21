@@ -28,7 +28,8 @@ function registerDriverAppRoutes(app, deps) {
   // DriverProfileResponse(tenantId, driverId, driverName) — all non-null.
   app.get("/api/drivers/me", requireDevice, async (req, res, next) => {
     try {
-      const driver = req.device.driverId ? await db.getDriverByDriverId(req.device.driverId) : null;
+      const candidate = req.device.driverId ? await db.getDriverByDriverId(req.device.driverId) : null;
+      const driver = candidate && candidate.orgId === req.device.orgId ? candidate : null;
       const name = driver
         ? `${driver.firstName || ""} ${driver.lastName || ""}`.trim()
         : "";
