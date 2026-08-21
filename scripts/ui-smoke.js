@@ -34,4 +34,19 @@ if (routeCount < 10) {
   process.exit(1);
 }
 
+const speedFactorMatch = html.match(/const KPH_TO_MPH\s*=\s*([0-9.]+)\s*;/);
+const speedFactor = speedFactorMatch ? Number(speedFactorMatch[1]) : NaN;
+const speedUiRequirements = [
+  "Speed (mph)",
+  "function telemetrySpeedMph(frame)",
+  "liveSpeedText(d)",
+  "historyMetricDisplay(metric,r.value??r[metric])"
+];
+const missingSpeedUi = speedUiRequirements.filter((snippet) => !html.includes(snippet));
+if (!Number.isFinite(speedFactor) || Math.abs((100 * speedFactor) - 62.1371) > 0.001 || missingSpeedUi.length) {
+  console.error("UI smoke failed. Dashboard road speed must convert canonical km/h telemetry to mph.");
+  missingSpeedUi.forEach((snippet) => console.error(`  Missing: ${snippet}`));
+  process.exit(1);
+}
+
 console.log("UI smoke OK: dashboard structure present.");

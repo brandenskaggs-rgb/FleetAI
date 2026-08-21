@@ -206,16 +206,16 @@
       <section id="view-telemetry" class="section hide">
         <div class="commandStrip">
           <div class="commandMetric"><div class="commandMetric__label">RPM</div><div class="commandMetric__value" id="liveRpm">--</div><div class="commandMetric__sub">Current engine speed</div></div>
-          <div class="commandMetric"><div class="commandMetric__label">Speed</div><div class="commandMetric__value" id="liveSpeed">--</div><div class="commandMetric__sub">Vehicle velocity</div></div>
+          <div class="commandMetric"><div class="commandMetric__label">Speed (mph)</div><div class="commandMetric__value" id="liveSpeed">--</div><div class="commandMetric__sub">Current road speed</div></div>
           <div class="commandMetric"><div class="commandMetric__label">Coolant</div><div class="commandMetric__value" id="liveCoolant">--</div><div class="commandMetric__sub">Thermal signal</div></div>
           <div class="commandMetric"><div class="commandMetric__label">Battery</div><div class="commandMetric__value" id="liveBattery">--</div><div class="commandMetric__sub">Electrical signal</div></div>
         </div>
-        <div class="card"><div class="cardHead"><div><h3>Live Sensor Readings</h3><div class="cardMeta"><span id="telemetryStatus" class="pill warn">Waiting</span><span id="telemetryEcuDetail" class="muted">Waiting for tablet diagnostics</span></div></div><div class="form-group"><label class="form-label" for="telemetryVehicleSelect">Vehicle</label><select class="form-select" id="telemetryVehicleSelect"></select></div></div><div class="cardBody tableWrap"><table class="table"><thead><tr><th>Time</th><th>Vehicle</th><th>RPM</th><th>Speed</th><th>Coolant</th><th>Battery</th><th>Engine Load</th></tr></thead><tbody id="telemetryRows"></tbody></table><div class="inlineError" id="telemetryError"></div></div></div>
+        <div class="card"><div class="cardHead"><div><h3>Live Sensor Readings</h3><div class="cardMeta"><span id="telemetryStatus" class="pill warn">Waiting</span><span id="telemetryEcuDetail" class="muted">Waiting for tablet diagnostics</span></div></div><div class="form-group"><label class="form-label" for="telemetryVehicleSelect">Vehicle</label><select class="form-select" id="telemetryVehicleSelect"></select></div></div><div class="cardBody tableWrap"><table class="table"><thead><tr><th>Time</th><th>Vehicle</th><th>RPM</th><th>Speed (mph)</th><th>Coolant</th><th>Battery</th><th>Engine Load</th></tr></thead><tbody id="telemetryRows"></tbody></table><div class="inlineError" id="telemetryError"></div></div></div>
         <div class="sensorInventory"><div class="sensorInventoryHead"><div><h3>ECU Signal Inventory</h3><p>Every standardized signal advertised by this vehicle, grouped by system.</p></div><div class="sensorSummary" id="sensorSummary"><span class="pill warn">Awaiting capability scan</span></div></div><div class="sensorGroups" id="telemetrySensorGrid"><div class="sensorEmpty">Select a vehicle and wait for its next telemetry frame.</div></div><div class="inlineError" id="sensorInventoryError"></div></div>
       </section>
 
       <section id="view-telemetry-history" class="section hide">
-        <div class="card"><div class="cardHead"><div><h3>Signal Archive</h3><div class="cardMeta">Filter normalized telemetry by metric and range</div></div><button class="btn" id="btnExportTelemetry">Export CSV</button></div><div class="cardBody"><div class="form-grid"><div class="form-group"><label class="form-label" for="historyVehicleSelect">Vehicle</label><select class="form-select" id="historyVehicleSelect"></select></div><div class="form-group"><label class="form-label" for="historyMetricSelect">Metric</label><select class="form-select" id="historyMetricSelect"><option value="rpm">RPM</option><option value="speed">Speed</option><option value="coolant_temp">Coolant temp</option><option value="battery_voltage">Battery voltage</option><option value="engine_load">Engine load</option><option value="fuel_level">Fuel level</option></select></div><div class="form-group"><label class="form-label" for="historyRangeSelect">Range</label><select class="form-select" id="historyRangeSelect"><option>1h</option><option>6h</option><option selected>24h</option><option>7d</option></select></div><button class="btn primary" id="btnLoadHistory">Load History</button></div><div class="tableWrap" style="margin-top:14px"><table class="table"><thead><tr><th>Time</th><th>Vehicle</th><th>Metric</th><th>Value</th><th>Quality</th></tr></thead><tbody id="historyRows"></tbody></table></div><div class="inlineError" id="historyError"></div></div></div>
+        <div class="card"><div class="cardHead"><div><h3>Signal Archive</h3><div class="cardMeta">Filter normalized telemetry by metric and range</div></div><button class="btn" id="btnExportTelemetry">Export CSV</button></div><div class="cardBody"><div class="form-grid"><div class="form-group"><label class="form-label" for="historyVehicleSelect">Vehicle</label><select class="form-select" id="historyVehicleSelect"></select></div><div class="form-group"><label class="form-label" for="historyMetricSelect">Metric</label><select class="form-select" id="historyMetricSelect"><option value="rpm">RPM</option><option value="speed">Speed (mph)</option><option value="coolant_temp">Coolant temp</option><option value="battery_voltage">Battery voltage</option><option value="engine_load">Engine load</option><option value="fuel_level">Fuel level</option></select></div><div class="form-group"><label class="form-label" for="historyRangeSelect">Range</label><select class="form-select" id="historyRangeSelect"><option>1h</option><option>6h</option><option selected>24h</option><option>7d</option></select></div><button class="btn primary" id="btnLoadHistory">Load History</button></div><div class="tableWrap" style="margin-top:14px"><table class="table"><thead><tr><th>Time</th><th>Vehicle</th><th>Metric</th><th>Value</th><th>Quality</th></tr></thead><tbody id="historyRows"></tbody></table></div><div class="inlineError" id="historyError"></div></div></div>
       </section>
 
       <section id="view-fuel-events" class="section hide"></section>
@@ -454,7 +454,16 @@
         if(state.isAdmin) $("eldCarrierForm").onsubmit=async event=>{event.preventDefault(); const [hours,minutes]=$("eldDayStart").value.split(":").map(Number); const profile=$("eldHosProfile").value; try{await apiPost("/api/eld/carrier-config",{carrierName:$("eldCarrierName").value,usdotNumber:$("eldUsdot").value,homeTerminalName:$("eldTerminalName").value,homeTerminalAddress:$("eldTerminalAddress").value,homeTerminalTimeZone:$("eldTerminalTimezone").value,dayStartMinutes:hours*60+minutes,hosRuleProfile:profile,multidayBasis:profile==="FEDERAL_PROPERTY_60_7"?"US_60_7":"US_70_8"}); await loadHosCompliance(); $("eldCarrierStatus").textContent="Carrier HOS profile saved.";}catch(error){err("eldCarrierStatus",error.message);}};
       }catch(error){err("eldReadinessError",error.message);$("eldReadinessRows").innerHTML=rowsEmpty(2,"ELD readiness is unavailable.");}
     }
-    async function loadTelemetryHistory(){ const v=encodeURIComponent($("historyVehicleSelect")?.value||state.selectedVehicleId||""); const metric=$("historyMetricSelect")?.value||"rpm"; const range=$("historyRangeSelect")?.value||"24h"; if(!v){ $("historyRows").innerHTML=rowsEmpty(5,"Select or register a vehicle to review telemetry history."); return; } try{ const data=unwrap(await apiGet([`/api/vehicles/${v}/metrics/history?metric=${metric}&range=${range}`,`/api/telemetry/history?vehicleId=${v}&metric=${metric}&range=${range}`])); $("historyRows").innerHTML=data.length?data.map(r=>`<tr><td>${esc(r.ts||r.timestamp)}</td><td>${esc(r.vehicleId||v)}</td><td>${esc(metric)}</td><td>${num(r.value??r[metric])}</td><td>${esc(r.quality||"normalized")}</td></tr>`).join(""):rowsEmpty(5,"No telemetry history for this filter."); err("historyError",""); }catch(e){ $("historyRows").innerHTML=rowsEmpty(5,"No telemetry history for this filter."); err("historyError",e.message); } }
+    const KPH_TO_MPH = 0.621371192237334;
+    function kphToDisplayMph(value){
+      const numeric=Number(value);
+      return Number.isFinite(numeric)?numeric*KPH_TO_MPH:null;
+    }
+    function historyMetricDisplay(metric,value){
+      const numeric=metric==="speed"?kphToDisplayMph(value):Number(value);
+      return Number.isFinite(numeric)?numeric.toLocaleString(undefined,{maximumFractionDigits:1}):"--";
+    }
+    async function loadTelemetryHistory(){ const v=encodeURIComponent($("historyVehicleSelect")?.value||state.selectedVehicleId||""); const metric=$("historyMetricSelect")?.value||"rpm"; const range=$("historyRangeSelect")?.value||"24h"; if(!v){ $("historyRows").innerHTML=rowsEmpty(5,"Select or register a vehicle to review telemetry history."); return; } try{ const data=unwrap(await apiGet([`/api/vehicles/${v}/metrics/history?metric=${metric}&range=${range}`,`/api/telemetry/history?vehicleId=${v}&metric=${metric}&range=${range}`])); const metricLabel=metric==="speed"?"speed (mph)":metric; $("historyRows").innerHTML=data.length?data.map(r=>`<tr><td>${esc(r.ts||r.timestamp)}</td><td>${esc(r.vehicleId||v)}</td><td>${esc(metricLabel)}</td><td>${historyMetricDisplay(metric,r.value??r[metric])}</td><td>${esc(r.quality||"normalized")}</td></tr>`).join(""):rowsEmpty(5,"No telemetry history for this filter."); err("historyError",""); }catch(e){ $("historyRows").innerHTML=rowsEmpty(5,"No telemetry history for this filter."); err("historyError",e.message); } }
     window.loadTelemetryHistory = loadTelemetryHistory;
     async function loadGpsMap(){
       const sec=$("view-gps");
@@ -936,6 +945,16 @@
       return timestampFresh&&(explicitBusState===null?hasReading:explicitBusState&&Number(frame?.readingCount||1)>0);
     }
     function liveTelemetryText(value){ return value===null||value===undefined||value===""?"--":num(value); }
+    function telemetrySpeedMph(frame){
+      const directMph=telemetryValue(frame,["vehicle.speedMph","speedMph"],["speedMph"]);
+      if(directMph!==null) return Number(directMph);
+      const speedKph=telemetryValue(frame,TELEMETRY_PATHS.speed,TELEMETRY_SOURCE_KEYS.speed);
+      return kphToDisplayMph(speedKph);
+    }
+    function liveSpeedText(frame){
+      const mph=telemetrySpeedMph(frame);
+      return mph===null||!Number.isFinite(mph)?"--":mph.toLocaleString(undefined,{maximumFractionDigits:1});
+    }
     function clearLiveTelemetryValues(){
       ["liveRpm","liveSpeed","liveCoolant","liveBattery"].forEach(id=>{const el=$(id);if(el)el.textContent="--";});
     }
@@ -1012,7 +1031,7 @@
       state.telemetryLastAt=telemetryPacketAt(d);
       state.telemetryRows=state.telemetryRows.slice(0,40);
       $("liveRpm").textContent     = liveTelemetryText(telemetryValue(d, TELEMETRY_PATHS.rpm, TELEMETRY_SOURCE_KEYS.rpm));
-      $("liveSpeed").textContent   = liveTelemetryText(telemetryValue(d, TELEMETRY_PATHS.speed, TELEMETRY_SOURCE_KEYS.speed));
+      $("liveSpeed").textContent   = liveSpeedText(d);
       $("liveCoolant").textContent = liveTelemetryText(telemetryValue(d, TELEMETRY_PATHS.coolant, TELEMETRY_SOURCE_KEYS.coolant));
       $("liveBattery").textContent = liveTelemetryText(telemetryValue(d, TELEMETRY_PATHS.battery, TELEMETRY_SOURCE_KEYS.battery));
       // Link state: a tablet can be online while its OBD adapter is unplugged.
@@ -1047,7 +1066,7 @@
       $("telemetryRows").innerHTML = state.telemetryRows.map(x=>
         `<tr><td>${esc(x.ts||x.timestamp||"now")}</td><td>${esc(x.vehicleId||"--")}</td>`
         + `<td>${liveTelemetryText(telemetryValue(x, TELEMETRY_PATHS.rpm, TELEMETRY_SOURCE_KEYS.rpm))}</td>`
-        + `<td>${liveTelemetryText(telemetryValue(x, TELEMETRY_PATHS.speed, TELEMETRY_SOURCE_KEYS.speed))}</td>`
+        + `<td>${liveSpeedText(x)}</td>`
         + `<td>${liveTelemetryText(telemetryValue(x, TELEMETRY_PATHS.coolant, TELEMETRY_SOURCE_KEYS.coolant))}</td>`
         + `<td>${liveTelemetryText(telemetryValue(x, TELEMETRY_PATHS.battery, TELEMETRY_SOURCE_KEYS.battery))}</td>`
         + `<td>${liveTelemetryText(telemetryValue(x, TELEMETRY_PATHS.load, TELEMETRY_SOURCE_KEYS.load))}</td></tr>`
