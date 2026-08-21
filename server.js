@@ -2596,7 +2596,13 @@ function buildSnapshotFromNormalized(normalized, extra) {
     barometricPressureKpa: environment.barometricPressureKpa ?? null,
     egtC: emissions.egtC ?? null,
     sourceProtocol: normalized.sourceProtocol || "UNKNOWN",
-    vin: normalized.meta?.vin || null
+    vin: normalized.meta?.vin || null,
+    latitude: normalized.meta?.latitude ?? extra.meta?.latitude ?? null,
+    longitude: normalized.meta?.longitude ?? extra.meta?.longitude ?? null,
+    locationCapturedAt: normalized.meta?.locationCapturedAt ?? extra.meta?.locationCapturedAt ?? null,
+    locationAccuracyMeters: normalized.meta?.locationAccuracyMeters ?? extra.meta?.locationAccuracyMeters ?? null,
+    locationSpeedMps: normalized.meta?.locationSpeedMps ?? extra.meta?.locationSpeedMps ?? null,
+    locationBearingDegrees: normalized.meta?.locationBearingDegrees ?? extra.meta?.locationBearingDegrees ?? null
   };
 }
 

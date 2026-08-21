@@ -43,7 +43,7 @@
           <p class="legal-subtitle">This Privacy Notice explains how Fleet AI collects, uses, and discloses information in connection with the Fleet AI websites, applications, and services provided to business customers.</p>
           <div class="legal-meta">
             <span>Effective Date: January 12, 2026</span>
-            <span>Last Updated: January 12, 2026</span>
+            <span>Last Updated: August 21, 2026</span>
           </div>
         </header>
 
@@ -97,20 +97,22 @@
             <h2>3. Categories of Data Collected</h2>
             <p>Depending on the Services used and Customer configuration, Fleet AI may collect the following categories of data:</p>
             <h3 id="categories-account">3.1 Account and Contact Data</h3>
-            <p>Organization name, account owner details, administrative contacts, user roles, and access permissions.</p>
+            <p>Organization name, account owner details, administrative contacts, driver identifiers and display names, user roles, vehicle assignments, and access permissions. Driver PINs and one-time pairing codes are used to authenticate or pair a device and are not stored by the Android app after submission.</p>
             <h3 id="categories-usage">3.2 Usage and Log Data</h3>
             <p>Authentication events, audit logs, feature usage, configuration changes, and time stamps.</p>
             <h3 id="categories-telemetry">3.3 Telemetry and Diagnostics</h3>
-            <p>Vehicle identifiers, device signals, diagnostics data, and operational telemetry provided through approved integrations or devices.</p>
+            <p>Vehicle identifiers and VIN, OBD-II PID values, J1939 CAN frames and decoded signals, diagnostic trouble codes, connection status, timestamps, sensor quality information, and derived vehicle-health metrics. Depending on the connected vehicle and adapter, signals may include speed, engine RPM, temperatures, voltage, pressure, fuel, emissions, and other powertrain or chassis measurements.</p>
             <h3 id="categories-device">3.4 Device Identifiers</h3>
-            <p>Device IDs, hardware identifiers, IP addresses, browser types, operating systems, and application version information.</p>
-            <h3 id="categories-support">3.5 Support and Communications</h3>
+            <p>Fleet AI-generated tablet IDs, paired adapter identifiers, adapter model and protocol details, IP addresses, operating systems, and application version information. Fleet AI does not use advertising IDs for the Driver app.</p>
+            <h3 id="categories-location">3.5 Precise Location</h3>
+            <p>When a driver expressly enables live location, the Fleet AI Driver app collects the tablet's latitude, longitude, accuracy, speed, bearing, and capture time. The app sends this information to Fleet AI so authorized fleet personnel can view the assigned vehicle's operational location. For supported truck-network connections, collection may continue while the visible truck-telemetry foreground service is running and the app is not on screen. Location is optional, can be disabled in the Sensors screen, is not used for advertising, and is not sold.</p>
+            <h3 id="categories-support">3.6 Support and Communications</h3>
             <p>Support tickets, incident reports, attachments, recordings (if any), and correspondence with Fleet AI personnel.</p>
-            <h3 id="categories-payment">3.6 Payment and Billing Metadata</h3>
+            <h3 id="categories-payment">3.7 Payment and Billing Metadata</h3>
             <p>Billing contacts, invoice details, payment status, and transaction metadata. Fleet AI does not store full payment card numbers.</p>
-            <h3 id="categories-security">3.7 Security and Audit Logs</h3>
+            <h3 id="categories-security">3.8 Security and Audit Logs</h3>
             <p>Security logs, access histories, and system event data used to protect the Services.</p>
-            <h3 id="categories-optional">3.8 Optional Integrations and Customer-Provided Data</h3>
+            <h3 id="categories-optional">3.9 Optional Integrations and Customer-Provided Data</h3>
             <p>Data provided through Customer integrations, uploads, or configurations, including mapping data, maintenance records, or compliance documents.</p>
           </section>
 
@@ -119,7 +121,7 @@
             <h3 id="sources-customer">4.1 From Customers and End Users</h3>
             <p>We receive data directly from Customers and End Users through account creation, configuration, API usage, and support interactions.</p>
             <h3 id="sources-devices">4.2 From Devices and Systems</h3>
-            <p>We receive telemetry and diagnostics data from devices and systems connected to the Services, subject to Customer configuration and permissions.</p>
+            <p>We receive telemetry and diagnostics data from devices and systems connected to the Services, subject to Customer configuration and Android permissions. The Driver app requests Bluetooth access to communicate with a paired vehicle adapter, USB access when a compatible J1939 interface is connected, notification access for user-visible telemetry service status, and optional location access for live fleet mapping.</p>
             <h3 id="sources-third-party">4.3 From Third Parties</h3>
             <p>We may receive limited information from payment processors, identity providers, and other service providers used by the Customer. We do not purchase or broker Personal Data.</p>
           </section>
@@ -130,6 +132,7 @@
             <ul>
               <li>Provide, operate, and maintain the Services, including onboarding, configuration, and access management.</li>
               <li>Analyze fleet performance and deliver predictive maintenance and compliance insights.</li>
+              <li>Display an assigned vehicle's live or last-known position to authorized Customer personnel when the driver enables location sharing.</li>
               <li>Monitor, secure, and troubleshoot the Services, including fraud detection and incident response.</li>
               <li>Respond to support requests, communicate about service updates, and provide training.</li>
               <li>Improve and develop the Services, including model tuning and feature development, consistent with Customer instructions.</li>
@@ -163,6 +166,8 @@
             <p>In the event of a merger, acquisition, reorganization, or sale of assets, data may be transferred as part of the transaction, subject to applicable law and contractual protections.</p>
             <h3 id="sharing-consent">7.6 With Consent</h3>
             <p>We may share data with third parties when a Customer or End User provides explicit consent or directs us to do so.</p>
+            <h3 id="sharing-sale">7.7 No Sale or Advertising Use</h3>
+            <p>Fleet AI does not sell Driver app Personal Data, does not use precise location for advertising, and does not share Driver app Personal Data for cross-context behavioral advertising.</p>
           </section>
 
           <section id="retention">
@@ -178,7 +183,7 @@
 
           <section id="security">
             <h2>9. Security Measures</h2>
-            <p>We implement administrative, technical, and physical safeguards designed to protect data. These measures include access controls, audit logging, encryption in transit where supported, monitoring, and incident response procedures. No system is completely secure, and we cannot guarantee absolute security.</p>
+            <p>We implement administrative, technical, and physical safeguards designed to protect data. The Android app requires HTTPS for production network traffic, stores its session credential using Android Keystore-backed encryption, excludes app data from Android backup and device transfer, limits exported components, and uses role- and organization-scoped server access controls. Our broader measures include access controls, audit logging, monitoring, and incident response procedures. No system is completely secure, and we cannot guarantee absolute security.</p>
           </section>
 
           <section id="transfers">
@@ -202,12 +207,12 @@
             <h3 id="rights-states">12.2 Other State Privacy Rights</h3>
             <p>Other state privacy laws may provide similar rights. We will process requests in accordance with applicable state laws and contractual obligations.</p>
             <h3 id="rights-end-users">12.3 End Users</h3>
-            <p>If you are an End User, please contact your employer or organization to submit a privacy request. Fleet AI will assist the Customer in responding to requests in accordance with the applicable agreement.</p>
+            <p>If you are an End User, contact your employer or organization to request access, correction, export, or deletion of Driver app data. You may also email Fleet AI support at <a href="mailto:support@fleetai.com">support@fleetai.com</a>. Fleet AI will verify the request with the Customer and assist the Customer in responding in accordance with the applicable agreement and required retention rules.</p>
           </section>
 
           <section id="minors">
             <h2>13. Notice for Minors</h2>
-            <p>The Services are not directed to children under 13, and we do not knowingly collect Personal Data from children. If you believe a child has provided information to Fleet AI, please contact us so we can take appropriate action.</p>
+            <p>The Driver app is a business fleet tool intended for authorized drivers and is not directed to children. We do not knowingly collect Personal Data from children under 13. If you believe a child has provided information to Fleet AI, contact us so we can take appropriate action.</p>
           </section>
 
           <section id="updates">
@@ -219,9 +224,9 @@
             <h2>15. Contact Information</h2>
             <p>If you have questions about this Privacy Notice or our data practices, contact us at:</p>
             <ul>
-              <li>Legal: LEGAL_CONTACT_EMAIL (default: legal@fleetai.com)</li>
-              <li>Support: SUPPORT_EMAIL (default: support@fleetai.com)</li>
-              <li>Address: COMPANY_ADDRESS (default: [INSERT COMPANY ADDRESS])</li>
+              <li>Legal: <a href="mailto:legal@fleetai.com">legal@fleetai.com</a></li>
+              <li>Support and privacy requests: <a href="mailto:support@fleetai.com">support@fleetai.com</a></li>
+              <li>Website: <a href="https://fleetaiops.com">fleetaiops.com</a></li>
             </ul>
           </section>
         </div>
@@ -260,4 +265,3 @@
   <script src="/js/scroll-reveal.js"></script>
 </body>
 </html>
-

@@ -4,16 +4,22 @@ plugins {
     id 'com.google.devtools.ksp'
 }
 
+def uploadStoreFile = project.findProperty("FLEETAI_UPLOAD_STORE_FILE") ?: System.getenv("FLEETAI_UPLOAD_STORE_FILE")
+def uploadStorePassword = project.findProperty("FLEETAI_UPLOAD_STORE_PASSWORD") ?: System.getenv("FLEETAI_UPLOAD_STORE_PASSWORD")
+def uploadKeyAlias = project.findProperty("FLEETAI_UPLOAD_KEY_ALIAS") ?: System.getenv("FLEETAI_UPLOAD_KEY_ALIAS")
+def uploadKeyPassword = project.findProperty("FLEETAI_UPLOAD_KEY_PASSWORD") ?: System.getenv("FLEETAI_UPLOAD_KEY_PASSWORD")
+def uploadSigningReady = uploadStoreFile && uploadStorePassword && uploadKeyAlias && uploadKeyPassword
+
 android {
     namespace 'com.fleetai.driver'
-    compileSdk 34
+    compileSdk 36
 
     defaultConfig {
         applicationId "com.fleetai.driver"
         minSdk 26
-        targetSdk 34
-        versionCode 7
-        versionName "1.6"
+        targetSdk 36
+        versionCode 9
+        versionName "1.8"
 
         // Set FLEETAI_BASE_URL in gradle.properties or via -PFLEETAI_BASE_URL=https://...
         // to point the driver app at your Fleet AI server (e.g. the Railway deployment).
@@ -32,10 +38,24 @@ android {
         buildConfigField "String", "BASE_URL", "\"${baseUrl}\""
     }
 
+    signingConfigs {
+        release {
+            if (uploadSigningReady) {
+                storeFile file(uploadStoreFile)
+                storePassword uploadStorePassword
+                keyAlias uploadKeyAlias
+                keyPassword uploadKeyPassword
+            }
+        }
+    }
+
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            if (uploadSigningReady) {
+                signingConfig signingConfigs.release
+            }
         }
         debug {
             minifyEnabled false
@@ -62,7 +82,6 @@ android {
 
     packaging {
         jniLibs {
-            useLegacyPackaging true
             keepDebugSymbols += ['**/libdatastore_shared_counter.so']
         }
     }
@@ -95,8 +114,9 @@ dependencies {
     implementation 'com.squareup.moshi:moshi:1.15.1'
     implementation 'com.squareup.moshi:moshi-kotlin:1.15.1'
 
-    implementation 'androidx.datastore:datastore-preferences:1.1.1'
-    implementation 'androidx.work:work-runtime-ktx:2.9.0'
+    implementation 'androidx.datastore:datastore-preferences:1.2.1'
+    // 2.9.1 remains on Kotlin 1.9 metadata, matching this app's compiler.
+    implementation 'androidx.work:work-runtime-ktx:2.9.1'
 
     implementation 'androidx.room:room-runtime:2.6.1'
     implementation 'androidx.room:room-ktx:2.6.1'
@@ -108,20 +128,6 @@ dependencies {
     implementation 'com.github.mik3y:usb-serial-for-android:3.10.0'
 
     testImplementation 'junit:junit:4.13.2'
-
-    // Firebase Cloud Messaging — push notifications to the driver.
-    //
-    // NOT CONFIGURED. There is no app/google-services.json and the
-    // com.google.gms.google-services plugin is not applied, so FirebaseApp
-    // never initialises: FleetMessagingService is declared in the manifest but
-    // can never receive a message. The app builds and runs correctly; push is
-    // simply inert, and nothing on the pairing / OBD / telemetry path depends
-    // on it.
-    //
-    // To enable: create a Firebase project, download google-services.json into
-    // driver_app/app/, add `id 'com.google.gms.google-services'` to the plugins
-    // block here and the matching classpath to the root build.gradle.
-    implementation 'com.google.firebase:firebase-messaging:23.4.1'
 
     debugImplementation 'androidx.compose.ui:ui-tooling'
 }

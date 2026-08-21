@@ -11,6 +11,7 @@ object ServerConfig {
     private val localDevelopmentHosts = setOf("localhost", "127.0.0.1", "10.0.2.2")
 
     fun getBaseUrl(context: Context, allowDefault: Boolean = BuildConfig.DEBUG): String? {
+        if (!BuildConfig.DEBUG) return normalize(BuildConfig.BASE_URL)
         val saved = ServerPrefs.getBaseUrl(context)
         if (!saved.isNullOrBlank()) {
             return normalize(saved)
@@ -22,6 +23,7 @@ object ServerConfig {
     }
 
     fun setBaseUrl(context: Context, baseUrl: String) {
+        if (!BuildConfig.DEBUG) return
         val normalized = normalize(baseUrl)
         ServerPrefs.setBaseUrl(context, normalized)
     }

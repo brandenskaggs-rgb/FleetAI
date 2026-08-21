@@ -81,7 +81,11 @@ async function invoke(app, body) {
     timestamp: "2026-08-14T12:00:00.000Z",
     meta: {
       vin: "1FUAAAAAAAAAAAAAA",
-      metricAgesMs: { coolantTempC: 750 }
+      metricAgesMs: { coolantTempC: 750 },
+      latitude: 37.7749,
+      longitude: -122.4194,
+      locationCapturedAt: Date.parse("2026-08-14T11:59:59.000Z"),
+      locationAccuracyMeters: 7.5
     },
     frames: [{ id: 0x18feee00, data: [130, 255, 255, 255, 255, 255, 255, 255] }]
   };
@@ -92,6 +96,9 @@ async function invoke(app, body) {
   assert.strictEqual(stored.normalized.vehicleId, "TRUCK_1");
   assert.strictEqual(stored.extra.vin, "1FUAAAAAAAAAAAAAA");
   assert.strictEqual(stored.extra.meta.metricAgesMs.coolantTempC, 750);
+  assert.strictEqual(stored.extra.meta.latitude, 37.7749);
+  assert.strictEqual(stored.extra.meta.longitude, -122.4194);
+  assert.strictEqual(stored.extra.meta.locationAccuracyMeters, 7.5);
   assert.strictEqual(data.telemetryFrames.length, 1);
   assert.strictEqual(data.telemetryFrames[0].orgId, "ORG_A");
   assert.strictEqual(data.telemetryFrames[0].pgn, 65262);

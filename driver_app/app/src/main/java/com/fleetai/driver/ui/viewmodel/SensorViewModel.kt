@@ -20,6 +20,7 @@ import com.fleetai.driver.telemetry.J1939Runtime
 import com.fleetai.driver.telemetry.J1939TelemetryService
 import com.fleetai.driver.telemetry.J1979Spec
 import com.fleetai.driver.telemetry.PidSpec
+import com.fleetai.driver.telemetry.DeviceLocationTracker
 import com.fleetai.driver.telemetry.TelemetrySender
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -31,6 +32,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlin.random.Random
+import java.util.Locale
 
 class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
     data class UnitPrefs(val tempF: Boolean = true, val speedMph: Boolean = true)
@@ -42,6 +44,7 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
         ExtendedPidProfileCatalog.load(com.fleetai.driver.AppGraph.appContext)
     }
     private val usbJ1939 = UsbJ1939Transport(com.fleetai.driver.AppGraph.appContext)
+    private val locationTracker = DeviceLocationTracker(com.fleetai.driver.AppGraph.appContext)
     private val sender = TelemetrySender(
         obd = obd,
         resolveVehicleId = { preferences.vehicleId.first().ifBlank { null } },
@@ -73,7 +76,11 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
     private val _j1939ConnectorProfile = MutableStateFlow(J1939ConnectorProfile.UNKNOWN)
     val j1939ConnectorProfile: StateFlow<J1939ConnectorProfile> = _j1939ConnectorProfile
 
+    private val _locationSharingEnabled = MutableStateFlow(false)
+    val locationSharingEnabled: StateFlow<Boolean> = _locationSharingEnabled
+
     private var pollJob: Job? = null
+    private var locationJob: Job? = null
     private var debugJob: Job? = null
     private var j1939RuntimeJob: Job? = null
     private var j1939MetricsJob: Job? = null
@@ -89,6 +96,7 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
             _savedDevice.value = preferences.obdDeviceAddress.first()
             _j1939BusProfile.value = preferences.j1939BusProfile.first()
             _j1939ConnectorProfile.value = preferences.j1939ConnectorProfile.first()
+            _locationSharingEnabled.value = preferences.locationSharingEnabled.first()
             if (_demoMode.value) {
                 _status.value = "Demo mode"
                 startDemo()
@@ -262,6 +270,7 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
 
     private fun startPolling() {
         stopPolling()
+        startLocationTracking()
         pollJob = viewModelScope.launch(Dispatchers.IO) {
             val supported = runCatching { obd.discoverSupportedPids() }.getOrDefault(emptySet())
             sender.updateObdCapabilities(supported)
@@ -330,7 +339,9 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
                     }
                 }
                 if (loopError != null && loopError != lastReadError) {
-                    Log.w("FleetAI", "[OBD] read error: $loopError")
+                    if (com.fleetai.driver.BuildConfig.DEBUG) {
+                        Log.w("FleetAI", "[OBD] read error")
+                    }
                 }
                 lastReadError = loopError
                 plan.forEach { spec ->
@@ -417,6 +428,19 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
         }
     }
 
+    fun setLocationSharingEnabled(enabled: Boolean) {
+        _locationSharingEnabled.value = enabled
+        viewModelScope.launch { preferences.setLocationSharingEnabled(enabled) }
+        if (enabled && obd.isConnected()) {
+            startLocationTracking()
+        } else if (!enabled) {
+            locationJob?.cancel()
+            locationJob = null
+            locationTracker.stop()
+            sender.updateLocation(null)
+        }
+    }
+
     private suspend fun readPidMetrics(command: String): PidMetricsReadResult {
         return try {
             val raw = obd.readPid(command) ?: return PidMetricsReadResult(emptyMap(), "No response from adapter")
@@ -457,6 +481,10 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
     private fun stopPolling(resetReadings: Boolean = false) {
         pollJob?.cancel()
         pollJob = null
+        locationJob?.cancel()
+        locationJob = null
+        locationTracker.stop()
+        sender.updateLocation(null)
         lastReadError = null
         sender.updateSnapshot(emptyMap(), obdConnected = false)
         if (resetReadings) {
@@ -468,7 +496,7 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
     }
 
     private fun demoValue(min: Double, max: Double): String {
-        return String.format("%.1f", Random.nextDouble(min, max))
+        return String.format(Locale.US, "%.1f", Random.nextDouble(min, max))
     }
 
     private suspend fun readPidValue(pid: String, parser: (String) -> Double?): PidReadResult {
@@ -537,6 +565,21 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
             smoothed = smoothed,
             lastUpdated = ts
         )
+    }
+
+    private fun startLocationTracking() {
+        if (!_locationSharingEnabled.value) {
+            sender.updateLocation(null)
+            return
+        }
+        if (locationJob?.isActive == true) return
+        locationJob = viewModelScope.launch(Dispatchers.IO) {
+            while (isActive) {
+                locationTracker.start()
+                sender.updateLocation(locationTracker.latestFresh())
+                delay(1_000L)
+            }
+        }
     }
 
     private fun readingFreshnessMs(minIntervalMs: Long): Long =

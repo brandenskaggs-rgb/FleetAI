@@ -1,7 +1,9 @@
 package com.fleetai.driver.telemetry
 
+import android.annotation.SuppressLint
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
@@ -10,6 +12,8 @@ import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import com.fleetai.driver.AppGraph
+import com.fleetai.driver.MainActivity
+import com.fleetai.driver.R
 import com.fleetai.driver.j1939.J1939BusProfile
 import com.fleetai.driver.j1939.J1939ConnectorProfile
 import com.fleetai.driver.j1939.J1939Decoder
@@ -29,6 +33,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 
 object J1939Runtime {
     enum class State { STOPPED, CONNECTING, STREAMING, RETRYING, ERROR }
@@ -72,6 +77,7 @@ object J1939Runtime {
     }
 }
 
+@SuppressLint("InlinedApi")
 class J1939TelemetryService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private lateinit var transport: UsbJ1939Transport
@@ -97,14 +103,13 @@ class J1939TelemetryService : Service() {
             resolveDeviceId = { AppGraph.preferences.ensureDeviceId() }
         )
         locationTracker = DeviceLocationTracker(applicationContext)
-        locationEnabled = locationTracker.start()
+        locationEnabled = runBlocking { AppGraph.preferences.locationSharingEnabled.first() } && locationTracker.start()
         createNotificationChannel()
         ServiceCompat.startForeground(
             this,
             NOTIFICATION_ID,
             notification("Connecting to truck network"),
-            ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC or
-                (if (locationEnabled) ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION else 0)
+            ServiceInfo.FOREGROUND_SERVICE_TYPE_SHORT_SERVICE
         )
     }
 
@@ -228,9 +233,27 @@ class J1939TelemetryService : Service() {
     }
 
     private fun notification(text: String) = NotificationCompat.Builder(this, CHANNEL_ID)
-        .setSmallIcon(android.R.drawable.stat_notify_sync)
+        .setSmallIcon(R.drawable.ic_stat_fleet_ai)
         .setContentTitle("Fleet AI truck telemetry")
         .setContentText(text)
+        .setContentIntent(
+            PendingIntent.getActivity(
+                this,
+                0,
+                Intent(this, MainActivity::class.java),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+        )
+        .addAction(
+            0,
+            "Stop",
+            PendingIntent.getService(
+                this,
+                1,
+                stopIntent(this),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+        )
         .setOngoing(true)
         .setOnlyAlertOnce(true)
         .build()
@@ -252,6 +275,14 @@ class J1939TelemetryService : Service() {
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
+
+    override fun onTimeout(startId: Int) {
+        stopSelf(startId)
+    }
+
+    override fun onTimeout(startId: Int, fgsType: Int) {
+        stopSelf(startId)
+    }
 
     companion object {
         const val ACTION_START = "com.fleetai.driver.action.START_J1939"

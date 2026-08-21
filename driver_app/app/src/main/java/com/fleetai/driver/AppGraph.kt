@@ -1,5 +1,6 @@
 package com.fleetai.driver
 
+import android.annotation.SuppressLint
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -26,6 +27,7 @@ object AppGraph {
         private set
     lateinit var preferences: AppPreferences
         private set
+    @SuppressLint("StaticFieldLeak")
     lateinit var appContext: Context
         private set
     lateinit var telemetryOutbox: TelemetryOutbox

@@ -1,6 +1,7 @@
 package com.fleetai.driver.ui.screens
 
 import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -10,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -38,6 +40,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.fleetai.driver.ConnectActivity
 import com.fleetai.driver.ui.components.FleetButton
+import com.fleetai.driver.ui.components.FleetBrandMark
 import com.fleetai.driver.ui.components.FleetCard
 import com.fleetai.driver.ui.viewmodel.SessionState
 import com.fleetai.driver.ui.viewmodel.SessionViewModel
@@ -71,6 +74,8 @@ fun PairDeviceScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 FleetCard(modifier = Modifier.weight(1f)) {
+                    FleetBrandMark(modifier = Modifier.width(150.dp).height(62.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
                     Text("Activate this tablet", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.ExtraBold)
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
@@ -150,17 +155,38 @@ fun PairDeviceScreen(
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(statusMessage, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f))
                     Spacer(modifier = Modifier.height(12.dp))
-                    OutlinedButton(
-                        onClick = { context.startActivity(Intent(context, ConnectActivity::class.java)) },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("Server settings")
+                    if (com.fleetai.driver.BuildConfig.DEBUG) {
+                        OutlinedButton(
+                            onClick = { context.startActivity(Intent(context, ConnectActivity::class.java)) },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Server settings")
+                        }
                     }
                     OutlinedButton(
                         onClick = { sessionViewModel.logout() },
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text("Sign out")
+                    }
+                    OutlinedButton(
+                        onClick = { sessionViewModel.startTrainingDemo() },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("View training demo")
+                    }
+                    Text(
+                        "Training demo uses sample data and does not access a fleet account.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.62f)
+                    )
+                    androidx.compose.material3.TextButton(
+                        onClick = {
+                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://fleetaiops.com/legal/privacy.html")))
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Privacy policy")
                     }
                 }
             }

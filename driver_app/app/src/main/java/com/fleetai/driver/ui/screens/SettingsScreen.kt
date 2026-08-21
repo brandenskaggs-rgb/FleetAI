@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -19,8 +21,10 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.ui.platform.LocalContext
 import android.content.Intent
+import android.net.Uri
 import com.fleetai.driver.ConnectActivity
 import com.fleetai.driver.AppGraph
+import com.fleetai.driver.BuildConfig
 import com.fleetai.driver.data.model.ThemeMode
 import com.fleetai.driver.ui.components.FleetButton
 import com.fleetai.driver.ui.components.FleetCard
@@ -35,6 +39,7 @@ fun SettingsScreen(contentPadding: PaddingValues) {
     Column(
         modifier = Modifier
             .padding(contentPadding)
+            .verticalScroll(rememberScrollState())
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
@@ -60,15 +65,17 @@ fun SettingsScreen(contentPadding: PaddingValues) {
             }
         }
 
-        FleetCard(modifier = Modifier.fillMaxWidth()) {
-            Text(text = "Demo Mode", style = MaterialTheme.typography.titleLarge)
-            Spacer(modifier = Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                Text(text = if (state.demoMode) "On" else "Off")
-                Switch(
-                    checked = state.demoMode,
-                    onCheckedChange = { viewModel.setDemoMode(it) }
-                )
+        if (BuildConfig.DEBUG) {
+            FleetCard(modifier = Modifier.fillMaxWidth()) {
+                Text(text = "Demo Mode", style = MaterialTheme.typography.titleLarge)
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                    Text(text = if (state.demoMode) "On" else "Off")
+                    Switch(
+                        checked = state.demoMode,
+                        onCheckedChange = { viewModel.setDemoMode(it) }
+                    )
+                }
             }
         }
 
@@ -78,16 +85,43 @@ fun SettingsScreen(contentPadding: PaddingValues) {
             modifier = Modifier.fillMaxWidth()
         )
 
-        FleetButton(
-            text = "Server settings",
-            onClick = { context.startActivity(Intent(context, ConnectActivity::class.java)) },
-            modifier = Modifier.fillMaxWidth()
-        )
+        if (BuildConfig.DEBUG) {
+            FleetButton(
+                text = "Server settings",
+                onClick = { context.startActivity(Intent(context, ConnectActivity::class.java)) },
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
 
         FleetButton(
             text = "Reset pairing",
             onClick = { viewModel.resetPairing() },
             modifier = Modifier.fillMaxWidth()
         )
+
+        FleetCard(modifier = Modifier.fillMaxWidth()) {
+            Text(text = "Privacy and support", style = MaterialTheme.typography.titleLarge)
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Fleet AI Driver ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
+                style = MaterialTheme.typography.bodyMedium
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            FleetButton(
+                text = "Privacy policy",
+                onClick = {
+                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://fleetaiops.com/legal/privacy.html")))
+                },
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            FleetButton(
+                text = "Terms of service",
+                onClick = {
+                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://fleetaiops.com/legal/terms.html")))
+                },
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
     }
 }

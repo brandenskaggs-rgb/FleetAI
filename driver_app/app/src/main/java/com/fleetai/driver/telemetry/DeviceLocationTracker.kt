@@ -13,7 +13,9 @@ data class DeviceLocation(
     val latitude: Double,
     val longitude: Double,
     val capturedAtEpochMs: Long,
-    val accuracyMeters: Float
+    val accuracyMeters: Float,
+    val speedMetersPerSecond: Float? = null,
+    val bearingDegrees: Float? = null
 )
 
 class DeviceLocationTracker(context: Context) : LocationListener {
@@ -23,31 +25,53 @@ class DeviceLocationTracker(context: Context) : LocationListener {
     @Volatile
     var latest: DeviceLocation? = null
         private set
+    @Volatile private var started = false
 
+    @Synchronized
     fun start(): Boolean {
-        if (ContextCompat.checkSelfPermission(appContext, Manifest.permission.ACCESS_FINE_LOCATION)
-            != PackageManager.PERMISSION_GRANTED
-        ) return false
+        if (started) return true
+        val hasFine = ContextCompat.checkSelfPermission(appContext, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        val hasCoarse = ContextCompat.checkSelfPermission(appContext, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        if (!hasFine && !hasCoarse) return false
         val providers = listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER)
             .filter { runCatching { manager.isProviderEnabled(it) }.getOrDefault(false) }
-        providers.forEach { provider ->
-            runCatching { manager.requestLocationUpdates(provider, 1_000L, 5f, this) }
-            runCatching { manager.getLastKnownLocation(provider) }.getOrNull()?.let(::onLocationChanged)
-        }
-        return providers.isNotEmpty()
+        started = providers.map { provider ->
+            val registered = runCatching { manager.requestLocationUpdates(provider, 1_000L, 5f, this) }.isSuccess
+            if (registered) {
+                runCatching { manager.getLastKnownLocation(provider) }.getOrNull()?.let(::onLocationChanged)
+            }
+            registered
+        }.any { it }
+        return started
     }
 
+    @Synchronized
     fun stop() {
         runCatching { manager.removeUpdates(this) }
+        started = false
+        latest = null
+    }
+
+    fun latestFresh(maxAgeMs: Long = 120_000L, nowMs: Long = System.currentTimeMillis()): DeviceLocation? {
+        return latest?.takeIf { location ->
+            nowMs - location.capturedAtEpochMs in 0..maxAgeMs
+        }
     }
 
     override fun onLocationChanged(location: Location) {
         if (!location.latitude.isFinite() || !location.longitude.isFinite()) return
+        if (location.latitude !in -90.0..90.0 || location.longitude !in -180.0..180.0) return
+        val capturedAt = location.time.takeIf { it > 0 } ?: System.currentTimeMillis()
+        val current = latest
+        if (current != null && capturedAt < current.capturedAtEpochMs) return
+        if (current != null && capturedAt == current.capturedAtEpochMs && location.accuracy >= current.accuracyMeters) return
         latest = DeviceLocation(
             latitude = location.latitude,
             longitude = location.longitude,
-            capturedAtEpochMs = location.time.takeIf { it > 0 } ?: System.currentTimeMillis(),
-            accuracyMeters = location.accuracy
+            capturedAtEpochMs = capturedAt,
+            accuracyMeters = location.accuracy.takeIf { it.isFinite() && it >= 0f } ?: 0f,
+            speedMetersPerSecond = location.speed.takeIf { location.hasSpeed() && it.isFinite() && it >= 0f },
+            bearingDegrees = location.bearing.takeIf { location.hasBearing() && it.isFinite() }
         )
     }
 

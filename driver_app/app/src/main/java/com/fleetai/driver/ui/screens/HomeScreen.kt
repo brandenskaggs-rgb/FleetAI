@@ -2,7 +2,6 @@ package com.fleetai.driver.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -10,15 +9,14 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Engineering
 import androidx.compose.material.icons.filled.Route
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -34,6 +32,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.fleetai.driver.AppGraph
 import com.fleetai.driver.data.model.DutyStatus
 import com.fleetai.driver.ui.components.FleetButton
+import com.fleetai.driver.ui.components.FleetBrandMark
 import com.fleetai.driver.ui.components.FleetCard
 import com.fleetai.driver.ui.components.WarningBanner
 import com.fleetai.driver.ui.viewmodel.HomeViewModel
@@ -63,14 +62,7 @@ fun HomeScreen(
     ) {
         FleetCard(modifier = Modifier.fillMaxWidth()) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                Box(
-                    modifier = Modifier
-                        .background(MaterialTheme.colorScheme.primary, CircleShape)
-                        .padding(13.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(Icons.Default.Speed, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary)
-                }
+                FleetBrandMark(modifier = Modifier.width(86.dp).height(48.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text("Good shift, ${sessionState.driverName.ifBlank { "Driver" }}", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.ExtraBold)
                     Text("Vehicle ${sessionState.vehicleId.ifBlank { "--" }} · ${if (sessionState.demoMode) "Demo feed" else "Live-ready"}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.64f))

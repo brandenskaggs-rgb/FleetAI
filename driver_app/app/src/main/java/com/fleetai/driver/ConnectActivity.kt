@@ -1,5 +1,6 @@
 package com.fleetai.driver
 
+import android.annotation.SuppressLint
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -8,6 +9,8 @@ import android.widget.EditText
 import android.widget.TextView
 import androidx.activity.ComponentActivity
 import androidx.lifecycle.lifecycleScope
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import com.fleetai.driver.network.ApiClient
 import com.fleetai.driver.network.ServerConfig
 import kotlinx.coroutines.Dispatchers
@@ -22,6 +25,7 @@ import java.net.Socket
 import java.net.SocketTimeoutException
 import java.util.concurrent.TimeUnit
 
+@SuppressLint("SetTextI18n")
 class ConnectActivity : ComponentActivity() {
     private val httpClient = OkHttpClient.Builder()
         .connectTimeout(4, TimeUnit.SECONDS)
@@ -34,6 +38,11 @@ class ConnectActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_connect)
+        ViewCompat.setOnApplyWindowInsetsListener(findViewById(android.R.id.content)) { view, insets ->
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            view.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+            insets
+        }
 
         val input = findViewById<EditText>(R.id.serverInput)
         val error = findViewById<TextView>(R.id.serverError)

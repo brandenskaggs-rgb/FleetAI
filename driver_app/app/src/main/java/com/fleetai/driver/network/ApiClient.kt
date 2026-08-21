@@ -1,5 +1,6 @@
 package com.fleetai.driver.network
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.util.Log
 import com.fleetai.driver.BuildConfig
@@ -22,6 +23,7 @@ object ApiClient {
     @Volatile
     private var preferences: AppPreferences? = null
     @Volatile
+    @SuppressLint("StaticFieldLeak")
     private var appContext: Context? = null
     @Volatile
     private var baseOverride: String? = null
@@ -42,7 +44,7 @@ object ApiClient {
         .build()
 
     private val loggingInterceptor = HttpLoggingInterceptor().apply {
-        level = HttpLoggingInterceptor.Level.BASIC
+        level = if (BuildConfig.DEBUG) HttpLoggingInterceptor.Level.BASIC else HttpLoggingInterceptor.Level.NONE
     }
 
     private val httpClient = OkHttpClient.Builder()
@@ -90,7 +92,7 @@ object ApiClient {
             builder.header("X-FleetAI-BaseUrl", baseUrl.toString())
             builder.header("X-FleetAI-App-Version", BuildConfig.VERSION_NAME)
             builder.header("X-FleetAI-App-Version-Code", BuildConfig.VERSION_CODE.toString())
-            Log.d("FleetAI", "[NET] ${request.method} ${newUrl}")
+            if (BuildConfig.DEBUG) Log.d("FleetAI", "[NET] ${request.method} ${newUrl}")
             _diagnostics.value = _diagnostics.value.copy(
                 baseUrl = baseUrl.toString(),
                 lastMethod = request.method,
@@ -101,9 +103,9 @@ object ApiClient {
             try {
                 val response = chain.proceed(builder.build())
                 val peek = if (!response.isSuccessful) response.peekBody(200).string() else ""
-                Log.d("FleetAI", "[NET] <= ${response.code} ${newUrl}")
+                if (BuildConfig.DEBUG) Log.d("FleetAI", "[NET] <= ${response.code} ${newUrl}")
                 if (!response.isSuccessful && peek.isNotBlank()) {
-                    Log.d("FleetAI", "[NET] body ${peek}")
+                    if (BuildConfig.DEBUG) Log.d("FleetAI", "[NET] request failed with HTTP ${response.code}")
                 }
                 _diagnostics.value = _diagnostics.value.copy(
                     lastStatus = response.code.toString(),
@@ -111,7 +113,7 @@ object ApiClient {
                 )
                 return@addInterceptor response
             } catch (ex: Exception) {
-                Log.d("FleetAI", "[NET] !! ${request.method} ${newUrl} ${ex.message}")
+                if (BuildConfig.DEBUG) Log.d("FleetAI", "[NET] request failed: ${ex.javaClass.simpleName}")
                 _diagnostics.value = _diagnostics.value.copy(
                     lastStatus = "error",
                     lastError = ex.message ?: "request_failed"
@@ -128,12 +130,13 @@ object ApiClient {
     }
 
     fun setBaseUrl(context: Context, baseUrl: String) {
+        if (!BuildConfig.DEBUG) return
         baseOverride = baseUrl
         ServerConfig.setBaseUrl(context, baseUrl)
     }
 
     private fun resolveBaseUrl(context: Context): HttpUrl? {
-        val raw = baseOverride ?: ServerConfig.getBaseUrl(context, allowDefault = BuildConfig.DEBUG)
+        val raw = baseOverride ?: ServerConfig.getBaseUrl(context, allowDefault = true)
         if (raw.isNullOrBlank()) return null
         val normalized = ServerConfig.normalize(raw)
         return "${normalized}/".toHttpUrlOrNull()

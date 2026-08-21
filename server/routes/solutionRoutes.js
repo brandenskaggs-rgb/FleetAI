@@ -4,6 +4,41 @@ const { buildAdvisorMessages } = require("../services/advisorConversation");
 const { buildFleetAdvisorContext } = require("../services/advisorContextService");
 const { buildReportArtifact, planAdvisorActions, renderReportHtml, renderReportText } = require("../services/advisorAgentService");
 
+function finiteInRange(value, min, max) {
+  const number = Number(value);
+  return Number.isFinite(number) && number >= min && number <= max ? number : null;
+}
+
+function gpsPositionFromSnapshot(snapshot, nowMs = Date.now()) {
+  if (!snapshot || typeof snapshot !== "object") return null;
+  const meta = snapshot.meta || {};
+  const normalized = snapshot.normalizedMetrics || snapshot.metrics || snapshot.signals || {};
+  const vehicle = normalized.vehicle || {};
+  const lat = finiteInRange(snapshot.latitude ?? meta.latitude ?? normalized.latitude ?? normalized.lat, -90, 90);
+  const lon = finiteInRange(snapshot.longitude ?? meta.longitude ?? normalized.longitude ?? normalized.lon, -180, 180);
+  if (lat === null || lon === null || (lat === 0 && lon === 0)) return null;
+  const capturedMs = finiteInRange(
+    snapshot.locationCapturedAt ?? meta.locationCapturedAt,
+    1,
+    Number.MAX_SAFE_INTEGER
+  ) ?? new Date(snapshot.ts || snapshot.timestamp || 0).getTime();
+  if (!Number.isFinite(capturedMs) || capturedMs <= 0) return null;
+  const speedMps = finiteInRange(snapshot.locationSpeedMps ?? meta.locationSpeedMps, 0, 100);
+  const speedKph = finiteInRange(vehicle.speedKph ?? snapshot.speedKph ?? normalized.speedKph, 0, 320);
+  const heading = finiteInRange(snapshot.locationBearingDegrees ?? meta.locationBearingDegrees, 0, 360);
+  const accuracy = finiteInRange(snapshot.locationAccuracyMeters ?? meta.locationAccuracyMeters, 0, 100000);
+  return {
+    lat,
+    lon,
+    speedMph: speedMps !== null ? speedMps * 2.236936 : (speedKph !== null ? speedKph * 0.621371 : null),
+    heading,
+    accuracyMeters: accuracy,
+    capturedMs,
+    updatedAt: new Date(capturedMs).toISOString(),
+    stale: nowMs - capturedMs > 120_000
+  };
+}
+
 function registerSolutionRoutes(app, deps) {
   const {
     readData,
@@ -791,27 +826,27 @@ function registerSolutionRoutes(app, deps) {
       for (const snap of telemetry) {
         const vid = sanitizeString(snap.vehicleId || snap.vehicle_id || "", 80);
         if (!vid || !matchesOrg(snap, orgId)) continue;
-        if (!latestByVehicle[vid] || new Date(snap.timestamp || 0) > new Date(latestByVehicle[vid].timestamp || 0)) {
-          latestByVehicle[vid] = snap;
+        const position = gpsPositionFromSnapshot(snap);
+        if (!position) continue;
+        if (!latestByVehicle[vid] || position.capturedMs > latestByVehicle[vid].capturedMs) {
+          latestByVehicle[vid] = position;
         }
       }
       const vehicles = data.vehicles.filter((v) => matchesOrg(v, orgId));
       const positions = vehicles.map((v) => {
         const vid = v.vehicleId || v.id;
-        const snap = latestByVehicle[vid];
-        const metrics = snap?.metrics || snap?.signals || {};
-        const lat = parseNumberField(metrics.latitude ?? metrics.lat, null);
-        const lon = parseNumberField(metrics.longitude ?? metrics.lon, null);
-        if (lat === null || lon === null) return null;
+        const position = latestByVehicle[vid];
+        if (!position) return null;
         return {
           vehicleId: vid,
           vehicleName: sanitizeString(v.unitName || v.name || vid, 120),
-          lat,
-          lon,
-          speed: parseNumberField(metrics.speed || metrics.vehicleSpeed || 0, 0, 200) || 0,
-          heading: parseNumberField(metrics.heading || 0, 0, 360) || 0,
-          engineOn: Boolean(snap),
-          updatedAt: snap?.timestamp || null
+          lat: position.lat,
+          lon: position.lon,
+          speed: position.speedMph,
+          heading: position.heading,
+          accuracyMeters: position.accuracyMeters,
+          stale: position.stale,
+          updatedAt: position.updatedAt
         };
       }).filter(Boolean);
       res.json({ ok: true, data: positions });
@@ -1067,5 +1102,6 @@ function registerSolutionRoutes(app, deps) {
 }
 
 module.exports = {
-  registerSolutionRoutes
+  registerSolutionRoutes,
+  gpsPositionFromSnapshot
 };

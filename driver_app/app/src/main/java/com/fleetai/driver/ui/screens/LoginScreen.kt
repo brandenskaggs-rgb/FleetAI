@@ -1,9 +1,7 @@
 package com.fleetai.driver.ui.screens
 
 import android.content.Intent
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -11,10 +9,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -43,6 +39,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.fleetai.driver.ConnectActivity
 import com.fleetai.driver.ui.components.FleetButton
+import com.fleetai.driver.ui.components.FleetBrandMark
 import com.fleetai.driver.ui.components.FleetCard
 import com.fleetai.driver.ui.viewmodel.SessionViewModel
 
@@ -145,11 +142,13 @@ fun LoginScreen(sessionViewModel: SessionViewModel) {
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f)
                     )
                     Spacer(modifier = Modifier.height(10.dp))
-                    OutlinedButton(
-                        onClick = { context.startActivity(Intent(context, ConnectActivity::class.java)) },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(text = "Server settings")
+                    if (com.fleetai.driver.BuildConfig.DEBUG) {
+                        OutlinedButton(
+                            onClick = { context.startActivity(Intent(context, ConnectActivity::class.java)) },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(text = "Server settings")
+                        }
                     }
                     TextButton(onClick = { statusMessage = "Ask dispatch or your fleet manager to reset your driver PIN." }) {
                         Text(text = "Need help signing in?")
@@ -163,14 +162,7 @@ fun LoginScreen(sessionViewModel: SessionViewModel) {
 @Composable
 private fun BrandHeader() {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        Box(
-            modifier = Modifier
-                .size(42.dp)
-                .background(MaterialTheme.colorScheme.primary, CircleShape),
-            contentAlignment = Alignment.Center
-        ) {
-            Text("FA", color = MaterialTheme.colorScheme.onPrimary, fontWeight = FontWeight.ExtraBold)
-        }
+        FleetBrandMark(modifier = Modifier.widthIn(min = 118.dp, max = 118.dp).height(50.dp))
         Column {
             Text("Fleet AI Driver", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
             Text("Android tablet console", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.62f))

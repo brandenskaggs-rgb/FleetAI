@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">Fleet AI Driver</string>
+    <string name="logo_content_description">Fleet AI logo</string>
 </resources>

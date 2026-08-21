@@ -14,6 +14,7 @@ import kotlinx.coroutines.launch
 import java.net.ConnectException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
+import java.util.UUID
 import android.util.Log
 
 class SessionViewModel(
@@ -63,13 +64,13 @@ class SessionViewModel(
     fun login(companyCode: String, driverPin: String, onResult: (Boolean, String) -> Unit) {
         viewModelScope.launch {
             try {
-                Log.d("FleetAI", "[PAIR] login attempt")
+                if (BuildConfig.DEBUG) Log.d("FleetAI", "[PAIR] login attempt")
                 preferences.clearPairing()
                 repository.login(companyCode, driverPin)
-                Log.d("FleetAI", "[PAIR] login success")
+                if (BuildConfig.DEBUG) Log.d("FleetAI", "[PAIR] login success")
                 onResult(true, "")
             } catch (ex: Exception) {
-                Log.d("FleetAI", "[PAIR] login failed ${ex.message}")
+                if (BuildConfig.DEBUG) Log.d("FleetAI", "[PAIR] login failed: ${ex.javaClass.simpleName}")
                 val message = when {
                     ex.message?.contains("invalid_pin", ignoreCase = true) == true ->
                         "Invalid PIN. Check and try again."
@@ -101,14 +102,14 @@ class SessionViewModel(
                 return@launch
             }
             try {
-                Log.d("FleetAI", "[PAIR] claim attempt")
+                if (BuildConfig.DEBUG) Log.d("FleetAI", "[PAIR] claim attempt")
                 val deviceId = preferences.ensureDeviceId()
                 repository.claimPairing(pairingCode, driverPin, deviceId, deviceLabel)
                 runCatching { repository.recordEldLogin() }
-                Log.d("FleetAI", "[PAIR] claim success")
+                if (BuildConfig.DEBUG) Log.d("FleetAI", "[PAIR] claim success")
                 onResult(true, "Device paired successfully.")
             } catch (ex: Exception) {
-                Log.d("FleetAI", "[PAIR] claim failed ${ex.message}")
+                if (BuildConfig.DEBUG) Log.d("FleetAI", "[PAIR] claim failed: ${ex.javaClass.simpleName}")
                 val message = when {
                     ex.message?.contains("expired", ignoreCase = true) == true ->
                         "Code expired. Ask dispatch to generate a new code."
@@ -139,7 +140,23 @@ class SessionViewModel(
     fun logout() {
         viewModelScope.launch {
             runCatching { repository.recordEldLogout() }
+            preferences.setDemoMode(false)
             preferences.clearSession()
+        }
+    }
+
+    fun startTrainingDemo() {
+        viewModelScope.launch {
+            val deviceId = preferences.ensureDeviceId()
+            preferences.setDemoMode(true)
+            preferences.saveClaimedSession(
+                tenantId = "DEMO",
+                driverId = "DEMO_DRIVER",
+                driverName = "Training Driver",
+                vehicleId = "DEMO_VEHICLE",
+                assignmentId = "DEMO_ASSIGNMENT",
+                token = "demo_${UUID.randomUUID()}_$deviceId"
+            )
         }
     }
 

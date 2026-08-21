@@ -1,14 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="24dp">
+    android:padding="24dp"
+    tools:ignore="HardcodedText">
+
+    <ImageView
+        android:id="@+id/connectLogo"
+        android:layout_width="180dp"
+        android:layout_height="72dp"
+        android:contentDescription="@string/logo_content_description"
+        android:scaleType="centerCrop"
+        android:src="@drawable/fleet_ai_logo" />
 
     <TextView
         android:id="@+id/connectTitle"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
         android:text="Connect to Fleet AI Server"
         android:textSize="20sp"
         android:textStyle="bold" />
@@ -26,7 +37,8 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="16dp"
         android:hint="Server URL"
-        android:inputType="textUri" />
+        android:inputType="textUri"
+        android:importantForAutofill="no" />
 
     <TextView
         android:id="@+id/serverError"

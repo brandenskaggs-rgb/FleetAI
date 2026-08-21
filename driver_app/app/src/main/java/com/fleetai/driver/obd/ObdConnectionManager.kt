@@ -1,5 +1,6 @@
 package com.fleetai.driver.obd
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
@@ -10,8 +11,11 @@ import android.bluetooth.BluetoothGattDescriptor
 import android.bluetooth.BluetoothProfile
 import android.bluetooth.BluetoothSocket
 import android.content.Context
+import android.content.pm.PackageManager
 import android.os.Build
 import android.util.Log
+import com.fleetai.driver.BuildConfig
+import androidx.core.content.ContextCompat
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
@@ -68,12 +72,18 @@ class ObdConnectionManager(private val context: Context) {
     // ── GATT callback: one CompletableDeferred for the full setup phase ────────
     @Volatile private var gattReadyDeferred: CompletableDeferred<Boolean>? = null
 
+    @SuppressLint("MissingPermission")
     private val gattCallback = object : BluetoothGattCallback() {
 
         override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
-            Log.d(TAG, "BLE state: status=$status newState=$newState")
+            if (BuildConfig.DEBUG) Log.d(TAG, "BLE state: status=$status newState=$newState")
             if (newState == BluetoothProfile.STATE_CONNECTED) {
-                gatt.discoverServices()
+                if (hasBluetoothConnectPermission()) {
+                    gatt.discoverServices()
+                } else {
+                    gattReadyDeferred?.complete(false)
+                    gattReadyDeferred = null
+                }
             } else {
                 bleReady = false
                 gattReadyDeferred?.complete(false)
@@ -82,8 +92,8 @@ class ObdConnectionManager(private val context: Context) {
         }
 
         override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
-            Log.d(TAG, "BLE services discovered: status=$status")
-            if (status != BluetoothGatt.GATT_SUCCESS) {
+            if (BuildConfig.DEBUG) Log.d(TAG, "BLE services discovered: status=$status")
+            if (status != BluetoothGatt.GATT_SUCCESS || !hasBluetoothConnectPermission()) {
                 gattReadyDeferred?.complete(false)
                 gattReadyDeferred = null
                 return
@@ -101,7 +111,7 @@ class ObdConnectionManager(private val context: Context) {
                     properties and BluetoothGattCharacteristic.PROPERTY_INDICATE != 0
             } ?: tx
             if (tx == null || rx == null) {
-                Log.w(TAG, "BLE: no writable OBD command characteristic was found")
+                if (BuildConfig.DEBUG) Log.w(TAG, "BLE: no writable OBD command characteristic was found")
                 gattReadyDeferred?.complete(false)
                 gattReadyDeferred = null
                 return
@@ -134,7 +144,7 @@ class ObdConnectionManager(private val context: Context) {
         }
 
         override fun onDescriptorWrite(gatt: BluetoothGatt, descriptor: BluetoothGattDescriptor, status: Int) {
-            Log.d(TAG, "BLE descriptor write: status=$status")
+            if (BuildConfig.DEBUG) Log.d(TAG, "BLE descriptor write: status=$status")
             bleReady = status == BluetoothGatt.GATT_SUCCESS
             gattReadyDeferred?.complete(bleReady)
             gattReadyDeferred = null
@@ -177,6 +187,10 @@ class ObdConnectionManager(private val context: Context) {
 
     fun hasBluetooth(): Boolean = adapter != null
 
+    private fun hasBluetoothConnectPermission(): Boolean =
+        Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
+            ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
+
     fun pairedDevices(): Set<BluetoothDevice> {
         return try {
             adapter?.bondedDevices ?: emptySet()
@@ -190,7 +204,9 @@ class ObdConnectionManager(private val context: Context) {
         Transport.NONE -> false
     }
 
+    @SuppressLint("MissingPermission")
     suspend fun connect(device: BluetoothDevice): Boolean {
+        if (!hasBluetoothConnectPermission()) return false
         disconnect()
         return when (device.type) {
             BluetoothDevice.DEVICE_TYPE_LE -> connectBle(device)
@@ -198,6 +214,7 @@ class ObdConnectionManager(private val context: Context) {
         }
     }
 
+    @SuppressLint("MissingPermission")
     suspend fun disconnect() = withContext(Dispatchers.IO) {
         activeTransport = Transport.NONE
         // SPP cleanup
@@ -287,7 +304,7 @@ class ObdConnectionManager(private val context: Context) {
 
     @SuppressLint("MissingPermission")
     private suspend fun connectBle(device: BluetoothDevice): Boolean = withContext(Dispatchers.IO) {
-        Log.d(TAG, "Connecting BLE GATT: ${device.address}")
+        if (BuildConfig.DEBUG) Log.d(TAG, "Connecting BLE GATT")
         val deferred = CompletableDeferred<Boolean>()
         gattReadyDeferred = deferred
 
@@ -296,14 +313,14 @@ class ObdConnectionManager(private val context: Context) {
 
         val ready = withTimeoutOrNull(BLE_SETUP_TIMEOUT_MS) { deferred.await() } ?: false
         if (!ready) {
-            Log.w(TAG, "BLE GATT setup timed out or failed")
+            if (BuildConfig.DEBUG) Log.w(TAG, "BLE GATT setup timed out or failed")
             runCatching { gatt.disconnect(); gatt.close() }
             bleGatt = null
             return@withContext false
         }
 
         activeTransport = Transport.BLE
-        Log.d(TAG, "BLE connected, initializing ELM327")
+        if (BuildConfig.DEBUG) Log.d(TAG, "BLE connected, initializing ELM327")
         initializeElm("BLE")
         true
     }
@@ -312,7 +329,7 @@ class ObdConnectionManager(private val context: Context) {
 
     @SuppressLint("MissingPermission")
     private suspend fun connectSpp(device: BluetoothDevice): Boolean = withContext(Dispatchers.IO) {
-        Log.d(TAG, "Connecting SPP: ${device.address}")
+        if (BuildConfig.DEBUG) Log.d(TAG, "Connecting SPP")
         val btSocket = device.createRfcommSocketToServiceRecord(UUID.fromString(SPP_UUID))
         try {
             runCatching { adapter?.cancelDiscovery() }
@@ -324,7 +341,7 @@ class ObdConnectionManager(private val context: Context) {
             initializeElm("SPP")
             true
         } catch (err: Exception) {
-            Log.w(TAG, "SPP connect failed: ${err.message}")
+            if (BuildConfig.DEBUG) Log.w(TAG, "SPP connect failed: ${err.javaClass.simpleName}")
             runCatching { btSocket.close() }
             input = null; output = null; socket = null
             throw err
@@ -439,7 +456,7 @@ class ObdConnectionManager(private val context: Context) {
         }
 
         val response = withTimeoutOrNull(CMD_TIMEOUT_MS) { bleResponseChannel.receive() }
-        if (response == null) Log.d(TAG, "BLE timeout for: $command")
+        if (BuildConfig.DEBUG && response == null) Log.d(TAG, "BLE command timed out")
         response?.let { parseObdResponse(it, command) }
     }
 

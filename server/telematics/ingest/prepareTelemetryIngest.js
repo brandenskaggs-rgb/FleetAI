@@ -149,10 +149,22 @@ function sanitizeTelemetryMeta(meta) {
   const latitude = Number(meta.latitude);
   const longitude = Number(meta.longitude);
   const locationCapturedAt = Number(meta.locationCapturedAt);
+  const locationAccuracyMeters = Number(meta.locationAccuracyMeters);
+  const locationSpeedMps = Number(meta.locationSpeedMps);
+  const locationBearingDegrees = Number(meta.locationBearingDegrees);
   if (Number.isFinite(latitude) && latitude >= -90 && latitude <= 90) output.latitude = latitude;
   if (Number.isFinite(longitude) && longitude >= -180 && longitude <= 180) output.longitude = longitude;
   if (Number.isFinite(locationCapturedAt) && locationCapturedAt > 0) {
     output.locationCapturedAt = Math.round(locationCapturedAt);
+  }
+  if (Number.isFinite(locationAccuracyMeters) && locationAccuracyMeters >= 0 && locationAccuracyMeters <= 100000) {
+    output.locationAccuracyMeters = locationAccuracyMeters;
+  }
+  if (Number.isFinite(locationSpeedMps) && locationSpeedMps >= 0 && locationSpeedMps <= 100) {
+    output.locationSpeedMps = locationSpeedMps;
+  }
+  if (Number.isFinite(locationBearingDegrees) && locationBearingDegrees >= 0 && locationBearingDegrees <= 360) {
+    output.locationBearingDegrees = locationBearingDegrees;
   }
   return output;
 }

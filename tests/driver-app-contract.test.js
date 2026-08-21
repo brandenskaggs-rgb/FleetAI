@@ -164,6 +164,8 @@ console.log("\nTelemetry payload carries freshness without repeating VIN as a PI
     "obd", "ObdConnectionManager.kt"
   ), "utf8");
   check("ECU liveness expires after bus silence", /ECU_SILENCE_TIMEOUT_MS[\s\S]*ecuResponseFresh[\s\S]*ecuResponding\s*=\s*ecuResponseFresh/.test(obdManager));
+  check("OBD polling starts tablet location capture", /startPolling\(\)[\s\S]*startLocationTracking\(\)/.test(sensorViewModel));
+  check("OBD polling sends only a fresh tablet location", /locationTracker\.latestFresh\(\)/.test(sensorViewModel));
 }
 
 console.log("\nOBD polling has one application-level owner");
@@ -177,6 +179,28 @@ console.log("\nOBD polling has one application-level owner");
   check("navigation passes the shared SensorViewModel", /sensorViewModel:\s*SensorViewModel/.test(navGraph));
   check("Home does not create a route-scoped OBD poller", !/SensorViewModel\s*=\s*viewModel/.test(home));
   check("Sensors does not create a route-scoped OBD poller", !/SensorViewModel\s*=\s*viewModel/.test(sensors));
+}
+
+console.log("\nDriver app branding uses the packaged Fleet AI logo");
+{
+  const appRoot = path.join(__dirname, "..", "driver_app", "app", "src", "main");
+  const logo = path.join(appRoot, "res", "drawable-nodpi", "fleet_ai_logo.png");
+  const manifest = fs.readFileSync(path.join(appRoot, "AndroidManifest.xml"), "utf8");
+  const adaptiveIcon = fs.readFileSync(path.join(
+    appRoot, "res", "mipmap-anydpi-v26", "ic_launcher.xml"
+  ), "utf8");
+  const iconForeground = path.join(appRoot, "res", "drawable", "ic_launcher_foreground.xml");
+  const brandComponent = fs.readFileSync(path.join(
+    appRoot, "java", "com", "fleetai", "driver", "ui", "components", "FleetBrandMark.kt"
+  ), "utf8");
+  const pairingScreen = fs.readFileSync(path.join(
+    appRoot, "java", "com", "fleetai", "driver", "ui", "screens", "PairDeviceScreen.kt"
+  ), "utf8");
+  check("logo PNG is packaged", fs.existsSync(logo) && fs.statSync(logo).size > 100_000);
+  check("manifest uses an adaptive launcher icon", /android:icon="@mipmap\/ic_launcher"/.test(manifest));
+  check("adaptive icon packages the Fleet AI foreground", /@drawable\/ic_launcher_foreground/.test(adaptiveIcon) && fs.existsSync(iconForeground));
+  check("Compose brand component renders the logo resource", /R\.drawable\.fleet_ai_logo/.test(brandComponent));
+  check("pairing screen shows the Fleet AI brand mark", /FleetBrandMark/.test(pairingScreen));
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

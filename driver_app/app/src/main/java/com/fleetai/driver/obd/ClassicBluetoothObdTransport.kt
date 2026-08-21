@@ -1,5 +1,6 @@
 package com.fleetai.driver.obd
 
+import android.annotation.SuppressLint
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothSocket
@@ -34,6 +35,7 @@ class ClassicBluetoothObdTransport : ObdTransport {
 
     override fun isConnected(): Boolean = socket?.isConnected == true && input != null && output != null
 
+    @SuppressLint("MissingPermission")
     override suspend fun connect(device: BluetoothDevice): Boolean = withContext(Dispatchers.IO) {
         disconnect()
         val uuid = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")

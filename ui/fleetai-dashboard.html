@@ -456,11 +456,45 @@
     }
     async function loadTelemetryHistory(){ const v=encodeURIComponent($("historyVehicleSelect")?.value||state.selectedVehicleId||""); const metric=$("historyMetricSelect")?.value||"rpm"; const range=$("historyRangeSelect")?.value||"24h"; if(!v){ $("historyRows").innerHTML=rowsEmpty(5,"Select or register a vehicle to review telemetry history."); return; } try{ const data=unwrap(await apiGet([`/api/vehicles/${v}/metrics/history?metric=${metric}&range=${range}`,`/api/telemetry/history?vehicleId=${v}&metric=${metric}&range=${range}`])); $("historyRows").innerHTML=data.length?data.map(r=>`<tr><td>${esc(r.ts||r.timestamp)}</td><td>${esc(r.vehicleId||v)}</td><td>${esc(metric)}</td><td>${num(r.value??r[metric])}</td><td>${esc(r.quality||"normalized")}</td></tr>`).join(""):rowsEmpty(5,"No telemetry history for this filter."); err("historyError",""); }catch(e){ $("historyRows").innerHTML=rowsEmpty(5,"No telemetry history for this filter."); err("historyError",e.message); } }
     window.loadTelemetryHistory = loadTelemetryHistory;
-    async function loadGpsMap(){ const sec=$("view-gps"); sec.innerHTML = `<div class="grid2"><div class="mapShell"><div id="leafletMap" class="leafletBox"></div><div class="mapHud">Selected: <b id="hudSelected">Fleet overview</b></div></div><div class="card"><div class="cardHead"><div><h3>Vehicle Positions</h3><div class="cardMeta">Live GPS polling every 15 seconds</div></div></div><div class="cardBody tableWrap"><table class="table"><thead><tr><th>Vehicle</th><th>Lat</th><th>Lon</th><th>Speed</th></tr></thead><tbody id="gpsRows"></tbody></table></div></div></div>`;
-      if(!window.L) return; if(!state.leafletMap){ state.leafletMap = L.map("leafletMap").setView([39.7392,-104.9903],9); L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{attribution:""}).addTo(state.leafletMap); } else { state.leafletMap.remove(); state.leafletMap = L.map("leafletMap").setView([39.7392,-104.9903],9); L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{attribution:""}).addTo(state.leafletMap); }
-      await refreshGps(); setTimeout(()=>state.leafletMap.invalidateSize(),100); if(!state.gpsTimer) state.gpsTimer=setInterval(refreshGps,15000);
+    async function loadGpsMap(){
+      const sec=$("view-gps");
+      sec.innerHTML=`<div class="grid2"><div class="mapShell"><div id="leafletMap" class="leafletBox"></div><div class="mapHud">Selected: <b id="hudSelected">Fleet overview</b></div></div><div class="card"><div class="cardHead"><div><h3>Vehicle Positions</h3><div class="cardMeta">Tablet GPS positions refresh every 15 seconds</div></div></div><div class="cardBody tableWrap"><table class="table"><thead><tr><th>Vehicle</th><th>Status</th><th>Coordinates</th><th>Speed</th><th>Accuracy</th><th>Updated</th></tr></thead><tbody id="gpsRows"></tbody></table></div></div></div>`;
+      if(!window.L)return;
+      if(state.leafletMap)state.leafletMap.remove();
+      state.leafletMap=L.map("leafletMap").setView([39.7392,-104.9903],5);
+      state.mapHasFit=false;
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{attribution:""}).addTo(state.leafletMap);
+      await refreshGps();
+      setTimeout(()=>state.leafletMap?.invalidateSize(),100);
+      if(!state.gpsTimer)state.gpsTimer=setInterval(refreshGps,15000);
     }
-    async function refreshGps(){ try{ const data=unwrap(await apiGet("/api/gps/live")); state.mapMarkers.forEach(m=>m.remove()); state.mapMarkers=[]; $("gpsRows").innerHTML=data.map(p=>{ const marker=L.marker([p.lat,p.lon]).addTo(state.leafletMap).on("click",()=>{$("hudSelected").textContent=p.vehicleName||p.vehicleId;}); state.mapMarkers.push(marker); return `<tr><td>${esc(p.vehicleName||p.vehicleId)}</td><td>${num(p.lat)}</td><td>${num(p.lon)}</td><td>${num(p.speed)} mph</td></tr>`; }).join("") || rowsEmpty(4,"No vehicle positions available."); }catch(_){ $("gpsRows").innerHTML=rowsEmpty(4,"GPS positions are unavailable."); } }
+    function gpsUpdatedLabel(value){
+      const time=value?new Date(value).getTime():0;
+      if(!Number.isFinite(time)||!time)return "Unknown";
+      const seconds=Math.max(0,Math.round((Date.now()-time)/1000));
+      if(seconds<60)return `${seconds}s ago`;
+      if(seconds<3600)return `${Math.round(seconds/60)}m ago`;
+      return new Date(time).toLocaleString();
+    }
+    async function refreshGps(){
+      try{
+        const data=unwrap(await apiGet("/api/gps/live")).filter(p=>Number.isFinite(Number(p.lat))&&Number.isFinite(Number(p.lon)));
+        state.mapMarkers.forEach(marker=>marker.remove());
+        state.mapMarkers=[];
+        const bounds=[];
+        $("gpsRows").innerHTML=data.map(position=>{
+          const name=position.vehicleName||position.vehicleId;
+          const lat=Number(position.lat),lon=Number(position.lon);
+          const status=position.stale?'<span class="pill warn">Last known</span>':'<span class="pill good">Live GPS</span>';
+          const speed=position.speed===null||position.speed===undefined?"--":`${Number(position.speed).toFixed(1)} mph`;
+          const accuracy=position.accuracyMeters===null||position.accuracyMeters===undefined?"--":`±${Math.round(Number(position.accuracyMeters))} m`;
+          const marker=L.marker([lat,lon]).addTo(state.leafletMap).bindPopup(`<b>${esc(name)}</b><br>${esc(speed)}<br>${esc(gpsUpdatedLabel(position.updatedAt))}`).on("click",()=>{$("hudSelected").textContent=name;});
+          state.mapMarkers.push(marker);bounds.push([lat,lon]);
+          return `<tr><td>${esc(name)}</td><td>${status}</td><td class="mono">${lat.toFixed(5)}, ${lon.toFixed(5)}</td><td>${esc(speed)}</td><td>${esc(accuracy)}</td><td>${esc(gpsUpdatedLabel(position.updatedAt))}</td></tr>`;
+        }).join("")||rowsEmpty(6,"No tablet locations have been reported yet.");
+        if(bounds.length&&!state.mapHasFit){state.leafletMap.fitBounds(bounds,{padding:[36,36],maxZoom:14});state.mapHasFit=true;}
+      }catch(_){$("gpsRows").innerHTML=rowsEmpty(6,"GPS positions are unavailable.");}
+    }
     function stopGpsPolling(){ if(state.gpsTimer){ clearInterval(state.gpsTimer); state.gpsTimer=null; } }
     function renderCameraChannels(){ genericPanel("cameras","Camera Channels","Camera status appears only after a supported provider is connected",`<div class="cameraGrid">${["Front","Driver","Rear"].map(x=>`<div class="cameraTile"><div><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:10px;opacity:.35" aria-hidden="true"><rect x="2" y="6" width="16" height="12" rx="2"/><path d="m18 9 4-2v10l-4-2"/></svg><h3>${x}</h3><p class="muted">Not connected</p></div></div>`).join("")}</div><div id="clipList" style="margin-top:14px"></div>`); }
     function renderClipList(){ const el=$("clipList"); if(el) el.innerHTML=`<div class="muted">No camera clips are available.</div>`; }

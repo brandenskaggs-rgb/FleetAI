@@ -119,12 +119,18 @@ class TelemetrySender(
             latestMeta.remove("longitude")
             latestMeta.remove("locationCapturedAt")
             latestMeta.remove("locationAccuracyMeters")
+            latestMeta.remove("locationSpeedMps")
+            latestMeta.remove("locationBearingDegrees")
             return
         }
         latestMeta["latitude"] = location.latitude
         latestMeta["longitude"] = location.longitude
         latestMeta["locationCapturedAt"] = location.capturedAtEpochMs
         latestMeta["locationAccuracyMeters"] = location.accuracyMeters.toDouble()
+        location.speedMetersPerSecond?.let { latestMeta["locationSpeedMps"] = it.toDouble() }
+            ?: latestMeta.remove("locationSpeedMps")
+        location.bearingDegrees?.let { latestMeta["locationBearingDegrees"] = it.toDouble() }
+            ?: latestMeta.remove("locationBearingDegrees")
     }
 
     fun updateExtendedProfile(profile: ExtendedPidProfile?) {

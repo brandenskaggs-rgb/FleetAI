@@ -1,5 +1,6 @@
 package com.fleetai.driver.ui.screens
 
+import android.annotation.SuppressLint
 import android.Manifest
 import android.content.res.Configuration
 import android.os.Build
@@ -19,6 +20,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -45,6 +47,7 @@ import com.fleetai.driver.ui.components.FleetCard
 import com.fleetai.driver.ui.viewmodel.SensorViewModel
 import java.text.SimpleDateFormat
 import java.util.Date
+import java.util.Locale
 
 @Composable
 fun SensorsScreen(contentPadding: PaddingValues, viewModel: SensorViewModel) {
@@ -56,6 +59,7 @@ fun SensorsScreen(contentPadding: PaddingValues, viewModel: SensorViewModel) {
     val unitPrefs by viewModel.unitPrefs.collectAsState()
     val j1939BusProfile by viewModel.j1939BusProfile.collectAsState()
     val j1939ConnectorProfile by viewModel.j1939ConnectorProfile.collectAsState()
+    val locationSharingEnabled by viewModel.locationSharingEnabled.collectAsState()
     val context = LocalContext.current
     val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     val hasBluetooth = viewModel.hasBluetooth()
@@ -64,19 +68,51 @@ fun SensorsScreen(contentPadding: PaddingValues, viewModel: SensorViewModel) {
     val requiredPermissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
         listOf(
             Manifest.permission.BLUETOOTH_CONNECT,
-            Manifest.permission.BLUETOOTH_SCAN,
-            Manifest.permission.ACCESS_FINE_LOCATION
+            Manifest.permission.BLUETOOTH_SCAN
         )
     } else {
         listOf(
             Manifest.permission.BLUETOOTH,
-            Manifest.permission.BLUETOOTH_ADMIN,
-            Manifest.permission.ACCESS_FINE_LOCATION
+            Manifest.permission.BLUETOOTH_ADMIN
         )
     }
+    val locationPermissions = listOf(
+        Manifest.permission.ACCESS_COARSE_LOCATION,
+        Manifest.permission.ACCESS_FINE_LOCATION
+    )
     var hasPermissions by remember { mutableStateOf(hasAllPermissions(context, requiredPermissions)) }
+    var showLocationDisclosure by remember { mutableStateOf(false) }
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { results ->
         hasPermissions = results.values.all { it }
+    }
+    val locationPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { results ->
+        val granted = results[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+            results[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+        viewModel.setLocationSharingEnabled(granted)
+    }
+
+    if (showLocationDisclosure) {
+        AlertDialog(
+            onDismissRequest = { showLocationDisclosure = false },
+            title = { Text("Share live vehicle location") },
+            text = {
+                Text(
+                    "Fleet AI Driver collects this tablet's precise location to show the vehicle position to your fleet manager while live telemetry is running, including when the app is not visible. Location is sent securely to Fleet AI, is not used for advertising, and can be turned off here. Vehicle sensor telemetry still works if you decline."
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showLocationDisclosure = false
+                    locationPermissionLauncher.launch(locationPermissions.toTypedArray())
+                }) { Text("Allow location") }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showLocationDisclosure = false
+                    viewModel.setLocationSharingEnabled(false)
+                }) { Text("Not now") }
+            }
+        )
     }
 
     LazyColumn(
@@ -93,6 +129,11 @@ fun SensorsScreen(contentPadding: PaddingValues, viewModel: SensorViewModel) {
                 debug = debug,
                 hasPermissions = hasPermissions,
                 onGrantPermissions = { permissionLauncher.launch(requiredPermissions.toTypedArray()) },
+                locationSharingEnabled = locationSharingEnabled,
+                onLocationSharing = {
+                    if (locationSharingEnabled) viewModel.setLocationSharingEnabled(false)
+                    else showLocationDisclosure = true
+                },
                 demoMode = demoMode,
                 onToggleDemo = { viewModel.toggleDemo(!demoMode) },
                 unitPrefs = unitPrefs,
@@ -118,7 +159,7 @@ fun SensorsScreen(contentPadding: PaddingValues, viewModel: SensorViewModel) {
                 }
             } else if (!hasPermissions) {
                 FleetCard(modifier = Modifier.fillMaxWidth()) {
-                    Text("Bluetooth permissions are required to connect to the OBD dongle.")
+                    Text("Bluetooth permission is required to connect a paired OBD-II adapter.")
                 }
             } else {
                 PairedDevicesSection(
@@ -187,6 +228,7 @@ private fun TruckNetworkPanel(
 }
 
 @Composable
+@SuppressLint("MissingPermission")
 private fun PairedDevicesSection(
     savedDevice: String,
     onConnectSaved: (String) -> Unit,
@@ -229,6 +271,8 @@ private fun ConnectionBanner(
     debug: com.fleetai.driver.telemetry.TelemetrySender.DebugState,
     hasPermissions: Boolean,
     onGrantPermissions: () -> Unit,
+    locationSharingEnabled: Boolean,
+    onLocationSharing: () -> Unit,
     demoMode: Boolean,
     onToggleDemo: () -> Unit,
     unitPrefs: SensorViewModel.UnitPrefs,
@@ -259,6 +303,11 @@ private fun ConnectionBanner(
                     color = if (debug.ecuResponding) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
                 )
             }
+            FleetButton(
+                text = if (locationSharingEnabled) "Live location on" else "Enable live location",
+                onClick = onLocationSharing,
+                modifier = Modifier.fillMaxWidth()
+            )
             if (debug.protocol == "J1939") {
                 Text(
                     "Bus: ${debug.bitrate?.let { "${it / 1_000} kbit/s" } ?: "probing"} | Connector: ${debug.connectorProfile.replace('_', ' ')} | " +
@@ -409,5 +458,5 @@ private fun hasAllPermissions(context: android.content.Context, permissions: Lis
 }
 
 private fun Long.toTime(): String {
-    return if (this > 0) SimpleDateFormat("HH:mm:ss").format(Date(this)) else "--"
+    return if (this > 0) SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date(this)) else "--"
 }

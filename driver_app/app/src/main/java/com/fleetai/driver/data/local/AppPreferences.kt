@@ -1,5 +1,6 @@
 package com.fleetai.driver.data.local
 
+import android.annotation.SuppressLint
 import android.content.Context
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
@@ -8,13 +9,17 @@ import androidx.datastore.preferences.preferencesDataStore
 import com.fleetai.driver.data.model.ThemeMode
 import com.fleetai.driver.j1939.J1939BusProfile
 import com.fleetai.driver.j1939.J1939ConnectorProfile
+import com.fleetai.driver.security.TokenCipher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import java.util.UUID
 
 private val Context.appDataStore by preferencesDataStore(name = "fleet_driver_prefs")
 
-class AppPreferences(private val context: Context) {
+@SuppressLint("StaticFieldLeak")
+class AppPreferences(context: Context) {
+    private val context = context.applicationContext
+    private val tokenCipher = TokenCipher()
     private val tenantIdKey = stringPreferencesKey("tenant_id")
     private val driverIdKey = stringPreferencesKey("driver_id")
     private val tokenKey = stringPreferencesKey("auth_token")
@@ -27,10 +32,11 @@ class AppPreferences(private val context: Context) {
     private val obdAddressKey = stringPreferencesKey("obd_device_address")
     private val j1939BusProfileKey = stringPreferencesKey("j1939_bus_profile")
     private val j1939ConnectorProfileKey = stringPreferencesKey("j1939_connector_profile")
+    private val locationSharingEnabledKey = booleanPreferencesKey("location_sharing_enabled")
 
     val tenantId: Flow<String> = context.appDataStore.data.map { it[tenantIdKey] ?: "" }
     val driverId: Flow<String> = context.appDataStore.data.map { it[driverIdKey] ?: "" }
-    val token: Flow<String> = context.appDataStore.data.map { it[tokenKey] ?: "" }
+    val token: Flow<String> = context.appDataStore.data.map { tokenCipher.decrypt(it[tokenKey]) }
     val driverName: Flow<String> = context.appDataStore.data.map { it[driverNameKey] ?: "" }
     val vehicleId: Flow<String> = context.appDataStore.data.map { it[vehicleIdKey] ?: "" }
     val deviceId: Flow<String> = context.appDataStore.data.map { it[deviceIdKey] ?: "" }
@@ -49,18 +55,21 @@ class AppPreferences(private val context: Context) {
     val j1939ConnectorProfile: Flow<J1939ConnectorProfile> = context.appDataStore.data.map {
         J1939ConnectorProfile.fromStored(it[j1939ConnectorProfileKey])
     }
+    val locationSharingEnabled: Flow<Boolean> = context.appDataStore.data.map {
+        it[locationSharingEnabledKey] ?: false
+    }
 
     /** Stores only the bearer token — used after a pairing claim, which
      *  establishes the device session without a full driver login. */
     suspend fun saveDeviceToken(token: String) {
-        context.appDataStore.edit { prefs -> prefs[tokenKey] = token }
+        context.appDataStore.edit { prefs -> prefs[tokenKey] = tokenCipher.encrypt(token) }
     }
 
     suspend fun saveSession(tenantId: String, driverId: String, token: String, driverName: String) {
         context.appDataStore.edit { prefs ->
             prefs[tenantIdKey] = tenantId
             prefs[driverIdKey] = driverId
-            prefs[tokenKey] = token
+            prefs[tokenKey] = tokenCipher.encrypt(token)
             prefs[driverNameKey] = driverName
         }
     }
@@ -78,7 +87,7 @@ class AppPreferences(private val context: Context) {
             prefs[driverIdKey] = driverId
             prefs[driverNameKey] = driverName
             prefs[vehicleIdKey] = vehicleId
-            prefs[tokenKey] = token
+            prefs[tokenKey] = tokenCipher.encrypt(token)
             if (assignmentId.isNullOrBlank()) {
                 prefs.remove(assignmentIdKey)
             } else {
@@ -165,5 +174,18 @@ class AppPreferences(private val context: Context) {
 
     suspend fun setJ1939ConnectorProfile(profile: J1939ConnectorProfile) {
         context.appDataStore.edit { prefs -> prefs[j1939ConnectorProfileKey] = profile.name }
+    }
+
+    suspend fun setLocationSharingEnabled(enabled: Boolean) {
+        context.appDataStore.edit { prefs -> prefs[locationSharingEnabledKey] = enabled }
+    }
+
+    suspend fun migrateSensitiveStorage() {
+        context.appDataStore.edit { prefs ->
+            val stored = prefs[tokenKey]
+            if (!stored.isNullOrBlank() && !tokenCipher.isEncrypted(stored)) {
+                prefs[tokenKey] = tokenCipher.encrypt(stored)
+            }
+        }
     }
 }
