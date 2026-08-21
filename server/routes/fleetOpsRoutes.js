@@ -6,11 +6,56 @@ const { appendFrames } = require("../telematics/storage/telemetryStore");
 
 const LIVE_TELEMETRY_MAX_AGE_MS = 60_000;
 const LIVE_TELEMETRY_FUTURE_TOLERANCE_MS = 30_000;
+const MAX_RETAINED_METRIC_AGE_MS = 8 * 24 * 60 * 60 * 1000;
+const NORMALIZED_METRIC_GROUPS = ["engine", "electrical", "vehicle", "emissions", "environment", "controls", "brakes", "fuel"];
 
 function normalizedReadingCount(normalized) {
-  return ["engine", "electrical", "vehicle", "emissions", "environment", "controls", "brakes", "fuel"]
+  return NORMALIZED_METRIC_GROUPS
     .flatMap((group) => Object.values(normalized?.[group] || {}))
     .filter((value) => value !== null && value !== undefined && value !== "").length;
+}
+
+function mergeLiveMetrics(previous, current) {
+  const merged = Object.assign({}, previous || {}, current || {});
+  for (const group of NORMALIZED_METRIC_GROUPS) {
+    const values = Object.assign({}, previous?.[group] || {});
+    for (const [key, value] of Object.entries(current?.[group] || {})) {
+      if (value !== null && value !== undefined && value !== "") values[key] = value;
+    }
+    merged[group] = values;
+  }
+  merged.meta = Object.assign({}, previous?.meta || {}, current?.meta || {});
+  if (!current?.meta?.supportedPids?.length && previous?.meta?.supportedPids?.length) {
+    merged.meta.supportedPids = previous.meta.supportedPids;
+  }
+  if (!current?.meta?.supportedSpns?.length && previous?.meta?.supportedSpns?.length) {
+    merged.meta.supportedSpns = previous.meta.supportedSpns;
+  }
+  return merged;
+}
+
+function mergeMetricAges(previousSnapshot, currentDiagnostics, currentTimestamp) {
+  const previousAges = previousSnapshot?.deviceDiagnostics?.metricAgesMs || {};
+  const currentAges = currentDiagnostics?.metricAgesMs || {};
+  const previousAt = new Date(previousSnapshot?.ts || 0).getTime();
+  const currentAt = new Date(currentTimestamp || 0).getTime();
+  const elapsedMs = Number.isFinite(previousAt) && Number.isFinite(currentAt)
+    ? Math.max(0, currentAt - previousAt)
+    : 0;
+  const merged = {};
+  for (const [key, value] of Object.entries(previousAges)) {
+    const age = Number(value);
+    if (Number.isFinite(age) && age >= 0) {
+      merged[key] = Math.min(MAX_RETAINED_METRIC_AGE_MS, Math.round(age + elapsedMs));
+    }
+  }
+  for (const [key, value] of Object.entries(currentAges)) {
+    const age = Number(value);
+    if (Number.isFinite(age) && age >= 0) {
+      merged[key] = Math.min(MAX_RETAINED_METRIC_AGE_MS, Math.round(age));
+    }
+  }
+  return merged;
 }
 
 function registerFleetOpsRoutes(app, deps) {
@@ -384,18 +429,17 @@ function registerFleetOpsRoutes(app, deps) {
         ? prepared.decoded.meta.adapterResponding === true
         : obdConnected === true;
       const previousSnapshot = telemetryLatest.get(vehicleId) || null;
+      const liveMetrics = busDataActive ? mergeLiveMetrics(previousSnapshot?.metrics, metrics) : (previousSnapshot?.metrics || metrics);
       const duplicateBusSample = busDataActive
         && previousSnapshot
         && previousSnapshot.lastObdPacketAt === (prepared.quality.lastFrameAt || normalizedTs)
-        && JSON.stringify(previousSnapshot.metrics || {}) === JSON.stringify(metrics || {});
+        && JSON.stringify(previousSnapshot.metrics || {}) === JSON.stringify(liveMetrics || {});
       const previousLastObdPacketAt = previousSnapshot?.lastObdPacketAt
         || (previousSnapshot?.busDataActive ? previousSnapshot.ts : null);
       const currentDiagnostics = prepared.decoded.meta || {};
-      const retainedDiagnostics = busDataActive
-        ? currentDiagnostics
-        : Object.assign({}, previousSnapshot?.deviceDiagnostics || {}, currentDiagnostics, {
-            metricAgesMs: previousSnapshot?.deviceDiagnostics?.metricAgesMs || {}
-          });
+      const retainedDiagnostics = Object.assign({}, previousSnapshot?.deviceDiagnostics || {}, currentDiagnostics, {
+        metricAgesMs: mergeMetricAges(previousSnapshot, currentDiagnostics, normalizedTs)
+      });
       const snapshot = {
         vehicleId,
         driverId: req.device
@@ -408,7 +452,7 @@ function registerFleetOpsRoutes(app, deps) {
         // A link heartbeat updates connectivity without erasing the last known
         // sensor snapshot. Consumers must use busDataActive/lastObdPacketAt to
         // decide whether these retained values are live.
-        metrics: busDataActive ? metrics : (previousSnapshot?.metrics || metrics),
+        metrics: liveMetrics,
         // Link state from the tablet: lets the dashboard tell "reporting
         // normally" apart from "tablet online but OBD adapter unplugged",
         // which otherwise both look like silence.

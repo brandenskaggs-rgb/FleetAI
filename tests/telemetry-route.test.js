@@ -201,6 +201,26 @@ async function invoke(app, body) {
   assert.strictEqual(resumedBetweenHeartbeats.body.snapshot.connectionState, "live");
   assert.strictEqual(telemetryLatest.get("TRUCK_1").lastObdPacketAt, "2026-08-14T12:00:02.500Z");
 
+  const rotatingPidBatch = await invoke(app, {
+    batchId: "batch-rotating-pid",
+    vehicleId: "TRUCK_1",
+    protocol: "OBD2",
+    timestamp: "2026-08-14T12:00:04.000Z",
+    metrics: { batteryVoltageV: 14.2 },
+    obdConnected: true,
+    meta: {
+      adapterResponding: true,
+      ecuResponding: true,
+      metricAgesMs: { batteryVoltageV: 120 }
+    }
+  });
+  assert.strictEqual(rotatingPidBatch.body.livePromoted, true);
+  assert.strictEqual(rotatingPidBatch.body.snapshot.metrics.electrical.batteryVoltageV, 14.2);
+  assert.strictEqual(rotatingPidBatch.body.snapshot.metrics.engine.rpm, 900);
+  assert.strictEqual(rotatingPidBatch.body.snapshot.metrics.engine.coolantTempC, 90);
+  assert.strictEqual(rotatingPidBatch.body.snapshot.deviceDiagnostics.metricAgesMs.batteryVoltageV, 120);
+  assert.strictEqual(rotatingPidBatch.body.snapshot.deviceDiagnostics.metricAgesMs.coolantTempC, 5250);
+
   console.log("Telemetry route tests passed");
 })().catch((error) => {
   console.error(error);
