@@ -42,7 +42,22 @@ class TelemetryOutbox(private val dao: TelemetryOutboxDao) {
     suspend fun flush(api: ApiService, limit: Int = 25): FlushResult = flushMutex.withLock {
         var sent = 0
         var failed = 0
-        val items = dao.pending(System.currentTimeMillis(), limit)
+        val now = System.currentTimeMillis()
+        // Always deliver a small newest-first lane before draining history. A
+        // multi-day offline backlog must never keep current ECU readings from
+        // the live dashboard, while the oldest-first lane still preserves and
+        // uploads historical samples.
+        val newestLimit = minOf(LIVE_PRIORITY_BATCHES, limit)
+        val newest = dao.pendingNewest(now, newestLimit)
+        val newestIds = newest.asSequence().map { it.id }.toHashSet()
+        val oldest = if (newest.size < limit) {
+            dao.pendingOldest(now, limit - newest.size + newestIds.size)
+                .filterNot { it.id in newestIds }
+                .take(limit - newest.size)
+        } else {
+            emptyList()
+        }
+        val items = newest + oldest
         for (item in items) {
             val request = runCatching { adapter.fromJson(item.payloadJson) }.getOrNull()
             if (request == null) {
@@ -86,6 +101,7 @@ class TelemetryOutbox(private val dao: TelemetryOutboxDao) {
         private const val RETENTION_MS = 7 * 24 * 60 * 60_000L
         private const val PRUNE_INTERVAL_MS = 6 * 60 * 60_000L
         private const val MAX_QUEUED_BATCHES = 100_000
+        private const val LIVE_PRIORITY_BATCHES = 5
         private val PERMANENT_CLIENT_ERRORS = setOf(400, 404, 405, 410, 413, 415, 422)
     }
 }

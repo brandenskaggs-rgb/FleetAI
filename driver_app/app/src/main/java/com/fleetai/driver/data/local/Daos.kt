@@ -55,8 +55,11 @@ interface TelemetryOutboxDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insert(item: TelemetryOutboxEntity): Long
 
-    @Query("SELECT * FROM telemetry_outbox WHERE nextAttemptEpochMs <= :now ORDER BY createdAtEpochMs LIMIT :limit")
-    suspend fun pending(now: Long, limit: Int = 50): List<TelemetryOutboxEntity>
+    @Query("SELECT * FROM telemetry_outbox WHERE nextAttemptEpochMs <= :now ORDER BY createdAtEpochMs DESC LIMIT :limit")
+    suspend fun pendingNewest(now: Long, limit: Int): List<TelemetryOutboxEntity>
+
+    @Query("SELECT * FROM telemetry_outbox WHERE nextAttemptEpochMs <= :now ORDER BY createdAtEpochMs ASC LIMIT :limit")
+    suspend fun pendingOldest(now: Long, limit: Int): List<TelemetryOutboxEntity>
 
     @Query("DELETE FROM telemetry_outbox WHERE id = :id")
     suspend fun delete(id: String)

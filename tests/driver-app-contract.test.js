@@ -203,5 +203,21 @@ console.log("\nDriver app branding uses the packaged Fleet AI logo");
   check("pairing screen shows the Fleet AI brand mark", /FleetBrandMark/.test(pairingScreen));
 }
 
+console.log("\nTelemetry backlog preserves live delivery");
+{
+  const appRoot = path.join(__dirname, "..", "driver_app", "app", "src", "main", "java", "com", "fleetai", "driver");
+  const dao = fs.readFileSync(path.join(appRoot, "data", "local", "Daos.kt"), "utf8");
+  const database = fs.readFileSync(path.join(appRoot, "data", "local", "DriverDatabase.kt"), "utf8");
+  const application = fs.readFileSync(path.join(appRoot, "FleetAIDriverApplication.kt"), "utf8");
+  const outbox = fs.readFileSync(path.join(appRoot, "telemetry", "TelemetryOutbox.kt"), "utf8");
+  const syncWorker = fs.readFileSync(path.join(appRoot, "data", "sync", "SyncWorker.kt"), "utf8");
+  check("telemetry queue is stored in the persistent Room database", /telemetry_outbox/.test(database) && /TelemetryOutboxEntity/.test(database));
+  check("background sync waits for network connectivity", /setRequiredNetworkType\(NetworkType\.CONNECTED\)/.test(application));
+  check("outbox can select newest eligible batches", /pendingNewest/.test(dao) && /ORDER BY createdAtEpochMs DESC/.test(dao));
+  check("outbox still drains oldest historical batches", /pendingOldest/.test(dao) && /ORDER BY createdAtEpochMs ASC/.test(dao));
+  check("flush sends live-priority batches before history", /val items = newest \+ oldest/.test(outbox));
+  check("reconnect worker retries until the durable queue drains", /flush\.failed > 0/.test(syncWorker) && /flush\.remaining == 0/.test(syncWorker) && /Result\.retry\(\)/.test(syncWorker));
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail === 0 ? 0 : 1);

@@ -13,10 +13,21 @@ class SyncWorker(
     override suspend fun doWork(): Result {
         return try {
             AppGraph.repository.syncPending()
-            AppGraph.telemetryOutbox.flush(ApiClient.api, limit = 100)
-            Result.success()
+            repeat(MAX_FLUSH_ROUNDS) {
+                val flush = AppGraph.telemetryOutbox.flush(ApiClient.api, limit = FLUSH_BATCH_SIZE)
+                if (flush.failed > 0) return Result.retry()
+                if (flush.remaining == 0) return Result.success()
+            }
+            // Keep the network-constrained work pending until the durable
+            // queue is empty instead of waiting for the next 15-minute cycle.
+            Result.retry()
         } catch (_: Exception) {
             Result.retry()
         }
+    }
+
+    companion object {
+        private const val FLUSH_BATCH_SIZE = 100
+        private const val MAX_FLUSH_ROUNDS = 5
     }
 }
