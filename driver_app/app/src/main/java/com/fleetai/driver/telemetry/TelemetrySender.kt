@@ -146,11 +146,17 @@ class TelemetrySender(
     private suspend fun enqueueCurrentBatch() {
         if (activeProtocol == "OBD2") refreshObdDiagnostics()
         val metricSnapshot = latestMetricSnapshot
-        val packetAt = maxOf(latestPacketAt, metricSnapshot.packetAt)
-        val hasFreshMetrics = metricSnapshot.packetAt > lastEnqueuedPacketAt && metricSnapshot.metrics.isNotEmpty()
-        val metrics = if (hasFreshMetrics) metricSnapshot.metrics.toMutableMap() else mutableMapOf()
+        val freshMetrics = metricSnapshot.metrics.filter { (key, _) ->
+            (metricSnapshot.updatedAt[key] ?: metricSnapshot.packetAt) > lastEnqueuedPacketAt
+        }
+        val metricPacketAt = freshMetrics.keys.maxOfOrNull { key ->
+            metricSnapshot.updatedAt[key] ?: metricSnapshot.packetAt
+        } ?: 0L
+        val hasFreshMetrics = freshMetrics.isNotEmpty()
+        val metrics = freshMetrics.toMutableMap()
         metrics[heartbeatKey] = System.currentTimeMillis()
         val frames = drainFrameSample()
+        val packetAt = maxOf(metricPacketAt, latestPacketAt.takeIf { frames.isNotEmpty() } ?: 0L)
         val vehicleId = resolveVehicleId()
         if (vehicleId.isNullOrBlank() || (metrics.size == 1 && frames.isEmpty() && !latestConnected)) return
         val lastVehiclePacketAt = packetAt.takeIf { hasFreshMetrics || frames.isNotEmpty() }
@@ -163,7 +169,7 @@ class TelemetrySender(
         val requestMeta = latestMeta.toMutableMap()
         if (hasFreshMetrics) {
             val now = System.currentTimeMillis()
-            requestMeta["metricAgesMs"] = metricSnapshot.metrics.keys.associateWith { key ->
+            requestMeta["metricAgesMs"] = freshMetrics.keys.associateWith { key ->
                 (now - (metricSnapshot.updatedAt[key] ?: metricSnapshot.packetAt)).coerceAtLeast(0L)
             }
         }
@@ -185,7 +191,7 @@ class TelemetrySender(
         )
         try {
             AppGraph.telemetryOutbox.enqueue(request)
-            if (hasFreshMetrics) lastEnqueuedPacketAt = metricSnapshot.packetAt
+            if (hasFreshMetrics) lastEnqueuedPacketAt = maxOf(lastEnqueuedPacketAt, metricPacketAt)
         } catch (error: Exception) {
             debug = debug.copy(
                 lastError = error.message ?: "telemetry_queue_error",
@@ -212,6 +218,7 @@ class TelemetrySender(
 
     private fun refreshObdDiagnostics() {
         val diagnostics = obd.diagnosticsSnapshot()
+        latestConnected = obd.isConnected()
         debug = debug.copy(
             adapterResponding = diagnostics.adapterResponding,
             ecuResponding = diagnostics.ecuResponding,

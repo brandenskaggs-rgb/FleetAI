@@ -852,13 +852,18 @@
       try{
         state.telemetrySse=new EventSource("/api/telemetry/stream");
         state.telemetrySse.onopen=()=>{ const el=$("telemetryStatus"); if(el){el.textContent="Stream open - awaiting data";el.className="pill warn";} };
-        state.telemetrySse.onmessage=(e)=>{ const d=JSON.parse(e.data); state.telemetryLastAt=Date.now(); addTelemetryRow(d); };
+        state.telemetrySse.onmessage=(e)=>{ try{ addTelemetryRow(JSON.parse(e.data)); }catch(_){ err("telemetryError","A telemetry frame could not be read."); } };
+        state.telemetrySse.addEventListener("link",(e)=>{ try{ updateTelemetryLinkState(JSON.parse(e.data)); }catch(_){} });
         state.telemetrySse.onerror=()=>{const el=$("telemetryStatus");if(el){el.textContent="Stream unavailable";el.className="pill bad";}};
         if(!state.telemetryFreshnessTimer) state.telemetryFreshnessTimer=setInterval(()=>{
           const el=$("telemetryStatus");
           if(!el||!state.telemetryLastAt) return;
           const age=Date.now()-state.telemetryLastAt;
-          if(age>45000){el.textContent="Data stale";el.className="pill warn";}
+          if(age>15000){
+            el.textContent="Vehicle data offline";
+            el.className="pill warn";
+            clearLiveTelemetryValues();
+          }
         },15000);
       }catch(e){err("telemetryError",e.message);}
     }
@@ -883,6 +888,22 @@
         if(v !== undefined && v !== null && v !== "") return v;
       }
       return null;
+    }
+    function telemetryPacketAt(frame){
+      const value=frame?.lastObdPacketAt||frame?.ts||frame?.timestamp;
+      const timestamp=value?new Date(value).getTime():0;
+      return Number.isFinite(timestamp)?timestamp:0;
+    }
+    function hasFreshVehicleData(frame){
+      const packetAt=telemetryPacketAt(frame);
+      const timestampFresh=packetAt>0&&Date.now()-packetAt<=15000&&packetAt-Date.now()<=30000;
+      const explicitBusState=typeof frame?.busDataActive==="boolean"?frame.busDataActive:null;
+      const hasReading=Object.entries(TELEMETRY_PATHS).some(([key,paths])=>telemetryValue(frame,paths,TELEMETRY_SOURCE_KEYS[key])!==null);
+      return timestampFresh&&(explicitBusState===null?hasReading:explicitBusState&&Number(frame?.readingCount||1)>0);
+    }
+    function liveTelemetryText(value){ return value===null||value===undefined||value===""?"--":num(value); }
+    function clearLiveTelemetryValues(){
+      ["liveRpm","liveSpeed","liveCoolant","liveBattery"].forEach(id=>{const el=$(id);if(el)el.textContent="--";});
     }
     const TELEMETRY_PATHS = {
       rpm:      ["engine.rpm", "rpm", "engineRpm"],
@@ -929,25 +950,44 @@
         const data=await apiGet(`/api/diagnostics/sensors?vehicleId=${encodeURIComponent(vehicleId)}`);
         state.sensorLastRefresh=Date.now();
         renderSensorInventory(data);
-        err("sensorInventoryError",data?.stale?"Latest signal frame is more than two minutes old.":"");
+        err("sensorInventoryError",data?.stale?"No current ECU data. Last known readings are retained in signal history.":"");
       }catch(e){ err("sensorInventoryError",e.message); }
     }
     window.loadLiveSensors=loadLiveSensors;
+    function updateTelemetryLinkState(d){
+      clearLiveTelemetryValues();
+      const linkEl=$("telemetryStatus");
+      const detailEl=$("telemetryEcuDetail");
+      const diagnostics=d?.deviceDiagnostics||{};
+      if(linkEl){
+        if(d?.connectionState==="adapter_only") linkEl.textContent="Tablet online - waiting for ECU data";
+        else if(d?.connectionState==="transport_only"||d?.obdConnected===true) linkEl.textContent="Tablet online - OBD link inactive";
+        else linkEl.textContent="Tablet online - vehicle disconnected";
+        linkEl.className="pill warn";
+      }
+      if(detailEl){
+        const version=diagnostics.appVersion?`App ${diagnostics.appVersion}`:"Driver app online";
+        const reason=diagnostics.obdFailureReason||"No fresh vehicle-bus packet received";
+        detailEl.textContent=`${version} · ${reason}`;
+      }
+      if(state.activeRoute==="telemetry"&&Date.now()-state.sensorLastRefresh>5000) loadLiveSensors();
+    }
     function addTelemetryRow(d){
+      if(!hasFreshVehicleData(d)){ updateTelemetryLinkState(d); return; }
       state.telemetryRows.unshift(d);
-      state.telemetryLastAt=Date.now();
+      state.telemetryLastAt=telemetryPacketAt(d);
       state.telemetryRows=state.telemetryRows.slice(0,40);
-      $("liveRpm").textContent     = num(telemetryValue(d, TELEMETRY_PATHS.rpm, TELEMETRY_SOURCE_KEYS.rpm));
-      $("liveSpeed").textContent   = num(telemetryValue(d, TELEMETRY_PATHS.speed, TELEMETRY_SOURCE_KEYS.speed));
-      $("liveCoolant").textContent = num(telemetryValue(d, TELEMETRY_PATHS.coolant, TELEMETRY_SOURCE_KEYS.coolant));
-      $("liveBattery").textContent = num(telemetryValue(d, TELEMETRY_PATHS.battery, TELEMETRY_SOURCE_KEYS.battery));
+      $("liveRpm").textContent     = liveTelemetryText(telemetryValue(d, TELEMETRY_PATHS.rpm, TELEMETRY_SOURCE_KEYS.rpm));
+      $("liveSpeed").textContent   = liveTelemetryText(telemetryValue(d, TELEMETRY_PATHS.speed, TELEMETRY_SOURCE_KEYS.speed));
+      $("liveCoolant").textContent = liveTelemetryText(telemetryValue(d, TELEMETRY_PATHS.coolant, TELEMETRY_SOURCE_KEYS.coolant));
+      $("liveBattery").textContent = liveTelemetryText(telemetryValue(d, TELEMETRY_PATHS.battery, TELEMETRY_SOURCE_KEYS.battery));
       // Link state: a tablet can be online while its OBD adapter is unplugged.
       // Those look identical without this, so surface it rather than showing a
       // stale reading as if it were live.
       const linkEl = $("telemetryStatus");
       const detailEl = $("telemetryEcuDetail");
       const diagnostics = d.deviceDiagnostics || {};
-      const hasVehicleData = Object.entries(TELEMETRY_PATHS).some(([key,paths])=>telemetryValue(d,paths,TELEMETRY_SOURCE_KEYS[key])!==null);
+      const hasVehicleData = true;
       if(linkEl && hasVehicleData){
         linkEl.textContent = "Live vehicle data";
         linkEl.className = "pill good";
@@ -972,11 +1012,11 @@
       }
       $("telemetryRows").innerHTML = state.telemetryRows.map(x=>
         `<tr><td>${esc(x.ts||x.timestamp||"now")}</td><td>${esc(x.vehicleId||"--")}</td>`
-        + `<td>${num(telemetryValue(x, TELEMETRY_PATHS.rpm, TELEMETRY_SOURCE_KEYS.rpm))}</td>`
-        + `<td>${num(telemetryValue(x, TELEMETRY_PATHS.speed, TELEMETRY_SOURCE_KEYS.speed))}</td>`
-        + `<td>${num(telemetryValue(x, TELEMETRY_PATHS.coolant, TELEMETRY_SOURCE_KEYS.coolant))}</td>`
-        + `<td>${num(telemetryValue(x, TELEMETRY_PATHS.battery, TELEMETRY_SOURCE_KEYS.battery))}</td>`
-        + `<td>${num(telemetryValue(x, TELEMETRY_PATHS.load, TELEMETRY_SOURCE_KEYS.load))}</td></tr>`
+        + `<td>${liveTelemetryText(telemetryValue(x, TELEMETRY_PATHS.rpm, TELEMETRY_SOURCE_KEYS.rpm))}</td>`
+        + `<td>${liveTelemetryText(telemetryValue(x, TELEMETRY_PATHS.speed, TELEMETRY_SOURCE_KEYS.speed))}</td>`
+        + `<td>${liveTelemetryText(telemetryValue(x, TELEMETRY_PATHS.coolant, TELEMETRY_SOURCE_KEYS.coolant))}</td>`
+        + `<td>${liveTelemetryText(telemetryValue(x, TELEMETRY_PATHS.battery, TELEMETRY_SOURCE_KEYS.battery))}</td>`
+        + `<td>${liveTelemetryText(telemetryValue(x, TELEMETRY_PATHS.load, TELEMETRY_SOURCE_KEYS.load))}</td></tr>`
       ).join("");
       if(state.activeRoute==="telemetry"&&Date.now()-state.sensorLastRefresh>5000) loadLiveSensors();
     }

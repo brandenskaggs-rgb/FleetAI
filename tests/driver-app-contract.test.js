@@ -143,6 +143,8 @@ console.log("\nTelemetry payload carries freshness without repeating VIN as a PI
   check("VIN is not inserted into the metrics map", !/metrics\["vin"\]\s*=/.test(sender));
   check("capture and network flushing use separate jobs", /captureJob[\s\S]*flushJob/.test(sender));
   check("metric batches use an atomic immutable snapshot", /latestMetricSnapshot\s*=\s*MetricSnapshot\(validMetrics, validUpdatedAt, packetAt\)/.test(sender));
+  check("only PID values refreshed after the previous upload are enqueued", /freshMetrics\s*=\s*metricSnapshot\.metrics\.filter[\s\S]*updatedAt\[key\][\s\S]*lastEnqueuedPacketAt/.test(sender));
+  check("heartbeat capture time is not reused as an ECU packet time", /val packetAt = maxOf\(metricPacketAt, latestPacketAt\.takeIf \{ frames\.isNotEmpty\(\) \}/.test(sender));
   const j1979 = fs.readFileSync(path.join(
     __dirname, "..", "driver_app", "app", "src", "main", "java", "com", "fleetai", "driver",
     "telemetry", "J1979Spec.kt"
@@ -154,6 +156,14 @@ console.log("\nTelemetry payload carries freshness without repeating VIN as a PI
   check("impossible zero control-module voltage is rejected", /"batteryVoltageV"\s+to\s+5\.0\.\.40\.0/.test(j1979));
   check("fast PID display freshness has a 15-second floor", /coerceIn\(15_000L, 90_000L\)/.test(sensorViewModel));
   check("sender resets before polling publishes capabilities", /sender\.start\(\)\s*\n\s*startPolling\(\)/.test(sensorViewModel));
+  check("OBD snapshots use the last successful PID timestamp", /packetAt\s*=\s*lastEcuDataAt/.test(sensorViewModel));
+  check("derived boost inherits source freshness instead of loop time", /updatedAt\["boostPsi"\]\s*=\s*boostSourceAt/.test(sensorViewModel));
+
+  const obdManager = fs.readFileSync(path.join(
+    __dirname, "..", "driver_app", "app", "src", "main", "java", "com", "fleetai", "driver",
+    "obd", "ObdConnectionManager.kt"
+  ), "utf8");
+  check("ECU liveness expires after bus silence", /ECU_SILENCE_TIMEOUT_MS[\s\S]*ecuResponseFresh[\s\S]*ecuResponding\s*=\s*ecuResponseFresh/.test(obdManager));
 }
 
 console.log("\nOBD polling has one application-level owner");

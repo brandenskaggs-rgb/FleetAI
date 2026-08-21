@@ -52,6 +52,7 @@ class ObdConnectionManager(private val context: Context) {
     private val commandMutex = Mutex()
     @Volatile private var diagnostics = ObdDiagnostics()
     @Volatile private var supportedPids: Set<String> = emptySet()
+    @Volatile private var lastEcuResponseAt = 0L
 
     companion object {
         // Veepeak OBDCheck BLE / ELM327 BLE clone profile
@@ -61,6 +62,7 @@ class ObdConnectionManager(private val context: Context) {
         private const val SPP_UUID              = "00001101-0000-1000-8000-00805F9B34FB"
         private const val BLE_SETUP_TIMEOUT_MS  = 12_000L
         private const val CMD_TIMEOUT_MS        = 3_000L
+        private const val ECU_SILENCE_TIMEOUT_MS = 10_000L
     }
 
     // ── GATT callback: one CompletableDeferred for the full setup phase ────────
@@ -332,6 +334,7 @@ class ObdConnectionManager(private val context: Context) {
     // ── ELM327 initialization ──────────────────────────────────────────────────
 
     private suspend fun initializeElm(transport: String) {
+        lastEcuResponseAt = 0L
         diagnostics = ObdDiagnostics(transport = transport, updatedAt = System.currentTimeMillis())
         val reset = sendCommand("ATZ")
         if (reset.isNullOrBlank()) {
@@ -359,6 +362,7 @@ class ObdConnectionManager(private val context: Context) {
         val probe = sendCommand("0100")
         val failure = ObdResponseDiagnostics.classifyEcuProbe(probe)
         val protocol = sendCommand("ATDP")
+        if (failure.isBlank()) lastEcuResponseAt = System.currentTimeMillis()
         diagnostics = diagnostics.copy(
             adapterResponding = true,
             ecuResponding = failure.isBlank(),
@@ -384,20 +388,25 @@ class ObdConnectionManager(private val context: Context) {
             Transport.NONE -> null
         }
         if (!command.startsWith("AT", ignoreCase = true)) {
+            val now = System.currentTimeMillis()
             val pid = command.replace(" ", "").uppercase().takeIf { it.length >= 4 && it.startsWith("01") }?.substring(2, 4)
             val hasEcuResponse = pid != null && response != null && ObdParser.hasResponse(response, "41", pid)
+            if (hasEcuResponse) lastEcuResponseAt = now
+            val ecuResponseFresh = lastEcuResponseAt > 0L && now - lastEcuResponseAt <= ECU_SILENCE_TIMEOUT_MS
             val nextFailure = when {
                 hasEcuResponse -> ""
-                diagnostics.ecuResponding -> diagnostics.failureReason
+                ecuResponseFresh -> diagnostics.failureReason
                 command.equals("0100", ignoreCase = true) -> ObdResponseDiagnostics.classifyEcuProbe(response)
-                else -> diagnostics.failureReason
+                else -> ObdResponseDiagnostics.classifyEcuProbe(response).ifBlank {
+                    "ECU has not returned valid PID data for 10 seconds"
+                }
             }
             diagnostics = diagnostics.copy(
-                ecuResponding = diagnostics.ecuResponding || hasEcuResponse,
+                ecuResponding = ecuResponseFresh,
                 lastCommand = command.take(20),
                 lastResponse = ObdResponseDiagnostics.preview(response),
                 failureReason = nextFailure,
-                updatedAt = System.currentTimeMillis()
+                updatedAt = now
             )
         }
         return response

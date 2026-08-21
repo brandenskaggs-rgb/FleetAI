@@ -91,13 +91,30 @@ function registerDiagnosticsRoutes(app, deps) {
       const snapshot = telemetryLatest.get(vehicleId) || null;
       // telemetryLatest holds the normalized shape written by the ingest route.
       const normalized = snapshot?.metrics || null;
-      const view = buildSensorView(normalized, normalized?.meta || {});
+      const capturedAt = snapshot?.lastObdPacketAt || (snapshot?.busDataActive ? snapshot.ts : null);
+      const packetAgeMs = capturedAt ? Math.max(0, Date.now() - new Date(capturedAt).getTime()) : null;
+      const view = buildSensorView(normalized, snapshot?.deviceDiagnostics || normalized?.meta || {});
+      if (packetAgeMs === null || packetAgeMs > 15_000) {
+        view.readings = view.readings.map((reading) => reading.value == null ? reading : Object.assign({}, reading, {
+          value: null,
+          raw: null,
+          stale: true,
+          ageMs: packetAgeMs,
+          state: "stale"
+        }));
+        view.counts.reporting = 0;
+        view.counts.stale = view.readings.filter((reading) => reading.stale).length;
+        view.counts.watch = 0;
+        view.counts.critical = 0;
+      }
 
       res.json({
         ok: true,
         vehicleId,
-        capturedAt: snapshot?.ts || null,
-        stale: snapshot?.ts ? (Date.now() - new Date(snapshot.ts).getTime()) > 120000 : true,
+        capturedAt,
+        stale: packetAgeMs === null || packetAgeMs > 15_000,
+        connectionState: snapshot?.connectionState || "offline",
+        busDataActive: snapshot?.busDataActive === true && packetAgeMs !== null && packetAgeMs <= 15_000,
         ...view
       });
     } catch (err) {

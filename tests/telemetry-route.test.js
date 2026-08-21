@@ -42,6 +42,11 @@ async function invoke(app, body) {
   let pipelineRuns = 0;
   let lastActivity = null;
   const telemetryLatest = new Map();
+  const telemetryWrites = [];
+  const telemetrySubscribers = new Set([{
+    __fleetScope: { kind: "operator", orgId: "ORG_A" },
+    write: (frame) => telemetryWrites.push(frame)
+  }]);
   registerFleetOpsRoutes(app, {
     readData: async () => data,
     writeData: async () => { writes += 1; },
@@ -51,7 +56,7 @@ async function invoke(app, body) {
     generateDigits: () => "123456",
     requireEmployeeOrCustomerApi: (_req, _res, next) => next(),
     telemetryLatest,
-    telemetrySubscribers: new Set(),
+    telemetrySubscribers,
     getTelemetryLastSeen: () => null,
     getTelemetryState: () => ({}),
     triggerTelemetryPipeline: () => { pipelineRuns += 1; },
@@ -98,6 +103,9 @@ async function invoke(app, body) {
   assert.strictEqual(first.body.snapshot.connectionState, "live");
   assert.strictEqual(first.body.snapshot.readingCount > 0, true);
   assert.strictEqual(lastActivity.vehicleId, "TRUCK_1");
+  assert.strictEqual(telemetryWrites.length, 1);
+  assert.strictEqual(telemetryWrites[0].startsWith("data: "), true);
+  assert.strictEqual(telemetryWrites[0].includes("event: link"), false);
 
   const duplicate = await invoke(app, payload);
   assert.strictEqual(duplicate.body.duplicate, true);
@@ -150,6 +158,9 @@ async function invoke(app, body) {
   assert.strictEqual(writes, 1);
   assert.strictEqual(pipelineRuns, 1);
   assert.strictEqual(telemetryLatest.get("TRUCK_1").connectionState, "adapter_only");
+  assert.strictEqual(telemetryLatest.get("TRUCK_1").lastObdPacketAt, "2026-08-14T12:00:00.000Z");
+  assert.strictEqual(telemetryLatest.get("TRUCK_1").metrics.engine.coolantTempC, 90);
+  assert.strictEqual(telemetryWrites.at(-1).startsWith("event: link\ndata: "), true);
 
   const transportOnly = await invoke(app, {
     batchId: "batch-transport-only",
@@ -169,6 +180,19 @@ async function invoke(app, body) {
   assert.strictEqual(transportOnly.body.snapshot.connectionState, "transport_only");
   assert.strictEqual(transportOnly.body.snapshot.deviceDiagnostics.adapterResponding, false);
   assert.strictEqual(transportOnly.body.stored, false);
+
+  const resumedBetweenHeartbeats = await invoke(app, {
+    batchId: "batch-resumed-between-heartbeats",
+    vehicleId: "TRUCK_1",
+    protocol: "OBD2",
+    timestamp: "2026-08-14T12:00:02.500Z",
+    metrics: { rpm: 900 },
+    obdConnected: true,
+    meta: { adapterResponding: true, ecuResponding: true }
+  });
+  assert.strictEqual(resumedBetweenHeartbeats.body.livePromoted, true);
+  assert.strictEqual(resumedBetweenHeartbeats.body.snapshot.connectionState, "live");
+  assert.strictEqual(telemetryLatest.get("TRUCK_1").lastObdPacketAt, "2026-08-14T12:00:02.500Z");
 
   console.log("Telemetry route tests passed");
 })().catch((error) => {

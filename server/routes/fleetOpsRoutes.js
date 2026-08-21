@@ -4,6 +4,9 @@ const { requireOperatorOrDevice: buildOperatorOrDevice, requireDevice } = requir
 const { prepareTelemetryIngest, TelemetryPayloadError } = require("../telematics/ingest/prepareTelemetryIngest");
 const { appendFrames } = require("../telematics/storage/telemetryStore");
 
+const LIVE_TELEMETRY_MAX_AGE_MS = 60_000;
+const LIVE_TELEMETRY_FUTURE_TOLERANCE_MS = 30_000;
+
 function normalizedReadingCount(normalized) {
   return ["engine", "electrical", "vehicle", "emissions", "environment", "controls", "brakes", "fuel"]
     .flatMap((group) => Object.values(normalized?.[group] || {}))
@@ -382,9 +385,17 @@ function registerFleetOpsRoutes(app, deps) {
         : obdConnected === true;
       const previousSnapshot = telemetryLatest.get(vehicleId) || null;
       const duplicateBusSample = busDataActive
-        && previousSnapshot?.busDataActive === true
+        && previousSnapshot
         && previousSnapshot.lastObdPacketAt === (prepared.quality.lastFrameAt || normalizedTs)
         && JSON.stringify(previousSnapshot.metrics || {}) === JSON.stringify(metrics || {});
+      const previousLastObdPacketAt = previousSnapshot?.lastObdPacketAt
+        || (previousSnapshot?.busDataActive ? previousSnapshot.ts : null);
+      const currentDiagnostics = prepared.decoded.meta || {};
+      const retainedDiagnostics = busDataActive
+        ? currentDiagnostics
+        : Object.assign({}, previousSnapshot?.deviceDiagnostics || {}, currentDiagnostics, {
+            metricAgesMs: previousSnapshot?.deviceDiagnostics?.metricAgesMs || {}
+          });
       const snapshot = {
         vehicleId,
         driverId: req.device
@@ -394,7 +405,10 @@ function registerFleetOpsRoutes(app, deps) {
           ? (req.device.deviceId || "")
           : sanitizeString(payload.deviceId || payload.device_id || "", 120),
         ts: normalizedTs,
-        metrics,
+        // A link heartbeat updates connectivity without erasing the last known
+        // sensor snapshot. Consumers must use busDataActive/lastObdPacketAt to
+        // decide whether these retained values are live.
+        metrics: busDataActive ? metrics : (previousSnapshot?.metrics || metrics),
         // Link state from the tablet: lets the dashboard tell "reporting
         // normally" apart from "tablet online but OBD adapter unplugged",
         // which otherwise both look like silence.
@@ -407,19 +421,32 @@ function registerFleetOpsRoutes(app, deps) {
             : obdConnected
               ? "transport_only"
               : "tablet_only",
-        lastObdPacketAt: busDataActive ? (prepared.quality.lastFrameAt || normalizedTs) : null,
+        lastObdPacketAt: busDataActive ? (prepared.quality.lastFrameAt || normalizedTs) : previousLastObdPacketAt,
         protocol: prepared.adapter.protocol,
         frameCount: prepared.frames.length,
         readingCount,
         capture: prepared.capture,
         captureQuality: prepared.quality,
-        deviceDiagnostics: prepared.decoded.meta || {}
+        deviceDiagnostics: retainedDiagnostics
       };
       const previousTimestampMs = previousSnapshot ? new Date(previousSnapshot.ts).getTime() : Number.NEGATIVE_INFINITY;
       const snapshotTimestampMs = new Date(snapshot.ts).getTime();
-      const promoteLiveSnapshot = !previousSnapshot
-        || snapshotTimestampMs > previousTimestampMs
-        || (snapshotTimestampMs === previousTimestampMs && snapshot.readingCount > (previousSnapshot.readingCount || 0));
+      const previousVehiclePacketMs = previousLastObdPacketAt
+        ? new Date(previousLastObdPacketAt).getTime()
+        : Number.NEGATIVE_INFINITY;
+      const snapshotVehiclePacketMs = snapshot.lastObdPacketAt
+        ? new Date(snapshot.lastObdPacketAt).getTime()
+        : Number.NEGATIVE_INFINITY;
+      const receivedAtMs = new Date(nowIso()).getTime();
+      const sampleAgeMs = receivedAtMs - snapshotTimestampMs;
+      const liveTimestampEligible = Number.isFinite(sampleAgeMs)
+        && sampleAgeMs <= LIVE_TELEMETRY_MAX_AGE_MS
+        && sampleAgeMs >= -LIVE_TELEMETRY_FUTURE_TOLERANCE_MS;
+      const promoteLiveSnapshot = liveTimestampEligible && (busDataActive
+        ? (!previousSnapshot
+          || snapshotVehiclePacketMs > previousVehiclePacketMs
+          || (snapshotVehiclePacketMs === previousVehiclePacketMs && snapshot.readingCount > (previousSnapshot.readingCount || 0)))
+        : (!previousSnapshot || snapshotTimestampMs > previousTimestampMs));
       if (busDataActive && !duplicateBusSample) {
         storeNormalizedSnapshot(data, prepared.normalized, {
           driverId: snapshot.driverId,
@@ -472,6 +499,7 @@ function registerFleetOpsRoutes(app, deps) {
         duplicateSample: duplicateBusSample,
         outOfOrder: !promoteLiveSnapshot,
         livePromoted: promoteLiveSnapshot,
+        liveTimestampEligible,
         linkOnly: !busDataActive,
         snapshot,
         eld: eldResult
@@ -609,7 +637,8 @@ function registerFleetOpsRoutes(app, deps) {
   // belonging to their organisation.
   function broadcastTelemetry(snapshot, orgId) {
     if (!snapshot || !telemetrySubscribers.size) return;
-    const frame = `data: ${JSON.stringify(snapshot)}\n\n`;
+    const event = snapshot.busDataActive ? "" : "event: link\n";
+    const frame = `${event}data: ${JSON.stringify(snapshot)}\n\n`;
     for (const sub of telemetrySubscribers) {
       const scope = sub.__fleetScope;
       if (scope) {

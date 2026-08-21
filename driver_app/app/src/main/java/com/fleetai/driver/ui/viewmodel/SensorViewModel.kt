@@ -304,10 +304,12 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
                     continue
                 }
                 var loopError: String? = null
+                var successfulReads = 0
                 due.forEach { spec ->
                     val result = readPidMetrics(spec.command)
                     lastPolledAt[spec.command] = System.currentTimeMillis()
                     if (result.values.isNotEmpty()) {
+                        successfulReads += result.values.size
                         result.values.forEach { (key, value) ->
                             latestValues[key] = value
                             updatedAt[key] = System.currentTimeMillis()
@@ -320,6 +322,7 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
                     val reading = runCatching { obd.readExtendedPid(definition) }.getOrNull()
                     lastPolledAt[definition.command] = System.currentTimeMillis()
                     if (reading != null) {
+                        successfulReads += 1
                         latestValues[reading.key] = reading.value
                         updatedAt[reading.key] = System.currentTimeMillis()
                     } else if (loopError == null) {
@@ -340,19 +343,22 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
                     val ttl = (definition.minIntervalMs * 4).coerceIn(30_000L, 120_000L)
                     if (age > ttl) latestValues.remove(definition.key)
                 }
+                val boostSourceAt = maxOf(updatedAt["mapKpa"] ?: 0L, updatedAt["barometricPressureKpa"] ?: 0L)
                 deriveBoost(latestValues["mapKpa"], latestValues["barometricPressureKpa"])?.let {
                     latestValues["boostPsi"] = it
-                    updatedAt["boostPsi"] = now
+                    updatedAt["boostPsi"] = boostSourceAt
                 }
+                val lastEcuDataAt = updatedAt.values.maxOrNull() ?: 0L
+                val ecuDataFresh = successfulReads > 0 || (lastEcuDataAt > 0L && now - lastEcuDataAt <= ECU_DATA_SILENCE_MS)
                 sender.updateSnapshot(
                     metrics = latestValues.toMap(),
                     obdConnected = true,
-                    packetAt = now,
+                    packetAt = lastEcuDataAt,
                     metricUpdatedAt = updatedAt.toMap()
                 )
 
-                val liveSignalCount = latestValues.values.count { it.isFinite() }
-                _status.value = if (liveSignalCount > 0) {
+                val liveSignalCount = updatedAt.values.count { timestamp -> now - timestamp <= ECU_DATA_SILENCE_MS }
+                _status.value = if (ecuDataFresh && liveSignalCount > 0) {
                     "Live vehicle data - $liveSignalCount of ${plan.size + extendedPlan.size} supported signals"
                 } else {
                     "Adapter connected - waiting for ECU data"
@@ -605,5 +611,9 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
             if (display.key.endsWith("TempC") && unit.tempF) value = value * 9 / 5 + 32
             buildReading(display.spn, display.label, value, display.unit, now, decimals = display.decimals)
         }
+    }
+
+    companion object {
+        private const val ECU_DATA_SILENCE_MS = 10_000L
     }
 }

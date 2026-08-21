@@ -13,9 +13,15 @@ router.get("/", (req, res) => {
       if (b > a) snap = s;
     }
   });
-  const ts = snap ? new Date(snap.ts || snap.timestamp || 0).getTime() : 0;
+  const ts = snap ? new Date(snap.lastObdPacketAt || (snap.busDataActive ? (snap.ts || snap.timestamp) : 0) || 0).getTime() : 0;
   const ageMs = ts ? now - ts : null;
-  const status = ageMs === null ? "disconnected" : ageMs <= 3000 ? "connected" : ageMs <= 15000 ? "stale" : "disconnected";
+  const status = ageMs === null
+    ? (snap?.connectionState || "disconnected")
+    : snap?.busDataActive !== false && ageMs <= 3000
+      ? "connected"
+      : ageMs <= 15000
+        ? "stale"
+        : (snap?.connectionState && snap.connectionState !== "live" ? snap.connectionState : "disconnected");
   res.set({
     "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
     Pragma: "no-cache",
@@ -32,7 +38,7 @@ router.get("/", (req, res) => {
     lastSampleAt: ts ? new Date(ts).toISOString() : null,
     ageMs,
     status,
-    keys: snap && snap.metrics ? Object.keys(snap.metrics || {}).filter((k) => snap.metrics[k] != null) : [],
+    keys: snap?.busDataActive && snap.metrics ? Object.keys(snap.metrics || {}).filter((k) => snap.metrics[k] != null) : [],
     snapshot: snap || {}
   });
 });
