@@ -765,6 +765,12 @@ app.get("/", (req, res) => {
   res.sendFile(path.join(SITE_ROOT, "index.html"));
 });
 
+app.get("/google4a2c448f2b2d0812.html", (_req, res) => {
+  res.set("Cache-Control", "no-cache, no-store, must-revalidate");
+  res.set("Pragma", "no-cache");
+  res.status(200).type("html").send("google-site-verification: google4a2c448f2b2d0812.html");
+});
+
 app.get("/developers.html", (req, res) => {
   res.set("Cache-Control", "no-cache, no-store, must-revalidate");
   res.set("Pragma", "no-cache");
