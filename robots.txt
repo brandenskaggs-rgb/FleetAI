@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+Allow: /google4a2c448f2b2d0812.html
+Disallow: /admin/
+Disallow: /org/
+Disallow: /ui/
+Disallow: /customer-login.html
+Disallow: /employee-login.html
+Disallow: /employee-portal.html
+
+Sitemap: https://fleetaiops.com/sitemap.xml
