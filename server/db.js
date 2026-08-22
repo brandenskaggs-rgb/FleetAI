@@ -88,10 +88,10 @@ async function getSamplesForVehicle(vehicleId, { limit = 5000, since = null } = 
   if (since) where.ts = { gte: toDate(since) };
   const rows = await getPrisma().telemetrySample.findMany({
     where,
-    orderBy: { ts: "asc" },
+    orderBy: { ts: "desc" },
     take: limit
   });
-  return rows.map(rowToSample);
+  return rows.reverse().map(rowToSample);
 }
 
 async function getSampleCountForVehicle(vehicleId) {

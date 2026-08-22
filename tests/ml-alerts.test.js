@@ -105,6 +105,20 @@ assert.strictEqual(chargingAlerts[0].dedupeKey, "ML:VEH_TEST:CHARGING");
 assert.match(chargingAlerts[0].explanation, /engine was running/i);
 assert.doesNotMatch(chargingAlerts[0].explanation, /over 14 days/i);
 
+const dutyCycleDrift = buildSamples().map((sample, index) => ({
+  ...sample,
+  metrics: {
+    ...sample.metrics,
+    vehicleSpeed: Math.min(130, index * 0.5),
+    fuelLevel: Math.max(5, 80 - index * 0.3)
+  }
+}));
+const contextualPrediction = computeFullPrediction(dutyCycleDrift, "VEH_TEST");
+assert.strictEqual(Object.hasOwn(contextualPrediction.sensorRisks, "vehicleSpeed"), false);
+assert.strictEqual(Object.hasOwn(contextualPrediction.sensorRisks, "fuelLevel"), false);
+assert.strictEqual(Object.hasOwn(contextualPrediction.weeksToFailure, "vehicleSpeed"), false);
+assert.strictEqual(Object.hasOwn(contextualPrediction.weeksToFailure, "fuelLevel"), false);
+
 const dashboard = fs.readFileSync(path.join(__dirname, "..", "ui", "fleetai-dashboard.html"), "utf8");
 assert.match(dashboard, /r\.explanation\|\|r\.message/);
 assert.match(dashboard, /data-resolve/);

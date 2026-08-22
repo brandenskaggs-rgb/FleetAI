@@ -56,11 +56,14 @@ const OPTIONAL_METRIC_KEYS = [
 ];
 
 const ANALYSIS_METRIC_KEYS = [...METRIC_KEYS, ...OPTIONAL_METRIC_KEYS];
+const HEALTH_METRIC_KEYS = METRIC_KEYS.filter(
+  (key) => key !== "vehicleSpeed" && key !== "fuelLevel"
+);
 
 const RISK_METRICS = {
   cooling: ["coolantTemp"],
   charging: ["batteryVoltage"],
-  fuel: ["fuelRate", "maf", "throttlePos", "fuelLevel"]
+  fuel: ["fuelRate", "maf", "throttlePos"]
 };
 
 const clamp = (value, min = 0, max = 1) => Math.max(min, Math.min(max, value));
@@ -1067,8 +1070,6 @@ const SENSOR_DANGER_THRESHOLDS = {
   egtC:                 { unit: "°C",  warnMin: 600, warnMax: 750, dangerMin: 750, higherIsBad: true },
   intakeManifoldPressure: { unit: "kPa", warnMin: 200, warnMax: 250, dangerMin: 250, higherIsBad: true },
   transmissionTemp:     { unit: "°C",  warnMin: 90,  warnMax: 110, dangerMin: 110, higherIsBad: true },
-  fuelLevel:            { unit: "%",   warnMin: 10,  warnMax: 25,  dangerMax: 10,  higherIsBad: false },
-  vehicleSpeed:         { unit: "kph", warnMin: 115, warnMax: 130, dangerMin: 130, higherIsBad: true },
   engineHours:          { unit: "h",   warnMin: 490, warnMax: 510, dangerMin: 510, higherIsBad: true },
   tpmsPressurekPa:      { unit: "kPa", warnMin: 620, warnMax: 690, dangerMax: 620, higherIsBad: false },
   vibrationG:           { unit: "g",   warnMin: 1.5, warnMax: 2.5, dangerMin: 2.5, higherIsBad: true }
@@ -1178,7 +1179,7 @@ function computeFullPrediction(samples, vehicleId, vehicleMeta = {}) {
   // Only established health features affect the launch health score. Optional
   // PIDs are retained for baselines/evidence, but fast-cycling O2 or pedal data
   // must not create a maintenance risk merely because it moved normally.
-  METRIC_KEYS.forEach((key) => {
+  HEALTH_METRIC_KEYS.forEach((key) => {
     const current = metricNumber(key, latest.metrics?.[key]);
     if (current == null) return;
     const baseline = baselines[key];

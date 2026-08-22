@@ -1,4 +1,7 @@
 const assert = require("assert");
+const fs = require("fs");
+const path = require("path");
+const db = require("../server/db");
 const { registerFleetOpsRoutes } = require("../server/routes/fleetOpsRoutes");
 
 function fakeApp() {
@@ -220,6 +223,55 @@ async function invoke(app, body) {
   assert.strictEqual(rotatingPidBatch.body.snapshot.metrics.engine.coolantTempC, 90);
   assert.strictEqual(rotatingPidBatch.body.snapshot.deviceDiagnostics.metricAgesMs.batteryVoltageV, 120);
   assert.strictEqual(rotatingPidBatch.body.snapshot.deviceDiagnostics.metricAgesMs.coolantTempC, 5250);
+
+  const originalGetVehicleOrgId = db.getVehicleOrgId;
+  const originalGetSamplesForVehicle = db.getSamplesForVehicle;
+  try {
+    db.getVehicleOrgId = async () => "ORG_A";
+    db.getSamplesForVehicle = async () => [{
+      id: "TS_HISTORY",
+      ts: "2026-08-14T12:00:05.000Z",
+      metrics: {
+        vehicleSpeed: 72,
+        coolantTemp: 93,
+        batteryVoltage: 14.1,
+        engineLoad: 41,
+        fuelLevel: 68
+      },
+      raw: { quality: "live" }
+    }];
+    const historyHandler = app.routes.get("GET /api/telemetry/history").at(-1);
+    const expectedHistoryValues = {
+      speed: 72,
+      coolant_temp: 93,
+      battery_voltage: 14.1,
+      engine_load: 41,
+      fuel_level: 68
+    };
+    for (const [metric, expected] of Object.entries(expectedHistoryValues)) {
+      const res = response();
+      const req = {
+        query: { vehicleId: "TRUCK_1", metric, range: "24h" },
+        params: {},
+        customer: { orgId: "ORG_A" }
+      };
+      await historyHandler(req, res, (error) => { if (error) throw error; });
+      assert.strictEqual(res.statusCode, 200);
+      assert.strictEqual(res.body.data.length, 1);
+      assert.strictEqual(res.body.data[0].value, expected);
+    }
+  } finally {
+    db.getVehicleOrgId = originalGetVehicleOrgId;
+    db.getSamplesForVehicle = originalGetSamplesForVehicle;
+  }
+
+  const dbSource = fs.readFileSync(path.join(__dirname, "..", "server", "db.js"), "utf8");
+  const sampleQuerySource = dbSource.slice(
+    dbSource.indexOf("async function getSamplesForVehicle"),
+    dbSource.indexOf("async function getSampleCountForVehicle")
+  );
+  assert.match(sampleQuerySource, /orderBy:\s*\{\s*ts:\s*"desc"\s*\}/);
+  assert.match(sampleQuerySource, /rows\.reverse\(\)\.map\(rowToSample\)/);
 
   console.log("Telemetry route tests passed");
 })().catch((error) => {

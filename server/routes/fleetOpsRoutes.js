@@ -623,11 +623,11 @@ function registerFleetOpsRoutes(app, deps) {
 
   const historyMetricPaths = {
     rpm: ["engine.rpm", "rpm"],
-    speed: ["vehicle.speedKph", "speedKph", "speed"],
-    coolant_temp: ["engine.coolantTempC", "coolantTempC", "coolant_temp"],
-    battery_voltage: ["electrical.batteryVoltageV", "batteryVoltageV", "battery_voltage"],
-    engine_load: ["engine.engineLoadPct", "engineLoadPct", "engine_load"],
-    fuel_level: ["fuel.fuelLevelPct", "fuelLevelPct", "fuel_level"]
+    speed: ["vehicle.speedKph", "vehicleSpeed", "speedKph", "speed"],
+    coolant_temp: ["engine.coolantTempC", "coolantTemp", "coolantTempC", "coolant_temp"],
+    battery_voltage: ["electrical.batteryVoltageV", "batteryVoltage", "batteryVoltageV", "battery_voltage"],
+    engine_load: ["engine.engineLoadPct", "engineLoad", "engineLoadPct", "engine_load"],
+    fuel_level: ["fuel.fuelLevelPct", "fuelLevel", "fuelLevelPct", "fuel_level"]
   };
 
   function metricValue(metrics, paths) {

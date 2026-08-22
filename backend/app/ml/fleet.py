@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 
 # How many sigma before we consider a vehicle an outlier (used for clamping)
 _OUTLIER_SIGMA = 4.0
+_CONTEXT_ONLY_METRICS = {"vehicleSpeed", "fuelLevel"}
 
 
 def _z_to_percentile(z: float) -> float:
@@ -123,14 +124,15 @@ async def compute_fleet_normalization(
         else:
             label = "normal"
 
-        if z > 1.0:
-            metrics_above += 1
-        if z > 2.0:
-            metrics_critical += 1
-        if abs(z) > abs(worst_z):
-            worst_z = z
-            worst_metric = metric_key
-            worst_percentile = percentile
+        if metric_key not in _CONTEXT_ONLY_METRICS:
+            if z > 1.0:
+                metrics_above += 1
+            if z > 2.0:
+                metrics_critical += 1
+            if abs(z) > abs(worst_z):
+                worst_z = z
+                worst_metric = metric_key
+                worst_percentile = percentile
 
         result[metric_key] = {
             "vehicle_mean": round(vehicle_mean, 4),

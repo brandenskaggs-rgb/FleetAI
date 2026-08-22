@@ -25,6 +25,8 @@ _W_WELFORD    = 0.30   # per-vehicle z-score drift
 _W_THRESHOLD  = 0.12   # hard operating limit breaches
 _W_DTC        = 0.08   # OBD-II / J1939 fault codes
 
+_CONTEXT_ONLY_METRICS = {"vehicleSpeed", "fuelLevel"}
+
 # Hard operating limits — breaching any raises threshold score
 _HARD_LIMITS: dict[str, tuple[Optional[float], Optional[float]]] = {
     # ── Original OBD-II / J1939 limits ───────────────────────────────────────
@@ -36,7 +38,6 @@ _HARD_LIMITS: dict[str, tuple[Optional[float], Optional[float]]] = {
     "dpfSootLoad":            (None, 90.0),    # %
     "throttlePos":            (None, 99.0),    # % WOT
     "intakeManifoldPressure": (None, 250.0),   # kPa
-    "fuelLevel":              (5.0,  None),    # % near-empty
 
     # ── Wheel hub temperatures (bearing failure threshold: 80°C+) ────────────
     "hubTempFL":              (None, 85.0),    # °C — early bearing failure
@@ -417,7 +418,12 @@ def compute_ensemble(
         }
       }
     """
-    w_score = _welford_score(welford_zscores)
+    risk_zscores = {
+        key: value
+        for key, value in welford_zscores.items()
+        if key not in _CONTEXT_ONLY_METRICS
+    }
+    w_score = _welford_score(risk_zscores)
     t_score = _threshold_score(current_metrics)
     d_score = _dtc_score(dtc_analysis)
 
@@ -459,8 +465,8 @@ def compute_ensemble(
     label = _prediction_label(total, conf, vehicle_class)
 
     top_metrics = sorted(
-        welford_zscores.keys(),
-        key=lambda k: abs(welford_zscores[k]),
+        risk_zscores.keys(),
+        key=lambda k: abs(risk_zscores[k]),
         reverse=True,
     )[:5]
 
