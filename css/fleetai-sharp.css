@@ -142,6 +142,49 @@ body.authV2 .siteNav a.is-active {
   color: var(--fa-ink) !important;
 }
 
+.accessFooter {
+  padding: 22px 0 28px;
+  color: var(--fa-muted);
+  font-size: 12px;
+}
+
+.accessFooter__row,
+.accessFooter nav {
+  display: flex;
+  align-items: center;
+}
+
+.accessFooter__row {
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.accessFooter nav {
+  gap: 18px;
+}
+
+.accessFooter a {
+  color: inherit;
+  font-weight: 700;
+}
+
+.accessFooter a:hover,
+.accessFooter a:focus-visible {
+  color: var(--fa-ink);
+}
+
+@media (max-width: 620px) {
+  .accessFooter__row {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .accessFooter nav {
+    flex-wrap: wrap;
+  }
+}
+
 .announceBar {
   background: #071426 !important;
   color: #dbe7f7 !important;
