@@ -11,14 +11,34 @@
  */
 
 const crypto = require("crypto");
-const { requireApiKey } = require("../middleware/apiKeyAuth");
+const { requireApiKey, issueStreamTicket } = require("../middleware/apiKeyAuth");
+const { createRateLimiter } = require("../middleware/rateLimiter");
 const { getPrisma } = require("../db");
 const { normalizePredictionLabel } = require("../lib/mlMerge");
 const { notifyPrediction, WEBHOOK_EVENTS } = require("../services/webhookService");
 const oemIngestion = require("../services/oemIngestion");
+const { validateOutboundHttpsUrl } = require("../lib/outboundUrlPolicy");
 
 // Tier required for partner ML access — set when creating key via /api/admin/api-keys
 const PARTNER_ML_TIER = "partner_ml";
+const partnerRequestLimiter = createRateLimiter({
+  windowMs: 60_000,
+  max: 120,
+  keyPrefix: "partner-api",
+  keyGenerator: (req) => req.apiKey?.id || "unauthenticated"
+});
+const partnerPredictionLimiter = createRateLimiter({
+  windowMs: 60_000,
+  max: 30,
+  keyPrefix: "partner-predict",
+  keyGenerator: (req) => req.apiKey?.id || "unauthenticated"
+});
+const partnerBatchLimiter = createRateLimiter({
+  windowMs: 60_000,
+  max: 5,
+  keyPrefix: "partner-batch",
+  keyGenerator: (req) => req.apiKey?.id || "unauthenticated"
+});
 
 function registerPartnerRoutes(app, deps) {
   const {
@@ -30,16 +50,32 @@ function registerPartnerRoutes(app, deps) {
     requireSuperAdmin
   } = deps;
 
-  const MAX_SAMPLES = 5000;
+  const MAX_SAMPLES = 1000;
+  const MAX_BATCH_VEHICLES = 50;
+  const MAX_BATCH_SAMPLES = 20_000;
 
   // In-memory live snapshot store: "partner:vehicleId" -> latest prediction
   const partnerLiveData = new Map();
   // SSE subscribers: "partner:vehicleId" or "partner:*" -> Set of res objects
   const partnerSseClients = new Map();
 
-  function _pushToSse(partner, vehicleId, payload) {
+  function partnerScope(req) {
+    const owner = req.apiKey.orgId ? `org:${req.apiKey.orgId}` : `key:${req.apiKey.id}`;
+    const namespace = crypto.createHash("sha256").update(owner).digest("hex").slice(0, 20);
+    return {
+      owner,
+      namespace,
+      orgId: `partner:${namespace}`,
+      vehicleId(externalVehicleId) {
+        const vehicleHash = crypto.createHash("sha256").update(String(externalVehicleId)).digest("hex").slice(0, 24);
+        return `ext_${namespace}_${vehicleHash}`;
+      }
+    };
+  }
+
+  function _pushToSse(owner, vehicleId, payload) {
     const data = `data: ${JSON.stringify(payload)}\n\n`;
-    const keys = [`${partner}:${vehicleId}`, `${partner}:*`];
+    const keys = [`${owner}:${vehicleId}`, `${owner}:*`];
     for (const key of keys) {
       const subs = partnerSseClients.get(key);
       if (!subs) continue;
@@ -61,15 +97,15 @@ function registerPartnerRoutes(app, deps) {
           }
         });
       }
-      next();
+      partnerRequestLimiter(req, res, next);
     });
   }
 
   // ── Usage tracking ─────────────────────────────────────────────────────────
-  async function logUsage({ partnerName, apiKeyId, vehicleId, riskProbability, confidence, prediction, latencyMs, fullResponse }) {
+  async function logUsage({ partnerName, apiKeyId, orgId, vehicleId, riskProbability, confidence, prediction, latencyMs, fullResponse }) {
     try {
       await sqliteDb.insertMlPredictionRun({
-        orgId: `partner:${partnerName}`,
+        orgId,
         vehicleId: vehicleId || "unknown",
         modelVersion: "fleet-ai-partner-v1",
         source: "partner_api",
@@ -184,11 +220,12 @@ function registerPartnerRoutes(app, deps) {
    *   }
    * }
    */
-  app.post("/api/partner/predict", requirePartnerKey, async (req, res) => {
+  app.post("/api/partner/predict", requirePartnerKey, partnerPredictionLimiter, async (req, res) => {
     const t0 = Date.now();
     const body = req.body || {};
     const partner = req.apiKey.partner;
     const apiKeyId = req.apiKey.id;
+    const scope = partnerScope(req);
 
     const vehicleId = sanitizeString(body.vehicleId || "", 120);
     if (!vehicleId) {
@@ -206,9 +243,10 @@ function registerPartnerRoutes(app, deps) {
       });
     }
 
+    const storageVehicleId = scope.vehicleId(vehicleId);
     const samples = rawSamples
       .slice(-MAX_SAMPLES)
-      .map((s) => normalizeSample(s, vehicleId))
+      .map((s) => normalizeSample(s, storageVehicleId))
       .filter((s) => Object.keys(s.metrics).length > 0);
 
     if (!samples.length) {
@@ -222,16 +260,16 @@ function registerPartnerRoutes(app, deps) {
     const vehicleMeta = (body.vehicleMeta && typeof body.vehicleMeta === "object") ? body.vehicleMeta : {};
 
     // Node.js EWMA prediction
-    const jsPrediction = ml.computeFullPrediction(samples, vehicleId, vehicleMeta);
+    const jsPrediction = ml.computeFullPrediction(samples, storageVehicleId, vehicleMeta);
 
     // Python ensemble prediction
     let pythonPrediction = null;
     let mlError = null;
     try {
       pythonPrediction = await pythonMlClient.predict({
-        orgId: `partner:${partner}`,
-        vehicleId,
-        vehicleMeta: Object.assign({}, vehicleMeta, { vehicleId }),
+        orgId: scope.orgId,
+        vehicleId: storageVehicleId,
+        vehicleMeta: Object.assign({}, vehicleMeta, { vehicleId: storageVehicleId, externalVehicleId: vehicleId }),
         samples,
         dtcCodes
       });
@@ -294,12 +332,12 @@ function registerPartnerRoutes(app, deps) {
     };
 
     // Log usage for billing
-    await logUsage({ partnerName: partner, apiKeyId, vehicleId, riskProbability, confidence, prediction, latencyMs, fullResponse: response });
+    await logUsage({ partnerName: partner, apiKeyId, orgId: scope.orgId, vehicleId: storageVehicleId, riskProbability, confidence, prediction, latencyMs, fullResponse: response });
 
     // Store latest snapshot for live endpoint + SSE
     const liveSnapshot = { ...response, receivedAt: nowIso() };
-    partnerLiveData.set(`${partner}:${vehicleId}`, liveSnapshot);
-    _pushToSse(partner, vehicleId, liveSnapshot);
+    partnerLiveData.set(`${scope.owner}:${vehicleId}`, liveSnapshot);
+    _pushToSse(scope.owner, vehicleId, liveSnapshot);
 
     // Fire webhooks async (non-blocking)
     notifyPrediction(partner, apiKeyId, vehicleId, response).catch(() => {});
@@ -312,20 +350,25 @@ function registerPartnerRoutes(app, deps) {
    * Score up to 200 vehicles in one call. Processes in parallel batches of 20.
    * Body: { vehicles: [{ vehicleId, samples, dtcCodes?, vehicleMeta? }, ...] }
    */
-  app.post("/api/partner/predict/batch", requirePartnerKey, async (req, res) => {
+  app.post("/api/partner/predict/batch", requirePartnerKey, partnerBatchLimiter, async (req, res) => {
     const t0 = Date.now();
     const partner = req.apiKey.partner;
     const apiKeyId = req.apiKey.id;
+    const scope = partnerScope(req);
     const vehicles = Array.isArray(req.body?.vehicles) ? req.body.vehicles : [];
 
     if (!vehicles.length) {
       return res.status(400).json({ success: false, error: { code: "NO_VEHICLES", message: "vehicles array is required." } });
     }
-    if (vehicles.length > 200) {
-      return res.status(400).json({ success: false, error: { code: "BATCH_TOO_LARGE", message: "Maximum 200 vehicles per batch." } });
+    if (vehicles.length > MAX_BATCH_VEHICLES) {
+      return res.status(400).json({ success: false, error: { code: "BATCH_TOO_LARGE", message: `Maximum ${MAX_BATCH_VEHICLES} vehicles per batch.` } });
+    }
+    const totalSamples = vehicles.reduce((sum, vehicle) => sum + (Array.isArray(vehicle?.samples) ? vehicle.samples.length : 0), 0);
+    if (totalSamples > MAX_BATCH_SAMPLES) {
+      return res.status(413).json({ success: false, error: { code: "BATCH_SAMPLES_TOO_LARGE", message: `Maximum ${MAX_BATCH_SAMPLES} telemetry samples per batch request.` } });
     }
 
-    const CONCURRENCY = 20;
+    const CONCURRENCY = 5;
     const results = [];
 
     for (let i = 0; i < vehicles.length; i += CONCURRENCY) {
@@ -337,16 +380,17 @@ function registerPartnerRoutes(app, deps) {
         const rawSamples = Array.isArray(v.samples) ? v.samples : [];
         if (!rawSamples.length) return { vehicleId, success: false, error: "no_samples" };
 
-        const samples = rawSamples.slice(-MAX_SAMPLES).map((s) => normalizeSample(s, vehicleId)).filter((s) => Object.keys(s.metrics).length > 0);
+        const storageVehicleId = scope.vehicleId(vehicleId);
+        const samples = rawSamples.slice(-MAX_SAMPLES).map((s) => normalizeSample(s, storageVehicleId)).filter((s) => Object.keys(s.metrics).length > 0);
         if (!samples.length) return { vehicleId, success: false, error: "no_valid_metrics" };
 
         const dtcCodes = Array.isArray(v.dtcCodes) ? v.dtcCodes.map(String) : [];
         const vehicleMeta = (v.vehicleMeta && typeof v.vehicleMeta === "object") ? v.vehicleMeta : {};
 
-        const jsPrediction = ml.computeFullPrediction(samples, vehicleId, vehicleMeta);
+        const jsPrediction = ml.computeFullPrediction(samples, storageVehicleId, vehicleMeta);
         let pythonPrediction = null;
         try {
-          pythonPrediction = await pythonMlClient.predict({ orgId: `partner:${partner}`, vehicleId, vehicleMeta, samples, dtcCodes });
+          pythonPrediction = await pythonMlClient.predict({ orgId: scope.orgId, vehicleId: storageVehicleId, vehicleMeta: { ...vehicleMeta, vehicleId: storageVehicleId, externalVehicleId: vehicleId }, samples, dtcCodes });
         } catch (_) {}
 
         const riskProbability = pythonPrediction?.riskProbability ?? jsPrediction?.riskProbability ?? null;
@@ -369,7 +413,7 @@ function registerPartnerRoutes(app, deps) {
           } : null,
         };
 
-        logUsage({ partnerName: partner, apiKeyId, vehicleId, riskProbability, confidence, prediction, latencyMs: 0, fullResponse: result }).catch(() => {});
+        logUsage({ partnerName: partner, apiKeyId, orgId: scope.orgId, vehicleId: storageVehicleId, riskProbability, confidence, prediction, latencyMs: 0, fullResponse: result }).catch(() => {});
         notifyPrediction(partner, apiKeyId, vehicleId, result).catch(() => {});
         return result;
       }));
@@ -399,6 +443,7 @@ function registerPartnerRoutes(app, deps) {
    */
   app.get("/api/partner/fleet", requirePartnerKey, async (req, res) => {
     const partner = req.apiKey.partner;
+    const scope = partnerScope(req);
     const limit = Math.min(500, parseInt(req.query.limit) || 100);
     const minRisk = parseFloat(req.query.minRisk) || 0;
 
@@ -408,7 +453,7 @@ function registerPartnerRoutes(app, deps) {
       const runs = await prisma.mlPredictionRun.findMany({
         where: {
           source: "partner_api",
-          orgId: `partner:${partner}`,
+          orgId: scope.orgId,
           createdAt: { gte: new Date(Date.now() - 24 * 3600 * 1000) },
         },
         orderBy: { createdAt: "desc" },
@@ -426,7 +471,7 @@ function registerPartnerRoutes(app, deps) {
         if (risk !== null && risk < minRisk) continue;
         const json = run.predictionJson && typeof run.predictionJson === "object" ? run.predictionJson : {};
         vehicles.push({
-          vehicleId:       run.vehicleId,
+          vehicleId:       json.vehicleId || run.vehicleId,
           riskProbability: risk,
           confidence:      run.confidence ? parseFloat(run.confidence) : null,
           prediction:      json.prediction ?? null,
@@ -469,8 +514,10 @@ function registerPartnerRoutes(app, deps) {
     if (!url || typeof url !== "string") {
       return res.status(400).json({ success: false, error: { code: "MISSING_URL", message: "url is required." } });
     }
-    try { new URL(url); } catch (_) {
-      return res.status(400).json({ success: false, error: { code: "INVALID_URL", message: "url must be a valid https URL." } });
+    try {
+      await validateOutboundHttpsUrl(url);
+    } catch (error) {
+      return res.status(400).json({ success: false, error: { code: "INVALID_WEBHOOK_DESTINATION", message: `Webhook destination rejected: ${error.message}.` } });
     }
 
     const validEvents = Object.values(WEBHOOK_EVENTS);
@@ -511,11 +558,11 @@ function registerPartnerRoutes(app, deps) {
 
   // GET /api/partner/webhooks — list registered webhooks
   app.get("/api/partner/webhooks", requirePartnerKey, async (req, res) => {
-    const partner = req.apiKey.partner;
+    const apiKeyId = req.apiKey.id;
     try {
       const prisma = getPrisma();
       const hooks = await prisma.partnerWebhook.findMany({
-        where: { partner },
+        where: { apiKeyId },
         select: { id: true, url: true, events: true, threshold: true, active: true, createdAt: true },
         orderBy: { createdAt: "desc" },
       });
@@ -527,11 +574,11 @@ function registerPartnerRoutes(app, deps) {
 
   // DELETE /api/partner/webhooks/:id — remove a webhook
   app.delete("/api/partner/webhooks/:id", requirePartnerKey, async (req, res) => {
-    const partner = req.apiKey.partner;
+    const apiKeyId = req.apiKey.id;
     const { id } = req.params;
     try {
       const prisma = getPrisma();
-      const hook = await prisma.partnerWebhook.findFirst({ where: { id, partner } });
+      const hook = await prisma.partnerWebhook.findFirst({ where: { id, apiKeyId } });
       if (!hook) return res.status(404).json({ success: false, error: { code: "NOT_FOUND", message: "Webhook not found." } });
       await prisma.partnerWebhook.delete({ where: { id } });
       return res.json({ success: true, deleted: id });
@@ -555,6 +602,8 @@ function registerPartnerRoutes(app, deps) {
     if (!maintenanceType) return res.status(400).json({ success: false, error: { code: "MISSING_TYPE", message: "maintenanceType is required." } });
 
     const partner = req.apiKey.partner;
+    const scope = partnerScope(req);
+    const storageVehicleId = scope.vehicleId(vehicleId);
 
     try {
       const prisma = getPrisma();
@@ -562,8 +611,8 @@ function registerPartnerRoutes(app, deps) {
       // Log the maintenance event
       const log = await prisma.maintenanceLog.create({
         data: {
-          orgId:          `partner:${partner}`,
-          vehicleId,
+          orgId:          scope.orgId,
+          vehicleId:      storageVehicleId,
           maintenanceType: sanitizeString(maintenanceType, 120),
           description:    description ? sanitizeString(description, 1000) : null,
           odometerMiles:  mileage ? parseFloat(mileage) : null,
@@ -600,7 +649,8 @@ function registerPartnerRoutes(app, deps) {
     const vehicleId = sanitizeString(req.params.vehicleId || "", 120);
     if (!vehicleId) return res.status(400).json({ success: false, error: { code: "MISSING_VEHICLE_ID", message: "vehicleId required." } });
 
-    const partner = req.apiKey.partner;
+    const scope = partnerScope(req);
+    const storageVehicleId = scope.vehicleId(vehicleId);
     const days = Math.min(90, Math.max(1, parseInt(req.query.days) || 30));
 
     try {
@@ -608,7 +658,7 @@ function registerPartnerRoutes(app, deps) {
       const since = new Date(Date.now() - days * 86400000);
 
       const runs = await prisma.mlPredictionRun.findMany({
-        where: { vehicleId, orgId: `partner:${partner}`, createdAt: { gte: since } },
+        where: { vehicleId: storageVehicleId, orgId: scope.orgId, createdAt: { gte: since } },
         orderBy: { createdAt: "asc" },
         select: { riskProbability: true, confidence: true, predictionJson: true, createdAt: true },
         take: 500,
@@ -660,14 +710,15 @@ function registerPartnerRoutes(app, deps) {
     const vehicleId = sanitizeString(req.params.vehicleId || "", 120);
     if (!vehicleId) return res.status(400).json({ success: false, error: { code: "MISSING_VEHICLE_ID", message: "vehicleId required." } });
 
-    const partner = req.apiKey.partner;
+    const scope = partnerScope(req);
+    const storageVehicleId = scope.vehicleId(vehicleId);
 
     try {
       const prisma = getPrisma();
       const since = new Date(Date.now() - 14 * 86400000);
 
       const runs = await prisma.mlPredictionRun.findMany({
-        where: { vehicleId, orgId: `partner:${partner}`, createdAt: { gte: since } },
+        where: { vehicleId: storageVehicleId, orgId: scope.orgId, createdAt: { gte: since } },
         orderBy: { createdAt: "asc" },
         select: { riskProbability: true, predictionJson: true, createdAt: true },
         take: 200,
@@ -771,11 +822,13 @@ function registerPartnerRoutes(app, deps) {
       return res.status(400).json({ success: false, error: { code: "MISSING_FIELDS", message: "vehicleId and provider are required." } });
     }
     const vid = sanitizeString(vehicleId, 120);
+    const scope = partnerScope(req);
+    const storageVehicleId = scope.vehicleId(vid);
 
     // Push mode — OEM sent data directly
     if (data && typeof data === "object") {
       const { appendFrames } = require("../telematics/storage/telemetryStore");
-      const result = await oemIngestion.ingestPush(vid, provider, data, { appendFrames }, nowIso);
+      const result = await oemIngestion.ingestPush(storageVehicleId, provider, data, { appendFrames }, nowIso);
       if (!result.ok) return res.status(400).json({ success: false, error: result.error });
       return res.json({ success: true, vehicleId: vid, provider, metricsIngested: result.metricsIngested, metrics: result.metrics });
     }
@@ -783,11 +836,20 @@ function registerPartnerRoutes(app, deps) {
     // Poll mode — register a recurring polling integration
     if (oemApiKey && endpointUrl) {
       const { appendFrames } = require("../telematics/storage/telemetryStore");
-      const ok = oemIngestion.registerIntegration(
-        { vehicleId: vid, provider, apiKey: oemApiKey, endpointUrl, intervalMin: intervalMin || 15 },
-        { appendFrames },
-        nowIso
-      );
+      const allowedHosts = String(process.env.OEM_ALLOWED_HOSTS || "").split(",").map((value) => value.trim()).filter(Boolean);
+      if (!allowedHosts.length) {
+        return res.status(503).json({ success: false, error: { code: "OEM_POLLING_NOT_CONFIGURED", message: "OEM polling destinations must be configured by Fleet AI operations." } });
+      }
+      let ok = false;
+      try {
+        ok = await oemIngestion.registerIntegration(
+          { tenantScope: scope.owner, vehicleId: storageVehicleId, provider, apiKey: oemApiKey, endpointUrl, intervalMin: intervalMin || 15, allowedHosts },
+          { appendFrames },
+          nowIso
+        );
+      } catch (error) {
+        return res.status(400).json({ success: false, error: { code: "INVALID_OEM_DESTINATION", message: error.message } });
+      }
       if (!ok) return res.status(400).json({ success: false, error: `Unsupported provider: ${provider}` });
       return res.json({ success: true, vehicleId: vid, provider, mode: "polling", intervalMin: intervalMin || 15 });
     }
@@ -810,8 +872,9 @@ function registerPartnerRoutes(app, deps) {
     if (!vehicleId) {
       return res.status(400).json({ success: false, error: { code: "MISSING_VEHICLE_ID", message: "vehicleId query param required." } });
     }
+    const scope = partnerScope(req);
     try {
-      const status = await pythonMlClient.status(vehicleId);
+      const status = await pythonMlClient.status(scope.vehicleId(vehicleId), scope.orgId);
       return res.json({ success: true, vehicleId, status });
     } catch (_) {
       return res.json({
@@ -829,11 +892,11 @@ function registerPartnerRoutes(app, deps) {
    * Updated every time the partner calls POST /api/partner/predict.
    */
   app.get("/api/partner/vehicles/:vehicleId/live", requirePartnerKey, (req, res) => {
-    const partner = req.apiKey.partner;
+    const scope = partnerScope(req);
     const vehicleId = sanitizeString(req.params.vehicleId || "", 120);
     if (!vehicleId) return res.status(400).json({ success: false, error: { code: "MISSING_VEHICLE_ID", message: "vehicleId required." } });
 
-    const snapshot = partnerLiveData.get(`${partner}:${vehicleId}`);
+    const snapshot = partnerLiveData.get(`${scope.owner}:${vehicleId}`);
     if (!snapshot) {
       return res.status(404).json({
         success: false,
@@ -854,14 +917,18 @@ function registerPartnerRoutes(app, deps) {
    * Event format:
    *   data: { vehicleId, riskProbability, prediction, diagnosis, sensorRisks, receivedAt, ... }
    *
-   * Embed example (partner frontend):
-   *   const es = new EventSource('https://api.fleetaiops.com/api/partner/stream?vehicleId=TRUCK-001', {
-   *     headers: { 'X-API-Key': 'YOUR_KEY' }
-   *   });
+   * Browser clients first ask their own backend for a one-time stream ticket,
+   * then connect with ?streamTicket=. Long-lived API keys are header-only and
+   * must never be embedded in browser JavaScript.
    *   es.onmessage = (e) => renderDashboard(JSON.parse(e.data));
    */
+  app.post("/api/partner/stream-ticket", requirePartnerKey, (req, res) => {
+    return res.json({ success: true, ...issueStreamTicket(req.apiKey) });
+  });
+
   app.get("/api/partner/stream", requirePartnerKey, (req, res) => {
     const partner = req.apiKey.partner;
+    const scope = partnerScope(req);
     const vehicleId = sanitizeString(req.query.vehicleId || "", 120) || "*";
 
     res.setHeader("Content-Type", "text/event-stream");
@@ -875,17 +942,17 @@ function registerPartnerRoutes(app, deps) {
 
     // Send current snapshot immediately if available
     if (vehicleId !== "*") {
-      const snap = partnerLiveData.get(`${partner}:${vehicleId}`);
+      const snap = partnerLiveData.get(`${scope.owner}:${vehicleId}`);
       if (snap) res.write(`event: snapshot\ndata: ${JSON.stringify(snap)}\n\n`);
     } else {
       // Send all current snapshots for this partner
       for (const [key, snap] of partnerLiveData.entries()) {
-        if (key.startsWith(`${partner}:`)) res.write(`event: snapshot\ndata: ${JSON.stringify(snap)}\n\n`);
+        if (key.startsWith(`${scope.owner}:`)) res.write(`event: snapshot\ndata: ${JSON.stringify(snap)}\n\n`);
       }
     }
 
     // Register subscriber
-    const subKey = `${partner}:${vehicleId}`;
+    const subKey = `${scope.owner}:${vehicleId}`;
     if (!partnerSseClients.has(subKey)) partnerSseClients.set(subKey, new Set());
     partnerSseClients.get(subKey).add(res);
 

@@ -622,7 +622,7 @@ fleet = requests.<span class="fn">get</span>(f<span class="str">"{BASE}/fleet?mi
 <span class="cmt">&lt;!-- 2. Drop-in script — that's it --&gt;</span>
 <span class="kw">&lt;script</span>
   <span class="prop">src</span>=<span class="str">"https://fleetaiops.com/embed/fleet-widget.js"</span>
-  <span class="prop">data-api-key</span>=<span class="str">"YOUR_PARTNER_KEY"</span>
+  <span class="prop">data-ticket-endpoint</span>=<span class="str">"/fleet-ai/stream-ticket"</span>
   <span class="prop">data-base-url</span>=<span class="str">"https://fleetaiops.com"</span><span class="kw">&gt;
 &lt;/script&gt;</span>
 
@@ -632,10 +632,16 @@ fleet = requests.<span class="fn">get</span>(f<span class="str">"{BASE}/fleet?mi
 <span class="kw">&lt;div</span> <span class="prop">data-fleetai-vehicle</span>=<span class="str">"TRUCK-003"</span><span class="kw">&gt;&lt;/div&gt;</span></pre>
           </div>
           <div class="code-panel" id="tab-widget-sse">
-<pre><span class="cmt">// Raw SSE — build your own UI on top of the stream</span>
+<pre><span class="cmt">// Your backend stores the partner key and returns a one-time ticket.</span>
+<span class="kw">const</span> ticketResponse = <span class="kw">await</span> <span class="fn">fetch</span>(<span class="str">"/fleet-ai/stream-ticket"</span>, {
+  <span class="prop">method</span>: <span class="str">"POST"</span>, <span class="prop">credentials</span>: <span class="str">"include"</span>
+});
+<span class="kw">const</span> { ticket } = <span class="kw">await</span> ticketResponse.<span class="fn">json</span>();
+
+<span class="cmt">// The long-lived API key never enters browser JavaScript or the URL.</span>
 <span class="kw">const</span> es = <span class="kw">new</span> <span class="fn">EventSource</span>(
   <span class="str">`https://fleetaiops.com/api/partner/stream`</span> +
-  <span class="str">`?vehicleId=TRUCK-001&amp;apiKey=${</span>YOUR_KEY<span class="str">}`</span>
+  <span class="str">`?vehicleId=TRUCK-001&amp;streamTicket=${</span>encodeURIComponent(ticket)<span class="str">}`</span>
 );
 
 es.<span class="fn">addEventListener</span>(<span class="str">"snapshot"</span>, (e) =&gt; {

@@ -222,9 +222,9 @@ async def upsert_model_state(vehicle_id: str, org_id: Optional[str], state: dict
 
 # ── Recent telemetry samples ──────────────────────────────────────────────────
 
-async def get_recent_samples(vehicle_id: str, limit: int = 5000) -> list[dict]:
-    """Fetch recent TelemetrySample rows from PostgreSQL."""
-    if not is_available():
+async def get_recent_samples(vehicle_id: str, org_id: str | None, limit: int = 5000) -> list[dict]:
+    """Fetch tenant-scoped recent TelemetrySample rows from PostgreSQL."""
+    if not is_available() or not vehicle_id or not org_id:
         return []
     try:
         async with _pool.acquire() as conn:
@@ -232,11 +232,11 @@ async def get_recent_samples(vehicle_id: str, limit: int = 5000) -> list[dict]:
                 """
                 SELECT "ts","metrics","orgId"
                 FROM "TelemetrySample"
-                WHERE "vehicleId"=$1
+                WHERE "vehicleId"=$1 AND "orgId"=$2
                 ORDER BY "ts" DESC
-                LIMIT $2
+                LIMIT $3
                 """,
-                vehicle_id, limit,
+                vehicle_id, org_id, limit,
             )
         result = []
         for r in rows:

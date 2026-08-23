@@ -108,7 +108,11 @@ function mergePythonAndNodePrediction(jsPrediction, pythonPrediction, context = 
       diagnosis: null,
       dtcAnalysis: null,
       fleetNormalization: null,
-      ensembleComponents: null
+      ensembleComponents: null,
+      dataQuality: Object.assign({}, jsPrediction.dataQuality || {}, {
+        engineRunningSamples: jsPrediction.sampleCount ?? null,
+        excludedEngineOffSamples: jsPrediction.excludedEngineOffSamples ?? 0
+      })
     });
   }
 
@@ -156,6 +160,10 @@ function mergePythonAndNodePrediction(jsPrediction, pythonPrediction, context = 
     trainingSource: "live_vehicle_telemetry",
     modelVersion: "python-ensemble-v1",
     modelStatus: py.modelStatus || null,
+    engineEvent: py.engineEvent || jsPrediction.engineEvent || null,
+    excludedEngineOffSamples: py.dataQuality?.excludedEngineOffSamples
+      ?? jsPrediction.excludedEngineOffSamples
+      ?? 0,
 
     // Enriched signal
     topContributors,
@@ -173,6 +181,10 @@ function mergePythonAndNodePrediction(jsPrediction, pythonPrediction, context = 
       operatingMinutes: jsPrediction.operatingMinutes ?? null,
       operatingSessionCount: jsPrediction.operatingSessionCount ?? null,
       wallClockSpanHours: jsPrediction.wallClockSpanHours ?? null,
+      engineRunningSamples: jsPrediction.sampleCount ?? py.dataQuality?.engineRunningSamples ?? null,
+      excludedEngineOffSamples: py.dataQuality?.excludedEngineOffSamples
+        ?? jsPrediction.excludedEngineOffSamples
+        ?? 0,
       confidenceCappedByObservedData: Number.isFinite(pythonConfidence)
         && Number.isFinite(confidence)
         && confidence < pythonConfidence

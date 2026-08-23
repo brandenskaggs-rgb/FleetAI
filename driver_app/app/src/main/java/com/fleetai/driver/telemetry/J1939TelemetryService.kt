@@ -77,7 +77,7 @@ object J1939Runtime {
     }
 }
 
-@SuppressLint("InlinedApi")
+@SuppressLint("InlinedApi", "ImplicitSamInstance")
 class J1939TelemetryService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private lateinit var transport: UsbJ1939Transport
@@ -88,7 +88,8 @@ class J1939TelemetryService : Service() {
     private var managerJob: Job? = null
     private var frameJob: Job? = null
     private var diagnosticsJob: Job? = null
-    private val latestMetrics = mutableMapOf<String, Double>()
+    private var locationSettingsJob: Job? = null
+    private val metricCache = MetricFreshnessCache(::metricTtlMs)
     private var busProfile = J1939BusProfile.AUTO
     private var connectorProfile = J1939ConnectorProfile.UNKNOWN
     private var profileProvided = false
@@ -109,7 +110,8 @@ class J1939TelemetryService : Service() {
             this,
             NOTIFICATION_ID,
             notification("Connecting to truck network"),
-            ServiceInfo.FOREGROUND_SERVICE_TYPE_SHORT_SERVICE
+            ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE or
+                (if (locationEnabled) ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION else 0)
         )
     }
 
@@ -118,6 +120,7 @@ class J1939TelemetryService : Service() {
             stopSelf()
             return START_NOT_STICKY
         }
+        stopService(Intent(this, ObdTelemetryService::class.java))
         if (intent?.hasExtra(EXTRA_BUS_PROFILE) == true) {
             busProfile = J1939BusProfile.fromStored(intent.getStringExtra(EXTRA_BUS_PROFILE))
             connectorProfile = J1939ConnectorProfile.fromStored(intent.getStringExtra(EXTRA_CONNECTOR_PROFILE))
@@ -128,6 +131,21 @@ class J1939TelemetryService : Service() {
     }
 
     private fun startManager() {
+        locationSettingsJob = scope.launch {
+            AppGraph.preferences.locationSharingEnabled.collect { requested ->
+                val active = requested && locationTracker.start()
+                if (!requested) locationTracker.stop()
+                locationEnabled = active
+                if (!active) sender.updateLocation(null)
+                ServiceCompat.startForeground(
+                    this@J1939TelemetryService,
+                    NOTIFICATION_ID,
+                    notification(J1939Runtime.status.value),
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE or
+                        (if (active) ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION else 0)
+                )
+            }
+        }
         diagnosticsJob = scope.launch {
             transport.diagnostics.collect { diagnostics ->
                 J1939Runtime.publishTransport(diagnostics)
@@ -136,13 +154,18 @@ class J1939TelemetryService : Service() {
         }
         frameJob = scope.launch {
             transport.frames.collect { frame ->
-                sender.updateLocation(locationTracker.latest)
+                sender.updateLocation(locationTracker.latestFresh())
                 sender.updateJ1939Frame(frame)
                 val decoded = decoder.decode(frame)
                 sender.updateJ1939Decode(decoded)
-                latestMetrics.putAll(decoded.metrics)
-                sender.updateSnapshot(latestMetrics, obdConnected = true, packetAt = frame.capturedAtEpochMs)
-                J1939Runtime.publish(latestMetrics, frame.capturedAtEpochMs)
+                val fresh = metricCache.update(decoded.metrics, frame.capturedAtEpochMs)
+                sender.updateSnapshot(
+                    fresh.values,
+                    obdConnected = true,
+                    packetAt = frame.capturedAtEpochMs,
+                    metricUpdatedAt = fresh.updatedAt
+                )
+                J1939Runtime.publish(fresh.values, frame.capturedAtEpochMs)
             }
         }
         managerJob = scope.launch {
@@ -214,7 +237,9 @@ class J1939TelemetryService : Service() {
                     J1939Runtime.update(J1939Runtime.State.RETRYING, "Truck network silent - checking bus speed and connection")
                     updateNotification(J1939Runtime.status.value)
                     transport.disconnect()
-                    delay(1_000)
+                    metricCache.clear()
+                    J1939Runtime.publish(emptyMap(), System.currentTimeMillis())
+                    delay(SILENT_BUS_RETRY_MS)
                     continue
                 }
                 J1939Runtime.publishDebug(sender.debug)
@@ -268,6 +293,7 @@ class J1939TelemetryService : Service() {
         managerJob?.cancel()
         frameJob?.cancel()
         diagnosticsJob?.cancel()
+        locationSettingsJob?.cancel()
         transport.close()
         scope.cancel()
         J1939Runtime.clear()
@@ -291,7 +317,15 @@ class J1939TelemetryService : Service() {
         private const val NOTIFICATION_ID = 1939
         private const val EXTRA_BUS_PROFILE = "j1939_bus_profile"
         private const val EXTRA_CONNECTOR_PROFILE = "j1939_connector_profile"
-        private const val BUS_STALE_MS = 7_000L
+        private const val BUS_STALE_MS = 15_000L
+        private const val SILENT_BUS_RETRY_MS = 15_000L
+
+        private fun metricTtlMs(key: String): Long = when (key) {
+            "engineHours", "tripDistanceKm", "odometerKm" -> 5 * 60_000L
+            "fuelLevelPct", "engineOilLevelPct", "coolantLevelPct" -> 2 * 60_000L
+            "ambientTempC", "barometricPressureKpa" -> 60_000L
+            else -> 20_000L
+        }
 
         fun startIntent(
             context: Context,

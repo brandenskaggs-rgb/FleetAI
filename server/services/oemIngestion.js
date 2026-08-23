@@ -23,9 +23,10 @@
  */
 
 const https = require("https");
+const { validateOutboundHttpsUrl, pinnedLookup } = require("../lib/outboundUrlPolicy");
 
 // In-memory registry of active OEM integrations
-// vehicleId -> { provider, apiKey, endpointUrl, intervalMin, lastPolledAt, timerId }
+// tenantScope:vehicleId -> { provider, apiKey, endpointUrl, intervalMin, lastPolledAt, timerId }
 const _registry = new Map();
 
 // Normalize OEM API responses to Fleet AI metric keys
@@ -105,10 +106,16 @@ function normalizeOemPayload(provider, raw) {
  * Fetch data from an OEM REST API endpoint.
  * Returns the parsed JSON response body or null on failure.
  */
-function fetchOemData(endpointUrl, apiKey) {
+async function fetchOemData(endpointUrl, apiKey, allowedHosts = []) {
+  let target;
+  try {
+    target = await validateOutboundHttpsUrl(endpointUrl, { allowedHosts });
+  } catch (_) {
+    return null;
+  }
   return new Promise((resolve) => {
     try {
-      const parsed = new URL(endpointUrl);
+      const parsed = target.parsed;
       const req = https.request(
         {
           hostname: parsed.hostname,
@@ -120,6 +127,8 @@ function fetchOemData(endpointUrl, apiKey) {
             "User-Agent":    "FleetAI-OEMIngestion/1.0",
           },
           timeout: 10000,
+          lookup: pinnedLookup(target.addresses),
+          servername: parsed.hostname,
         },
         (res) => {
           let body = "";
@@ -145,17 +154,17 @@ function fetchOemData(endpointUrl, apiKey) {
 /**
  * Poll a single OEM integration and store results.
  */
-async function pollIntegration(vehicleId, config, telemetryStore, nowIso) {
-  const { provider, apiKey, endpointUrl } = config;
+async function pollIntegration(storageVehicleId, config, telemetryStore, nowIso) {
+  const { provider, apiKey, endpointUrl, allowedHosts } = config;
   try {
-    const raw = await fetchOemData(endpointUrl, apiKey);
+    const raw = await fetchOemData(endpointUrl, apiKey, allowedHosts);
     if (!raw) return;
 
     const metrics = normalizeOemPayload(provider, raw);
     if (!Object.keys(metrics).length) return;
 
     // Store as a telemetry sample with source "oem_api"
-    await telemetryStore.appendFrames(vehicleId, [{
+    await telemetryStore.appendFrames(storageVehicleId, [{
       ts:      nowIso(),
       source:  "oem_api",
       provider,
@@ -172,19 +181,22 @@ async function pollIntegration(vehicleId, config, telemetryStore, nowIso) {
  * Register an OEM integration for a vehicle.
  * Starts polling immediately and schedules recurring polls.
  */
-function registerIntegration({ vehicleId, provider, apiKey, endpointUrl, intervalMin = 15 }, telemetryStore, nowIso) {
-  if (!vehicleId || !provider || !apiKey || !endpointUrl) return false;
+async function registerIntegration({ tenantScope, vehicleId, provider, apiKey, endpointUrl, intervalMin = 15, allowedHosts = [] }, telemetryStore, nowIso) {
+  if (!tenantScope || !vehicleId || !provider || !apiKey || !endpointUrl) return false;
   if (!_FIELD_MAPS[provider]) {
     console.warn(`[oemIngestion] Unknown provider: ${provider}. Supported: ${Object.keys(_FIELD_MAPS).join(", ")}`);
     return false;
   }
 
+  await validateOutboundHttpsUrl(endpointUrl, { allowedHosts });
+  const registryKey = `${tenantScope}:${vehicleId}`;
+
   // Clear existing timer if re-registering
-  if (_registry.has(vehicleId)) {
-    clearInterval(_registry.get(vehicleId).timerId);
+  if (_registry.has(registryKey)) {
+    clearInterval(_registry.get(registryKey).timerId);
   }
 
-  const config = { provider, apiKey, endpointUrl, intervalMin, lastPolledAt: null, timerId: null };
+  const config = { tenantScope, vehicleId, provider, apiKey, endpointUrl, intervalMin, allowedHosts, lastPolledAt: null, timerId: null };
   const intervalMs = Math.max(5, intervalMin) * 60 * 1000;
 
   // Poll immediately then on schedule
@@ -194,7 +206,7 @@ function registerIntegration({ vehicleId, provider, apiKey, endpointUrl, interva
     intervalMs
   );
 
-  _registry.set(vehicleId, config);
+  _registry.set(registryKey, config);
   console.log(`[oemIngestion] Registered ${provider} integration for vehicle ${vehicleId} (every ${intervalMin}min)`);
   return true;
 }
@@ -202,10 +214,11 @@ function registerIntegration({ vehicleId, provider, apiKey, endpointUrl, interva
 /**
  * Remove an OEM integration and stop polling.
  */
-function deregisterIntegration(vehicleId) {
-  const config = _registry.get(vehicleId);
+function deregisterIntegration(tenantScope, vehicleId) {
+  const registryKey = `${tenantScope}:${vehicleId}`;
+  const config = _registry.get(registryKey);
   if (config?.timerId) clearInterval(config.timerId);
-  _registry.delete(vehicleId);
+  _registry.delete(registryKey);
 }
 
 /**
@@ -213,9 +226,10 @@ function deregisterIntegration(vehicleId) {
  */
 function listIntegrations() {
   const result = [];
-  for (const [vehicleId, config] of _registry.entries()) {
+  for (const [, config] of _registry.entries()) {
     result.push({
-      vehicleId,
+      tenantScope: config.tenantScope,
+      vehicleId: config.vehicleId,
       provider:      config.provider,
       intervalMin:   config.intervalMin,
       lastPolledAt:  config.lastPolledAt,

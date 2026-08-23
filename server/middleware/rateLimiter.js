@@ -1,6 +1,7 @@
 const { rateLimit, ipKeyGenerator } = require("express-rate-limit");
 const { RedisStore } = require("rate-limit-redis");
 const { createClient } = require("redis");
+const crypto = require("crypto");
 
 let _redisClient = null;
 let _redisReady = false;
@@ -26,7 +27,15 @@ async function initRedis() {
 // Exported so startServer() can await it before accepting traffic
 const redisReady = initRedis().catch(() => {});
 
-function createRateLimiter({ windowMs = 60000, max = 100, keyPrefix = "rl" } = {}) {
+function hashRateLimitValue(value) {
+  return crypto.createHash("sha256").update(String(value || ""), "utf8").digest("hex").slice(0, 32);
+}
+
+function trustedIpKey(req) {
+  return ipKeyGenerator(req.ip || req.socket?.remoteAddress || "unknown");
+}
+
+function createRateLimiter({ windowMs = 60000, max = 100, keyPrefix = "rl", keyGenerator } = {}) {
   let limiterPromise = null;
   const getLimiter = () => {
     if (!limiterPromise) {
@@ -39,7 +48,10 @@ function createRateLimiter({ windowMs = 60000, max = 100, keyPrefix = "rl" } = {
           max,
           standardHeaders: true,
           legacyHeaders: false,
-          keyGenerator: (req) => `${keyPrefix}:${req.headers["x-api-key"] || ipKeyGenerator(req.ip)}`,
+          // Public rate limits must never trust caller-controlled API-key
+          // headers. Authenticated partner limits provide their own generator
+          // based on the verified database key ID.
+          keyGenerator: (req) => `${keyPrefix}:${keyGenerator ? keyGenerator(req) : trustedIpKey(req)}`,
           store,
           handler: (req, res) => {
             res.status(429).json({
@@ -66,6 +78,30 @@ function createRateLimiter({ windowMs = 60000, max = 100, keyPrefix = "rl" } = {
 
 const defaultLimiter = createRateLimiter({ windowMs: 60000, max: 100, keyPrefix: "api" });
 const predictionLimiter = createRateLimiter({ windowMs: 60000, max: 30, keyPrefix: "pred" });
-const loginLimiter = createRateLimiter({ windowMs: 15 * 60000, max: 10, keyPrefix: "auth-login" });
+const loginIpLimiter = createRateLimiter({ windowMs: 15 * 60000, max: 10, keyPrefix: "auth-login-ip" });
+const loginAccountLimiter = createRateLimiter({
+  windowMs: 15 * 60000,
+  max: 20,
+  keyPrefix: "auth-login-account",
+  keyGenerator: (req) => {
+    const account = String(req.body?.email || "").trim().toLowerCase();
+    return account ? hashRateLimitValue(account) : `missing:${trustedIpKey(req)}`;
+  }
+});
 
-module.exports = { createRateLimiter, defaultLimiter, predictionLimiter, loginLimiter, redisReady };
+function loginLimiter(req, res, next) {
+  return loginIpLimiter(req, res, (err) => {
+    if (err) return next(err);
+    return loginAccountLimiter(req, res, next);
+  });
+}
+
+module.exports = {
+  createRateLimiter,
+  defaultLimiter,
+  predictionLimiter,
+  loginLimiter,
+  redisReady,
+  hashRateLimitValue,
+  trustedIpKey
+};

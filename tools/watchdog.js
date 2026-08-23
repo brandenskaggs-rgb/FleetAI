@@ -22,12 +22,12 @@ function writeLog(logPath, line) {
   } catch (_) {}
 }
 
-function requestJson(url, timeoutMs) {
+function requestJson(url, timeoutMs, headers = {}) {
   return new Promise((resolve) => {
     try {
       const isHttps = url.startsWith("https://");
       const lib = isHttps ? https : http;
-      const req = lib.get(url, { timeout: timeoutMs }, (res) => {
+      const req = lib.get(url, { timeout: timeoutMs, headers }, (res) => {
         let data = "";
         res.on("data", (chunk) => { data += chunk; });
         res.on("end", () => {
@@ -56,6 +56,7 @@ function startWatchdog(options) {
   const contract = readContract(contractPath);
   const intervalMs = Number(contract.intervalMs || options.intervalMs || 10000);
   const timeoutMs = Number(contract.maxTimeoutMs || options.timeoutMs || 2000);
+  const headers = options.headers && typeof options.headers === "object" ? options.headers : {};
 
   const state = {
     lastOkAt: null,
@@ -69,7 +70,15 @@ function startWatchdog(options) {
     for (const ep of endpoints) {
       const url = `${baseUrl}${ep.path}`;
       const started = Date.now();
-      const result = await requestJson(url, Math.min(timeoutMs, ep.timeoutMs || timeoutMs));
+      const result = await requestJson(url, Math.min(timeoutMs, ep.timeoutMs || timeoutMs), headers);
+      const requiredFields = Array.isArray(ep.requiredFields) ? ep.requiredFields : [];
+      const missingFields = result.ok
+        ? requiredFields.filter((field) => !Object.prototype.hasOwnProperty.call(result.data || {}, field))
+        : [];
+      if (missingFields.length) {
+        result.ok = false;
+        result.error = `missing_fields:${missingFields.join(",")}`;
+      }
       const ms = Date.now() - started;
       const entry = {
         ok: result.ok,

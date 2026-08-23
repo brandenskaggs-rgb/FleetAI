@@ -1,5 +1,6 @@
 const bcrypt = require("bcryptjs");
 const { normalizeAuthData, normalizeEmail, hasPasswordHash } = require("../authStore");
+const { makeId } = require("../lib/utils");
 
 function ensureOrg(data, orgId, nowIso) {
   if (!orgId) return false;
@@ -65,7 +66,7 @@ async function applyAuthStoreRepair(data, options) {
     let user = (data.users || []).find((u) => normalizeEmail(u.email) === email);
     if (!user) {
       user = {
-        id: info.id || `USR_${Date.now()}_${Math.floor(Math.random() * 10000)}`,
+        id: info.id || makeId("USR"),
         email,
         role: info.role,
         kind: info.kind,

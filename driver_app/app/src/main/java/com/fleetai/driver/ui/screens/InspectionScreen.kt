@@ -16,6 +16,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
@@ -28,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import com.fleetai.driver.ui.components.FleetButton
 import com.fleetai.driver.ui.components.FleetCard
 import com.fleetai.driver.ui.viewmodel.SessionState
+import com.fleetai.driver.ui.viewmodel.InspectionViewModel
 
 private enum class ItemResult { PASS, DEFECT, NA }
 
@@ -43,21 +45,22 @@ private val InspectionItems = listOf(
     "Coupling devices",
     "Emergency equipment",
     "Cargo securement",
-    "California emissions readiness"
+    "Exhaust and emissions equipment"
 )
 
 @Composable
-fun InspectionScreen(contentPadding: PaddingValues, sessionState: SessionState) {
+fun InspectionScreen(
+    contentPadding: PaddingValues,
+    sessionState: SessionState,
+    viewModel: InspectionViewModel
+) {
     var inspectionType by remember { mutableStateOf("Pre-trip") }
     var odometer by remember { mutableStateOf("") }
     var notes by remember { mutableStateOf("") }
     var signature by remember { mutableStateOf("") }
-    var message by remember { mutableStateOf("Complete each required item before submitting.") }
-    val results = remember {
-        mutableStateMapOf<String, ItemResult>().also { map ->
-            InspectionItems.forEach { map[it] = ItemResult.PASS }
-        }
-    }
+    val message by viewModel.message.collectAsState()
+    val submitting by viewModel.submitting.collectAsState()
+    val results = remember { mutableStateMapOf<String, ItemResult>() }
 
     Column(
         modifier = Modifier
@@ -143,17 +146,32 @@ fun InspectionScreen(contentPadding: PaddingValues, sessionState: SessionState) 
                 text = "Submit inspection",
                 onClick = {
                     val defects = results.values.count { it == ItemResult.DEFECT }
-                    if (odometer.isBlank() || signature.isBlank()) {
-                        message = "Odometer and driver signature are required."
+                    if (results.size != InspectionItems.size || odometer.isBlank() || signature.isBlank()) {
                         return@FleetButton
                     }
                     if (defects > 0 && notes.isBlank()) {
-                        message = "Add notes for any defect before submitting."
                         return@FleetButton
                     }
-                    message = "$inspectionType inspection saved locally. Sync endpoint wiring is next."
+                    val inspectedItems = InspectionItems.map { item ->
+                        val result = when (results[item]) {
+                            ItemResult.DEFECT -> "defect"
+                            ItemResult.NA -> "not_applicable"
+                            else -> "pass"
+                        }
+                        "$item: $result"
+                    }
+                    viewModel.submit(
+                        type = inspectionType,
+                        odometer = odometer.toLongOrNull() ?: 0L,
+                        inspectedItems = inspectedItems,
+                        defects = notes,
+                        signature = signature
+                    )
                 },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !submitting && results.size == InspectionItems.size &&
+                    odometer.isNotBlank() && signature.isNotBlank() &&
+                    (results.values.none { it == ItemResult.DEFECT } || notes.isNotBlank())
             )
             Spacer(modifier = Modifier.height(10.dp))
             Text(message, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f))

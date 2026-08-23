@@ -9,7 +9,8 @@ const {
   SPECIAL_DRIVING_CODE,
   LOGIN_CODE,
   ENGINE_POWER_CODE,
-  DIAGNOSTIC_CODE,
+  MALFUNCTION_CODE,
+  DATA_DIAGNOSTIC_CODE,
   DIAGNOSTIC_EVENT_CODE,
   VALID_MULTIDAY_BASES,
   VEHICLE_MOVING_KPH,
@@ -300,12 +301,25 @@ function createEldService(prisma) {
   async function createEventInTransaction(tx, device, input) {
     const occurredAt = asDate(input.occurredAt);
     const context = await getDeviceContext(device, tx);
-      if (!context.state?.enabled) {
-        const error = new Error("ELD mode is not enabled for this paired device");
-        error.code = "ELD_NOT_ENABLED";
-        error.statusCode = 409;
-        throw error;
-      }
+    const clientEventId = cleanField(input.clientEventId, 80);
+    if (clientEventId) {
+      const existing = await tx.eldEvent.findFirst({
+        where: {
+          orgId: device.orgId,
+          deviceId: device.deviceId,
+          eventType: Number(input.eventType),
+          metadata: { path: ["clientEventId"], equals: clientEventId }
+        },
+        orderBy: { createdAt: "desc" }
+      });
+      if (existing) return existing;
+    }
+    if (!context.state?.enabled) {
+      const error = new Error("ELD mode is not enabled for this paired device");
+      error.code = "ELD_NOT_ENABLED";
+      error.statusCode = 409;
+      throw error;
+    }
       if (!context.config) {
         const error = new Error("Carrier ELD configuration is missing");
         error.statusCode = 409;
@@ -416,7 +430,10 @@ function createEldService(prisma) {
           malfunctionDiagnosticCode: cleanField(input.malfunctionDiagnosticCode, 1),
           eventDataCheck: eventCheck,
           relatedEventId: input.relatedEventId || null,
-          metadata: input.metadata || {}
+          metadata: {
+            ...(input.metadata || {}),
+            ...(clientEventId ? { clientEventId } : {})
+          }
         }
       });
       await tx.eldDeviceState.update({ where: { deviceId: device.deviceId }, data: stateUpdate });
@@ -717,19 +734,19 @@ function createEldService(prisma) {
     });
 
     if (engineSyncLossMs >= ENGINE_SYNC_DIAGNOSTIC_MS) {
-      await setDiagnostic(device, "DIAGNOSTIC", DIAGNOSTIC_CODE.ENGINE_SYNC, true, { engineSyncLossMs }, now);
+      await setDiagnostic(device, "DIAGNOSTIC", DATA_DIAGNOSTIC_CODE.ENGINE_SYNCHRONIZATION, true, { engineSyncLossMs }, now);
     } else {
-      await setDiagnostic(device, "DIAGNOSTIC", DIAGNOSTIC_CODE.ENGINE_SYNC, false, { engineSyncLossMs: 0 }, now);
+      await setDiagnostic(device, "DIAGNOSTIC", DATA_DIAGNOSTIC_CODE.ENGINE_SYNCHRONIZATION, false, { engineSyncLossMs: 0 }, now);
     }
     if (engineSyncLossMs >= ENGINE_SYNC_MALFUNCTION_MS) {
-      await setDiagnostic(device, "MALFUNCTION", DIAGNOSTIC_CODE.ENGINE_SYNC, true, { engineSyncLossMs }, now);
+      await setDiagnostic(device, "MALFUNCTION", MALFUNCTION_CODE.ENGINE_SYNC, true, { engineSyncLossMs }, now);
     } else if (completeEngineSync) {
-      await setDiagnostic(device, "MALFUNCTION", DIAGNOSTIC_CODE.ENGINE_SYNC, false, { engineSyncLossMs: 0 }, now);
+      await setDiagnostic(device, "MALFUNCTION", MALFUNCTION_CODE.ENGINE_SYNC, false, { engineSyncLossMs: 0 }, now);
     }
     if (positioningLossMotionMs >= POSITIONING_MALFUNCTION_MS) {
-      await setDiagnostic(device, "MALFUNCTION", DIAGNOSTIC_CODE.POSITIONING, true, { positioningLossMotionMs }, now);
+      await setDiagnostic(device, "MALFUNCTION", MALFUNCTION_CODE.POSITIONING, true, { positioningLossMotionMs }, now);
     } else if (hasPosition) {
-      await setDiagnostic(device, "MALFUNCTION", DIAGNOSTIC_CODE.POSITIONING, false, { positioningLossMotionMs: 0 }, now);
+      await setDiagnostic(device, "MALFUNCTION", MALFUNCTION_CODE.POSITIONING, false, { positioningLossMotionMs: 0 }, now);
     }
 
     const common = {
@@ -808,7 +825,7 @@ function createEldService(prisma) {
         data: { unidentifiedDrivingMinutes: unidentifiedMinutes }
       });
       if (unidentifiedMinutes > UNIDENTIFIED_DIAGNOSTIC_MINUTES) {
-        await setDiagnostic(device, "DIAGNOSTIC", DIAGNOSTIC_CODE.UNIDENTIFIED_DRIVING, true, { unidentifiedMinutes }, now);
+        await setDiagnostic(device, "DIAGNOSTIC", DATA_DIAGNOSTIC_CODE.UNIDENTIFIED_DRIVING, true, { unidentifiedMinutes }, now);
       }
     }
     return { enabled: true, events };

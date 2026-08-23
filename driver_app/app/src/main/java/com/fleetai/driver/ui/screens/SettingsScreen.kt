@@ -21,7 +21,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.ui.platform.LocalContext
 import android.content.Intent
-import android.net.Uri
+import androidx.core.net.toUri
 import com.fleetai.driver.ConnectActivity
 import com.fleetai.driver.AppGraph
 import com.fleetai.driver.BuildConfig
@@ -110,7 +110,7 @@ fun SettingsScreen(contentPadding: PaddingValues) {
             FleetButton(
                 text = "Privacy policy",
                 onClick = {
-                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://fleetaiops.com/legal/privacy.html")))
+                    context.startActivity(Intent(Intent.ACTION_VIEW, "https://fleetaiops.com/legal/privacy.html".toUri()))
                 },
                 modifier = Modifier.fillMaxWidth()
             )
@@ -118,7 +118,7 @@ fun SettingsScreen(contentPadding: PaddingValues) {
             FleetButton(
                 text = "Terms of service",
                 onClick = {
-                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://fleetaiops.com/legal/terms.html")))
+                    context.startActivity(Intent(Intent.ACTION_VIEW, "https://fleetaiops.com/legal/terms.html".toUri()))
                 },
                 modifier = Modifier.fillMaxWidth()
             )

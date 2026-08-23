@@ -16,6 +16,7 @@ from pydantic import BaseModel, Field
 
 from ..db import pg as pg_db
 from ..ml.features import coalesce_samples, extract_features, metric_value, METRIC_KEYS
+from ..ml.engine_state import classify_engine_event, select_engine_running_samples
 from ..ml.dtc import analyze_dtcs
 from ..ml.diagnosis import run_diagnosis
 from ..ml.fleet import compute_fleet_normalization, fleet_risk_boost
@@ -50,6 +51,7 @@ class ModelStatusRequest(BaseModel):
 # ── Welford in-memory state ───────────────────────────────────────────────────
 # Keyed by vehicleId → {metric_key: {count, mean, M2}}
 _welford_state: dict[str, dict[str, dict]] = {}
+_welford_last_event_ts: dict[str, str] = {}
 
 # In-memory IF cache keyed by vehicleId
 _if_cache: dict[str, VehicleIsolationForest] = {}
@@ -93,6 +95,9 @@ async def _load_welford_from_db(vehicle_id: str) -> None:
     state = await pg_db.get_model_state(vehicle_id)
     if state and "welford" in state:
         _welford_state[vehicle_id] = state["welford"]
+        last_event_ts = state.get("last_running_sample_ts")
+        if last_event_ts:
+            _welford_last_event_ts[vehicle_id] = str(last_event_ts)
 
 
 async def _persist_state(vehicle_id: str, org_id: Optional[str], vif: VehicleIsolationForest) -> None:
@@ -101,8 +106,23 @@ async def _persist_state(vehicle_id: str, org_id: Optional[str], vif: VehicleIso
     await pg_db.upsert_model_state(vehicle_id, org_id, {
         "welford": welford,
         "isolation_forest": vif.to_state_dict(),
+        "last_running_sample_ts": _welford_last_event_ts.get(vehicle_id),
         "updated_at": time.time(),
     })
+
+
+def _sample_event_seconds(sample: dict) -> Optional[float]:
+    raw = sample.get("ts") or sample.get("timestamp")
+    if not raw:
+        return None
+    try:
+        from datetime import datetime, timezone
+        parsed = datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+        return parsed.timestamp()
+    except (TypeError, ValueError):
+        return None
 
 
 async def _get_or_load_vif(vehicle_id: str, org_id: Optional[str]) -> VehicleIsolationForest:
@@ -172,9 +192,12 @@ async def predict(req: PredictRequest) -> dict:
     org_id = req.orgId
 
     # ── 1. Gather samples ─────────────────────────────────────────────────────
-    db_samples = await pg_db.get_recent_samples(vehicle_id, limit=5000)
+    db_samples = await pg_db.get_recent_samples(vehicle_id, org_id, limit=5000)
     # Merge: request samples take precedence (they may be fresher)
     all_samples = _dedupe_samples(db_samples + req.samples if req.samples else db_samples)
+    engine_event = classify_engine_event(all_samples)
+    analysis_samples = select_engine_running_samples(all_samples)
+    excluded_engine_off_samples = max(0, len(all_samples) - len(analysis_samples))
     if not all_samples:
         return {
             "vehicleId": vehicle_id,
@@ -183,10 +206,26 @@ async def predict(req: PredictRequest) -> dict:
             "riskProbability": 0.0,
             "prediction": "insufficient_data",
             "confidence": 0.0,
+            "engineEvent": engine_event,
+        }
+    if not analysis_samples:
+        return {
+            "vehicleId": vehicle_id,
+            "available": False,
+            "reason": "no_engine_running_telemetry",
+            "riskProbability": 0.0,
+            "prediction": "insufficient_data",
+            "confidence": 0.0,
+            "engineEvent": engine_event,
+            "dataQuality": {
+                "observedSamples": len(all_samples),
+                "engineRunningSamples": 0,
+                "excludedEngineOffSamples": excluded_engine_off_samples,
+            },
         }
 
     # ── 2. Feature extraction ─────────────────────────────────────────────────
-    features = extract_features(all_samples, vehicle_meta=req.vehicleMeta)
+    features = extract_features(analysis_samples, vehicle_meta=req.vehicleMeta)
     if not features.get("available"):
         return {
             "vehicleId": vehicle_id,
@@ -195,6 +234,7 @@ async def predict(req: PredictRequest) -> dict:
             "riskProbability": 0.0,
             "prediction": "insufficient_data",
             "confidence": 0.0,
+            "engineEvent": engine_event,
         }
 
     flat = features["flat"]
@@ -207,15 +247,48 @@ async def predict(req: PredictRequest) -> dict:
     w_state = _get_welford_state(vehicle_id)
     welford_zscores: dict[str, float] = {}
 
-    for metric_key in METRIC_KEYS:
-        val = current_metrics.get(metric_key)
-        if val is None:
-            continue
-        ms = w_state.setdefault(metric_key, {"count": 0, "mean": 0.0, "M2": 0.0})
-        z = _welford_zscore(ms, val)
-        w_state[metric_key] = _welford_update(ms, val)
-        if z is not None:
-            welford_zscores[metric_key] = round(z, 3)
+    previous_event_seconds = None
+    if _welford_last_event_ts.get(vehicle_id):
+        previous_event_seconds = _sample_event_seconds({"ts": _welford_last_event_ts[vehicle_id]})
+    ordered_analysis = sorted(
+        analysis_samples,
+        key=lambda sample: _sample_event_seconds(sample) or 0.0,
+    )
+    if w_state and previous_event_seconds is None:
+        # Older persisted states predate the event-time cursor. Do not replay
+        # the entire history into an already-populated baseline during rollout.
+        unseen_samples = ordered_analysis[-1:]
+    else:
+        unseen_samples = [
+            sample for sample in ordered_analysis
+            if _sample_event_seconds(sample) is not None
+            and (previous_event_seconds is None or _sample_event_seconds(sample) > previous_event_seconds)
+        ]
+
+    for telemetry_sample in unseen_samples:
+        for metric_key in METRIC_KEYS:
+            val = metric_value(telemetry_sample, metric_key)
+            if val is None:
+                continue
+            ms = w_state.setdefault(metric_key, {"count": 0, "mean": 0.0, "M2": 0.0})
+            z = _welford_zscore(ms, val)
+            w_state[metric_key] = _welford_update(ms, val)
+            if z is not None:
+                welford_zscores[metric_key] = round(z, 3)
+
+    if unseen_samples:
+        latest_event_ts = unseen_samples[-1].get("ts") or unseen_samples[-1].get("timestamp")
+        if latest_event_ts:
+            _welford_last_event_ts[vehicle_id] = str(latest_event_ts)
+    else:
+        for metric_key in METRIC_KEYS:
+            val = current_metrics.get(metric_key)
+            ms = w_state.get(metric_key)
+            if val is None or not ms:
+                continue
+            z = _welford_zscore(ms, val)
+            if z is not None:
+                welford_zscores[metric_key] = round(z, 3)
 
     welford_count = min(ws.get("count", 0) for ws in w_state.values()) if w_state else 0
 
@@ -225,7 +298,7 @@ async def predict(req: PredictRequest) -> dict:
     if vif.needs_retraining() and features["sample_count"] >= 50:
         # Build flat dicts for all samples to use as training rows
         # We train on a sliding window of the most recent 2000 samples
-        train_samples = all_samples[-2000:]
+        train_samples = analysis_samples[-2000:]
         from ..ml.features import extract_features as ef
         # Build individual flat dicts per sample for IF training
         # Use rolling windows of 20 samples each to get distributions
@@ -384,7 +457,7 @@ async def predict(req: PredictRequest) -> dict:
 
     # ── 9. Persist ────────────────────────────────────────────────────────────
     try:
-        await _persist_baselines(vehicle_id, org_id, window_stats, all_samples)
+        await _persist_baselines(vehicle_id, org_id, window_stats, analysis_samples)
         await _persist_state(vehicle_id, org_id, vif)
     except Exception as exc:
         logger.debug(f"[predict] persist error for {vehicle_id}: {exc}")
@@ -399,6 +472,12 @@ async def predict(req: PredictRequest) -> dict:
         "diagnosis": diagnosis,
         "fleetNormalization": fleet_norm,
         "currentMetrics": current_metrics,
+        "engineEvent": engine_event,
+        "dataQuality": {
+            "observedSamples": len(all_samples),
+            "engineRunningSamples": len(analysis_samples),
+            "excludedEngineOffSamples": excluded_engine_off_samples,
+        },
         "features": {
             "sampleCount": features["sample_count"],
             "dutyCycle": features["duty_cycle"],
@@ -426,7 +505,7 @@ async def predict(req: PredictRequest) -> dict:
 # ── GET /model/status ─────────────────────────────────────────────────────────
 
 @router.get("/model/status")
-async def model_status(vehicleId: Optional[str] = None) -> dict:
+async def model_status(vehicleId: Optional[str] = None, orgId: Optional[str] = None) -> dict:
     """Return global service status or readiness for one vehicle."""
     if not vehicleId:
         return {
@@ -443,7 +522,7 @@ async def model_status(vehicleId: Optional[str] = None) -> dict:
     db_ok = pg_db.is_available()
     sample_count = 0
     if db_ok:
-        samples = await pg_db.get_recent_samples(vehicleId, limit=1)
+        samples = await pg_db.get_recent_samples(vehicleId, orgId, limit=1)
         sample_count = len(samples)
 
     return {

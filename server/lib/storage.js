@@ -122,11 +122,23 @@ function createStorage(options) {
     }
 
     try {
-      await fsp.copyFile(tmpPath, dataPath);
+      // Temp file lives in the same directory, so rename is an atomic replace
+      // on the Linux production filesystem. Readers see either the complete
+      // old snapshot or the complete new snapshot, never a partial copy.
+      await fsp.rename(tmpPath, dataPath);
       await setFilePermissions(dataPath);
+      let dirHandle = null;
+      try {
+        dirHandle = await fsp.open(path.dirname(dataPath), "r");
+        await dirHandle.sync();
+      } catch (_) {
+        // Directory fsync is unavailable on some Windows/filesystem targets.
+      } finally {
+        if (dirHandle) await dirHandle.close().catch(() => {});
+      }
     } finally {
       try {
-        await fsp.unlink(tmpPath);
+        if (fs.existsSync(tmpPath)) await fsp.unlink(tmpPath);
       } catch (_) {
         // ignore temp cleanup failure
       }

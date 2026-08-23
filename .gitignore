@@ -3,6 +3,8 @@ driver_app/.gradle/
 driver_app/.idea/
 driver_app/build/
 driver_app/app/build/
+driver_app/local.properties
+artifacts/
 
 server/data.json
 server/data.json.bak-*

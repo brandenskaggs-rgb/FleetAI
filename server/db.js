@@ -1289,17 +1289,29 @@ async function listOpenDiagnosticScans(orgId, { limit = 50 } = {}) {
 
 async function insertEvent({ orgId, vehicleId, type, severity, payload, createdAt, dedupeKey } = {}) {
   await ensureVehicleStub(vehicleId);
-  const row = await getPrisma().event.create({
-    data: {
-      orgId: orgId || null,
-      vehicleId,
-      type,
-      severity: severity || "info",
-      dedupeKey: dedupeKey || null,
-      detectedAt: toDate(createdAt),
-      metricsSnapshot: payload || {}
-    },
-    select: { id: true }
+  const prisma = getPrisma();
+  const normalizedDedupeKey = String(dedupeKey || "").trim() || null;
+  const row = await prisma.$transaction(async (tx) => {
+    if (normalizedDedupeKey) {
+      const existing = await tx.event.findFirst({
+        where: { orgId: orgId || null, vehicleId, type, dedupeKey: normalizedDedupeKey },
+        orderBy: { detectedAt: "desc" },
+        select: { id: true }
+      });
+      if (existing) return existing;
+    }
+    return tx.event.create({
+      data: {
+        orgId: orgId || null,
+        vehicleId,
+        type,
+        severity: severity || "info",
+        dedupeKey: normalizedDedupeKey,
+        detectedAt: toDate(createdAt),
+        metricsSnapshot: payload || {}
+      },
+      select: { id: true }
+    });
   });
   return row.id;
 }

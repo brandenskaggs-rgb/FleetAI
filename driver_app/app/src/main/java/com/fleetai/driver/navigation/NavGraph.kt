@@ -3,6 +3,7 @@ package com.fleetai.driver.navigation
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -17,6 +18,8 @@ import com.fleetai.driver.ui.screens.SettingsScreen
 import com.fleetai.driver.ui.screens.StatusScreen
 import com.fleetai.driver.ui.viewmodel.SessionState
 import com.fleetai.driver.ui.viewmodel.SensorViewModel
+import com.fleetai.driver.ui.viewmodel.InspectionViewModel
+import com.fleetai.driver.AppGraph
 
 object MainRoute {
     const val Home = "home"
@@ -65,7 +68,12 @@ fun MainNavGraph(
             LogbookScreen(contentPadding = contentPadding)
         }
         composable(MainRoute.Inspections) {
-            InspectionScreen(contentPadding = contentPadding, sessionState = sessionState)
+            val inspectionViewModel: InspectionViewModel = viewModel(factory = AppGraph.viewModelFactory)
+            InspectionScreen(
+                contentPadding = contentPadding,
+                sessionState = sessionState,
+                viewModel = inspectionViewModel
+            )
         }
         composable(MainRoute.Sensors) {
             SensorsScreen(contentPadding = contentPadding, viewModel = sensorViewModel)

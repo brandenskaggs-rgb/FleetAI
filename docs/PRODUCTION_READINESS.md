@@ -110,5 +110,5 @@ Generated: 2026-05-27
 
 ### Future
 - `server/state/*.bad` and `*.corrupt` files should be reviewed for cleanup
-- BLE/GATT Veepeak OBD dongle compatibility — flagged for a separate session
+- BLE/GATT Veepeak OBD dongle support is implemented in `ObdConnectionManager`; complete the hardware compatibility matrix with field-tested adapter and tablet combinations before broad deployment.
 - After Prisma migration fully verified: retire `server/state/auth-store.json` and `server/state/fleet.db`

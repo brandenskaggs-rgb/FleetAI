@@ -6,7 +6,7 @@ This checklist covers the Android app in `driver_app`. It is an engineering and 
 
 - App name: Fleet AI Driver
 - Application ID: `com.fleetai.driver`
-- Current release: `1.8` (`versionCode 9`)
+- Current release: `1.9.0` (`versionCode 11`)
 - Minimum Android: API 26 (Android 8)
 - Target Android: API 36 (Android 16)
 - Production API: `https://fleetaiops.com`

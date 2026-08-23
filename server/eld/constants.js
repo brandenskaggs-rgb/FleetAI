@@ -49,7 +49,7 @@ const ENGINE_POWER_CODE = Object.freeze({
   SHUT_DOWN_REDUCED: 4
 });
 
-const DIAGNOSTIC_CODE = Object.freeze({
+const MALFUNCTION_CODE = Object.freeze({
   POWER: "P",
   ENGINE_SYNC: "E",
   TIMING: "T",
@@ -57,6 +57,17 @@ const DIAGNOSTIC_CODE = Object.freeze({
   DATA_RECORDING: "R",
   DATA_TRANSFER: "S",
   UNIDENTIFIED_DRIVING: "O"
+});
+
+// Appendix A, section 7.6: data diagnostic identifiers are numeric and are
+// distinct from the malfunction letter codes above.
+const DATA_DIAGNOSTIC_CODE = Object.freeze({
+  POWER_COMPLIANCE: "1",
+  ENGINE_SYNCHRONIZATION: "2",
+  MISSING_REQUIRED_DATA: "3",
+  DATA_TRANSFER: "4",
+  UNIDENTIFIED_DRIVING: "5",
+  OTHER: "6"
 });
 
 const DIAGNOSTIC_EVENT_CODE = Object.freeze({
@@ -80,7 +91,8 @@ module.exports = {
   SPECIAL_DRIVING_CODE,
   LOGIN_CODE,
   ENGINE_POWER_CODE,
-  DIAGNOSTIC_CODE,
+  MALFUNCTION_CODE,
+  DATA_DIAGNOSTIC_CODE,
   DIAGNOSTIC_EVENT_CODE,
   VALID_MULTIDAY_BASES,
   VEHICLE_MOVING_KPH,

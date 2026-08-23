@@ -3,6 +3,7 @@ package com.fleetai.driver.data.repository
 import com.fleetai.driver.data.model.ComplianceConfig
 import com.fleetai.driver.data.model.DriverSession
 import com.fleetai.driver.data.model.DtcCode
+import com.fleetai.driver.data.model.DvirRecord
 import com.fleetai.driver.data.model.DutyStatus
 import com.fleetai.driver.data.model.EldDeviceStatus
 import com.fleetai.driver.data.model.HosEvent
@@ -19,6 +20,7 @@ interface DriverRepository {
 
     suspend fun addHosEvent(event: HosEvent)
     suspend fun getHosEvents(date: String): List<HosEvent>
+    suspend fun submitInspection(record: DvirRecord): Boolean
 
     suspend fun addNotification(notification: NotificationItem)
     suspend fun getNotifications(): List<NotificationItem>

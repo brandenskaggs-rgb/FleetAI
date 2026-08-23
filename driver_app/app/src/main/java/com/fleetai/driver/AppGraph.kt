@@ -12,6 +12,7 @@ import com.fleetai.driver.network.ApiClient
 import com.fleetai.driver.network.MockApiService
 import com.fleetai.driver.ui.viewmodel.DiagnosticsViewModel
 import com.fleetai.driver.ui.viewmodel.HomeViewModel
+import com.fleetai.driver.ui.viewmodel.InspectionViewModel
 import com.fleetai.driver.ui.viewmodel.LogbookViewModel
 import com.fleetai.driver.ui.viewmodel.NotificationsViewModel
 import com.fleetai.driver.ui.viewmodel.RouteViewModel
@@ -21,10 +22,12 @@ import com.fleetai.driver.ui.viewmodel.SettingsViewModel
 import com.fleetai.driver.ui.viewmodel.StatusViewModel
 import com.fleetai.driver.ui.viewmodel.VehicleViewModel
 import com.fleetai.driver.telemetry.TelemetryOutbox
+import kotlinx.coroutines.flow.first
 
 object AppGraph {
     lateinit var repository: DriverRepository
         private set
+    @SuppressLint("StaticFieldLeak") // AppPreferences retains applicationContext only.
     lateinit var preferences: AppPreferences
         private set
     @SuppressLint("StaticFieldLeak")
@@ -38,14 +41,20 @@ object AppGraph {
         preferences = AppPreferences(context)
         ApiClient.init(context, preferences)
         val db = DriverDatabase.create(context)
-        telemetryOutbox = TelemetryOutbox(db.telemetryOutboxDao())
+        telemetryOutbox = TelemetryOutbox(
+            dao = db.telemetryOutboxDao(),
+            resolveTenantId = { preferences.tenantId.first() },
+            resolveVehicleId = { preferences.vehicleId.first() },
+            resolveAuthToken = { preferences.token.first() }
+        )
         repository = DefaultDriverRepository(
             api = ApiClient.api,
             mockApi = MockApiService(),
             preferences = preferences,
             hosDao = db.hosDao(),
             notificationDao = db.notificationDao(),
-            vehicleDao = db.vehicleDao()
+            vehicleDao = db.vehicleDao(),
+            dvirDao = db.dvirDao()
         )
     }
 
@@ -54,6 +63,7 @@ object AppGraph {
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             return when (modelClass) {
                 HomeViewModel::class.java -> HomeViewModel(repository) as T
+                InspectionViewModel::class.java -> InspectionViewModel(repository, preferences) as T
                 LogbookViewModel::class.java -> LogbookViewModel(repository, preferences) as T
                 StatusViewModel::class.java -> StatusViewModel(repository) as T
                 DiagnosticsViewModel::class.java -> DiagnosticsViewModel(repository, preferences, appContext) as T

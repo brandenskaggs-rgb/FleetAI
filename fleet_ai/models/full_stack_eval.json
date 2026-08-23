@@ -1,4 +1,5 @@
 {
+  "validation_scope": "synthetic_simulation_only_not_field_accuracy",
   "eval_seeds": [
     777,
     888,

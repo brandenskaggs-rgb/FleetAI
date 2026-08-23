@@ -5,7 +5,7 @@
  * Usage:
  *   <div id="fleetai-widget" data-vehicle="TRUCK-001"></div>
  *   <script src="https://fleetaiops.com/embed/fleet-widget.js"
- *           data-api-key="YOUR_KEY"
+ *           data-ticket-endpoint="/fleet-ai/stream-ticket"
  *           data-base-url="https://fleetaiops.com"></script>
  *
  * The widget connects to the SSE stream and updates in real time as new
@@ -13,8 +13,11 @@
  */
 (function () {
   const script = document.currentScript;
-  const API_KEY  = script?.dataset?.apiKey  || "";
   const BASE_URL = (script?.dataset?.baseUrl || "https://fleetaiops.com").replace(/\/$/, "");
+  const TICKET_ENDPOINT = script?.dataset?.ticketEndpoint || "";
+  const INITIAL_STREAM_TICKET = script?.dataset?.streamTicket || "";
+  const RUL_ENDPOINT = script?.dataset?.rulEndpoint || "";
+  let initialTicketConsumed = false;
 
   const RISK_LABELS = {
     failure_imminent: { label: "Failure Imminent", color: "#e53e3e" },
@@ -195,36 +198,51 @@
   }
 
   async function fetchRUL(vehicleId) {
+    if (!RUL_ENDPOINT) return null;
     try {
-      const r = await fetch(`${BASE_URL}/api/partner/vehicles/${encodeURIComponent(vehicleId)}/rul`, {
-        headers: { "X-API-Key": API_KEY, "Accept": "application/json" }
+      const separator = RUL_ENDPOINT.includes("?") ? "&" : "?";
+      const r = await fetch(`${RUL_ENDPOINT}${separator}vehicleId=${encodeURIComponent(vehicleId)}`, {
+        credentials: "include",
+        headers: { "Accept": "application/json" }
       });
       if (!r.ok) return null;
       return await r.json();
     } catch (_) { return null; }
   }
 
+  async function getStreamTicket() {
+    if (!initialTicketConsumed && INITIAL_STREAM_TICKET) {
+      initialTicketConsumed = true;
+      return INITIAL_STREAM_TICKET;
+    }
+    if (!TICKET_ENDPOINT) return "";
+    const response = await fetch(TICKET_ENDPOINT, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Accept": "application/json" }
+    });
+    if (!response.ok) throw new Error("Stream ticket request failed");
+    const payload = await response.json();
+    return payload.ticket || payload.data?.ticket || "";
+  }
+
   async function initWidget(container, vehicleId) {
     container.innerHTML = `<style>${buildCSS()}</style><div class="fai-connecting">⚡ Connecting to Fleet AI...</div>`;
 
-    // Fetch initial state
     let rul = null;
     try {
-      const r = await fetch(`${BASE_URL}/api/partner/vehicles/${encodeURIComponent(vehicleId)}/live`, {
-        headers: { "X-API-Key": API_KEY, "Accept": "application/json" }
-      });
-      if (r.ok) {
-        const data = await r.json();
-        rul = await fetchRUL(vehicleId);
-        render(container, data, rul);
-      }
+      rul = await fetchRUL(vehicleId);
     } catch (_) {}
 
-    // Open SSE stream for live updates
-    // Note: EventSource doesn't support custom headers in most browsers.
-    // Partners should proxy this through their backend or use a token param.
-    // For direct use, pass the key as a query param (configure your server to accept it).
-    const streamUrl = `${BASE_URL}/api/partner/stream?vehicleId=${encodeURIComponent(vehicleId)}&apiKey=${encodeURIComponent(API_KEY)}`;
+    let ticket = "";
+    try {
+      ticket = await getStreamTicket();
+    } catch (_) {}
+    if (!ticket) {
+      container.innerHTML = `<style>${buildCSS()}</style><div class="fai-connecting">Secure stream ticket required.</div>`;
+      return;
+    }
+    const streamUrl = `${BASE_URL}/api/partner/stream?vehicleId=${encodeURIComponent(vehicleId)}&streamTicket=${encodeURIComponent(ticket)}`;
     const es = new EventSource(streamUrl);
 
     es.addEventListener("snapshot", async (e) => {
@@ -253,7 +271,7 @@
     const containers = document.querySelectorAll("[data-fleetai-vehicle], #fleetai-widget[data-vehicle]");
     for (const el of containers) {
       const vehicleId = el.dataset.fleetaiVehicle || el.dataset.vehicle;
-      if (vehicleId && API_KEY) initWidget(el, vehicleId);
+      if (vehicleId && (TICKET_ENDPOINT || INITIAL_STREAM_TICKET)) initWidget(el, vehicleId);
     }
   });
 })();

@@ -120,6 +120,20 @@ async function invoke(app, method, route, { body = {}, params = {}, query = {} }
   assert.strictEqual(createdAuthUser.mustResetPassword, true);
 
   events.length = 0;
+  const issuedInvite = await invoke(app, "POST", "/api/invites", {
+    body: { orgId: "ORG_TEST", type: "CUSTOMER" }
+  });
+  assert.strictEqual(issuedInvite.statusCode, 200);
+  assert.ok(issuedInvite.body.data.token, "raw invite token is returned once");
+  const persistedInvite = data.invites.find((invite) => invite.id === issuedInvite.body.data.id);
+  assert.ok(persistedInvite.tokenHash);
+  assert.strictEqual(Object.prototype.hasOwnProperty.call(persistedInvite, "token"), false);
+  const inviteList = await invoke(app, "GET", "/api/invites");
+  assert.ok(inviteList.body.data.every((invite) => !invite.token && !invite.tokenHash));
+  assert.ok(data.invites.every((invite) => !invite.token), "legacy plaintext invite tokens must be migrated");
+  data.invites = data.invites.filter((invite) => invite.id === "INV_TEST");
+
+  events.length = 0;
   const accepted = await invoke(app, "POST", "/api/invites/:token/accept", {
     params: { token: "invite-token" },
     body: { email: "invited.owner@example.test", password: "LongEnoughPass123!" }

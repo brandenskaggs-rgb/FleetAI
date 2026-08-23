@@ -8,8 +8,8 @@
 
 const crypto = require("crypto");
 const https = require("https");
-const http = require("http");
 const { getPrisma } = require("../db");
+const { validateOutboundHttpsUrl, pinnedLookup } = require("../lib/outboundUrlPolicy");
 
 const MAX_RETRIES = 3;
 const TIMEOUT_MS = 8000;
@@ -34,11 +34,16 @@ function signPayload(secret, body) {
  * Fire a single HTTP POST to a webhook URL.
  * Returns { ok, statusCode, error }.
  */
-function deliverOne(url, payload, secret) {
+async function deliverOne(url, payload, secret) {
+  let target;
+  try {
+    target = await validateOutboundHttpsUrl(url);
+  } catch (error) {
+    return { ok: false, error: error.message };
+  }
   return new Promise((resolve) => {
     const body = JSON.stringify(payload);
-    const parsed = new URL(url);
-    const lib = parsed.protocol === "https:" ? https : http;
+    const parsed = target.parsed;
     const headers = {
       "Content-Type":   "application/json",
       "Content-Length": Buffer.byteLength(body),
@@ -49,14 +54,16 @@ function deliverOne(url, payload, secret) {
       headers["X-FleetAI-Signature"] = signPayload(secret, body);
     }
 
-    const req = lib.request(
+    const req = https.request(
       {
         hostname: parsed.hostname,
-        port:     parsed.port || (parsed.protocol === "https:" ? 443 : 80),
+        port:     443,
         path:     parsed.pathname + parsed.search,
         method:   "POST",
         headers,
         timeout:  TIMEOUT_MS,
+        lookup: pinnedLookup(target.addresses),
+        servername: parsed.hostname,
       },
       (res) => {
         res.resume();
@@ -98,7 +105,7 @@ async function fireWebhooks(partner, apiKeyId, event, payload, riskProbability) 
   try {
     const prisma = getPrisma();
     const hooks = await prisma.partnerWebhook.findMany({
-      where: { partner, active: true },
+      where: { apiKeyId, active: true },
     });
 
     for (const hook of hooks) {

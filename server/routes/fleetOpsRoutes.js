@@ -69,6 +69,10 @@ function registerFleetOpsRoutes(app, deps) {
     requireEmployeeOrCustomerApi,
     telemetryLatest,
     telemetrySubscribers,
+    useTelemetryJsonMirror = true,
+    getTelemetryWorkingData = null,
+    hasTelemetryReceipt = () => false,
+    rememberTelemetryReceipt = () => {},
     getTelemetryLastSeen,
     getTelemetryState,
     triggerTelemetryPipeline,
@@ -405,9 +409,14 @@ function registerFleetOpsRoutes(app, deps) {
       const ts = payload.ts || payload.timestamp || nowIso();
       const orgId = req.device?.orgId || await db.getVehicleOrgId(vehicleId, "").catch(() => "");
       const batchId = sanitizeString(payload.batchId || payload.batch_id || "", 80);
-      const data = await readData();
+      const receiptDeviceId = req.device?.deviceId || payload.deviceId || payload.device_id || "";
+      const data = useTelemetryJsonMirror
+        ? await readData()
+        : (typeof getTelemetryWorkingData === "function" ? getTelemetryWorkingData(vehicleId) : {});
       data.telemetryIngestReceipts = Array.isArray(data.telemetryIngestReceipts) ? data.telemetryIngestReceipts : [];
-      if (batchId && data.telemetryIngestReceipts.some((item) => item.batchId === batchId && item.deviceId === (req.device?.deviceId || payload.deviceId))) {
+      const jsonDuplicate = useTelemetryJsonMirror && batchId
+        && data.telemetryIngestReceipts.some((item) => item.batchId === batchId && item.deviceId === receiptDeviceId);
+      if (batchId && (hasTelemetryReceipt(batchId, receiptDeviceId) || jsonDuplicate)) {
         return res.json({ ok: true, success: true, stored: false, duplicate: true });
       }
       const prepared = prepareTelemetryIngest(payload, {
@@ -492,7 +501,7 @@ function registerFleetOpsRoutes(app, deps) {
           || (snapshotVehiclePacketMs === previousVehiclePacketMs && snapshot.readingCount > (previousSnapshot.readingCount || 0)))
         : (!previousSnapshot || snapshotTimestampMs > previousTimestampMs));
       if (busDataActive && !duplicateBusSample) {
-        storeNormalizedSnapshot(data, prepared.normalized, {
+        await storeNormalizedSnapshot(data, prepared.normalized, {
           driverId: snapshot.driverId,
           deviceId: snapshot.deviceId,
           rawPids: payload.metrics || {},
@@ -502,8 +511,11 @@ function registerFleetOpsRoutes(app, deps) {
             quality: prepared.quality
           }),
           vin: prepared.normalized.meta?.vin || prepared.decoded.meta?.vin || null
+        }, {
+          requirePrimaryPersistence: !useTelemetryJsonMirror,
+          workingSetOnly: !useTelemetryJsonMirror
         });
-        if (prepared.frames.length) {
+        if (useTelemetryJsonMirror && prepared.frames.length) {
           appendFrames(data, prepared.frames.map((frame) => Object.assign({}, frame, {
             orgId,
             vehicleId,
@@ -513,11 +525,12 @@ function registerFleetOpsRoutes(app, deps) {
             capture: prepared.capture
           })));
         }
-        if (batchId) {
+        if (batchId && useTelemetryJsonMirror) {
           data.telemetryIngestReceipts.push({ batchId, deviceId: snapshot.deviceId, vehicleId, receivedAt: nowIso() });
           if (data.telemetryIngestReceipts.length > 5000) data.telemetryIngestReceipts = data.telemetryIngestReceipts.slice(-5000);
         }
-        await writeData(data);
+        if (useTelemetryJsonMirror) await writeData(data);
+        rememberTelemetryReceipt(batchId, receiptDeviceId);
       }
       if (promoteLiveSnapshot) {
         telemetryLatest.set(vehicleId, snapshot);

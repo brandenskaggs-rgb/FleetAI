@@ -182,6 +182,13 @@ function registerSolutionRoutes(app, deps) {
 
   app.post("/api/fleet/addons", requireEmployeeOrCustomerApi, async (req, res, next) => {
     try {
+      if (req.customer) {
+        return res.status(403).json({
+          ok: false,
+          error: "ADDON_ENTITLEMENTS_MANAGED_BY_FLEET_AI",
+          message: "Request an add-on quote; Fleet AI staff enable purchased capabilities."
+        });
+      }
       const data = await ensureCollections(await readData(), req);
       const orgId = resolveRequestOrgId(req, data);
       if (!orgId) return res.status(400).json({ error: "orgId required" });

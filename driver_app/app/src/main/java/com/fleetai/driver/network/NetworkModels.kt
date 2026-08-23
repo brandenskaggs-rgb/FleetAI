@@ -35,6 +35,7 @@ data class SelectVehicleRequest(
 )
 
 data class DriverLogRequest(
+    val clientEventId: String,
     val date: String,
     val startTime: String,
     val endTime: String,
@@ -50,6 +51,22 @@ data class HosLogEventDto(
     val recordStatus: Int = 1,
     val recordOrigin: Int = 1,
     val certified: Boolean = false
+)
+
+data class DvirSubmitRequest(
+    val clientRecordId: String,
+    val type: String,
+    val odometer: Long,
+    val inspectedItems: List<String>,
+    val defects: String,
+    val signature: String,
+    val inspectedAt: String
+)
+
+data class DvirSubmitResponse(
+    val ok: Boolean = false,
+    val success: Boolean = false,
+    val recordId: String = ""
 )
 
 data class HosLogResponse(
@@ -124,6 +141,7 @@ data class TelemetryPidBlock(
 )
 
 data class AlertRequest(
+    val clientAlertId: String,
     val type: String,
     val severity: String,
     val message: String,

@@ -155,30 +155,39 @@ console.log("\nTelemetry payload carries freshness without repeating VIN as a PI
   ), "utf8");
   check("impossible zero control-module voltage is rejected", /"batteryVoltageV"\s+to\s+5\.0\.\.40\.0/.test(j1979));
   check("fast PID display freshness has a 15-second floor", /coerceIn\(15_000L, 90_000L\)/.test(sensorViewModel));
-  check("sender resets before polling publishes capabilities", /sender\.start\(\)\s*\n\s*startPolling\(\)/.test(sensorViewModel));
-  check("OBD snapshots use the last successful PID timestamp", /packetAt\s*=\s*lastEcuDataAt/.test(sensorViewModel));
-  check("derived boost inherits source freshness instead of loop time", /updatedAt\["boostPsi"\]\s*=\s*boostSourceAt/.test(sensorViewModel));
-
+  check("road speed bypasses slow sensor smoothing", /pid == "010D" \|\| pid == "SPN 84"/.test(sensorViewModel));
   const obdManager = fs.readFileSync(path.join(
     __dirname, "..", "driver_app", "app", "src", "main", "java", "com", "fleetai", "driver",
     "obd", "ObdConnectionManager.kt"
   ), "utf8");
   check("ECU liveness expires after bus silence", /ECU_SILENCE_TIMEOUT_MS[\s\S]*ecuResponseFresh[\s\S]*ecuResponding\s*=\s*ecuResponseFresh/.test(obdManager));
-  check("OBD polling starts tablet location capture", /startPolling\(\)[\s\S]*startLocationTracking\(\)/.test(sensorViewModel));
-  check("OBD polling sends only a fresh tablet location", /locationTracker\.latestFresh\(\)/.test(sensorViewModel));
+  const obdService = fs.readFileSync(path.join(
+    __dirname, "..", "driver_app", "app", "src", "main", "java", "com", "fleetai", "driver",
+    "telemetry", "ObdTelemetryService.kt"
+  ), "utf8");
+  check("sender resets before polling publishes capabilities", /sender\.start\(\)[\s\S]*updateObdCapabilities\(supported\)/.test(obdService));
+  check("OBD snapshots use the last successful PID timestamp", /lastPacketAt = updatedAt\.values\.maxOrNull[\s\S]*updateSnapshot\(latestValues\.toMap\(\), true, lastPacketAt/.test(obdService));
+  check("derived boost inherits source freshness instead of loop time", /updatedAt\["boostPsi"\]\s*=\s*boostSourceAt/.test(obdService));
+  check("OBD foreground service owns tablet location capture", /class ObdTelemetryService[\s\S]*watchLocationPreference/.test(obdService));
+  check("OBD service sends only a fresh tablet location", /locationTracker\.latestFresh\(\)/.test(obdService));
 }
 
-console.log("\nOBD polling has one application-level owner");
+console.log("\nOBD polling survives UI lifecycle in one foreground service");
 {
   const appRoot = path.join(__dirname, "..", "driver_app", "app", "src", "main", "java", "com", "fleetai", "driver");
   const appShell = fs.readFileSync(path.join(appRoot, "FleetAIDriverApp.kt"), "utf8");
   const navGraph = fs.readFileSync(path.join(appRoot, "navigation", "NavGraph.kt"), "utf8");
   const home = fs.readFileSync(path.join(appRoot, "ui", "screens", "HomeScreen.kt"), "utf8");
   const sensors = fs.readFileSync(path.join(appRoot, "ui", "screens", "SensorsScreen.kt"), "utf8");
+  const obdService = fs.readFileSync(path.join(appRoot, "telemetry", "ObdTelemetryService.kt"), "utf8");
+  const manifest = fs.readFileSync(path.join(__dirname, "..", "driver_app", "app", "src", "main", "AndroidManifest.xml"), "utf8");
   check("app shell owns the SensorViewModel", /sensorViewModel:\s*SensorViewModel\s*=\s*viewModel/.test(appShell));
   check("navigation passes the shared SensorViewModel", /sensorViewModel:\s*SensorViewModel/.test(navGraph));
   check("Home does not create a route-scoped OBD poller", !/SensorViewModel\s*=\s*viewModel/.test(home));
   check("Sensors does not create a route-scoped OBD poller", !/SensorViewModel\s*=\s*viewModel/.test(sensors));
+  check("foreground service owns OBD connection and polling", /runConnectionLoop[\s\S]*pollConnectedAdapter/.test(obdService));
+  check("OBD service is declared as connected-device foreground work", /ObdTelemetryService[\s\S]*foregroundServiceType="connectedDevice\|location"/.test(manifest));
+  check("OBD reconnects with bounded exponential backoff", /retryDelay \* 2[\s\S]*coerceAtMost\(MAX_RETRY_MS\)/.test(obdService));
 }
 
 console.log("\nDriver app branding uses the packaged Fleet AI logo");
@@ -217,6 +226,28 @@ console.log("\nTelemetry backlog preserves live delivery");
   check("outbox still drains oldest historical batches", /pendingOldest/.test(dao) && /ORDER BY createdAtEpochMs ASC/.test(dao));
   check("flush sends live-priority batches before history", /val items = newest \+ oldest/.test(outbox));
   check("reconnect worker retries until the durable queue drains", /flush\.failed > 0/.test(syncWorker) && /flush\.remaining == 0/.test(syncWorker) && /Result\.retry\(\)/.test(syncWorker));
+  check("queued telemetry is tenant and vehicle scoped", /tenantId = tenantId/.test(outbox) && /vehicleId = vehicleId/.test(outbox));
+  check("unscoped legacy telemetry cannot upload after re-pairing", /deleteUnscoped/.test(dao) && /dao\.deleteUnscoped/.test(outbox));
+}
+
+console.log("\nOffline legal records are scoped and idempotent");
+{
+  const appRoot = path.join(__dirname, "..", "driver_app", "app", "src", "main", "java", "com", "fleetai", "driver");
+  const repository = fs.readFileSync(path.join(appRoot, "data", "repository", "DefaultDriverRepository.kt"), "utf8");
+  const dao = fs.readFileSync(path.join(appRoot, "data", "local", "Daos.kt"), "utf8");
+  const networkModels = fs.readFileSync(path.join(appRoot, "network", "NetworkModels.kt"), "utf8");
+  const driverRoutes = fs.readFileSync(path.join(__dirname, "..", "server", "routes", "driverAppRoutes.js"), "utf8");
+  check("pending HOS is selected by active tenant, vehicle, and driver", /getPendingEvents\(tenantId, vehicleId, driverId\)/.test(repository));
+  check("pending notifications are selected by active tenant, vehicle, and driver", /getPendingNotifications\(tenantId, vehicleId, driverId\)/.test(repository));
+  check("notification retries carry a stable client alert ID", /clientAlertId = notification\.id/.test(repository));
+  check("device alert response matches Android BasicResponse", /notificationId: notification\.id/.test(fs.readFileSync(path.join(__dirname, "..", "server.js"), "utf8")));
+  const eldRoutes = fs.readFileSync(path.join(__dirname, "..", "server", "routes", "eldRoutes.js"), "utf8");
+  check("ELD login, logout, and certification responses match Android BasicResponse", (eldRoutes.match(/success: true/g) || []).length >= 3);
+  check("HOS retries carry a stable client event ID", /clientEventId = event\.id/.test(repository) && /clientEventId:\s*String/.test(networkModels));
+  check("driver DVIR is saved locally before network submission", /dvirDao\.insert\(entity\)[\s\S]*api\.submitDvir/.test(repository));
+  check("pending DVIR rows are tenant, vehicle, and driver scoped", /dvir_records WHERE tenantId = :tenantId AND vehicleId = :vehicleId AND driverId = :driverId AND synced = 0/.test(dao));
+  check("device DVIR endpoint derives scope from the pairing", /\/api\/driver\/dvir[\s\S]*orgId: req\.device\.orgId[\s\S]*vehicleId: req\.device\.vehicleId/.test(driverRoutes));
+  check("device DVIR retries return the original record", /clientRecordId[\s\S]*duplicate: true/.test(driverRoutes));
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

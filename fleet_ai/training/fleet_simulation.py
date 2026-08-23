@@ -1779,7 +1779,7 @@ def _train_from_df(df: pd.DataFrame, seed: int = 42, calibrate: bool = False) ->
 
     holdout_metrics = {
         "rows":              int(len(holdout_df)),
-        "accuracy":          round(float(accuracy_score(y_holdout, ho_pred)), 6),
+        "synthetic_accuracy": round(float(accuracy_score(y_holdout, ho_pred)), 6),
         "precision":         round(float(precision_score(y_holdout, ho_pred, zero_division=0)), 6),
         "recall":            round(float(recall_score(y_holdout, ho_pred, zero_division=0)), 6),
         "f1":                round(float(f1_score(y_holdout, ho_pred, zero_division=0)), 6),
@@ -1815,7 +1815,7 @@ def _train_from_df(df: pd.DataFrame, seed: int = 42, calibrate: bool = False) ->
         "featureCount":    len(available_features),
         "rows":            int(len(df)),
         "failure_rate":    round(float(y.mean()), 6),
-        "accuracy":        round(float(accuracy_score(y_test, predictions)), 6),
+        "synthetic_accuracy": round(float(accuracy_score(y_test, predictions)), 6),
         "precision":       round(float(precision_score(y_test, predictions, zero_division=0)), 6),
         "recall":          round(float(recall_score(y_test, predictions, zero_division=0)), 6),
         "f1":              round(float(f1_score(y_test, predictions, zero_division=0)), 6),
@@ -1837,7 +1837,7 @@ def _train_from_df(df: pd.DataFrame, seed: int = 42, calibrate: bool = False) ->
             "(5) training/inference vehicle specs unified (mass, engine_kw, Cd, Crr, frontal_m2 now identical); "
             "(6) grade generator produces realistic downhill grades normal(0.5,2.0) clipped to [-5.5,8.5]%; "
             "(7) hub bearing omega floor removed — zero speed produces zero friction heat. "
-            "Natural-balance training (8.5% real failure rate) + Platt isotonic calibration. "
+            "Natural-balance simulation training (approximately 8.5% synthetic failure prevalence) + Platt isotonic calibration. "
             "Bearing life from field-calibrated L10; DPF from sawtooth regen state machine; "
             "battery from Peukert + Arrhenius aging; oil from Walther viscosity equation."
         ),
@@ -1925,11 +1925,11 @@ def run_calibrated_training(
     Natural-balance + isotonic calibration training.
 
     Unlike run_multi_seed_training (which uses 50/50 oversampling), this function
-    preserves the real fleet failure rate (~8.5%) in the training data so the model
+    preserves the simulated fleet failure prevalence (~8.5%) in the training data so the model
     outputs properly calibrated probabilities.
 
     Strategy:
-      - Sample proportionally (natural 8.5% failure rate, no oversampling)
+      - Sample proportionally (natural 8.5% synthetic failure prevalence, no oversampling)
       - Both RF and HGB receive unified sample_weights: global balance + per-class
         failure amplifiers (cargo_van ×5, medium_duty ×2) to recover recall for
         low-base-rate classes whose score distributions cluster below the threshold
@@ -1975,7 +1975,7 @@ def generate_stage2_training_data(
 ) -> None:
     """
     Generate labeled data for Stage 2 (confirmatory) classifier training.
-    Natural ~0.4% failure rate; injects three FP archetypes:
+    Natural ~0.4% synthetic failure prevalence; injects three FP archetypes:
       sensor_spike, load_stress, prior_artifact.
     """
     STAGE2_FEATURES_LOCAL = [

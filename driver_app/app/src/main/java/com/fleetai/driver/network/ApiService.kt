@@ -27,6 +27,9 @@ interface ApiService {
     @GET("api/logs/hos")
     suspend fun getHosLogs(@Query("date") date: String): HosLogResponse
 
+    @POST("api/driver/dvir")
+    suspend fun submitDvir(@Body request: DvirSubmitRequest): DvirSubmitResponse
+
     @GET("api/eld/device/status")
     suspend fun getEldDeviceStatus(): EldDeviceStatusResponse
 

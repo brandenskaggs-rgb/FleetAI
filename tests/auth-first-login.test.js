@@ -25,6 +25,17 @@ const { createAuthService } = require("../server/auth/authService");
     devSetupMode: false
   });
 
+  const originalCompare = bcrypt.compare;
+  let unknownCompareCount = 0;
+  bcrypt.compare = async (...args) => {
+    unknownCompareCount += 1;
+    return originalCompare(...args);
+  };
+  const unknown = await service.authenticate("customer", "missing@example.test", "wrong-password");
+  bcrypt.compare = originalCompare;
+  assert.strictEqual(unknown.error.code, "INVALID_CREDENTIALS");
+  assert.strictEqual(unknownCompareCount, 1, "unknown accounts must still pay one bcrypt comparison");
+
   const rejected = await service.authenticate("customer", user.email, "wrong-password");
   assert.strictEqual(rejected.error.code, "INVALID_CREDENTIALS");
   assert.strictEqual(user.setupTokenHash, undefined, "wrong password must not issue a setup token");

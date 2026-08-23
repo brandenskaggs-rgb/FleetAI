@@ -22,7 +22,16 @@ const db = require("../db");
 const { requireDevice, attachDevice } = require("../middleware/deviceAuth");
 
 function registerDriverAppRoutes(app, deps) {
-  const { sanitizeString, nowIso, log = console.log, eldService = null } = deps;
+  const {
+    sanitizeString,
+    nowIso,
+    log = console.log,
+    eldService = null,
+    readData = null,
+    writeData = null,
+    makeId = db.makeId,
+    addAudit = null
+  } = deps;
 
   // ── GET /api/drivers/me ────────────────────────────────────────────────────
   // DriverProfileResponse(tenantId, driverId, driverName) — all non-null.
@@ -102,6 +111,80 @@ function registerDriverAppRoutes(app, deps) {
     }
   });
 
+  // ── Driver vehicle inspections ────────────────────────────────────────────
+  // The device token supplies organization, vehicle, and driver scope. The
+  // clientRecordId is stable across offline retries, preventing duplicate
+  // inspections when a response is lost after the server has saved the row.
+  app.post("/api/driver/dvir", requireDevice, async (req, res, next) => {
+    try {
+      if (typeof readData !== "function" || typeof writeData !== "function") {
+        return res.status(503).json({ ok: false, success: false, error: "DVIR_STORAGE_UNAVAILABLE" });
+      }
+      const body = req.body || {};
+      const clientRecordId = sanitizeString(body.clientRecordId || "", 80);
+      const signature = sanitizeString(body.signature || "", 160);
+      const inspectedItems = Array.isArray(body.inspectedItems)
+        ? body.inspectedItems.map((item) => sanitizeString(item, 160)).filter(Boolean)
+        : [];
+      if (!clientRecordId) return res.status(400).json({ ok: false, success: false, error: "clientRecordId required" });
+      if (!signature) return res.status(400).json({ ok: false, success: false, error: "signature required" });
+      if (!inspectedItems.length) {
+        return res.status(400).json({ ok: false, success: false, error: "At least one inspected item required" });
+      }
+
+      const data = await readData();
+      data.dvirRecords = Array.isArray(data.dvirRecords) ? data.dvirRecords : [];
+      const existing = data.dvirRecords.find((record) =>
+        record.orgId === req.device.orgId && record.clientRecordId === clientRecordId
+      );
+      if (existing) {
+        return res.json({ ok: true, success: true, recordId: existing.id, data: existing, duplicate: true });
+      }
+
+      const [vehicle, driver] = await Promise.all([
+        db.getVehicleByVehicleId(req.device.vehicleId),
+        req.device.driverId ? db.getDriverByDriverId(req.device.driverId) : Promise.resolve(null)
+      ]);
+      if (!vehicle || vehicle.orgId !== req.device.orgId) {
+        return res.status(403).json({ ok: false, success: false, error: "PAIRING_VEHICLE_SCOPE_INVALID" });
+      }
+      if (req.device.driverId && (!driver || driver.orgId !== req.device.orgId)) {
+        return res.status(403).json({ ok: false, success: false, error: "PAIRING_DRIVER_SCOPE_INVALID" });
+      }
+
+      const defects = sanitizeString(body.defects || "", 2000);
+      const record = {
+        id: makeId("DVIR"),
+        clientRecordId,
+        orgId: req.device.orgId,
+        vehicleId: req.device.vehicleId,
+        vehicleLabel: sanitizeString(vehicle.unitName || vehicle.vehicleId, 160),
+        driverId: req.device.driverId || "",
+        driverLabel: sanitizeString(
+          driver ? `${driver.firstName || ""} ${driver.lastName || ""}`.trim() : (req.device.driverId || "Driver"),
+          160
+        ),
+        type: sanitizeString(body.type || "pre", 20).toLowerCase() === "post" ? "post" : "pre",
+        odometer: Number.isFinite(Number(body.odometer)) ? Math.max(0, Number(body.odometer)) : null,
+        inspectedAt: Number.isNaN(new Date(body.inspectedAt || "").getTime()) ? nowIso() : new Date(body.inspectedAt).toISOString(),
+        inspectedItems,
+        defects,
+        defectStatus: defects || inspectedItems.some((item) => /:\s*defect$/i.test(item))
+          ? "defects_noted"
+          : "satisfactory",
+        signature,
+        submittedAt: nowIso(),
+        source: "driver_tablet"
+      };
+      data.dvirRecords.push(record);
+      if (typeof addAudit === "function") addAudit(data, "DRIVER_DVIR_SUBMITTED", `${record.vehicleId}:${record.type}`);
+      await writeData(data);
+      return res.status(201).json({ ok: true, success: true, recordId: record.id, data: record });
+    } catch (err) {
+      next(err);
+    }
+  });
+
   // ── Hours of Service ───────────────────────────────────────────────────────
   // Duty-status events are the legally significant part of an ELD. They are
   // stored as Events (type HOS_STATUS) so they inherit the existing org
@@ -109,6 +192,7 @@ function registerDriverAppRoutes(app, deps) {
   app.post("/api/logs/hos", requireDevice, async (req, res, next) => {
     try {
       const b = req.body || {};
+      const clientEventId = sanitizeString(b.clientEventId || "", 80);
       const rawDutyStatus = sanitizeString(b.dutyStatus || "", 32).toUpperCase();
       const dutyStatus = rawDutyStatus === "OFF"
         ? "OFF_DUTY"
@@ -134,6 +218,7 @@ function registerDriverAppRoutes(app, deps) {
             });
           }
           const event = await eldService.createDutyStatus(req.device, {
+            clientEventId,
             dutyStatus,
             occurredAt: b.startTime || nowIso(),
             annotation: b.notes || "",
@@ -151,7 +236,11 @@ function registerDriverAppRoutes(app, deps) {
         vehicleId: req.device.vehicleId,
         type: "HOS_STATUS",
         severity: "info",
+        dedupeKey: clientEventId
+          ? `DEVICE_HOS:${req.device.deviceId}:${clientEventId}`
+          : null,
         payload: {
+          clientEventId,
           driverId: req.device.driverId,
           deviceId: req.device.deviceId,
           date: sanitizeString(b.date || "", 32),

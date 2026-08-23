@@ -2,6 +2,7 @@ package com.fleetai.driver.ui.screens
 
 import android.content.Intent
 import android.net.Uri
+import androidx.core.net.toUri
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -50,11 +51,11 @@ fun RouteScreen(contentPadding: PaddingValues) {
                 text = "Navigate",
                 onClick = {
                     if (destination.isBlank()) return@FleetButton
-                    val uri = Uri.parse("google.navigation:q=${Uri.encode(destination)}")
+                    val uri = "google.navigation:q=${Uri.encode(destination)}".toUri()
                     val intent = Intent(Intent.ACTION_VIEW, uri).apply {
                         setPackage("com.google.android.apps.maps")
                     }
-                    val fallback = Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=${Uri.encode(destination)}"))
+                    val fallback = Intent(Intent.ACTION_VIEW, "geo:0,0?q=${Uri.encode(destination)}".toUri())
                     runCatching { context.startActivity(intent) }
                         .getOrElse { runCatching { context.startActivity(fallback) } }
                 },

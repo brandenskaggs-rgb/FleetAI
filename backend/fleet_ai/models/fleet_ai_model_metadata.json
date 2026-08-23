@@ -1,7 +1,7 @@
 {
   "model_file": "C:\\Dev\\Fleet AI\\Fleet AI\\fleet_ai\\models\\fleet_ai_model.pkl",
   "modelVersion": "physics-v4.4.0",
-  "trainingSource": "physics_calibrated_v4",
+  "trainingSource": "physics_informed_synthetic_simulation_v4",
   "features": [
     "vehicle_class_code",
     "protocol_code",
@@ -99,8 +99,8 @@
   ],
   "featureCount": 93,
   "rows": 450000,
-  "failure_rate": 0.092691,
-  "accuracy": 0.990273,
+  "synthetic_failure_prevalence": 0.092691,
+  "synthetic_validation_accuracy": 0.990273,
   "precision": 0.951526,
   "recall": 0.943576,
   "f1": 0.947535,
@@ -124,7 +124,7 @@
   ],
   "holdout": {
     "rows": 5840,
-    "accuracy": 0.976027,
+    "synthetic_accuracy": 0.976027,
     "precision": 0.983721,
     "recall": 0.962822,
     "f1": 0.97316,

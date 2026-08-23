@@ -45,6 +45,7 @@ class TelemetrySender(
         val protocol: String = "NONE",
         val rawFrameCount: Long = 0,
         val queuedBatches: Int = 0,
+        val authBlocked: Boolean = false,
         val bitrate: Int? = null,
         val bytesReceived: Long = 0,
         val rejectedRecords: Long = 0,
@@ -211,8 +212,13 @@ class TelemetrySender(
             val result = AppGraph.telemetryOutbox.flush(ApiClient.api)
             debug = debug.copy(
                 lastSendAt = if (result.sent > 0) System.currentTimeMillis() else debug.lastSendAt,
-                lastError = if (result.failed == 0) "" else "Telemetry queued for retry",
-                queuedBatches = result.remaining
+                lastError = when {
+                    result.authBlocked -> "Pairing authorization was rejected. Data is saved locally; re-pair to resume uploads."
+                    result.failed == 0 -> ""
+                    else -> "Telemetry queued for retry"
+                },
+                queuedBatches = result.remaining,
+                authBlocked = result.authBlocked
             )
         } catch (error: Exception) {
             debug = debug.copy(

@@ -3,6 +3,11 @@ const crypto = require("crypto");
 const { AUTH_ERRORS } = require("./authErrors");
 const { normalizeEmail, isCustomerRole, isEmployeeRole, isActiveUser } = require("../authStore");
 
+// Comparing against a real bcrypt hash for unknown/ineligible users keeps the
+// observable login cost close to a valid-account login and avoids an email
+// enumeration timing oracle.
+const INVALID_USER_PASSWORD_HASH = "$2a$12$ZqWDooq8ngFDG0aG9s0fYevFhadqZcBRFvaej1V7mzCBhnmoyIG/y";
+
 function needsPasswordSetup(user) {
   if (!user) return false;
   const hashMissing = !user.passwordHash || String(user.passwordHash).trim() === "";
@@ -98,6 +103,11 @@ function createAuthService(options) {
     const user = result.user;
     const data = result.data;
     if (!user) {
+      try {
+        await bcrypt.compare(password, INVALID_USER_PASSWORD_HASH);
+      } catch (_) {
+        // Authentication still fails closed if bcrypt itself fails.
+      }
       logAuth("user lookup", { scope, email: emailNormalized, found: false, storePath });
       return { ok: false, error: AUTH_ERRORS.INVALID_CREDENTIALS };
     }

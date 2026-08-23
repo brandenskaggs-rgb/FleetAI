@@ -15,6 +15,7 @@ class SyncWorker(
             AppGraph.repository.syncPending()
             repeat(MAX_FLUSH_ROUNDS) {
                 val flush = AppGraph.telemetryOutbox.flush(ApiClient.api, limit = FLUSH_BATCH_SIZE)
+                if (flush.authBlocked) return Result.success()
                 if (flush.failed > 0) return Result.retry()
                 if (flush.remaining == 0) return Result.success()
             }

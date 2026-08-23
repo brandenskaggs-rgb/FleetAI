@@ -22,6 +22,16 @@ function registerSystemStatusRoutes(app, deps) {
     isExpired
   } = deps;
 
+  function requireSystemDiagnostics(req, res, next) {
+    const expected = String(deps.watchdogInternalToken || "");
+    const presented = String(req.headers?.["x-fleetai-watchdog-token"] || "");
+    if (expected && presented && expected.length === presented.length) {
+      const crypto = require("crypto");
+      if (crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(presented))) return next();
+    }
+    return requireSuperAdmin(req, res, next);
+  }
+
   app.get("/health", async (req, res) => {
     res.status(200).json(await healthPayload());
   });
@@ -35,7 +45,7 @@ function registerSystemStatusRoutes(app, deps) {
         status: getDataLoadStatus().dataLoadStatus === "error" ? "degraded" : "ok"
       });
     } catch (err) {
-      res.status(500).json({ ok: false, error: err.message || "auth_health_error" });
+      res.status(503).json({ ok: false, error: "auth_health_unavailable" });
     }
   });
 
@@ -79,7 +89,7 @@ function registerSystemStatusRoutes(app, deps) {
     });
   });
 
-  app.get("/api/system/watchdog", (req, res) => {
+  app.get("/api/system/watchdog", requireSystemDiagnostics, (req, res) => {
     const watchdogInstance = getWatchdogInstance();
     if (!watchdogInstance) {
       return res.json({ ok: false, error: "watchdog_not_started" });
@@ -87,7 +97,7 @@ function registerSystemStatusRoutes(app, deps) {
     return res.json({ ok: true, ...watchdogInstance.getState() });
   });
 
-  app.get("/api/system/telemetry/status", (req, res) => {
+  app.get("/api/system/telemetry/status", requireSystemDiagnostics, (req, res) => {
     const telemetryLastSeen = getTelemetryLastSeen();
     const telemetryState = getTelemetryState();
     const lastTelemetryAt = telemetryLastSeen?.ts || telemetryState.lastSampleAt || null;
@@ -101,7 +111,7 @@ function registerSystemStatusRoutes(app, deps) {
     });
   });
 
-  app.get("/api/system/pairing/status", async (req, res) => {
+  app.get("/api/system/pairing/status", requireSystemDiagnostics, async (req, res) => {
     try {
       const { lastPairCodeCreatedAt, activeClaimsCount } = await db.getPairingStatusSummary();
       res.json({
@@ -153,7 +163,7 @@ function registerSystemStatusRoutes(app, deps) {
       "Surrogate-Control": "no-store",
       "Content-Type": "application/json"
     });
-    res.json(buildActiveStatusPayload());
+    res.json({ ok: true, service: "fleet-ai", status: "reachable" });
   });
 
   app.get("/active", (req, res) => {
@@ -164,6 +174,11 @@ function registerSystemStatusRoutes(app, deps) {
       "Surrogate-Control": "no-store",
       "Content-Type": "application/json"
     });
+    res.json({ ok: true, service: "fleet-ai", status: "reachable" });
+  });
+
+  app.get("/api/system/active", requireSuperAdmin, (req, res) => {
+    res.set("Cache-Control", "no-store");
     res.json(buildActiveStatusPayload());
   });
 }

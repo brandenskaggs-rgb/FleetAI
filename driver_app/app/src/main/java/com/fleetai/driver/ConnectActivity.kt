@@ -2,7 +2,6 @@ package com.fleetai.driver
 
 import android.annotation.SuppressLint
 import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
 import android.widget.Button
 import android.widget.EditText
@@ -11,6 +10,7 @@ import androidx.activity.ComponentActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.core.net.toUri
 import com.fleetai.driver.network.ApiClient
 import com.fleetai.driver.network.ServerConfig
 import kotlinx.coroutines.Dispatchers
@@ -149,7 +149,7 @@ class ConnectActivity : ComponentActivity() {
     )
 
     private fun runDiagnosticsInternal(baseUrl: String): DiagnosticsResult {
-        val parsed = Uri.parse(baseUrl)
+        val parsed = baseUrl.toUri()
         val host = parsed.host.orEmpty()
         val port = parsed.port.takeIf { it > 0 } ?: if (parsed.scheme == "https") 443 else 80
 
@@ -199,7 +199,7 @@ class ConnectActivity : ComponentActivity() {
         }
 
         try {
-            val target = Uri.parse(baseUrl).buildUpon().appendEncodedPath("health").build().toString()
+            val target = baseUrl.toUri().buildUpon().appendEncodedPath("health").build().toString()
             val req = Request.Builder().url(target).get().build()
             httpClient.newCall(req).execute().use {
                 httpOk = it.isSuccessful
@@ -224,7 +224,7 @@ class ConnectActivity : ComponentActivity() {
 
     private fun testConnectionInternal(baseUrl: String): ConnectionTestResult {
         return try {
-            val target = Uri.parse(baseUrl).buildUpon().appendEncodedPath("health").build().toString()
+            val target = baseUrl.toUri().buildUpon().appendEncodedPath("health").build().toString()
             val req = Request.Builder().url(target).get().build()
             httpClient.newCall(req).execute().use {
                 if (it.isSuccessful) {

@@ -158,7 +158,7 @@ function registerEldRoutes(app, deps) {
   app.post("/api/eld/login", requireDevice, async (req, res, next) => {
     try {
       const event = await eldService.createLoginLogout(req.device, LOGIN_CODE.LOGIN, req.body || {});
-      res.json({ ok: true, event });
+      res.json({ ok: true, success: true, event });
     } catch (error) {
       next(error);
     }
@@ -167,7 +167,7 @@ function registerEldRoutes(app, deps) {
   app.post("/api/eld/logout", requireDevice, async (req, res, next) => {
     try {
       const event = await eldService.createLoginLogout(req.device, LOGIN_CODE.LOGOUT, req.body || {});
-      res.json({ ok: true, event });
+      res.json({ ok: true, success: true, event });
     } catch (error) {
       next(error);
     }
@@ -212,7 +212,7 @@ function registerEldRoutes(app, deps) {
   app.post("/api/eld/certifications", requireDevice, async (req, res, next) => {
     try {
       const event = await eldService.certifyRecords(req.device, req.body?.recordDate, req.body?.annotation);
-      res.json({ ok: true, event });
+      res.json({ ok: true, success: true, event });
     } catch (error) {
       next(error);
     }

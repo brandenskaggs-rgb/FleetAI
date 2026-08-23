@@ -1,5 +1,7 @@
 const crypto = require("crypto");
 const { getPrisma } = require("../db");
+const streamTickets = new Map();
+const STREAM_TICKET_TTL_MS = 60_000;
 
 // Hash a raw API key for storage (SHA-256, hex).
 function hashApiKey(raw) {
@@ -14,13 +16,25 @@ function generateApiKey(prefix = "fai") {
 }
 
 // Express middleware: validates X-API-Key header against the ApiKey table.
-// Also accepts ?apiKey= query param for browser EventSource (no custom header support).
+// Browser EventSource uses a short-lived one-time stream ticket instead of
+// putting the long-lived API key in URLs, proxy logs, and browser history.
 // On success, attaches req.apiKey = { id, orgId, partner, scopes }.
 // Calls next() on success, 401/403 on failure.
 async function requireApiKey(req, res, next) {
-  const allowsQueryKey = String(req.method || "GET").toUpperCase() === "GET"
+  const allowsStreamTicket = String(req.method || "GET").toUpperCase() === "GET"
     && req.path === "/api/partner/stream";
-  const raw = req.headers["x-api-key"] || (allowsQueryKey && typeof req.query?.apiKey === "string" ? req.query.apiKey : "");
+  const ticket = allowsStreamTicket && typeof req.query?.streamTicket === "string" ? req.query.streamTicket : "";
+  if (ticket) {
+    const ticketHash = hashApiKey(ticket);
+    const entry = streamTickets.get(ticketHash);
+    streamTickets.delete(ticketHash);
+    if (!entry || entry.expiresAt <= Date.now()) {
+      return res.status(403).json({ success: false, error: { code: "STREAM_TICKET_INVALID", message: "Stream ticket is invalid or expired." } });
+    }
+    req.apiKey = entry.apiKey;
+    return next();
+  }
+  const raw = req.headers["x-api-key"] || "";
   if (!raw) {
     return res.status(401).json({
       success: false,
@@ -58,4 +72,15 @@ async function requireApiKey(req, res, next) {
   }
 }
 
-module.exports = { requireApiKey, generateApiKey, hashApiKey };
+function issueStreamTicket(apiKey) {
+  const raw = `fst_${crypto.randomBytes(32).toString("hex")}`;
+  const expiresAt = Date.now() + STREAM_TICKET_TTL_MS;
+  streamTickets.set(hashApiKey(raw), { apiKey: { ...apiKey }, expiresAt });
+  if (streamTickets.size > 5000) {
+    const now = Date.now();
+    for (const [key, value] of streamTickets) if (value.expiresAt <= now) streamTickets.delete(key);
+  }
+  return { ticket: raw, expiresAt: new Date(expiresAt).toISOString() };
+}
+
+module.exports = { requireApiKey, generateApiKey, hashApiKey, issueStreamTicket };

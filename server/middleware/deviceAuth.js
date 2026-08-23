@@ -34,6 +34,7 @@ function extractBearer(req) {
  */
 async function attachDevice(req, _res, next) {
   req.device = null;
+  req.deviceAuthError = null;
   try {
     const token = extractBearer(req);
     if (token) {
@@ -49,8 +50,9 @@ async function attachDevice(req, _res, next) {
         };
       }
     }
-  } catch (_err) {
+  } catch (err) {
     req.device = null;
+    req.deviceAuthError = err;
   }
   next();
 }
@@ -58,6 +60,13 @@ async function attachDevice(req, _res, next) {
 /** Hard gate — 401 unless a valid device token was presented. */
 async function requireDevice(req, res, next) {
   await attachDevice(req, res, () => {});
+  if (req.deviceAuthError) {
+    return res.status(503).json({
+      ok: false,
+      error: "DEVICE_AUTH_UNAVAILABLE",
+      message: "Device authorization could not be verified. Telemetry remains queued; retry shortly."
+    });
+  }
   if (!req.device) {
     return res.status(401).json({
       ok: false,

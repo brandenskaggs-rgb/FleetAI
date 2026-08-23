@@ -7,6 +7,8 @@ this service and falls back to deterministic JavaScript scoring if unavailable.
 from __future__ import annotations
 
 import json
+import hmac
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -14,7 +16,8 @@ from typing import Any, Dict, List, Optional
 
 import joblib
 import pandas as pd
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 # Shared RF missing-value matrix builder (see fleet_ai/physics/vehicle_physics.py).
@@ -37,6 +40,20 @@ METADATA_PATH = MODELS_DIR / "fleet_ai_model_metadata.json"
 PROFILES_PATH = MODELS_DIR / "fleet_ai_baseline_profiles.json"
 
 app = FastAPI(title="Fleet AI ML Service", version="2.0.0")
+_ML_INTERNAL_TOKEN = os.getenv("FLEETAI_ML_INTERNAL_TOKEN", "").strip()
+
+
+@app.middleware("http")
+async def require_internal_service_token(request: Request, call_next):
+    supplied = request.headers.get("x-fleetai-ml-token", "")
+    if _ML_INTERNAL_TOKEN and hmac.compare_digest(supplied, _ML_INTERNAL_TOKEN):
+        return await call_next(request)
+    client_host = request.client.host if request.client else ""
+    if not _ML_INTERNAL_TOKEN and client_host in {"127.0.0.1", "::1", "testclient"}:
+        return await call_next(request)
+    status = 503 if not _ML_INTERNAL_TOKEN else 401
+    code = "ML_SERVICE_AUTH_NOT_CONFIGURED" if not _ML_INTERNAL_TOKEN else "ML_SERVICE_AUTH_REQUIRED"
+    return JSONResponse(status_code=status, content={"ok": False, "error": code})
 
 
 class VehicleMeta(BaseModel):

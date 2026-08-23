@@ -107,7 +107,6 @@ async function safeJson(res) {
   try {
     return { okParse: true, data: text ? JSON.parse(text) : {}, raw: text };
   } catch (err) {
-    console.log("CUSTOMER_LOGIN: non-JSON response", text ? text.slice(0, 300) : "");
     return { okParse: false, data: null, raw: text };
   }
 }
@@ -185,10 +184,12 @@ async function submitCustomerLogin() {
       return;
     }
     const target = data.redirectTo || "/ui/fleetai-dashboard.html";
-    const safeTarget = target.startsWith("http://") || target.startsWith("https://")
-      ? target
-      : `${window.location.origin}${target.startsWith("/") ? target : `/${target}`}`;
-    window.location.href = safeTarget;
+    let safeTarget = new URL("/ui/fleetai-dashboard.html", window.location.origin);
+    try {
+      const candidate = new URL(target, window.location.origin);
+      if (candidate.origin === window.location.origin) safeTarget = candidate;
+    } catch (error) {}
+    window.location.href = safeTarget.href;
   } catch (err) {
     setCustomerDebug({ status: "ERR", error: err?.message || "request failed" });
     showCustomerLoginMessage("Login failed. Try again.", false);
@@ -202,6 +203,11 @@ document.addEventListener("DOMContentLoaded", () => {
   setCustomerDebug({ endpoint: "/api/auth/customer/login", status: "--", error: "--" });
   const btn = document.getElementById("customerLoginBtn");
   if (btn) btn.addEventListener("click", submitCustomerLogin);
+  const form = document.getElementById("customerLoginForm");
+  if (form) form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    submitCustomerLogin();
+  });
   const password = document.getElementById("customerPassword");
   if (password) {
     password.addEventListener("keydown", (e) => {

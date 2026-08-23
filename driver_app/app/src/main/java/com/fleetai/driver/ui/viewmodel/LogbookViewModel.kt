@@ -52,7 +52,8 @@ class LogbookViewModel(
         viewModelScope.launch {
             val tenantId = preferences.tenantId.first()
             val vehicleId = preferences.vehicleId.first()
-            if (tenantId.isBlank() || vehicleId.isBlank()) {
+            val driverId = preferences.driverId.first()
+            if (tenantId.isBlank() || vehicleId.isBlank() || driverId.isBlank()) {
                 _message.value = "Select a vehicle first."
                 return@launch
             }
@@ -60,6 +61,7 @@ class LogbookViewModel(
                 id = UUID.randomUUID().toString(),
                 tenantId = tenantId,
                 vehicleId = vehicleId,
+                driverId = driverId,
                 status = status,
                 notes = notes,
                 startTime = startTime.ifBlank { LocalDateTime.now().toString() },

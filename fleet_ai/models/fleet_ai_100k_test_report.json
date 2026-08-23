@@ -1,4 +1,5 @@
 {
+  "validation_scope": "synthetic_simulation_only_not_field_accuracy",
   "rows": 100000,
   "actual_failure_rate": 0.02667,
   "risk_mean": 0.04971549592660449,

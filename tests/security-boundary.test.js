@@ -285,11 +285,13 @@ async function testBillingIsStoredPerOrganization() {
     assert.strictEqual(a.body.data.plan, "PILOT_A");
     assert.strictEqual(b.body.data.plan, "PILOT_B");
 
-    await invoke(app, "POST", "/api/org/billing", {
+    const billingUpdate = await invoke(app, "POST", "/api/org/billing", {
       customer: { orgId: "ORG_A", role: "ORG_ADMIN" },
       body: { status: "ACTIVE", notes: "Alpha only" }
     });
-    assert.strictEqual(billing.get("ORG_A").notes, "Alpha only");
+    assert.strictEqual(billingUpdate.statusCode, 403);
+    assert.strictEqual(billingUpdate.body.error, "BILLING_MANAGED_BY_FLEET_AI");
+    assert.strictEqual(billing.get("ORG_A").notes, "A");
     assert.strictEqual(billing.get("ORG_B").notes, "B");
 
     const payA = await invoke(app, "GET", "/api/org/payment-method", { customer: { orgId: "ORG_A", role: "ORG_ADMIN" } });
@@ -413,10 +415,12 @@ function testDeviceTokensAreRevokedAcrossTenantTransfers() {
 function testFrontendAndAndroidContracts() {
   const root = path.join(__dirname, "..");
   const dashboard = fs.readFileSync(path.join(root, "ui", "fleetai-dashboard.html"), "utf8");
+  const customerLogin = fs.readFileSync(path.join(root, "js", "customer-login.js"), "utf8");
   const models = fs.readFileSync(path.join(root, "driver_app", "app", "src", "main", "java", "com", "fleetai", "driver", "network", "models.kt"), "utf8");
   const repository = fs.readFileSync(path.join(root, "driver_app", "app", "src", "main", "java", "com", "fleetai", "driver", "data", "repository", "DefaultDriverRepository.kt"), "utf8");
   assert(dashboard.includes('apiPost("/api/auth/customer/logout"'), "dashboard must call customer logout directly");
   assert(!dashboard.includes('["/api/auth/logout","/api/auth/customer/logout"]'), "employee logout must not shadow customer logout");
+  assert(customerLogin.includes("candidate.origin === window.location.origin"), "customer login redirects must remain same-origin");
   assert(/data class PairingClaimRequest\([\s\S]*val driverPin: String/.test(models), "Android claim request must include driverPin");
   assert(/PairingClaimRequest\([\s\S]*driverPin = driverPin/.test(repository), "Android repository must send driverPin");
 }

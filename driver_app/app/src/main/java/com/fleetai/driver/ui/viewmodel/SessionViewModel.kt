@@ -16,6 +16,11 @@ import java.net.SocketTimeoutException
 import java.net.UnknownHostException
 import java.util.UUID
 import android.util.Log
+import android.annotation.SuppressLint
+import android.content.Intent
+import com.fleetai.driver.AppGraph
+import com.fleetai.driver.telemetry.J1939TelemetryService
+import com.fleetai.driver.telemetry.ObdTelemetryService
 
 class SessionViewModel(
     private val repository: DriverRepository,
@@ -65,6 +70,7 @@ class SessionViewModel(
         viewModelScope.launch {
             try {
                 if (BuildConfig.DEBUG) Log.d("FleetAI", "[PAIR] login attempt")
+                stopTelemetryServices()
                 preferences.clearPairing()
                 repository.login(companyCode, driverPin)
                 if (BuildConfig.DEBUG) Log.d("FleetAI", "[PAIR] login success")
@@ -103,6 +109,7 @@ class SessionViewModel(
             }
             try {
                 if (BuildConfig.DEBUG) Log.d("FleetAI", "[PAIR] claim attempt")
+                stopTelemetryServices()
                 val deviceId = preferences.ensureDeviceId()
                 repository.claimPairing(pairingCode, driverPin, deviceId, deviceLabel)
                 runCatching { repository.recordEldLogin() }
@@ -140,6 +147,7 @@ class SessionViewModel(
     fun logout() {
         viewModelScope.launch {
             runCatching { repository.recordEldLogout() }
+            stopTelemetryServices()
             preferences.setDemoMode(false)
             preferences.clearSession()
         }
@@ -170,6 +178,12 @@ class SessionViewModel(
         viewModelScope.launch {
             runCatching { repository.setDemoMode(enabled) }
         }
+    }
+
+    @SuppressLint("ImplicitSamInstance")
+    private fun stopTelemetryServices() {
+        AppGraph.appContext.stopService(Intent(AppGraph.appContext, ObdTelemetryService::class.java))
+        AppGraph.appContext.stopService(Intent(AppGraph.appContext, J1939TelemetryService::class.java))
     }
 }
 

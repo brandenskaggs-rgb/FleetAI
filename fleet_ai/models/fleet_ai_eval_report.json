@@ -1,8 +1,9 @@
 {
+  "validation_scope": "synthetic_simulation_only_not_field_accuracy",
   "overall": {
     "model_file": "C:\\Dev\\Fleet AI\\Fleet AI\\fleet_ai\\models\\fleet_ai_model.pkl",
     "modelVersion": "physics-v4.4.0",
-    "trainingSource": "physics_calibrated_v4",
+    "trainingSource": "physics_informed_synthetic_simulation_v4",
     "features": [
       "vehicle_class_code",
       "protocol_code",

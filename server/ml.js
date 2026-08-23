@@ -1,5 +1,6 @@
 const crypto = require("crypto");
 const { resolveChargingProfile } = require("./ml/chargingProfiles");
+const { classifyEngineEvent, selectEngineRunningSamples } = require("./lib/engineState");
 
 const MIN_SAMPLES = 200;
 const EWMA_ALPHA = 0.18;
@@ -761,9 +762,12 @@ function computeRouteSignature(samples) {
 }
 
 function computeModelState(data, vehicleId) {
-  const samples = usableTelemetrySamples(getSamplesForVehicle(data, vehicleId))
+  const allSamples = usableTelemetrySamples(getSamplesForVehicle(data, vehicleId))
     .sort((a, b) => new Date(a.ts) - new Date(b.ts));
+  const engineEvent = classifyEngineEvent(allSamples);
+  const samples = selectEngineRunningSamples(allSamples);
   const sampleCount = samples.length;
+  const excludedEngineOffSamples = Math.max(0, allSamples.length - sampleCount);
   const observation = computeObservationStats(samples);
   const latest = getLatestSample(samples);
   const baselines = computeBaselines(samples);
@@ -784,6 +788,8 @@ function computeModelState(data, vehicleId) {
       wallClockSpanHours: observation.wallClockSpanHours,
       operatingMinutes: observation.operatingMinutes,
       operatingSessionCount: observation.operatingSessionCount,
+      engineEvent,
+      excludedEngineOffSamples,
       chargingEvidence,
       insufficientHistory: true,
       climateContext,
@@ -808,6 +814,8 @@ function computeModelState(data, vehicleId) {
     wallClockSpanHours: observation.wallClockSpanHours,
     operatingMinutes: observation.operatingMinutes,
     operatingSessionCount: observation.operatingSessionCount,
+    engineEvent,
+    excludedEngineOffSamples,
     chargingEvidence,
     climateContext,
     updatedAt: new Date().toISOString(),
@@ -998,23 +1006,47 @@ function detectMultivariateSignatures(latestMetrics) {
 }
 
 function generateAlertsFromState(state) {
-  if (!state || state.insufficientHistory) return [];
+  if (!state) return [];
   const alerts = [];
   const confidence = state.confidence || 0;
   const historySpanHours = Number(state.historySpanHours) || 0;
-  const pushAlert = (type, severity, explanation, checks) => {
+  const pushAlert = (type, severity, explanation, checks, options = {}) => {
     alerts.push({
       id: makeId("ALERT"),
-      dedupeKey: `ML:${state.vehicleId}:${type}`,
+      dedupeKey: options.dedupeKey || `ML:${state.vehicleId}:${type}`,
       orgId: state.orgId || null,
       vehicleId: state.vehicleId,
       type,
       severity,
-      createdAt: new Date().toISOString(),
+      createdAt: options.createdAt || new Date().toISOString(),
       explanation,
       recommendedChecks: checks
     });
   };
+  const engineEvent = state.engineEvent;
+  if (engineEvent?.alertable
+      && ["possible_stall_moving", "possible_stall_at_stop"].includes(engineEvent.status)
+      && Number(engineEvent.confidence) >= 0.7
+      && engineEvent.occurredAt) {
+    const moving = engineEvent.status === "possible_stall_moving";
+    pushAlert(
+      "ENGINE_STALL",
+      moving ? "critical" : "warning",
+      moving
+        ? "The engine RPM signal fell to zero while vehicle speed still indicated movement. Fleet AI classified this as a possible engine stall."
+        : "The engine shut off at a stop after RPM became unstable relative to the observed idle pattern. Fleet AI classified this as a possible stall, not a confirmed failure.",
+      [
+        "Confirm whether the driver intentionally switched the engine off.",
+        "Review RPM, vehicle speed, voltage, and diagnostic codes around the event.",
+        "Inspect the vehicle before continued operation if the shutdown was not intentional."
+      ],
+      {
+        dedupeKey: `EVENT:${state.vehicleId}:ENGINE_STALL:${engineEvent.occurredAt}`,
+        createdAt: engineEvent.occurredAt
+      }
+    );
+  }
+  if (state.insufficientHistory) return alerts;
   if (historySpanHours >= 1 && state.anomalyScore != null && state.anomalyScore >= 0.7 && confidence >= 0.5) {
     const severity = state.anomalyScore >= 0.85 ? "critical" : "warning";
     pushAlert("GENERAL", severity, "Anomaly score exceeded threshold with sufficient confidence.", [
@@ -1145,9 +1177,14 @@ function computeWeeksToFailure(values, metricKey, samplesPerHour = 12, vehicleMe
 // Master prediction function — ML engine computes everything, AI only narrates
 function computeFullPrediction(samples, vehicleId, vehicleMeta = {}) {
   const usableSamples = usableTelemetrySamples(samples);
-  if (!usableSamples.length) {
+  const engineEvent = classifyEngineEvent(usableSamples);
+  const analysisSamples = selectEngineRunningSamples(usableSamples);
+  const excludedEngineOffSamples = Math.max(0, usableSamples.length - analysisSamples.length);
+  if (!analysisSamples.length) {
+    const latestObserved = usableSamples.slice().sort((a, b) => new Date(a.ts) - new Date(b.ts)).at(-1);
     return {
       vehicleId,
+      orgId: latestObserved?.orgId || null,
       sampleCount: 0,
       insufficientData: true,
       healthScore: null,
@@ -1157,11 +1194,13 @@ function computeFullPrediction(samples, vehicleId, vehicleMeta = {}) {
       risk: null,
       climateContext: null,
       topContributors: [],
+      engineEvent,
+      excludedEngineOffSamples,
       updatedAt: new Date().toISOString()
     };
   }
 
-  const sorted = usableSamples.slice().sort((a, b) => new Date(a.ts) - new Date(b.ts));
+  const sorted = analysisSamples.slice().sort((a, b) => new Date(a.ts) - new Date(b.ts));
   const observation = computeObservationStats(sorted);
   const latest = sorted[sorted.length - 1];
   const baselines = computeBaselines(sorted);
@@ -1196,7 +1235,9 @@ function computeFullPrediction(samples, vehicleId, vehicleMeta = {}) {
     const values = sorted
       .map((s) => metricNumber(key, s.metrics?.[key]))
       .filter((v) => v != null);
-    const wtf = computeWeeksToFailure(values, key, 12, vehicleMeta);
+    const wtf = key === "batteryVoltage" && !["warning", "critical"].includes(chargingEvidence.status)
+      ? null
+      : computeWeeksToFailure(values, key, 12, vehicleMeta);
     if (wtf != null) weeksToFailure[key] = wtf;
   });
 
@@ -1209,15 +1250,15 @@ function computeFullPrediction(samples, vehicleId, vehicleMeta = {}) {
   const healthScore = Math.max(0, Math.round(100 - maxRisk * 0.6 - avgRisk * 0.4));
 
   // Anomaly score and system risks (existing logic)
-  const anomaly = usableSamples.length >= MIN_SAMPLES
+  const anomaly = analysisSamples.length >= MIN_SAMPLES
     ? computeAnomaly(latest, baselines, seasonalBaselines, seasonKey)
     : { score: null, contributors: [] };
 
-  const risk = usableSamples.length >= MIN_SAMPLES
+  const risk = analysisSamples.length >= MIN_SAMPLES
     ? computeRisk(sorted, baselines, climateContext, chargingEvidence)
     : null;
 
-  const confidence = confidenceFrom(usableSamples.length, coverage, observation);
+  const confidence = confidenceFrom(analysisSamples.length, coverage, observation);
   const signatures = detectMultivariateSignatures(latest.metrics).filter((signature) =>
     signature.id !== "charging_failure"
       || ["warning", "critical"].includes(chargingEvidence.status)
@@ -1226,8 +1267,8 @@ function computeFullPrediction(samples, vehicleId, vehicleMeta = {}) {
   return {
     vehicleId,
     orgId: latest.orgId || null,
-    sampleCount: usableSamples.length,
-    insufficientData: usableSamples.length < MIN_SAMPLES,
+    sampleCount: analysisSamples.length,
+    insufficientData: analysisSamples.length < MIN_SAMPLES,
     healthScore,
     sensorRisks,
     weeksToFailure,
@@ -1238,6 +1279,8 @@ function computeFullPrediction(samples, vehicleId, vehicleMeta = {}) {
     wallClockSpanHours: observation.wallClockSpanHours,
     operatingMinutes: observation.operatingMinutes,
     operatingSessionCount: observation.operatingSessionCount,
+    engineEvent,
+    excludedEngineOffSamples,
     chargingEvidence,
     climateContext,
     confidence,
@@ -1266,6 +1309,8 @@ module.exports = {
   classifySensorTier,
   computeTimeWeightedBaseline,
   computeObservationStats,
+  classifyEngineEvent,
+  selectEngineRunningSamples,
   detectMultivariateSignatures,
   generateMaintenanceLabels,
   markPreEventWindow,

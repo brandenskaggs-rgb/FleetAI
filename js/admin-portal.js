@@ -52,6 +52,15 @@ function $(id) {
   return document.getElementById(id);
 }
 
+function h(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 function updateConsoleDebug(partial) {
   adminState.debug = Object.assign({}, adminState.debug, partial || {});
   const endpointEl = $("consoleDbgEndpoint");
@@ -210,7 +219,7 @@ function renderPortalError() {
   banner.className = "emptyState";
   banner.innerHTML = `
     <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
-      <div><strong>Failed to load data.</strong> ${adminState.lastError}</div>
+      <div><strong>Failed to load data.</strong> ${h(adminState.lastError)}</div>
       <button class="btn secondary" id="portalRetryBtn" type="button">Retry</button>
     </div>
   `;
@@ -1159,9 +1168,9 @@ function renderRecentAlerts(alerts) {
     .map(
       (alert) => `
       <div class="detailBlock">
-        <div class="detailLabel">${formatDateTime(alert.createdAt || alert.ts)}</div>
-        <div class="detailValue"><strong>${alert.type || "Alert"}</strong> ${alert.vehicleId || ""}</div>
-        <div class="muted" style="margin-top:4px;">${alert.explanation || ""}</div>
+        <div class="detailLabel">${h(formatDateTime(alert.createdAt || alert.ts))}</div>
+        <div class="detailValue"><strong>${h(alert.type || "Alert")}</strong> ${h(alert.vehicleId || "")}</div>
+        <div class="muted" style="margin-top:4px;">${h(alert.explanation || "")}</div>
       </div>
     `
     )
@@ -1194,8 +1203,8 @@ function renderActivity() {
     .map(
       (entry) => `
       <div class="detailBlock">
-        <div class="detailLabel">${formatDateTime(entry.createdAt || entry.ts)}</div>
-        <div class="detailValue"><strong>${entry.event}</strong> ${entry.detail || ""}</div>
+        <div class="detailLabel">${h(formatDateTime(entry.createdAt || entry.ts))}</div>
+        <div class="detailValue"><strong>${h(entry.event)}</strong> ${h(entry.detail || "")}</div>
       </div>
     `
     )
@@ -1216,9 +1225,9 @@ function renderAuditLog() {
     .map(
       (entry) => `
         <tr>
-          <td>${formatDateTime(entry.createdAt || entry.ts)}</td>
-          <td>${entry.event || "--"}</td>
-          <td>${entry.detail || "--"}</td>
+          <td>${h(formatDateTime(entry.createdAt || entry.ts))}</td>
+          <td>${h(entry.event || "--")}</td>
+          <td>${h(entry.detail || "--")}</td>
         </tr>`
     )
     .join("");
@@ -1258,8 +1267,8 @@ async function loadSystemHealth() {
           .map(
             (route) => `
             <tr>
-              <td>${route.method}</td>
-              <td>${route.path}</td>
+              <td>${h(route.method)}</td>
+              <td>${h(route.path)}</td>
               <td>${route.available ? "OK" : "Missing"}</td>
             </tr>`
           )
@@ -1307,16 +1316,16 @@ function renderOrgs() {
         ? `<span class="statusBadge status-duplicate">Duplicate</span>`
         : (org.recoveredFromAuthStore ? `<span class="statusBadge status-recovered">Recovered</span>` : "");
       return `
-        <tr data-org-id="${orgId}">
-          <td><div class="companyCell"><strong>${org.name || "--"}</strong>${recoveryTag}</div></td>
-          <td><span class="statusBadge status-${(org.status || "LEAD").toLowerCase()}">${formatStatus(org.status)}</span></td>
+        <tr data-org-id="${h(orgId)}">
+          <td><div class="companyCell"><strong>${h(org.name || "--")}</strong>${recoveryTag}</div></td>
+          <td><span class="statusBadge status-${h((org.status || "LEAD").toLowerCase())}">${h(formatStatus(org.status))}</span></td>
           <td>${Number(org.fleetSizeEstimate || 0)}</td>
           <td>${Number(org.activeVehicles || 0)}</td>
-          <td class="contactCell" title="${org.primaryContactEmail || ""}">${org.primaryContactEmail || "--"}</td>
+          <td class="contactCell" title="${h(org.primaryContactEmail || "")}">${h(org.primaryContactEmail || "--")}</td>
           <td>
             <div class="rightStack">
-              <button class="btn ghost" data-action="view-org" data-org-id="${orgId}">Open</button>
-              <button class="btn ghost" data-action="delete-org" data-org-id="${orgId}" ${disableDelete ? "disabled" : ""}>Delete</button>
+              <button class="btn ghost" data-action="view-org" data-org-id="${h(orgId)}">Open</button>
+              <button class="btn ghost" data-action="delete-org" data-org-id="${h(orgId)}" ${disableDelete ? "disabled" : ""}>Delete</button>
             </div>
           </td>
         </tr>`;
@@ -1330,7 +1339,7 @@ function confirmOrgDelete(org) {
     title: "Delete Organization",
     content: `<div class="detailBlock">
       <div class="detailLabel">Organization</div>
-      <div class="detailValue">${org.name || org.orgId || org.id}</div>
+      <div class="detailValue">${h(org.name || org.orgId || org.id)}</div>
     </div>
     <div class="muted" style="margin:12px 0;">Type DELETE to confirm. This is a soft delete.</div>
     <div class="fieldGroup">
@@ -1411,7 +1420,7 @@ async function loadOrgFleet(orgId) {
     if (count) count.textContent = vehicles.length ? `— ${vehicles.length} vehicle${vehicles.length !== 1 ? "s" : ""}` : "";
     renderOrgFleet(vehicles);
   } catch (err) {
-    body.innerHTML = `<div class="emptyState" style="border-radius:0 0 10px 10px;">Could not load fleet: ${err.message || "unknown error"}</div>`;
+    body.innerHTML = `<div class="emptyState" style="border-radius:0 0 10px 10px;">Could not load fleet: ${h(err.message || "unknown error")}</div>`;
     if (count) count.textContent = "";
   }
 }
@@ -1433,10 +1442,10 @@ function renderOrgFleet(vehicles) {
       ? `<span title="Gateway disconnected" style="color:#ef4444;">●</span> `
       : (v.motiveId ? `<span title="Motive connected" style="color:#22c55e;">●</span> ` : "");
     return `<tr>
-      <td><strong>${gatewayDot}${name}</strong></td>
-      <td class="muted" title="${v.vin || ""}">…${vin}</td>
-      <td>${type}</td>
-      <td class="muted">${ymm}</td>
+      <td><strong>${gatewayDot}${h(name)}</strong></td>
+      <td class="muted" title="${h(v.vin || "")}">…${h(vin)}</td>
+      <td>${h(type)}</td>
+      <td class="muted">${h(ymm)}</td>
       <td><span class="statusBadge status-${active ? "active" : "paused"}">${active ? "Active" : "Off"}</span></td>
     </tr>`;
   }).join("");
@@ -1728,14 +1737,14 @@ function renderLeads() {
     .map((lead) => {
       const leadId = lead.leadId || lead.id;
       return `
-        <tr data-lead-id="${leadId}">
-          <td>${formatLeadType(lead.leadType)}</td>
-          <td>${lead.companyName || "--"}</td>
-          <td>${lead.contactName || "--"}</td>
-          <td>${lead.contactEmail || "--"}</td>
-          <td><span class="statusBadge status-${(lead.status || "NEW").toLowerCase()}">${formatStatus(lead.status || "NEW")}</span></td>
-          <td>${formatDate(lead.createdAt)}</td>
-          <td><button class="btn ghost" data-lead-id="${leadId}">View</button></td>
+        <tr data-lead-id="${h(leadId)}">
+          <td>${h(formatLeadType(lead.leadType))}</td>
+          <td>${h(lead.companyName || "--")}</td>
+          <td>${h(lead.contactName || "--")}</td>
+          <td>${h(lead.contactEmail || "--")}</td>
+          <td><span class="statusBadge status-${h((lead.status || "NEW").toLowerCase())}">${h(formatStatus(lead.status || "NEW"))}</span></td>
+          <td>${h(formatDate(lead.createdAt))}</td>
+          <td><button class="btn ghost" data-lead-id="${h(leadId)}">View</button></td>
         </tr>`;
     })
     .join("");
@@ -1873,14 +1882,13 @@ function renderInvites() {
   if (empty) empty.style.display = "none";
   body.innerHTML = adminState.invites
     .map((invite) => {
-      const link = `/signup.html?token=${encodeURIComponent(invite.token)}`;
       const org = getOrgById(invite.orgId);
       return `
         <tr>
-          <td>${org?.name || invite.orgId || "--"}</td>
-          <td>${invite.type || "--"}</td>
-          <td>${formatDateTime(invite.expiresAt)}</td>
-          <td><a href="${link}" target="_blank" rel="noreferrer">${link}</a></td>
+          <td>${h(org?.name || invite.orgId || "--")}</td>
+          <td>${h(invite.type || "--")}</td>
+          <td>${h(formatDateTime(invite.expiresAt))}</td>
+          <td><span class="statusPill is-neutral">Shown once when issued</span></td>
         </tr>`;
     })
     .join("");
@@ -1945,9 +1953,9 @@ function renderUsers() {
     .map(
       (user) => `
         <tr>
-          <td>${user.email}</td>
-          <td><span class="roleBadge">${user.role}</span></td>
-          <td>${formatDate(user.createdAt)}</td>
+          <td>${h(user.email)}</td>
+          <td><span class="roleBadge">${h(user.role)}</span></td>
+          <td>${h(formatDate(user.createdAt))}</td>
           <td>${user.isActive === false ? "Disabled" : "Active"}</td>
           <td><button class="btn ghost actionDisabled" title="Role editing coming soon">Edit</button></td>
         </tr>`
@@ -1994,8 +2002,8 @@ function bindEmployeeCreate() {
           await loadUsers();
           openModal({
             title: "Employee Created",
-            content: `<div class="detailBlock"><div class="detailLabel">Employee email</div><div class="detailValue">${data.data.email}</div></div>
-            <div class="detailBlock" id="employeeCredentialBlock"><div class="detailLabel">One-time temporary password</div><div class="detailValue"><strong id="employeeTempPassword">${data.data.tempPassword}</strong></div>
+             content: `<div class="detailBlock"><div class="detailLabel">Employee email</div><div class="detailValue">${h(data.data.email)}</div></div>
+             <div class="detailBlock" id="employeeCredentialBlock"><div class="detailLabel">One-time temporary password</div><div class="detailValue"><strong id="employeeTempPassword">${h(data.data.tempPassword)}</strong></div>
             <div class="muted" style="font-size:12px;">Store this securely before closing the dialog. It cannot be shown again.</div>
             <div class="credentialActions"><button class="btn primary" id="employeeCopyPasswordBtn" type="button">Copy password</button></div></div>`
           });
@@ -2012,7 +2020,7 @@ function bindEmployeeCreate() {
 
 function populateOrgSelects() {
   const orgOptions = adminState.orgs
-    .map((org) => `<option value="${org.orgId || org.id}">${org.name || org.orgId}</option>`)
+    .map((org) => `<option value="${h(org.orgId || org.id)}">${h(org.name || org.orgId)}</option>`)
     .join("");
   ["inviteOrgSelect", "billingOrgSelect", "flagOrgSelect"].forEach((id) => {
     const el = $(id);
@@ -2302,13 +2310,13 @@ async function loadApiKeys() {
     if (empty) empty.style.display = "none";
     tbody.innerHTML = keys.map((k) => `
       <tr>
-        <td><strong>${k.partnerName || "--"}</strong></td>
-        <td><span style="font-family:ui-monospace,monospace;font-size:11px;background:#EFF6FF;padding:2px 7px;border-radius:4px;color:#1D4ED8">${k.tier || "--"}</span></td>
-        <td style="font-size:12px;color:#6B7280">${k.orgId || "--"}</td>
+        <td><strong>${h(k.partnerName || "--")}</strong></td>
+        <td><span style="font-family:ui-monospace,monospace;font-size:11px;background:#EFF6FF;padding:2px 7px;border-radius:4px;color:#1D4ED8">${h(k.tier || "--")}</span></td>
+        <td style="font-size:12px;color:#6B7280">${h(k.orgId || "--")}</td>
         <td style="font-size:12px;color:#6B7280">${k.lastUsedAt ? new Date(k.lastUsedAt).toLocaleDateString() : "Never"}</td>
         <td style="font-size:12px;color:#6B7280">${k.createdAt ? new Date(k.createdAt).toLocaleDateString() : "--"}</td>
         <td><span style="font-size:11px;font-weight:600;color:${k.enabled ? "#166534" : "#991b1b"}">${k.enabled ? "Active" : "Revoked"}</span></td>
-        <td>${k.enabled ? `<button class="btn ghost" data-revoke-id="${k.id}" type="button" style="font-size:12px;color:#e53e3e">Revoke</button>` : ""}</td>
+        <td>${k.enabled ? `<button class="btn ghost" data-revoke-id="${h(k.id)}" type="button" style="font-size:12px;color:#e53e3e">Revoke</button>` : ""}</td>
       </tr>
     `).join("");
     tbody.querySelectorAll("[data-revoke-id]").forEach((btn) => {

@@ -273,6 +273,70 @@ async function invoke(app, body) {
   assert.match(sampleQuerySource, /orderBy:\s*\{\s*ts:\s*"desc"\s*\}/);
   assert.match(sampleQuerySource, /rows\.reverse\(\)\.map\(rowToSample\)/);
 
+  const productionApp = fakeApp();
+  const productionWorking = {};
+  const productionReceipts = new Set();
+  let productionReads = 0;
+  let productionWrites = 0;
+  let productionStores = 0;
+  registerFleetOpsRoutes(productionApp, {
+    readData: async () => { productionReads += 1; return {}; },
+    writeData: async () => { productionWrites += 1; },
+    sanitizeString: (value, max = 500) => String(value || "").trim().slice(0, max),
+    parseNumberField: (value, fallback = null) => Number.isFinite(Number(value)) ? Number(value) : fallback,
+    nowIso: () => "2026-08-14T12:00:01.000Z",
+    generateDigits: () => "123456",
+    requireEmployeeOrCustomerApi: (_req, _res, next) => next(),
+    telemetryLatest: new Map(),
+    telemetrySubscribers: new Set(),
+    useTelemetryJsonMirror: false,
+    getTelemetryWorkingData: () => productionWorking,
+    hasTelemetryReceipt: (batchId, deviceId) => productionReceipts.has(`${deviceId}:${batchId}`),
+    rememberTelemetryReceipt: (batchId, deviceId) => productionReceipts.add(`${deviceId}:${batchId}`),
+    getTelemetryLastSeen: () => null,
+    getTelemetryState: () => ({}),
+    triggerTelemetryPipeline: () => {},
+    storeNormalizedSnapshot: async (_store, _normalized, _extra, options) => {
+      productionStores += 1;
+      assert.strictEqual(options.requirePrimaryPersistence, true);
+      assert.strictEqual(options.workingSetOnly, true);
+    },
+    normalizeMetrics: (value) => value,
+    recordTelemetryActivity: () => {}
+  });
+  const productionPayload = Object.assign({}, payload, { batchId: "production-batch" });
+  const productionResult = await invoke(productionApp, productionPayload);
+  assert.strictEqual(productionResult.statusCode, 200);
+  assert.strictEqual(productionStores, 1);
+  assert.strictEqual(productionReads, 0, "production telemetry must not read the JSON application document");
+  assert.strictEqual(productionWrites, 0, "production telemetry must not rewrite the JSON application document");
+  assert.strictEqual((productionWorking.telemetryFrames || []).length, 0, "raw CAN frames must not accumulate in production memory");
+  const productionReplay = await invoke(productionApp, productionPayload);
+  assert.strictEqual(productionReplay.body.duplicate, true);
+  assert.strictEqual(productionStores, 1);
+
+  const failingApp = fakeApp();
+  registerFleetOpsRoutes(failingApp, {
+    readData: async () => { throw new Error("JSON path must not run"); },
+    writeData: async () => { throw new Error("JSON path must not run"); },
+    sanitizeString: (value, max = 500) => String(value || "").trim().slice(0, max),
+    parseNumberField: (value, fallback = null) => Number.isFinite(Number(value)) ? Number(value) : fallback,
+    nowIso: () => "2026-08-14T12:00:01.000Z",
+    generateDigits: () => "123456",
+    requireEmployeeOrCustomerApi: (_req, _res, next) => next(),
+    telemetryLatest: new Map(),
+    telemetrySubscribers: new Set(),
+    useTelemetryJsonMirror: false,
+    getTelemetryWorkingData: () => ({}),
+    getTelemetryLastSeen: () => null,
+    getTelemetryState: () => ({}),
+    triggerTelemetryPipeline: () => {},
+    storeNormalizedSnapshot: async () => { throw new Error("postgres unavailable"); },
+    normalizeMetrics: (value) => value,
+    recordTelemetryActivity: () => {}
+  });
+  await assert.rejects(() => invoke(failingApp, Object.assign({}, payload, { batchId: "failed-batch" })), /postgres unavailable/);
+
   console.log("Telemetry route tests passed");
 })().catch((error) => {
   console.error(error);

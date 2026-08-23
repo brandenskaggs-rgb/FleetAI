@@ -43,6 +43,11 @@
             android:name=".telemetry.J1939TelemetryService"
             android:exported="false"
             android:stopWithTask="false"
-            android:foregroundServiceType="connectedDevice|location|shortService" />
+            android:foregroundServiceType="connectedDevice|location" />
+        <service
+            android:name=".telemetry.ObdTelemetryService"
+            android:exported="false"
+            android:stopWithTask="false"
+            android:foregroundServiceType="connectedDevice|location" />
     </application>
 </manifest>

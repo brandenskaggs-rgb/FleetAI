@@ -5,6 +5,7 @@ const DEFAULT_URL = "http://127.0.0.1:8010";
 const ML_SERVICE_URL = (process.env.FLEETAI_ML_SERVICE_URL || DEFAULT_URL).replace(/\/+$/, "");
 const ML_SERVICE_TIMEOUT_MS = Number(process.env.FLEETAI_ML_SERVICE_TIMEOUT_MS || 4000);
 const PYTHON_ML_ENABLED = (process.env.FLEETAI_PYTHON_ML_ENABLED || "true").toLowerCase() !== "false";
+const ML_INTERNAL_TOKEN = String(process.env.FLEETAI_ML_INTERNAL_TOKEN || "").trim();
 
 // Persistent connection pool — avoids TCP handshake overhead on every prediction
 const ML_AGENT       = new http.Agent({ keepAlive: true, maxSockets: 10 });
@@ -26,7 +27,8 @@ function postJson(path, payload) {
         path: `${target.pathname}${target.search}`,
         headers: {
           "Content-Type": "application/json",
-          "Content-Length": Buffer.byteLength(body)
+          "Content-Length": Buffer.byteLength(body),
+          ...(ML_INTERNAL_TOKEN ? { "X-FleetAI-ML-Token": ML_INTERNAL_TOKEN } : {})
         },
         timeout: ML_SERVICE_TIMEOUT_MS,
         agent: target.protocol === "https:" ? ML_AGENT_HTTPS : ML_AGENT,
@@ -68,6 +70,7 @@ function getJson(path) {
         path: `${target.pathname}${target.search}`,
         timeout: ML_SERVICE_TIMEOUT_MS,
         agent: target.protocol === "https:" ? ML_AGENT_HTTPS : ML_AGENT,
+        headers: ML_INTERNAL_TOKEN ? { "X-FleetAI-ML-Token": ML_INTERNAL_TOKEN } : undefined,
       },
       (res) => {
         let raw = "";
@@ -100,8 +103,11 @@ async function predict({ orgId, vehicleId, vehicleMeta, samples, dtcCodes }) {
   });
 }
 
-async function status() {
-  return getJson("/model/status");
+async function status(vehicleId, orgId) {
+  const query = new URLSearchParams();
+  if (vehicleId) query.set("vehicleId", vehicleId);
+  if (orgId) query.set("orgId", orgId);
+  return getJson(`/model/status${query.size ? `?${query.toString()}` : ""}`);
 }
 
 async function baseline(profileKey) {

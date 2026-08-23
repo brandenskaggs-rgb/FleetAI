@@ -16,6 +16,45 @@ function registerOrgManagementRoutes(app, deps) {
   const employeeRoles = new Set(["SUPER_ADMIN", "ADMIN", "SUPPORT", "SALES"]);
   const customerAdminRoles = new Set(["ORG_ADMIN", "CUSTOMER_ADMIN", "CUSTOMER"]);
 
+  function hashInviteToken(token) {
+    return crypto.createHash("sha256").update(String(token || ""), "utf8").digest("hex");
+  }
+
+  function inviteTokenMatches(invite, candidate) {
+    if (!invite || !candidate) return false;
+    const candidateHash = Buffer.from(hashInviteToken(candidate), "hex");
+    const storedHex = invite.tokenHash || (invite.token ? hashInviteToken(invite.token) : "");
+    if (!/^[a-f0-9]{64}$/i.test(storedHex)) return false;
+    const storedHash = Buffer.from(storedHex, "hex");
+    return storedHash.length === candidateHash.length && crypto.timingSafeEqual(storedHash, candidateHash);
+  }
+
+  function migrateInviteSecrets(invites) {
+    let changed = false;
+    for (const invite of invites || []) {
+      if (invite.token && !invite.tokenHash) {
+        invite.tokenHash = hashInviteToken(invite.token);
+        changed = true;
+      }
+      if (Object.prototype.hasOwnProperty.call(invite, "token")) {
+        delete invite.token;
+        changed = true;
+      }
+    }
+    return changed;
+  }
+
+  function publicInvite(invite) {
+    return {
+      id: invite.id,
+      orgId: invite.orgId,
+      type: invite.type,
+      expiresAt: invite.expiresAt,
+      createdAt: invite.createdAt,
+      createdBy: invite.createdBy
+    };
+  }
+
   function requireCustomerAdmin(req, res, next) {
     return requireCustomerApi(req, res, () => {
       const role = String(req.customer?.role || "").toUpperCase();
@@ -905,7 +944,9 @@ function registerOrgManagementRoutes(app, deps) {
   app.get("/api/invites", requireEmployeeApi, requireRole(["SUPER_ADMIN"]), async (req, res, next) => {
     try {
       const data = await readData();
-      res.json({ ok: true, data: data.invites || [] });
+      data.invites = Array.isArray(data.invites) ? data.invites : [];
+      if (migrateInviteSecrets(data.invites)) await writeData(data);
+      res.json({ ok: true, data: data.invites.map(publicInvite) });
     } catch (err) {
       next(err);
     }
@@ -927,7 +968,7 @@ function registerOrgManagementRoutes(app, deps) {
         id: makeId("INV"),
         orgId,
         type: normalizedType,
-        token,
+        tokenHash: hashInviteToken(token),
         expiresAt: new Date(Date.now() + hours * 3600000).toISOString(),
         createdAt: nowIso(),
         createdBy: req.employee?.email || "system"
@@ -936,7 +977,7 @@ function registerOrgManagementRoutes(app, deps) {
       data.invites.push(invite);
       addAudit(data, "INVITE_CREATED", invite.id);
       await writeData(data);
-      res.json({ ok: true, data: invite });
+      res.json({ ok: true, data: { ...publicInvite(invite), token } });
     } catch (err) {
       next(err);
     }
@@ -980,35 +1021,11 @@ function registerOrgManagementRoutes(app, deps) {
   });
   
   app.post("/api/org/billing", requireCustomerAdmin, async (req, res, next) => {
-    try {
-      const data = await readData();
-      const current = await loadOrgBilling(req.customer.orgId, data);
-      const updates = req.body || {};
-      const allowedStatus = ["NONE", "PILOT", "ACTIVE"];
-      if (updates.status && !allowedStatus.includes(updates.status)) {
-        return res.status(400).json({ error: "Invalid billing status." });
-      }
-      const nextBilling = Object.assign({}, current, updates);
-      nextBilling.plan = nextBilling.plan || "PILOT_CORE";
-      nextBilling.priceMonthly = nextBilling.priceMonthly || data.settings?.defaultPilotPrice || 50;
-      if (updates.status === "ACTIVE" && !current.activatedAt) {
-        const activatedAt = nowIso();
-        const nextDate = new Date();
-        nextDate.setDate(nextDate.getDate() + 30);
-        nextBilling.activatedAt = activatedAt;
-        nextBilling.nextBillAt = nextDate.toISOString();
-      }
-      if (updates.status === "NONE") {
-        nextBilling.activatedAt = null;
-        nextBilling.nextBillAt = null;
-      }
-      const saved = await saveOrgBilling(req.customer.orgId, nextBilling);
-      addAudit(data, "ORG_BILLING_UPDATED", req.customer.orgId);
-      await writeData(data);
-      res.json({ ok: true, data: serializeBilling(saved, data) });
-    } catch (err) {
-      next(err);
-    }
+    return res.status(403).json({
+      ok: false,
+      error: "BILLING_MANAGED_BY_FLEET_AI",
+      message: "Plan, price, status, and contract changes require Fleet AI billing administration."
+    });
   });
   
   app.get("/api/org/billing-settings", requireCustomerApi, async (req, res, next) => {
@@ -1022,35 +1039,11 @@ function registerOrgManagementRoutes(app, deps) {
   });
   
   app.post("/api/org/billing-settings", requireCustomerAdmin, async (req, res, next) => {
-    try {
-      const data = await readData();
-      const current = await loadOrgBilling(req.customer.orgId, data);
-      const updates = req.body || {};
-      const allowedStatus = ["NONE", "PILOT", "ACTIVE"];
-      if (updates.status && !allowedStatus.includes(updates.status)) {
-        return res.status(400).json({ error: "Invalid billing status." });
-      }
-      const nextBilling = Object.assign({}, current, updates);
-      nextBilling.plan = nextBilling.plan || "PILOT_CORE";
-      nextBilling.priceMonthly = nextBilling.priceMonthly || data.settings?.defaultPilotPrice || 50;
-      if (updates.status === "ACTIVE" && !current.activatedAt) {
-        const activatedAt = nowIso();
-        const nextDate = new Date();
-        nextDate.setDate(nextDate.getDate() + 30);
-        nextBilling.activatedAt = activatedAt;
-        nextBilling.nextBillAt = nextDate.toISOString();
-      }
-      if (updates.status === "NONE") {
-        nextBilling.activatedAt = null;
-        nextBilling.nextBillAt = null;
-      }
-      const saved = await saveOrgBilling(req.customer.orgId, nextBilling);
-      addAudit(data, "ORG_BILLING_UPDATED", req.customer.orgId);
-      await writeData(data);
-      res.json({ ok: true, data: serializeBilling(saved, data) });
-    } catch (err) {
-      next(err);
-    }
+    return res.status(403).json({
+      ok: false,
+      error: "BILLING_MANAGED_BY_FLEET_AI",
+      message: "Plan, price, status, and contract changes require Fleet AI billing administration."
+    });
   });
   
   app.get("/api/billing/settings", (req, res, next) => {
@@ -1167,7 +1160,7 @@ function registerOrgManagementRoutes(app, deps) {
   app.get("/api/invites/:token", async (req, res, next) => {
     try {
       const data = await readData();
-      const invite = (data.invites || []).find((i) => i.token === req.params.token);
+      const invite = (data.invites || []).find((i) => inviteTokenMatches(i, req.params.token));
       if (!invite) return res.status(404).json({ error: "Invite not found" });
       if (isExpired(invite.expiresAt)) {
         return res.status(410).json({ error: "Invite expired" });
@@ -1193,7 +1186,7 @@ function registerOrgManagementRoutes(app, deps) {
     }
     try {
       const data = await readData();
-      const inviteIndex = (data.invites || []).findIndex((i) => i.token === req.params.token);
+      const inviteIndex = (data.invites || []).findIndex((i) => inviteTokenMatches(i, req.params.token));
       if (inviteIndex === -1) return res.status(404).json({ error: "Invite not found" });
       const invite = data.invites[inviteIndex];
       if (isExpired(invite.expiresAt)) {

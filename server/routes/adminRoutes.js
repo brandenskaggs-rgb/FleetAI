@@ -419,7 +419,16 @@ function registerAdminRoutes(app, deps) {
       if (!org) return res.status(404).json({ error: "Org not found" });
       const billing = (data.billing || {})[org.id] || defaultBilling(org.id, data);
       const features = (data.featureFlags || {})[org.id] || defaultFeatures(org.id);
-      const invites = (data.invites || []).filter((i) => i.orgId === org.id);
+      const invites = (data.invites || [])
+        .filter((i) => i.orgId === org.id)
+        .map((i) => ({
+          id: i.id,
+          orgId: i.orgId,
+          type: i.type,
+          expiresAt: i.expiresAt,
+          createdAt: i.createdAt,
+          createdBy: i.createdBy
+        }));
       res.json({ ok: true, data: { org, billing, features, invites } });
     } catch (err) {
       next(err);

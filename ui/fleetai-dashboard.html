@@ -736,30 +736,6 @@
         finally{if($("btnSaveDriver"))$("btnSaveDriver").disabled=false;}
       };
     }
-    function renderPairingLegacy(){
-      const noVehicles = !state.vehicles.length;
-      const noDrivers = !state.drivers.length;
-      const warning = (noVehicles || noDrivers) ? `<div class="note" style="border-color:var(--warn);color:var(--text)"><strong>Setup needed:</strong> ${noVehicles?"Register a vehicle on the Fleet Directory tab. ":""}${noDrivers?"Register a driver on the Drivers tab.":""}</div>` : "";
-      genericPanel("pairing","Device Pairing","Generate codes and manage telematics devices",`${warning}<div class="form-grid"><div class="form-group"><label class="form-label" for="pairVehicleSelect">Vehicle</label><select class="form-select" id="pairVehicleSelect">${noVehicles?`<option value="">-- No vehicles registered --`:""}${state.vehicles.map(v=>`<option value="${esc(v.vehicleId||v.id)}">${esc(v.unitName||v.vehicleId||v.id)}</option>`).join("")}</select></div><div class="form-group"><label class="form-label" for="pairDriverSelect">Driver</label><select class="form-select" id="pairDriverSelect">${noDrivers?`<option value="">-- No drivers registered --`:""}${state.drivers.map(d=>`<option value="${esc(d.driverId||d.id)}">${esc([d.firstName,d.lastName].filter(Boolean).join(" ")||d.name||d.driverId||d.id)}</option>`).join("")}</select></div><button class="btn primary" id="btnGeneratePairCode" ${(noVehicles||noDrivers)?"disabled":""}>Generate Code</button><div class="chip mono" id="pairPing">Ready</div></div><div class="note">Endpoint: <span id="pairingDebugEndpoint">/api/pairing/generate</span> &nbsp;|&nbsp; Status: <span id="pairingDebugStatus">idle</span> &nbsp;|&nbsp; Error: <span id="pairingDebugError">none</span><br><span id="pairingDebugResponse" style="font-family:var(--mono);font-size:15px;font-weight:800"></span></div>`);
-      $("btnGeneratePairCode")?.addEventListener("click", async()=>{
-        const vehicleId = $("pairVehicleSelect")?.value;
-        const driverId = $("pairDriverSelect")?.value;
-        if(!vehicleId||!driverId){$("pairingDebugError").textContent="Select a vehicle and driver first.";return;}
-        try{
-          $("pairingDebugStatus").textContent="generating…";
-          $("pairingDebugError").textContent="none";
-          const r=await apiPost(["/api/pairing/generate","/api/pair-code/generate"],{vehicleId,driverId});
-          const code=r.code||r.pairCode||r.data?.code||r.data?.pairingCode||"";
-          const driverPin=r.driverPin||r.data?.driverPin||r.pin||r.data?.pin||"";
-          $("pairPing").textContent=code||"Generated";
-          $("pairingDebugStatus").textContent="ok";
-          $("pairingDebugResponse").textContent=code ? `Pairing code: ${code}${driverPin ? ` | Driver PIN: ${driverPin}` : ""}` : JSON.stringify(r).slice(0,120);
-        }catch(e){
-          $("pairingDebugStatus").textContent="failed";
-          $("pairingDebugError").textContent=e.message;
-        }
-      });
-    }
     function renderPairing(){
       const noVehicles = !state.vehicles.length;
       const noDrivers = !state.drivers.length;

@@ -105,6 +105,38 @@ const CSS_DIR = path.resolve(__dirname, "css");
 const JS_DIR = path.resolve(__dirname, "js");
 const ASSETS_DIR = path.resolve(__dirname, "assets");
 const EMBED_DIR = path.resolve(__dirname, "embed");
+const PUBLIC_DIR = path.resolve(__dirname, "public");
+const LEGAL_DIR = path.resolve(__dirname, "legal");
+const ORG_DIR = path.resolve(__dirname, "org");
+
+function collectInlineScriptHashes() {
+  const files = [];
+  const visit = (directory, recursive) => {
+    if (!fs.existsSync(directory)) return;
+    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+      const fullPath = path.join(directory, entry.name);
+      if (entry.isDirectory() && recursive) visit(fullPath, true);
+      if (entry.isFile() && entry.name.toLowerCase().endsWith(".html")) files.push(fullPath);
+    }
+  };
+  visit(SITE_ROOT, false);
+  visit(UI_DIR, true);
+  visit(ADMIN_DIR, true);
+  visit(path.join(SITE_ROOT, "legal"), true);
+  const hashes = new Set();
+  const inlineScript = /<script(?![^>]*\bsrc\s*=)[^>]*>([\s\S]*?)<\/script>/gi;
+  for (const file of files) {
+    const html = fs.readFileSync(file, "utf8");
+    for (const match of html.matchAll(inlineScript)) {
+      const digest = crypto.createHash("sha256").update(match[1], "utf8").digest("base64");
+      hashes.add(`'sha256-${digest}'`);
+    }
+  }
+  return [...hashes];
+}
+
+const INLINE_SCRIPT_HASHES = collectInlineScriptHashes();
+const WATCHDOG_INTERNAL_TOKEN = crypto.randomBytes(32).toString("hex");
 const DATA_PATH = resolveAuthStorePath();
 const DATA_SCHEMA_VERSION = 2;
 const SETUP_KEY = (process.env.FLEETAI_SETUP_KEY || "").trim();
@@ -120,6 +152,11 @@ const ALERTS_AGGREGATION_INTERVAL_MS = Number(
   process.env.ALERTS_AGGREGATION_INTERVAL_MS || 5 * 60 * 1000
 );
 const TELEMETRY_RETENTION_LIMIT = Number(process.env.TELEMETRY_RETENTION_LIMIT || 50000);
+// PostgreSQL is the production telemetry authority. The JSON mirror remains a
+// local/no-database compatibility path only; rewriting the full application
+// document for every two-second tablet sample does not scale safely.
+const TELEMETRY_JSON_MIRROR_ENABLED = String(process.env.TELEMETRY_JSON_MIRROR_ENABLED || "").toLowerCase() === "true"
+  || !process.env.DATABASE_URL;
 const THEOREM_INFERENCE_INTERVAL_MS = Math.max(
   15_000,
   Number(process.env.FLEETAI_THEOREM_INFERENCE_INTERVAL_MS || 60_000)
@@ -251,7 +288,20 @@ function applySecurityHeaders(req, res, next) {
   // tiles, which the fleet map cannot render without.
   res.setHeader(
     "Content-Security-Policy",
-    "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.tile.openstreetmap.org; connect-src 'self' https:; font-src 'self'; frame-ancestors 'none'; object-src 'none'; base-uri 'self';"
+    [
+      "default-src 'self'",
+      `script-src 'self' ${INLINE_SCRIPT_HASHES.join(" ")}`,
+      "script-src-attr 'none'",
+      "style-src 'self' 'unsafe-inline'",
+      "img-src 'self' data: blob: https://*.tile.openstreetmap.org",
+      "connect-src 'self'",
+      "font-src 'self'",
+      "frame-ancestors 'none'",
+      "object-src 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
+      IS_PROD ? "upgrade-insecure-requests" : ""
+    ].filter(Boolean).join("; ") + ";"
   );
   if (IS_PROD) {
     res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
@@ -287,6 +337,9 @@ function validateRuntimeConfig() {
     }
     if (!process.env.FLEETAI_ML_SERVICE_URL || process.env.FLEETAI_ML_SERVICE_URL === "http://127.0.0.1:8010") {
       warnings.push("FLEETAI_ML_SERVICE_URL is using the localhost default — the Python ML service will be unreachable on Railway unless this is set to the internal service hostname.");
+    }
+    if (String(process.env.FLEETAI_ML_INTERNAL_TOKEN || "").trim().length < 32) {
+      errors.push("FLEETAI_ML_INTERNAL_TOKEN must be the same strong 32+ character secret on the Node and Python ML services.");
     }
     if (COOKIE_SAMESITE.toLowerCase() === "none" && !COOKIE_SECURE) {
       errors.push("COOKIE_SECURE must be true when COOKIE_SAMESITE=None.");
@@ -580,6 +633,8 @@ loadSessionStores();
 // Telemetry streaming state
 const telemetryLatest = new Map(); // vehicleId -> snapshot
 const telemetrySubscribers = new Set();
+const telemetryWorkingData = new Map();
+const telemetryIngestReceipts = new Map();
 let telemetryLastSeen = null; // { vehicleId, driverId, deviceId, ts }
 const telemetryState = {
   status: "DISCONNECTED",
@@ -588,6 +643,36 @@ const telemetryState = {
   ageMs: null
 };
 let watchdogInstance = null;
+
+function getTelemetryWorkingData(vehicleId) {
+  const key = String(vehicleId || "unknown");
+  if (!telemetryWorkingData.has(key)) {
+    telemetryWorkingData.set(key, {
+      telemetrySnapshots: [],
+      telemetryRecords: [],
+      telemetryFrames: [],
+      telemetrySamples: [],
+      fuelEvents: []
+    });
+  }
+  return telemetryWorkingData.get(key);
+}
+
+function telemetryReceiptKey(batchId, deviceId) {
+  return `${String(deviceId || "unknown")}:${String(batchId || "")}`;
+}
+
+function hasTelemetryReceipt(batchId, deviceId) {
+  return Boolean(batchId) && telemetryIngestReceipts.has(telemetryReceiptKey(batchId, deviceId));
+}
+
+function rememberTelemetryReceipt(batchId, deviceId) {
+  if (!batchId) return;
+  telemetryIngestReceipts.set(telemetryReceiptKey(batchId, deviceId), Date.now());
+  if (telemetryIngestReceipts.size <= 10000) return;
+  const oldest = [...telemetryIngestReceipts.entries()].sort((a, b) => a[1] - b[1]).slice(0, 1000);
+  oldest.forEach(([key]) => telemetryIngestReceipts.delete(key));
+}
 
 function setTelemetryState(status, lastSampleAt, ageMs) {
   if (telemetryState.status !== status) {
@@ -680,10 +765,42 @@ app.use(express.json({
   }
 }));
 
+// Legacy JSON-backed routes perform read-modify-write operations. Serialize
+// complete mutation requests so two successful requests cannot overwrite one
+// another's snapshot. Re-entrant app.handle aliases retain the same lock.
+let mutationRequestTail = Promise.resolve();
+app.use(async (req, res, next) => {
+  const pathOnly = String(req.path || req.url || "").split("?")[0];
+  const databaseTelemetryMutation = !TELEMETRY_JSON_MIRROR_ENABLED
+    && ["/api/telemetry", "/api/telemetry/snapshot"].includes(pathOnly);
+  if (databaseTelemetryMutation || req._fleetAiMutationLockHeld || !["POST", "PUT", "PATCH", "DELETE"].includes(String(req.method || "").toUpperCase())) {
+    return next();
+  }
+  const previous = mutationRequestTail;
+  let release;
+  mutationRequestTail = new Promise((resolve) => { release = resolve; });
+  await previous.catch(() => {});
+  req._fleetAiMutationLockHeld = true;
+  let released = false;
+  const finish = () => {
+    if (released) return;
+    released = true;
+    release();
+  };
+  res.once("finish", finish);
+  res.once("close", finish);
+  try {
+    return next();
+  } catch (error) {
+    finish();
+    return next(error);
+  }
+});
+
 function denyStaticSourcePaths(req, res, next) {
   const pathname = String(req.path || "");
   const blocked = [
-    /^\/(?:server|backend|driver_app|fleet_ai|scripts|tools|node_modules|\.git|\.vs|\.gradle|\.idea)(?:\/|$)/i,
+    /^\/(?:artifacts|backend|db|deploy|docs|driver_app|fleet_ai|fleet_aiphysics|prisma|scripts|server|spec|telemetry|tests|tools|node_modules|\.claude|\.git|\.openclaw|\.pytest_cache|\.vs|\.vscode|\.gradle|\.idea)(?:\/|$)/i,
     /^\/(?:server\.js|package(?:-lock)?\.json|\.env(?:\..*)?|sessions\.json|data\.json)$/i
   ];
   if (blocked.some((pattern) => pattern.test(pathname))) {
@@ -747,6 +864,7 @@ app.get("/api/health", async (req, res) => {
   }
   const status = dbStatus === "ok" ? "ok" : "degraded";
   return res.status(dbStatus === "ok" ? 200 : 503).json({
+    ok: dbStatus === "ok",
     success: true,
     data: {
       status,
@@ -794,6 +912,7 @@ app.get("/terms.html", (req, res) => {
 });
 
 app.get("/admin/setup", (req, res) => {
+  if (!SETUP_ALLOWED) return res.status(404).send("Not found");
   res.redirect(302, "/admin/setup.html");
 });
 
@@ -846,6 +965,13 @@ app.get("/employee-portal.html", requireEmployeeSession, (req, res) => {
 });
 app.get("/employee-console.html", requireEmployeeSession, (req, res) => {
   res.sendFile(path.join(SITE_ROOT, "employee-portal.html"));
+});
+app.get("/admin/debug.html", requireSuperAdmin, (req, res) => {
+  res.sendFile(path.join(ADMIN_DIR, "debug.html"));
+});
+app.get("/admin/setup.html", (req, res) => {
+  if (!SETUP_ALLOWED) return res.status(404).send("Not found");
+  return res.sendFile(path.join(ADMIN_DIR, "setup.html"));
 });
 
 app.get("/ui/fleetai-dashboard.html", (req, res) => {
@@ -931,7 +1057,8 @@ registerSystemStatusRoutes(app, {
   getTelemetryLatestSize: () => telemetryLatest.size,
   getTelemetryLatestEntries: () => Array.from(telemetryLatest.entries()),
   nowIso,
-  isExpired
+  isExpired,
+  watchdogInternalToken: WATCHDOG_INTERNAL_TOKEN
 });
 
 // ── ML Prediction + AI Report routes (see server/routes/mlRoutes.js) ──────
@@ -1002,7 +1129,16 @@ const FLEET_OPS_ROUTE_MANIFEST = [
 // a device token gets the shape the Android models parse, and every other
 // caller falls through via next() to the existing operator handler.
 const eldService = createEldService(sqliteDb.getPrisma());
-registerDriverAppRoutes(app, { sanitizeString, nowIso, log: console.log, eldService });
+registerDriverAppRoutes(app, {
+  sanitizeString,
+  nowIso,
+  log: console.log,
+  eldService,
+  readData,
+  writeData,
+  makeId,
+  addAudit
+});
 
 registerEldRoutes(app, {
   eldService,
@@ -1020,6 +1156,10 @@ registerFleetOpsRoutes(app, {
   requireEmployeeOrCustomerApi: (req, res, next) => requireEmployeeOrCustomerApi(req, res, next),
   telemetryLatest,
   telemetrySubscribers,
+  useTelemetryJsonMirror: TELEMETRY_JSON_MIRROR_ENABLED,
+  getTelemetryWorkingData,
+  hasTelemetryReceipt,
+  rememberTelemetryReceipt,
   getTelemetryLastSeen: () => telemetryLastSeen,
   getTelemetryState: () => telemetryState,
   triggerTelemetryPipeline,
@@ -1105,8 +1245,10 @@ app.post("/api/telemetry/snapshot", requireDevice, validateBody(schemas.telemetr
     if (requestedVehicleId && requestedVehicleId !== vehicleId) {
       return res.status(403).json({ ok: false, error: "VEHICLE_MISMATCH" });
     }
-    const data = await readData();
     const orgId = req.device.orgId;
+    const data = TELEMETRY_JSON_MIRROR_ENABLED
+      ? await readData()
+      : getTelemetryWorkingData(vehicleId);
     const ts = payload.timestamp || nowIso();
     const pids = payload.pids || {};
     const decodedMetrics = {
@@ -1125,15 +1267,18 @@ app.post("/api/telemetry/snapshot", requireDevice, validateBody(schemas.telemetr
       orgId,
       vehicleId
     });
-    storeNormalizedSnapshot(data, normalized, {
+    await storeNormalizedSnapshot(data, normalized, {
       driverId: req.device.driverId || null,
       deviceId: req.device.deviceId || null,
       rawPids: pids,
       derivedMetrics: {},
       odometerMiles: parseNumberField(payload.odometer || null),
       engineHours: parseNumberField(payload.engineHours || null)
+    }, {
+      requirePrimaryPersistence: !TELEMETRY_JSON_MIRROR_ENABLED,
+      workingSetOnly: !TELEMETRY_JSON_MIRROR_ENABLED
     });
-    await writeData(data);
+    if (TELEMETRY_JSON_MIRROR_ENABLED) await writeData(data);
     triggerTelemetryPipeline();
     res.json({ ok: true });
   })().catch((err) => {
@@ -1147,6 +1292,7 @@ app.post("/api/alerts", requireDevice, (req, res) => {
     const requestedVehicleId = sanitizeString(payload.vehicleId || "", 80);
     const vehicleId = req.device.vehicleId;
     const message = sanitizeString(payload.message || "", 400);
+    const clientAlertId = sanitizeString(payload.clientAlertId || "", 80);
     if (requestedVehicleId && requestedVehicleId !== vehicleId) {
       return res.status(403).json({ ok: false, error: "VEHICLE_MISMATCH" });
     }
@@ -1156,9 +1302,23 @@ app.post("/api/alerts", requireDevice, (req, res) => {
     const data = await readData();
     const orgId = req.device.orgId;
     const severity = sanitizeString(payload.severity || "info", 20);
+    data.notifications = Array.isArray(data.notifications) ? data.notifications : [];
+    const existing = clientAlertId
+      ? data.notifications.find((item) =>
+        item.org_id === orgId &&
+        item.device_id === req.device.deviceId &&
+        item.client_alert_id === clientAlertId
+      )
+      : null;
+    if (existing) {
+      return res.json({ ok: true, success: true, notificationId: existing.id, duplicate: true });
+    }
     const notification = {
       id: makeId("NOTIF"),
+      client_alert_id: clientAlertId,
       org_id: orgId,
+      driver_id: req.device.driverId || "",
+      device_id: req.device.deviceId || "",
       recipient_type: "fleet_manager",
       recipient_id: orgId,
       vehicle_id: vehicleId,
@@ -1169,10 +1329,9 @@ app.post("/api/alerts", requireDevice, (req, res) => {
       status: "unread",
       created_at: nowIso()
     };
-    data.notifications = Array.isArray(data.notifications) ? data.notifications : [];
     data.notifications.unshift(notification);
     await writeData(data);
-    res.json({ ok: true });
+    res.json({ ok: true, success: true, notificationId: notification.id });
   })().catch((err) => {
     res.status(500).json({ error: err.message || "Alert ingest failed" });
   });
@@ -2739,7 +2898,7 @@ function detectFuelEvent(data, snapshot) {
   }
 }
 
-function storeNormalizedSnapshot(data, normalized, extra) {
+async function storeNormalizedSnapshot(data, normalized, extra, options = {}) {
   const snapshot = buildSnapshotFromNormalized(normalized, extra);
   appendSnapshot(data, snapshot);
   addTelemetryRecordsFromNormalized(data, snapshot);
@@ -2747,10 +2906,10 @@ function storeNormalizedSnapshot(data, normalized, extra) {
   try {
     const sample = ml.buildTelemetrySample(normalized, extra);
     if (sample.vehicleId) {
-      // Persist to PostgreSQL (primary store for ML pipeline) — fire-and-forget, best-effort
-      sqliteDb.insertTelemetrySample(sample).catch((err) => {
-        console.warn("[TEL] insertTelemetrySample failed:", err.message);
-      });
+      // A successful production ingest means the durable database accepted the
+      // sample. Android keeps its outbox row when this throws and replays it
+      // later; the deterministic sample id makes that replay idempotent.
+      await sqliteDb.insertTelemetrySample(sample);
       // Also keep in-memory array for legacy pipeline compatibility
       ml.appendTelemetrySample(data, sample, TELEMETRY_RETENTION_LIMIT);
       ml.detectFuelEventsFromSamples(data, sample.vehicleId);
@@ -2761,8 +2920,17 @@ function storeNormalizedSnapshot(data, normalized, extra) {
       }
     }
   } catch (err) {
-    // Best-effort; do not block telemetry ingest.
+    if (options.requirePrimaryPersistence) throw err;
     console.warn("[TEL] storeNormalizedSnapshot error:", err.message);
+  }
+  if (options.workingSetOnly) {
+    // PostgreSQL is the historical store in production. These arrays only
+    // support immediate calculations and must not grow with fleet lifetime.
+    data.telemetrySnapshots = (data.telemetrySnapshots || []).slice(-250);
+    data.telemetryRecords = (data.telemetryRecords || []).slice(-10000);
+    data.telemetrySamples = (data.telemetrySamples || []).slice(-1000);
+    data.telemetryFrames = [];
+    data.fuelEvents = (data.fuelEvents || []).slice(-100);
   }
   return snapshot;
 }
@@ -3494,6 +3662,7 @@ async function runTelemetryPipeline() {
           historySpanHours: prediction.historySpanHours,
           chargingEvidence: prediction.chargingEvidence,
           climateContext: prediction.climateContext,
+          engineEvent: prediction.engineEvent,
           insufficientHistory: prediction.insufficientData
         };
         const mlAlerts = ml.generateAlertsFromState(oldState);
@@ -3799,12 +3968,34 @@ registerAuthRoutes(app, {
 // Static file serving — must come AFTER all API route registrations so API
 // paths can never be shadowed by a matching file on disk.
 app.use(denyStaticSourcePaths);
-app.use("/", express.static(SITE_ROOT));
+const PUBLIC_ROOT_FILES = new Set([
+  "about.html",
+  "customer-login.html",
+  "developers.html",
+  "employee-login.html",
+  "partner-docs.html",
+  "pilot.html",
+  "pricing.html",
+  "product.html",
+  "request-demo.html",
+  "security.html",
+  "signup.html",
+  "robots.txt",
+  "sitemap.xml"
+]);
+app.get("/:publicFile", (req, res, next) => {
+  const fileName = String(req.params.publicFile || "");
+  if (!PUBLIC_ROOT_FILES.has(fileName)) return next();
+  return res.sendFile(path.join(SITE_ROOT, fileName));
+});
 app.use("/ui", express.static(UI_DIR));
 app.use("/admin", express.static(ADMIN_DIR));
 app.use("/driver_app", (req, res) => {
   res.status(404).send("Not found");
 });
+app.use("/public", express.static(PUBLIC_DIR));
+app.use("/legal", express.static(LEGAL_DIR));
+app.use("/org", express.static(ORG_DIR));
 app.use("/css", express.static(CSS_DIR));
 app.use("/js", express.static(JS_DIR));
 app.use("/assets", express.static(ASSETS_DIR));
@@ -4114,7 +4305,8 @@ async function startServer() {
     watchdogInstance = startWatchdog({
       baseUrl,
       contractPath: path.join(__dirname, "spec", "config", "watchdog_contract.json"),
-      logPath: path.join(__dirname, "server", "logs", "watchdog.log")
+      logPath: path.join(__dirname, "server", "logs", "watchdog.log"),
+      headers: { "X-FleetAI-Watchdog-Token": WATCHDOG_INTERNAL_TOKEN }
     });
     console.log("[WATCHDOG] started");
   } catch (err) {

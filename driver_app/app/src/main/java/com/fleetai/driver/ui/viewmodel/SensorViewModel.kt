@@ -22,6 +22,9 @@ import com.fleetai.driver.telemetry.J1979Spec
 import com.fleetai.driver.telemetry.PidSpec
 import com.fleetai.driver.telemetry.DeviceLocationTracker
 import com.fleetai.driver.telemetry.TelemetrySender
+import com.fleetai.driver.telemetry.ObdRuntime
+import com.fleetai.driver.telemetry.ObdRuntimeSnapshot
+import com.fleetai.driver.telemetry.ObdTelemetryService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -84,6 +87,8 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
     private var debugJob: Job? = null
     private var j1939RuntimeJob: Job? = null
     private var j1939MetricsJob: Job? = null
+    private var obdRuntimeJob: Job? = null
+    private var obdSnapshotJob: Job? = null
     private val ema = mutableMapOf<String, Double>()
     private val history = mutableMapOf<String, MutableList<Double>>()
     private val lastGood = mutableMapOf<String, Pair<Double, Long>>()
@@ -108,11 +113,30 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
             // keep debug state flowing even if not connected
             while (isActive) {
                 _debug.value = if (J1939Runtime.state.value == J1939Runtime.State.STOPPED) {
-                    sender.debug
+                    ObdRuntime.debug.value
                 } else {
                     J1939Runtime.debug.value.copy(protocol = "J1939", lastObdReadAt = J1939Runtime.lastFrameAt.value)
                 }
                 delay(1000)
+            }
+        }
+        obdRuntimeJob = viewModelScope.launch {
+            ObdRuntime.status.collect { runtimeStatus ->
+                if (J1939Runtime.state.value == J1939Runtime.State.STOPPED) {
+                    _status.value = if (ObdRuntime.state.value == ObdRuntime.State.STOPPED && _savedDevice.value.isBlank()) {
+                        "Not connected"
+                    } else {
+                        runtimeStatus
+                    }
+                }
+            }
+        }
+        obdSnapshotJob = viewModelScope.launch {
+            ObdRuntime.snapshot.collect { snapshot ->
+                if (J1939Runtime.state.value == J1939Runtime.State.STOPPED &&
+                    (snapshot.standardPlan.isNotEmpty() || snapshot.extendedPlan.isNotEmpty())) {
+                    _readings.value = buildObdReadings(snapshot)
+                }
             }
         }
         j1939RuntimeJob = viewModelScope.launch {
@@ -141,6 +165,9 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
     fun usbAdapters() = usbJ1939.attachedAdapters()
 
     fun connectUsbJ1939() {
+        com.fleetai.driver.AppGraph.appContext.startService(
+            ObdTelemetryService.stopIntent(com.fleetai.driver.AppGraph.appContext)
+        )
         stopPolling(resetReadings = true)
         sender.stop()
         viewModelScope.launch { runCatching { obd.disconnect() } }
@@ -171,6 +198,9 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
             _demoMode.value = enabled
             if (enabled) {
                 com.fleetai.driver.AppGraph.appContext.startService(
+                    ObdTelemetryService.stopIntent(com.fleetai.driver.AppGraph.appContext)
+                )
+                com.fleetai.driver.AppGraph.appContext.startService(
                     J1939TelemetryService.stopIntent(com.fleetai.driver.AppGraph.appContext)
                 )
                 stopPolling(resetReadings = true)
@@ -192,24 +222,16 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
                 com.fleetai.driver.AppGraph.appContext.startService(
                     J1939TelemetryService.stopIntent(com.fleetai.driver.AppGraph.appContext)
                 )
-                stopPolling(resetReadings = true)
-                sender.stop()
                 _status.value = "Connecting..."
-                val connected = obd.connect(device)
-                if (!connected || !obd.isConnected()) {
-                    _status.value = "Connection failed"
-                    return@launch
-                }
-                _status.value = "Connected"
                 preferences.saveObdDeviceAddress(device.address)
                 _savedDevice.value = device.address
-                sender.start()
-                startPolling()
+                ContextCompat.startForegroundService(
+                    com.fleetai.driver.AppGraph.appContext,
+                    ObdTelemetryService.startIntent(com.fleetai.driver.AppGraph.appContext, device.address)
+                )
             } catch (_: SecurityException) {
                 _status.value = "Bluetooth permission required"
             } catch (_: Exception) {
-                sender.stop()
-                stopPolling(resetReadings = true)
                 _status.value = "Connection failed"
             }
         }
@@ -217,7 +239,9 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
 
     fun disconnect() {
         viewModelScope.launch {
-            sender.stop()
+            com.fleetai.driver.AppGraph.appContext.startService(
+                ObdTelemetryService.stopIntent(com.fleetai.driver.AppGraph.appContext)
+            )
             com.fleetai.driver.AppGraph.appContext.startService(
                 J1939TelemetryService.stopIntent(com.fleetai.driver.AppGraph.appContext)
             )
@@ -247,22 +271,14 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
                 return@launch
             }
             try {
-                stopPolling(resetReadings = true)
-                sender.stop()
                 _status.value = "Reconnecting..."
-                val connected = obd.connect(device)
-                if (!connected || !obd.isConnected()) {
-                    _status.value = "Reconnect failed"
-                    return@launch
-                }
-                _status.value = "Connected"
-                sender.start()
-                startPolling()
+                ContextCompat.startForegroundService(
+                    com.fleetai.driver.AppGraph.appContext,
+                    ObdTelemetryService.startIntent(com.fleetai.driver.AppGraph.appContext, device.address)
+                )
             } catch (_: SecurityException) {
                 _status.value = "Bluetooth permission required"
             } catch (_: Exception) {
-                sender.stop()
-                stopPolling(resetReadings = true)
                 _status.value = "Reconnect failed"
             }
         }
@@ -431,14 +447,6 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
     fun setLocationSharingEnabled(enabled: Boolean) {
         _locationSharingEnabled.value = enabled
         viewModelScope.launch { preferences.setLocationSharingEnabled(enabled) }
-        if (enabled && obd.isConnected()) {
-            startLocationTracking()
-        } else if (!enabled) {
-            locationJob?.cancel()
-            locationJob = null
-            locationTracker.stop()
-            sender.updateLocation(null)
-        }
     }
 
     private suspend fun readPidMetrics(command: String): PidMetricsReadResult {
@@ -521,8 +529,6 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
     }
 
     override fun onCleared() {
-        stopPolling(resetReadings = true)
-        sender.stop()
         j1939RuntimeJob?.cancel()
         j1939RuntimeJob = null
         j1939MetricsJob?.cancel()
@@ -530,6 +536,10 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
         usbJ1939.close()
         debugJob?.cancel()
         debugJob = null
+        obdRuntimeJob?.cancel()
+        obdRuntimeJob = null
+        obdSnapshotJob?.cancel()
+        obdSnapshotJob = null
         super.onCleared()
     }
 
@@ -543,7 +553,7 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
         staleAfterMs: Long = 5_000L,
         decimals: Int = 1
     ): SensorReading {
-        val smoothed = raw?.let { smooth(pid, it) }
+        val smoothed = raw?.let { if (pid == "010D" || pid == "SPN 84") it else smooth(pid, it) }
         val status = when {
             raw == null -> SensorStatus.STALE
             System.currentTimeMillis() - ts > staleAfterMs -> SensorStatus.STALE
@@ -654,6 +664,70 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
             if (display.key.endsWith("TempC") && unit.tempF) value = value * 9 / 5 + 32
             buildReading(display.spn, display.label, value, display.unit, now, decimals = display.decimals)
         }
+    }
+
+    private fun buildObdReadings(snapshot: ObdRuntimeSnapshot): List<SensorReading> {
+        val unit = _unitPrefs.value
+        val readings = snapshot.standardPlan
+            .sortedWith(compareBy<PidSpec> { it.priority }.thenBy { it.name })
+            .map { spec ->
+                var value = snapshot.metrics[spec.key]
+                var displayUnit = spec.unit
+                if (spec.key == "speedKph" && unit.speedMph) {
+                    value = value?.times(0.621371)
+                    displayUnit = "mph"
+                }
+                if (spec.key.endsWith("TempC") && unit.tempF) {
+                    value = applyTempUnit(value, true)
+                    displayUnit = "F"
+                }
+                val decimals = when (spec.unit) {
+                    "rpm", "kph", "km", "count", "s", "min", "Nm" -> 0
+                    "V", "lambda", "g/s", "L/h" -> 2
+                    else -> 1
+                }
+                buildReading(
+                    spec.command,
+                    spec.name,
+                    value,
+                    displayUnit,
+                    snapshot.metricUpdatedAt[spec.key] ?: 0L,
+                    staleAfterMs = readingFreshnessMs(spec.minIntervalMs),
+                    decimals = decimals
+                )
+            }
+            .toMutableList()
+        snapshot.extendedPlan
+            .sortedWith(compareBy<ExtendedPidDefinition> { it.priority }.thenBy { it.name })
+            .forEach { definition ->
+                var value = snapshot.metrics[definition.key]
+                var displayUnit = definition.unit
+                if (definition.key.endsWith("TempC") && unit.tempF) {
+                    value = applyTempUnit(value, true)
+                    displayUnit = "F"
+                }
+                readings += buildReading(
+                    definition.command,
+                    definition.name,
+                    value,
+                    displayUnit,
+                    snapshot.metricUpdatedAt[definition.key] ?: 0L,
+                    staleAfterMs = readingFreshnessMs(definition.minIntervalMs),
+                    decimals = if (definition.unit == "V") 2 else 1
+                )
+            }
+        snapshot.metrics["boostPsi"]?.let { boost ->
+            readings += buildReading(
+                "BOOST",
+                "Boost",
+                boost,
+                "psi",
+                snapshot.metricUpdatedAt["boostPsi"] ?: snapshot.lastPacketAt,
+                derived = true,
+                decimals = 2
+            )
+        }
+        return readings
     }
 
     companion object {

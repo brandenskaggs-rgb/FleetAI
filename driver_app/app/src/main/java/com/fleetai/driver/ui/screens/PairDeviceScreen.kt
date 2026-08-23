@@ -1,7 +1,7 @@
 package com.fleetai.driver.ui.screens
 
 import android.content.Intent
-import android.net.Uri
+import androidx.core.net.toUri
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -182,7 +182,7 @@ fun PairDeviceScreen(
                     )
                     androidx.compose.material3.TextButton(
                         onClick = {
-                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://fleetaiops.com/legal/privacy.html")))
+                            context.startActivity(Intent(Intent.ACTION_VIEW, "https://fleetaiops.com/legal/privacy.html".toUri()))
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) {

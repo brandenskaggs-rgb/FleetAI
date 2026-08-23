@@ -2,6 +2,8 @@ package com.fleetai.driver.data.repository
 
 import com.fleetai.driver.data.local.AppPreferences
 import com.fleetai.driver.data.local.HosDao
+import com.fleetai.driver.data.local.DvirDao
+import com.fleetai.driver.data.local.DvirEntity
 import com.fleetai.driver.data.local.HosEventEntity
 import com.fleetai.driver.data.local.NotificationDao
 import com.fleetai.driver.data.local.NotificationEntity
@@ -10,6 +12,7 @@ import com.fleetai.driver.data.local.VehicleEntity
 import com.fleetai.driver.data.model.ComplianceConfig
 import com.fleetai.driver.data.model.DriverSession
 import com.fleetai.driver.data.model.DtcCode
+import com.fleetai.driver.data.model.DvirRecord
 import com.fleetai.driver.data.model.DutyStatus
 import com.fleetai.driver.data.model.EldDeviceStatus
 import com.fleetai.driver.data.model.HosEvent
@@ -20,6 +23,7 @@ import com.fleetai.driver.data.model.Vehicle
 import com.fleetai.driver.network.AlertRequest
 import com.fleetai.driver.network.ApiService
 import com.fleetai.driver.network.DriverLogRequest
+import com.fleetai.driver.network.DvirSubmitRequest
 import com.fleetai.driver.network.EldCertificationRequest
 import com.fleetai.driver.network.MockApiService
 import com.fleetai.driver.network.SelectVehicleRequest
@@ -27,6 +31,7 @@ import kotlinx.coroutines.flow.first
 import retrofit2.HttpException
 import java.time.Instant
 import java.util.UUID
+import org.json.JSONArray
 
 private fun dutyStatusApiValue(value: String): String = when (value.trim().uppercase()) {
     "OFF", "OFF_DUTY" -> "OFF_DUTY"
@@ -51,7 +56,8 @@ class DefaultDriverRepository(
     private val preferences: AppPreferences,
     private val hosDao: HosDao,
     private val notificationDao: NotificationDao,
-    private val vehicleDao: VehicleDao
+    private val vehicleDao: VehicleDao,
+    private val dvirDao: DvirDao
 ) : DriverRepository {
     override suspend fun login(companyCode: String, driverPin: String): DriverSession {
         val useMock = preferences.demoMode.first()
@@ -172,6 +178,7 @@ class DefaultDriverRepository(
             id = event.id,
             tenantId = event.tenantId,
             vehicleId = event.vehicleId,
+            driverId = event.driverId,
             status = event.status.name,
             notes = event.notes,
             startTime = event.startTime,
@@ -183,6 +190,7 @@ class DefaultDriverRepository(
         try {
             api.postHosLog(
                 DriverLogRequest(
+                    clientEventId = event.id,
                     date = event.eventDate,
                     startTime = event.startTime,
                     endTime = event.endTime,
@@ -198,11 +206,13 @@ class DefaultDriverRepository(
     override suspend fun getHosEvents(date: String): List<HosEvent> {
         val tenantId = preferences.tenantId.first()
         val vehicleId = preferences.vehicleId.first()
-        val localEvents = hosDao.getEventsByDate(tenantId, date).map {
+        val driverId = preferences.driverId.first()
+        val localEvents = hosDao.getEventsByDate(tenantId, driverId, date).map {
             HosEvent(
                 id = it.id,
                 tenantId = it.tenantId,
                 vehicleId = it.vehicleId,
+                driverId = it.driverId,
                 status = DutyStatus.valueOf(it.status),
                 notes = it.notes,
                 startTime = it.startTime,
@@ -217,6 +227,7 @@ class DefaultDriverRepository(
                     id = event.id.ifBlank { "remote-${event.timestamp}-${event.status}" },
                     tenantId = tenantId,
                     vehicleId = vehicleId,
+                    driverId = driverId,
                     status = dutyStatusFromApi(event.status),
                     notes = event.notes,
                     startTime = event.timestamp,
@@ -229,11 +240,36 @@ class DefaultDriverRepository(
         }
     }
 
+    override suspend fun submitInspection(record: DvirRecord): Boolean {
+        val entity = DvirEntity(
+            id = record.id,
+            tenantId = record.tenantId,
+            vehicleId = record.vehicleId,
+            driverId = record.driverId,
+            type = record.type,
+            odometer = record.odometer,
+            inspectedItemsJson = JSONArray(record.inspectedItems).toString(),
+            defects = record.defects,
+            signature = record.signature,
+            inspectedAt = record.inspectedAt,
+            synced = false
+        )
+        dvirDao.insert(entity)
+        return try {
+            api.submitDvir(entity.toRequest())
+            dvirDao.markSynced(entity.id, entity.tenantId)
+            true
+        } catch (_: Exception) {
+            false
+        }
+    }
+
     override suspend fun addNotification(notification: NotificationItem) {
         val entity = NotificationEntity(
             id = notification.id,
             tenantId = notification.tenantId,
             vehicleId = notification.vehicleId,
+            driverId = notification.driverId,
             title = notification.title,
             message = notification.message,
             severity = notification.severity,
@@ -245,6 +281,7 @@ class DefaultDriverRepository(
         try {
             api.postAlert(
                 AlertRequest(
+                    clientAlertId = notification.id,
                     type = "driver",
                     severity = notification.severity,
                     message = notification.message,
@@ -258,11 +295,13 @@ class DefaultDriverRepository(
 
     override suspend fun getNotifications(): List<NotificationItem> {
         val tenantId = preferences.tenantId.first()
-        return notificationDao.getNotifications(tenantId).map {
+        val driverId = preferences.driverId.first()
+        return notificationDao.getNotifications(tenantId, driverId).map {
             NotificationItem(
                 id = it.id,
                 tenantId = it.tenantId,
                 vehicleId = it.vehicleId,
+                driverId = it.driverId,
                 title = it.title,
                 message = it.message,
                 severity = it.severity,
@@ -336,7 +375,8 @@ class DefaultDriverRepository(
     override suspend fun updateDutyStatus(status: DutyStatus, notes: String) {
         val tenantId = preferences.tenantId.first()
         val vehicleId = preferences.vehicleId.first()
-        if (tenantId.isBlank() || vehicleId.isBlank()) {
+        val driverId = preferences.driverId.first()
+        if (tenantId.isBlank() || vehicleId.isBlank() || driverId.isBlank()) {
             throw IllegalStateException("session_or_vehicle_missing")
         }
         val timestamp = Instant.now().toString()
@@ -345,6 +385,7 @@ class DefaultDriverRepository(
                 id = UUID.randomUUID().toString(),
                 tenantId = tenantId,
                 vehicleId = vehicleId,
+                driverId = driverId,
                 status = status,
                 notes = notes,
                 startTime = timestamp,
@@ -357,7 +398,8 @@ class DefaultDriverRepository(
     override suspend fun notifyFleet(message: String) {
         val tenantId = preferences.tenantId.first()
         val vehicleId = preferences.vehicleId.first()
-        if (tenantId.isBlank()) {
+        val driverId = preferences.driverId.first()
+        if (tenantId.isBlank() || vehicleId.isBlank() || driverId.isBlank()) {
             throw IllegalStateException("login_required")
         }
         addNotification(
@@ -365,6 +407,7 @@ class DefaultDriverRepository(
                 id = UUID.randomUUID().toString(),
                 tenantId = tenantId,
                 vehicleId = vehicleId,
+                driverId = driverId,
                 title = "Driver Update",
                 message = message,
                 severity = "info",
@@ -398,12 +441,17 @@ class DefaultDriverRepository(
 
     override suspend fun syncPending() {
         var hadFailure = false
+        val tenantId = preferences.tenantId.first()
+        val vehicleId = preferences.vehicleId.first()
+        val driverId = preferences.driverId.first()
+        if (tenantId.isBlank() || vehicleId.isBlank() || driverId.isBlank()) return
 
-        val pendingEvents = hosDao.getPendingEvents()
+        val pendingEvents = hosDao.getPendingEvents(tenantId, vehicleId, driverId)
         for (event in pendingEvents) {
             try {
                 api.postHosLog(
                     DriverLogRequest(
+                        clientEventId = event.id,
                         date = event.eventDate,
                         startTime = event.startTime,
                         endTime = event.endTime,
@@ -417,11 +465,12 @@ class DefaultDriverRepository(
             }
         }
 
-        val pendingNotifications = notificationDao.getPendingNotifications()
+        val pendingNotifications = notificationDao.getPendingNotifications(tenantId, vehicleId, driverId)
         for (notification in pendingNotifications) {
             try {
                 api.postAlert(
                     AlertRequest(
+                        clientAlertId = notification.id,
                         type = "driver",
                         severity = notification.severity,
                         message = notification.message,
@@ -434,8 +483,32 @@ class DefaultDriverRepository(
             }
         }
 
+
+        val pendingInspections = dvirDao.getPending(tenantId, vehicleId, driverId)
+        for (inspection in pendingInspections) {
+            try {
+                api.submitDvir(inspection.toRequest())
+                dvirDao.markSynced(inspection.id, tenantId)
+            } catch (_: Exception) {
+                hadFailure = true
+            }
+        }
+
         if (hadFailure) {
             throw IllegalStateException("sync_pending_failed")
         }
     }
+
+    private fun DvirEntity.toRequest() = DvirSubmitRequest(
+        clientRecordId = id,
+        type = type,
+        odometer = odometer,
+        inspectedItems = runCatching {
+            val values = JSONArray(inspectedItemsJson)
+            List(values.length()) { index -> values.optString(index) }.filter(String::isNotBlank)
+        }.getOrDefault(emptyList()),
+        defects = defects,
+        signature = signature,
+        inspectedAt = inspectedAt
+    )
 }

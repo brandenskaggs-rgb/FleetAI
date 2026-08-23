@@ -31,6 +31,7 @@ data class HosEvent(
     val id: String,
     val tenantId: String,
     val vehicleId: String,
+    val driverId: String,
     val status: DutyStatus,
     val notes: String,
     val startTime: String,
@@ -42,6 +43,7 @@ data class NotificationItem(
     val id: String,
     val tenantId: String,
     val vehicleId: String,
+    val driverId: String,
     val title: String,
     val message: String,
     val severity: String,
@@ -81,6 +83,19 @@ data class HomeUiState(
     val hosViolations: List<String>,
     val statusMessage: String,
     val actionInProgress: Boolean
+)
+
+data class DvirRecord(
+    val id: String,
+    val tenantId: String,
+    val vehicleId: String,
+    val driverId: String,
+    val type: String,
+    val odometer: Long,
+    val inspectedItems: List<String>,
+    val defects: String,
+    val signature: String,
+    val inspectedAt: String
 )
 
 data class HosClockStatus(

@@ -33,6 +33,12 @@ async function run() {
     }
     console.log(`PASS: primary account database users=${primary.users.length} orgs=${primary.orgs.length}`);
   }
+  if (String(process.env.NODE_ENV || "").toLowerCase() === "production") {
+    const mlToken = String(process.env.FLEETAI_ML_INTERNAL_TOKEN || "").trim();
+    if (mlToken.length < 32) {
+      throw new Error("FLEETAI_ML_INTERNAL_TOKEN must be 32+ characters in production.");
+    }
+  }
   if (String(process.env.ELD_PRODUCTION_ENABLED || "").toLowerCase() === "true") {
     const requiredEldGates = [
       "ELD_OFFLINE_ENGINE_COMPLETE",

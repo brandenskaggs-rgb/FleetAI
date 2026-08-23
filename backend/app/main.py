@@ -7,10 +7,11 @@ import logging
 import os
 import random
 import string
+import hmac
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 from dotenv import load_dotenv
 from pathlib import Path
@@ -331,6 +332,24 @@ class AlertRecord(BaseModel):
 
 
 app = FastAPI(lifespan=lifespan)
+
+_ML_INTERNAL_TOKEN = os.getenv("FLEETAI_ML_INTERNAL_TOKEN", "").strip()
+_PUBLIC_PATHS = {"/health"}
+
+
+@app.middleware("http")
+async def require_internal_service_token(request: Request, call_next):
+    if request.url.path in _PUBLIC_PATHS:
+        return await call_next(request)
+    supplied = request.headers.get("x-fleetai-ml-token", "")
+    if _ML_INTERNAL_TOKEN and hmac.compare_digest(supplied, _ML_INTERNAL_TOKEN):
+        return await call_next(request)
+    client_host = request.client.host if request.client else ""
+    if not _ML_INTERNAL_TOKEN and client_host in {"127.0.0.1", "::1", "testclient"}:
+        return await call_next(request)
+    status = 503 if not _ML_INTERNAL_TOKEN else 401
+    code = "ML_SERVICE_AUTH_NOT_CONFIGURED" if not _ML_INTERNAL_TOKEN else "ML_SERVICE_AUTH_REQUIRED"
+    return JSONResponse(status_code=status, content={"ok": False, "error": code})
 
 UI_DASHBOARD_PATH = Path(__file__).resolve().parents[2] / "ui" / "fleetai-dashboard.html"
 

@@ -21,6 +21,7 @@ import retrofit2.converter.moshi.MoshiConverterFactory
 
 object ApiClient {
     @Volatile
+    @SuppressLint("StaticFieldLeak") // AppPreferences normalizes its Context to applicationContext.
     private var preferences: AppPreferences? = null
     @Volatile
     @SuppressLint("StaticFieldLeak")

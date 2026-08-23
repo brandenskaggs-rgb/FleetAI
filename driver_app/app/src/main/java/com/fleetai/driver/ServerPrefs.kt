@@ -1,6 +1,7 @@
 package com.fleetai.driver
 
 import android.content.Context
+import androidx.core.content.edit
 
 object ServerPrefs {
     const val PREFS_NAME = "fleetai_driver"
@@ -19,6 +20,6 @@ object ServerPrefs {
 
     fun setBaseUrl(context: Context, baseUrl: String) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        prefs.edit().putString(KEY_BASE_URL, baseUrl).apply()
+        prefs.edit { putString(KEY_BASE_URL, baseUrl) }
     }
 }
