@@ -344,21 +344,22 @@ function viewTemplate() {
   return {
     overview: `
       <section class="viewSection overviewSection">
+        <div class="overviewActions"><a class="btn primary" href="#orgs">Manage companies</a><a class="btn secondary" href="#leads">Review pilot requests</a><a class="btn ghost" href="#invites">Customer invitations</a></div>
         <div class="kpiGrid">
           <div class="kpiCard">
-            <div class="kpiLabel">MRR Estimate</div>
+            <div class="kpiLabel">Monthly revenue estimate</div>
             <div class="kpiValue" id="kpiMrr">--</div>
           </div>
           <div class="kpiCard">
-            <div class="kpiLabel">Active Companies</div>
+            <div class="kpiLabel">Active companies</div>
             <div class="kpiValue" id="kpiActiveOrgs">--</div>
           </div>
           <div class="kpiCard">
-            <div class="kpiLabel">Onboarded Vehicles</div>
+            <div class="kpiLabel">Onboarded vehicles</div>
             <div class="kpiValue" id="kpiActiveFleets">--</div>
           </div>
           <div class="kpiCard">
-            <div class="kpiLabel">Open Pipeline</div>
+            <div class="kpiLabel">Open requests</div>
             <div class="kpiValue" id="kpiOpenLeads">--</div>
             <div class="muted" style="margin-top:6px; font-size:12px;">Leads awaiting action.</div>
           </div>
@@ -393,8 +394,8 @@ function viewTemplate() {
             <p class="muted">Create, review, and move companies from pilot setup to active customer.</p>
           </div>
           <div class="headerActions">
-            <input type="search" id="orgSearch" placeholder="Search companies" />
-            <button class="btn primary" id="orgCreateBtn" type="button">Create Company</button>
+            <input type="search" id="orgSearch" aria-label="Search companies" placeholder="Search companies" />
+            <button class="btn primary" id="orgCreateBtn" type="button">Create company</button>
           </div>
         </div>
         <div class="orgLayout">
@@ -412,7 +413,7 @@ function viewTemplate() {
                 <table class="dataTable">
                   <thead>
                     <tr>
-                      <th>Org name</th>
+                      <th>Company</th>
                       <th>Status</th>
                       <th>Fleet size</th>
                       <th>Active vehicles</th>
@@ -434,7 +435,7 @@ function viewTemplate() {
             <div class="panelBody">
               <div class="detailForm">
                 <label class="fieldGroup">
-                  <span>Organization name</span>
+                  <span>Company name</span>
                   <input id="orgDetailNameInput" type="text" />
                 </label>
                 <label class="fieldGroup">
@@ -480,7 +481,7 @@ function viewTemplate() {
                 </label>
               </div>
               <div class="detailActions">
-                <button class="btn primary" id="orgSaveBtn" type="button">Save Organization</button>
+                <button class="btn primary" id="orgSaveBtn" type="button">Save company</button>
                 <div class="muted" id="orgSaveNote">Select an organization to edit.</div>
               </div>
               <div class="panelCard" style="margin-top:12px;">
@@ -494,8 +495,8 @@ function viewTemplate() {
                     <input id="orgCustomerEmail" type="email" />
                   </label>
                   <div class="detailActions">
-                    <button class="btn primary" id="orgCreateCustomerBtn" type="button">Create Customer Login</button>
-                    <button class="btn secondary" id="orgResetCustomerBtn" type="button">Reset Temporary Password</button>
+                    <button class="btn primary" id="orgCreateCustomerBtn" type="button">Create customer login</button>
+                    <button class="btn secondary" id="orgResetCustomerBtn" type="button">Reset temporary password</button>
                   </div>
                   <div class="detailBlock">
                     <div class="detailLabel">Customer login</div>
@@ -515,7 +516,7 @@ function viewTemplate() {
               <div class="panelCard" style="margin-top:12px;" id="orgFleetPanel">
                 <div class="panelHeader">
                   <h3>Connected fleet <span id="orgFleetCount" class="panelMeta" style="margin-left:6px;"></span></h3>
-                  <button class="btn ghost" id="orgFleetRefreshBtn" type="button" style="font-size:11px;">Refresh</button>
+                  <button class="btn ghost" id="orgFleetRefreshBtn" type="button">Refresh</button>
                 </div>
                 <div id="orgFleetBody">
                   <div class="emptyState" style="border-radius:0 0 10px 10px;">Select an organization to view its fleet.</div>
@@ -530,7 +531,7 @@ function viewTemplate() {
       <section class="viewSection">
         <div class="sectionHeaderRow">
           <div>
-            <h2>Leads &amp; Demos</h2>
+            <h2>Demo and pilot requests</h2>
             <p class="muted">Inbound demo and pilot requests.</p>
           </div>
           <div class="filterTabs" id="leadFilters">
@@ -570,7 +571,7 @@ function viewTemplate() {
           </div>
           <div class="panelCard" id="leadDetailPanel">
             <div class="panelHeader">
-              <h3>Lead Detail</h3>
+              <h3>Request details</h3>
               <span class="panelMeta" id="leadDetailMeta">Select a lead to view.</span>
             </div>
             <div class="panelBody">
@@ -982,14 +983,6 @@ function viewTemplateExtended() {
           </div>
           <div class="panelBody">
             <div class="formGrid">
-              <label class="fieldGroup">
-                <span>Theme</span>
-                <select id="portalThemeSelect">
-                  <option value="light-blue">Light</option>
-                  <option value="dark-blue">Dark Blue</option>
-                  <option value="dark-gray">Dark Gray</option>
-                </select>
-              </label>
               <label class="toggleSwitch">
                 <input type="checkbox" id="densityToggle" />
                 <span class="toggleTrack"></span>
@@ -1016,7 +1009,7 @@ function viewTemplateExtended() {
           <div class="panelBody">
             <div class="formGrid twoCol">
               <label class="fieldGroup">
-                <span>Partner name <span style="color:#e53e3e">*</span></span>
+                <span>Partner name (required)</span>
                 <input type="text" id="apiKeyPartner" placeholder="e.g. sentinelx or geotab" maxlength="80" />
               </label>
               <label class="fieldGroup">
@@ -1032,10 +1025,10 @@ function viewTemplateExtended() {
               </label>
               <button class="btn primary" id="apiKeyCreateBtn" type="button">Generate API Key</button>
             </div>
-            <div id="apiKeyResult" style="display:none;margin-top:16px;padding:14px 16px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px">
-              <div style="font-size:12px;font-weight:600;color:#166534;margin-bottom:6px">API Key generated — copy it now, it won't be shown again</div>
-              <code id="apiKeyRawValue" style="font-family:ui-monospace,monospace;font-size:13px;word-break:break-all;color:#166534"></code>
-              <button class="btn ghost" id="apiKeyCopyBtn" type="button" style="margin-top:10px;font-size:12px">Copy to clipboard</button>
+            <div id="apiKeyResult" style="display:none">
+              <div class="detailLabel">API key generated. Copy it now; it cannot be shown again.</div>
+              <code id="apiKeyRawValue"></code>
+              <button class="btn ghost" id="apiKeyCopyBtn" type="button">Copy to clipboard</button>
             </div>
           </div>
         </div>
@@ -1083,19 +1076,21 @@ function renderView(route) {
 function setActiveRoute(route) {
   document.querySelectorAll("#employeeNav button").forEach((btn) => {
     btn.classList.toggle("is-active", btn.getAttribute("data-route") === route);
+    if (btn.getAttribute("data-route") === route) btn.setAttribute("aria-current", "page");
+    else btn.removeAttribute("aria-current");
   });
   const titles = {
-    overview: ["Operations", "Customer activation, fleet adoption, and priority exceptions in one view."],
+    overview: ["Overview", "Companies, customer access, and the work needing your attention."],
     orgs: ["Companies", "Create customer accounts, issue access, and review connected fleets."],
-    leads: ["Sales pipeline", "Qualify inbound requests and convert approved pilots into customer accounts."],
+    leads: ["Pilot requests", "Review inbound interest and move approved pilots into company accounts."],
     invites: ["Access invitations", "Issue time-limited setup links for customer administrators."],
-    billing: ["Billing setup", "Prepare plan, contact, and payment metadata for each account."],
+    billing: ["Billing", "Plans, billing contacts, and payment setup for each company."],
     features: ["Product access", "Control optional capabilities by customer workspace."],
     "system-health": ["Service health", "Inspect core service availability and backend route checks."],
-    "audit-log": ["Activity ledger", "Review administrative and security-relevant changes."],
-    users: ["Employee access", "Manage internal users and operational permissions."],
-    settings: ["Console settings", "Adjust local display preferences for this workspace."],
-    "api-keys": ["Partner API", "Issue and revoke scoped keys for approved Fleet AI integrations."]
+    "audit-log": ["Audit history", "Administrative changes and security-relevant activity."],
+    users: ["Team", "Fleet AI employees and their access permissions."],
+    settings: ["Preferences", "Display settings for this browser."],
+    "api-keys": ["API access", "Scoped keys for approved Fleet AI integrations."]
   };
   if (titles[route]) {
     setViewTitle(titles[route][0], titles[route][1]);
@@ -1533,7 +1528,7 @@ function bindOrgCreate() {
   btn.addEventListener("click", () => {
     if (!roleAllowsOrgEdit()) return;
     openModal({
-      title: "Create Organization",
+      title: "Create company",
       content: `<form id="orgCreateForm" class="formGrid twoCol">
         <label class="fieldGroup">
           <span>Organization name</span>
@@ -2311,12 +2306,12 @@ async function loadApiKeys() {
     tbody.innerHTML = keys.map((k) => `
       <tr>
         <td><strong>${h(k.partnerName || "--")}</strong></td>
-        <td><span style="font-family:ui-monospace,monospace;font-size:11px;background:#EFF6FF;padding:2px 7px;border-radius:4px;color:#1D4ED8">${h(k.tier || "--")}</span></td>
-        <td style="font-size:12px;color:#6B7280">${h(k.orgId || "--")}</td>
-        <td style="font-size:12px;color:#6B7280">${k.lastUsedAt ? new Date(k.lastUsedAt).toLocaleDateString() : "Never"}</td>
-        <td style="font-size:12px;color:#6B7280">${k.createdAt ? new Date(k.createdAt).toLocaleDateString() : "--"}</td>
-        <td><span style="font-size:11px;font-weight:600;color:${k.enabled ? "#166534" : "#991b1b"}">${k.enabled ? "Active" : "Revoked"}</span></td>
-        <td>${k.enabled ? `<button class="btn ghost" data-revoke-id="${h(k.id)}" type="button" style="font-size:12px;color:#e53e3e">Revoke</button>` : ""}</td>
+        <td><span class="roleBadge">${h(k.tier || "--")}</span></td>
+        <td>${h(k.orgId || "--")}</td>
+        <td>${k.lastUsedAt ? new Date(k.lastUsedAt).toLocaleDateString() : "Never"}</td>
+        <td>${k.createdAt ? new Date(k.createdAt).toLocaleDateString() : "--"}</td>
+        <td><span class="statusBadge ${k.enabled ? "status-active" : "status-closed"}">${k.enabled ? "Active" : "Revoked"}</span></td>
+        <td>${k.enabled ? `<button class="btn quietDanger" data-revoke-id="${h(k.id)}" type="button">Revoke</button>` : ""}</td>
       </tr>
     `).join("");
     tbody.querySelectorAll("[data-revoke-id]").forEach((btn) => {

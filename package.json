@@ -36,6 +36,8 @@
     "test:audit": "node tests/auth-concurrency.test.js && node tests/storage-atomicity.test.js && node tests/gps-route-persistence.test.js && node tests/solution-evidence.test.js && node tests/dashboard-request-safety.test.js && node tests/json-integrity.test.js",
     "test:ui:browser": "node tests/dashboard-browser-smoke.js",
     "test:public:browser": "node tests/public-pages-browser.test.js",
+    "test:employee:browser": "node tests/employee-portal-browser.test.js",
+    "preview:employee": "node tests/employee-portal-browser.test.js --serve",
     "preview:public": "node tests/public-pages-browser.test.js --serve",
     "test:tenant-sessions": "node --test tests/session-tenant-isolation.test.js",
     "test:contract": "node tests/driver-app-contract.test.js",

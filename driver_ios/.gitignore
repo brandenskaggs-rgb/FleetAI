@@ -1,0 +1,11 @@
+.build/
+.swiftpm/
+DerivedData/
+*.xcodeproj/
+*.xcworkspace/
+*.ipa
+*.xcarchive/
+*.p12
+*.mobileprovision
+Local.xcconfig
+TestResults/

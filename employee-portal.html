@@ -6,67 +6,63 @@
   <title>Fleet AI Employee Console</title>
   <link rel="icon" href="/assets/brand/fleet-ai-mark.svg?v=link1" type="image/svg+xml" />
   <meta name="description" content="Fleet AI internal customer operations console." />
-  <link rel="stylesheet" href="/css/fonts.css?v=20260729" />
-  <link rel="stylesheet" href="/css/employee-portal.css?v=20260817b" />
+  <link rel="stylesheet" href="/css/fonts.css?v=link1" />
+  <link rel="stylesheet" href="/css/employee-portal.css?v=link2" />
 </head>
 <body class="employeeConsoleV2">
   <div class="employeeShell">
     <aside class="employeeSidebar">
       <div class="sidebarBrand">
         <a class="employeeWordmark" href="/" aria-label="Fleet AI home">
-          <img src="/assets/brand/fleet-ai-mark-white.svg?v=link1" width="25" height="25" alt="" />
+          <img src="/assets/brand/fleet-ai-mark.svg?v=link1" width="31" height="31" alt="" />
           <span>Fleet AI</span>
         </a>
         <div class="brandMeta">Customer operations</div>
       </div>
       <nav class="sidebarNav" id="employeeNav" aria-label="Employee console navigation">
         <div class="navGroup">
-          <div class="navGroupLabel">Command</div>
-          <button type="button" data-route="overview" class="is-active"><span>Operations</span><small>01</small></button>
+          <div class="navGroupLabel">Workspace</div>
+          <button type="button" data-route="overview" class="is-active"><i data-lucide="layout-dashboard" aria-hidden="true"></i><span>Overview</span></button>
         </div>
         <div class="navGroup">
           <div class="navGroupLabel">Customers</div>
-          <button type="button" data-route="orgs"><span>Companies</span></button>
-          <button type="button" data-route="leads"><span>Sales pipeline</span></button>
-          <button type="button" data-route="invites"><span>Access invites</span></button>
+          <button type="button" data-route="orgs"><i data-lucide="building-2" aria-hidden="true"></i><span>Companies</span></button>
+          <button type="button" data-route="leads"><i data-lucide="inbox" aria-hidden="true"></i><span>Pilot requests</span></button>
+          <button type="button" data-route="invites"><i data-lucide="mail" aria-hidden="true"></i><span>Invitations</span></button>
         </div>
         <div class="navGroup">
           <div class="navGroupLabel">Commercial</div>
-          <button type="button" data-route="billing"><span>Billing setup</span></button>
-          <button type="button" data-route="features"><span>Product access</span></button>
+          <button type="button" data-route="billing"><i data-lucide="receipt" aria-hidden="true"></i><span>Billing</span></button>
+          <button type="button" data-route="features"><i data-lucide="sliders-horizontal" aria-hidden="true"></i><span>Product access</span></button>
         </div>
         <div class="navGroup">
           <div class="navGroupLabel">Platform</div>
-          <button type="button" data-route="system-health"><span>Service health</span></button>
-          <button type="button" data-route="audit-log"><span>Activity ledger</span></button>
-          <button type="button" data-route="api-keys"><span>Partner API</span></button>
+          <button type="button" data-route="system-health"><i data-lucide="activity" aria-hidden="true"></i><span>Service health</span></button>
+          <button type="button" data-route="audit-log"><i data-lucide="history" aria-hidden="true"></i><span>Audit history</span></button>
+          <button type="button" data-route="api-keys"><i data-lucide="key-round" aria-hidden="true"></i><span>API access</span></button>
         </div>
         <div class="navGroup">
           <div class="navGroupLabel">Administration</div>
-          <button type="button" data-route="users"><span>Employee access</span></button>
-          <button type="button" data-route="settings"><span>Console settings</span></button>
+          <button type="button" data-route="users"><i data-lucide="users" aria-hidden="true"></i><span>Team</span></button>
+          <button type="button" data-route="settings"><i data-lucide="settings-2" aria-hidden="true"></i><span>Preferences</span></button>
         </div>
       </nav>
       <div class="sidebarFooter">
-        <a class="sidebarLink" href="/ui/fleetai-dashboard.html">Open customer dashboard <span aria-hidden="true">&#8599;</span></a>
-        <div class="sidebarNote">
-          <div class="noteTitle">Onboarding sequence</div>
-          <div class="noteMeta">Create company, issue access, confirm fleet, then activate the workspace.</div>
-        </div>
+        <a class="sidebarLink" href="/ui/fleetai-dashboard.html"><i data-lucide="arrow-up-right" aria-hidden="true"></i>Customer dashboard</a>
+        <div class="sidebarNote">Fleet AI staff workspace</div>
       </div>
     </aside>
 
     <section class="employeeMain">
       <header class="employeeTopbar">
         <div class="topbarIdentity">
-          <button class="navToggle" id="employeeNavToggle" type="button" aria-label="Toggle navigation" aria-expanded="false"><span></span><span></span><span></span></button>
+          <button class="navToggle" id="employeeNavToggle" type="button" aria-label="Toggle navigation" aria-controls="employeeNav" aria-expanded="false"><i data-lucide="panel-left" aria-hidden="true"></i></button>
           <div>
             <div class="topbarContext">Fleet AI / Internal</div>
-            <strong>Customer Operations</strong>
+            <strong>Customer operations</strong>
           </div>
         </div>
         <div class="topbarActions">
-          <button class="btn ghost" id="adminRefreshTop" type="button">Refresh data</button>
           <div class="operatorIdentity">
             <span class="operatorAvatar" aria-hidden="true">FA</span>
             <span id="portalRole">Role: --</span>
@@ -77,14 +73,14 @@
 
       <div class="mainHeader">
         <div class="routeHeading">
-          <div class="shellLabel">Operations workspace</div>
+          <div class="shellLabel">Customer operations</div>
           <h1 id="viewTitle">Overview</h1>
           <p id="viewSubtitle">Track companies, onboarding status, customer access, and internal users.</p>
         </div>
         <div class="headerActions">
-          <label class="globalSearch" for="adminSearch"><span aria-hidden="true">&#8981;</span><input type="search" id="adminSearch" placeholder="Search this workspace" /></label>
-          <button class="btn secondary" id="adminRefresh" type="button">Reload view</button>
-          <button class="btn ghost" id="resetAuthBtn" type="button">Session tools</button>
+          <label class="globalSearch" for="adminSearch"><i data-lucide="search" aria-hidden="true"></i><span class="srOnly">Search companies</span><input type="search" id="adminSearch" placeholder="Search companies" /></label>
+          <button class="btn ghost" id="adminRefresh" type="button"><i data-lucide="refresh-cw" aria-hidden="true"></i>Refresh</button>
+          <button class="btn ghost" id="resetAuthBtn" type="button">Switch account</button>
         </div>
       </div>
 
@@ -207,11 +203,10 @@
       }, 3000);
     })();
   </script>
-  <script src="/js/admin-portal.js?v=20260817b"></script>
+  <script src="/assets/vendor/lucide/lucide.min.js"></script>
+  <script src="/js/admin-portal.js?v=link2"></script>
   <script>
-    document.getElementById("adminRefreshTop")?.addEventListener("click", () => {
-      document.getElementById("adminRefresh")?.click();
-    });
+    window.lucide?.createIcons();
     (() => {
       const body = document.body;
       const toggle = document.getElementById("employeeNavToggle");
@@ -226,6 +221,12 @@
         toggle.setAttribute("aria-expanded", String(next));
       });
       scrim?.addEventListener("click", close);
+      document.addEventListener("keydown", event => {
+        if (event.key === "Escape" && body.classList.contains("nav-open")) {
+          close();
+          toggle?.focus();
+        }
+      });
       document.getElementById("employeeNav")?.addEventListener("click", (event) => {
         if (event.target.closest("button[data-route]")) close();
       });

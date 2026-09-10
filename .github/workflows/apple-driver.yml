@@ -1,0 +1,58 @@
+name: Apple driver build and tests
+
+on:
+  push:
+    branches: [clean-auth-rebuild]
+    paths:
+      - 'driver_ios/**'
+      - 'tests/ios-driver-contract.test.js'
+      - '.github/workflows/apple-driver.yml'
+  pull_request:
+    paths:
+      - 'driver_ios/**'
+      - 'tests/ios-driver-contract.test.js'
+      - '.github/workflows/apple-driver.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: apple-driver-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  apple-validation:
+    runs-on: macos-15
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - name: Record Apple toolchain
+        run: |
+          xcodebuild -version
+          swift --version
+          xcrun simctl list runtimes
+      - name: Build pinned XcodeGen
+        run: |
+          git clone --depth 1 --branch 2.44.1 https://github.com/yonaskolb/XcodeGen.git "$RUNNER_TEMP/xcodegen"
+          test "$(git -C "$RUNNER_TEMP/xcodegen" rev-parse HEAD)" = '21ac9944b0ab546a07422dbed86f33dd2ebd76f8'
+          swift build --package-path "$RUNNER_TEMP/xcodegen" --configuration release --product xcodegen
+          echo "$(swift build --package-path "$RUNNER_TEMP/xcodegen" --configuration release --show-bin-path)" >> "$GITHUB_PATH"
+      - name: Check Android and Apple wire contracts
+        run: node --test tests/ios-driver-contract.test.js
+      - name: Compile and test Apple app
+        env:
+          RUN_UI_TESTS: '1'
+        run: bash driver_ios/scripts/check-apple.sh
+      - name: Retain test reports and screenshots
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: apple-driver-validation-${{ github.run_id }}
+          path: driver_ios/TestResults/
+          retention-days: 7
+          if-no-files-found: warn
+
+# No Apple signing credentials, production API calls, Railway deployment, or App Store upload.
