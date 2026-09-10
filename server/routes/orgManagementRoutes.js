@@ -12,6 +12,7 @@ const {
 const { validateBody, schemas } = require('../middleware/validate');
 
 function registerOrgManagementRoutes(app, deps) {
+  const { leadStore } = deps;
   const { readData, writeData, requireEmployeeApi, requireCustomerApi, requireRole, getRateState, prismaAuthAdapter, revokeUserSessions } = deps;
   const employeeRoles = new Set(["SUPER_ADMIN", "ADMIN", "SUPPORT", "SALES"]);
   const customerAdminRoles = new Set(["ORG_ADMIN", "CUSTOMER_ADMIN", "CUSTOMER"]);
@@ -202,10 +203,18 @@ function registerOrgManagementRoutes(app, deps) {
         console.warn(`[ORG-RECONCILE] unable to read primary account database: ${err.message}`);
       }
     }
+    const durableLeads = leadStore ? await leadStore.list() : [];
     let changed = false;
     for (const authOrg of authData.orgs || []) {
       if (!authOrg?.id || findOrgById(data.orgs, authOrg.id)) continue;
-      data.orgs.push(adminOrgFromAuth(authOrg));
+      const recovered = adminOrgFromAuth(authOrg);
+      const lead = durableLeads.find(item => item.orgId === authOrg.id);
+      if (lead) {
+        recovered.primaryContactName = lead.contactName;
+        recovered.fleetSizeEstimate = /^\d+$/.test(lead.fleetSize) ? Number(lead.fleetSize) : 0;
+        recovered.notes = lead.message;
+      }
+      data.orgs.push(recovered);
       addAudit(data, "ORG_INDEX_REPAIRED", `${authOrg.id}:${authOrg.name || "unknown"}`);
       changed = true;
     }
@@ -322,6 +331,11 @@ function registerOrgManagementRoutes(app, deps) {
       return res.status(400).json({ error: "companyName, contactName, and email are required." });
     }
     try {
+      if (leadStore) {
+        const lead = await leadStore.create({ companyName, contactName, contactEmail, contactPhone,
+          fleetSize, message, leadType: leadTypeRaw, sourcePage: sourcePage || 'web', status: 'NEW' });
+        return res.status(201).json({ ok: true, data: lead });
+      }
       const data = await readData();
       const leadId = makeId("LEAD");
       const lead = {
@@ -359,8 +373,9 @@ function registerOrgManagementRoutes(app, deps) {
   app.get("/api/overview", requireEmployeeApi, async (req, res, next) => {
     try {
       const data = await readData();
+      await reconcileAuthOrganizations(data);
       const orgs = data.orgs || [];
-      const leads = data.leads || [];
+      const leads = leadStore ? await leadStore.list() : data.leads || [];
       const activeOrgs = orgs.filter((o) => normalizeOrgStatus(o.status) === "ACTIVE").length;
       const activeVehicles = orgs.reduce((sum, o) => {
         const count = Number(o.activeVehicles ?? o.fleetSizeEstimate ?? 0);
@@ -578,6 +593,7 @@ function registerOrgManagementRoutes(app, deps) {
   
   app.get("/api/leads", requireEmployeeApi, async (req, res, next) => {
     try {
+      if (leadStore) return res.json({ ok: true, data: await leadStore.list() });
       const data = await readData();
       const leads = (data.leads || []).map((lead) => {
         const leadId = lead.leadId || lead.id;
@@ -596,6 +612,10 @@ function registerOrgManagementRoutes(app, deps) {
   
   app.get("/api/leads/:leadId", requireEmployeeApi, async (req, res, next) => {
     try {
+      if (leadStore) {
+        const lead = await leadStore.get(req.params.leadId);
+        return lead ? res.json({ ok: true, data: lead }) : res.status(404).json({ error: 'Lead not found' });
+      }
       const data = await readData();
       const lead = (data.leads || []).find((l) => (l.leadId || l.id) === req.params.leadId || l.id === req.params.leadId);
       if (!lead) return res.status(404).json({ error: "Lead not found" });
@@ -608,6 +628,13 @@ function registerOrgManagementRoutes(app, deps) {
   
   app.patch("/api/leads/:leadId", requireEmployeeApi, requireRole(["SUPER_ADMIN", "ADMIN", "SUPPORT"]), async (req, res, next) => {
     try {
+      if (leadStore) {
+        const raw = req.body || {};
+        const lead = await leadStore.update(req.params.leadId, {
+          status: raw.status, internalNotes: raw.internalNotes
+        }, req.employee?.userId);
+        return lead ? res.json({ ok: true, data: lead }) : res.status(404).json({ error: 'Lead not found' });
+      }
       const data = await readData();
       const lead = (data.leads || []).find((l) => (l.leadId || l.id) === req.params.leadId || l.id === req.params.leadId);
       if (!lead) return res.status(404).json({ error: "Lead not found" });
@@ -628,6 +655,10 @@ function registerOrgManagementRoutes(app, deps) {
   
   app.post("/api/leads/:leadId/convert", requireEmployeeApi, requireRole(["SUPER_ADMIN"]), async (req, res, next) => {
     try {
+      if (leadStore) {
+        const result = await leadStore.convert(req.params.leadId, req.body?.status, req.employee?.userId);
+        return result ? res.json({ ok: true, data: result }) : res.status(404).json({ error: 'Lead not found' });
+      }
       const data = await readData();
       data.users = Array.isArray(data.users) ? data.users : [];
       const { authData, changed: repairedOrgIndex } = await reconcileAuthOrganizations(data);

@@ -3929,7 +3929,13 @@ function startTelemetryScheduler() {
 
 
 // ── Admin routes (setup, adminRouter, API key mgmt) — see server/routes/adminRoutes.js ──
+const leadStore = process.env.DATABASE_URL
+  ? require('./server/storage/leadStore').createLeadStore({
+    getPrisma: require('./server/db').getPrisma,
+    readLegacy: readData, normalizeLeadStatus, normalizeOrgStatus
+  }) : null;
 registerAdminRoutes(app, {
+  leadStore,
   readData,
   writeData,
   requireSuperAdmin: (req, res, next) => requireSuperAdmin(req, res, next),
@@ -3943,6 +3949,7 @@ registerAdminRoutes(app, {
 
 // ── Org management, leads, billing, invites routes — see server/routes/orgManagementRoutes.js ──
 registerOrgManagementRoutes(app, {
+  leadStore,
   readData,
   writeData,
   requireEmployeeApi: (req, res, next) => requireEmployeeApi(req, res, next),

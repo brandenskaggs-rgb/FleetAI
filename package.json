@@ -40,6 +40,7 @@
     "preview:employee": "node tests/employee-portal-browser.test.js --serve",
     "preview:public": "node tests/public-pages-browser.test.js --serve",
     "test:tenant-sessions": "node --test tests/session-tenant-isolation.test.js",
+    "test:leads:postgres": "node tests/lead-persistence-postgres.test.js",
     "test:contract": "node tests/driver-app-contract.test.js",
     "test:security": "node tests/security-boundary.test.js && node tests/device-auth.test.js && node tests/rate-limiter-security.test.js && node tests/outbound-url-policy.test.js && node tests/partner-api-security.test.js && node tests/ml-service-auth-contract.test.js && node tests/system-status-security.test.js && node tests/storage-atomicity.test.js && node tests/static-source-exposure.test.js",
     "test:vehicles": "node tests/vehicle-recovery.test.js",

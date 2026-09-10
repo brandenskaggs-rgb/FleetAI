@@ -121,6 +121,7 @@ function normalizeRole(role) {
 // ── Route registration ─────────────────────────────────────────────────────
 
 function registerAdminRoutes(app, deps) {
+  const { leadStore } = deps;
   const {
     readData,
     writeData,
@@ -340,7 +341,7 @@ function registerAdminRoutes(app, deps) {
       const data = await readData();
       const orgs = data.orgs || [];
       const users = data.users || [];
-      const leads = data.leads || [];
+      const leads = leadStore ? await leadStore.list() : data.leads || [];
       const billing = data.billing || {};
       const activeOrgs = orgs.filter((o) => o.status === "ACTIVE").length;
       const activePilots = orgs.filter((o) => o.status === "PILOT").length;
@@ -663,6 +664,7 @@ function registerAdminRoutes(app, deps) {
 
   adminRouter.get("/leads", async (req, res, next) => {
     try {
+      if (leadStore) return res.json({ ok: true, data: await leadStore.list() });
       const data = await readData();
       res.json({ ok: true, data: data.leads || [] });
     } catch (err) {
@@ -674,6 +676,8 @@ function registerAdminRoutes(app, deps) {
     const { companyName, contactName, contactEmail, contactPhone, stage, demoDate, notes, status } = req.body || {};
     if (!companyName) return res.status(400).json({ error: "companyName required" });
     try {
+      if (leadStore) return res.status(201).json({ ok: true,
+        data: await leadStore.create(req.body, req.employee?.userId) });
       const data = await readData();
       const leadId = makeId("LEAD");
       const lead = {
@@ -702,6 +706,10 @@ function registerAdminRoutes(app, deps) {
 
   adminRouter.put("/leads/:id", async (req, res, next) => {
     try {
+      if (leadStore) {
+        const lead = await leadStore.update(req.params.id, req.body || {}, req.employee?.userId);
+        return lead ? res.json({ ok: true, data: lead }) : res.status(404).json({ error: 'Lead not found' });
+      }
       const data = await readData();
       const lead = (data.leads || []).find((l) => l.id === req.params.id);
       if (!lead) return res.status(404).json({ error: "Lead not found" });
@@ -722,6 +730,10 @@ function registerAdminRoutes(app, deps) {
 
   adminRouter.post("/leads/:id/convert-to-org", async (req, res, next) => {
     try {
+      if (leadStore) {
+        const result = await leadStore.convert(req.params.id, 'PILOT', req.employee?.userId);
+        return result ? res.json({ ok: true, data: result }) : res.status(404).json({ error: 'Lead not found' });
+      }
       const data = await readData();
       const lead = (data.leads || []).find((l) => l.id === req.params.id);
       if (!lead) return res.status(404).json({ error: "Lead not found" });
