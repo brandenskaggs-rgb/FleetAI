@@ -88,7 +88,10 @@ are pinned to reviewed commits. The job has read-only repository permissions, no
 and does not deploy Railway or upload to the App Store. The repository's existing Railway integration
 may independently deploy on a branch push; the workflow does not control that integration.
 
-The workflow is only prepared locally until committed/pushed. No passing cloud result is claimed.
+The first successful cloud build tested code commit `0d40697` on September 10, 2026:
+[build and test results](https://github.com/brandenskaggs-rgb/FleetAI/actions/runs/34516941060).
+Twelve core tests and both onboarding tests on each simulator family passed. See VALIDATION.md for
+the distinction between simulator evidence and real-device release gates.
 Private-repository macOS runner minutes may incur GitHub charges; review the account's Actions budget
 before enabling repeated builds. A cloud simulator app cannot be installed on an iPhone.
 
