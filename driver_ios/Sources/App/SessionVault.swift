@@ -24,7 +24,7 @@ enum SessionVault {
     }
     static func deviceId() throws -> String {
         if let data = try read("device-id"), let id = String(data: data, encoding: .utf8), UUID(uuidString: id) != nil { return id }
-        let id = UUID().uuidString(); try store(Data(id.utf8), account: "device-id"); return id
+        let id = UUID().uuidString; try store(Data(id.utf8), account: "device-id"); return id
     }
     static func session() throws -> DriverSession? {
         guard let data = try read("session") else { return nil }

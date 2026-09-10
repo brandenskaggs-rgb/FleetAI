@@ -3,7 +3,9 @@ import CoreBluetooth
 import Combine
 
 @MainActor
-final class BLEVehicleAdapter: NSObject, ObservableObject, CBCentralManagerDelegate, CBPeripheralDelegate {
+// Core Bluetooth invokes these delegates on the explicitly configured main queue.
+// Keep actor isolation; legacy protocol witnesses check the executor at runtime.
+final class BLEVehicleAdapter: NSObject, ObservableObject, @preconcurrency CBCentralManagerDelegate, @preconcurrency CBPeripheralDelegate {
     struct Device: Identifiable { let id: UUID; let name: String; let peripheral: CBPeripheral }
     struct Endpoint: Identifiable {
         let id: String
