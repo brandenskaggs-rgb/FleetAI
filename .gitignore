@@ -26,6 +26,10 @@ fleet_ai/models/*.joblib
 fleet_ai/models/*.csv
 
 # Environment and secret files
+*.jks
+*.keystore
+*.p12
+*.pfx
 .env
 .env.*
 *.env

@@ -7,6 +7,7 @@ import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
 import android.os.Bundle
+import android.os.Looper
 import androidx.core.content.ContextCompat
 
 data class DeviceLocation(
@@ -36,7 +37,10 @@ class DeviceLocationTracker(context: Context) : LocationListener {
         val providers = listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER)
             .filter { runCatching { manager.isProviderEnabled(it) }.getOrDefault(false) }
         started = providers.map { provider ->
-            val registered = runCatching { manager.requestLocationUpdates(provider, 1_000L, 5f, this) }.isSuccess
+            // Location can be enabled from an IO service coroutine without its own Looper.
+            val registered = runCatching {
+                manager.requestLocationUpdates(provider, 1_000L, 5f, this, Looper.getMainLooper())
+            }.isSuccess
             if (registered) {
                 runCatching { manager.getLastKnownLocation(provider) }.getOrNull()?.let(::onLocationChanged)
             }

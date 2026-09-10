@@ -18,8 +18,8 @@ android {
         applicationId "com.fleetai.driver"
         minSdk 26
         targetSdk 36
-        versionCode 12
-        versionName "1.10.0"
+        versionCode 13
+        versionName "1.10.1"
 
         // Set FLEETAI_BASE_URL in gradle.properties or via -PFLEETAI_BASE_URL=https://...
         // to point the driver app at your Fleet AI server (e.g. the Railway deployment).
@@ -130,4 +130,42 @@ dependencies {
     testImplementation 'junit:junit:4.13.2'
 
     debugImplementation 'androidx.compose.ui:ui-tooling'
+}
+
+// bundleRelease remains usable for unsigned inspection. This is the publication gate.
+tasks.register('verifyPlayRelease') {
+    dependsOn 'bundleRelease'
+    doLast {
+        if (!uploadSigningReady) {
+            throw new GradleException('Google Play release blocked: configure all four FLEETAI_UPLOAD signing settings outside source control.')
+        }
+        if (android.defaultConfig.buildConfigFields['BASE_URL'].value != '"https://fleetaiops.com"') {
+            throw new GradleException('Google Play release blocked: expected the production HTTPS origin.')
+        }
+        def bundle = layout.buildDirectory.file('outputs/bundle/release/app-release.aab').get().asFile
+        def jar = new java.util.jar.JarFile(bundle, true)
+        try {
+            def buffer = new byte[8192]
+            def verified = 0
+            jar.entries().each { entry ->
+                if (!entry.directory && !entry.name.startsWith('META-INF/')) {
+                    jar.getInputStream(entry).withCloseable { stream ->
+                        while (stream.read(buffer) != -1) { }
+                    }
+                    if (!entry.codeSigners) throw new GradleException('Unsigned bundle entry: ' + entry.name)
+                    entry.codeSigners.each { signer ->
+                        def certificate = signer.signerCertPath.certificates[0]
+                        if (certificate.subjectX500Principal.name.contains('CN=Android Debug')) {
+                            throw new GradleException('Google Play release blocked: Android debug signing certificate.')
+                        }
+                    }
+                    verified++
+                }
+            }
+            if (!verified) throw new GradleException('Google Play release blocked: empty bundle.')
+            logger.lifecycle('Verified signed production bundle: ' + bundle.name)
+        } finally {
+            jar.close()
+        }
+    }
 }
