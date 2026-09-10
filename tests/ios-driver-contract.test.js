@@ -60,7 +60,7 @@ test('Apple persistence and isolation guardrails remain present', () => {
   assert.ok(queue.includes('updated.rejected = permanent'));
   assert.ok(queue.includes('throw DriverError.queueFull'));
   const model = read('driver_ios/Sources/App/DriverStore.swift');
-  assert.ok(model.includes('Task { await flush() }'));
+  assert.ok(model.includes('Task { await self.flush() }'));
   const ble = read('driver_ios/Sources/App/BLEVehicleAdapter.swift');
   assert.ok(ble.includes('ELMProtocol.allows(command)'));
   assert.ok(ble.includes('Date() <= responseDeadline'));
@@ -93,9 +93,10 @@ test('cloud Apple checks are unsigned, scoped and do not deploy production', () 
 test('simulator selection requires both device families and iOS 16 or later', () => {
   const { spawnSync } = require('node:child_process');
   const python = process.platform === 'win32' ? 'python' : 'python3';
-  const select = inventory => spawnSync(python, [path.join(root,'driver_ios/scripts/select-simulators.py'),'-'], { input:JSON.stringify(inventory), encoding:'utf8' });
+  const select = inventory => spawnSync(python, [path.join(root,'driver_ios/scripts/select-simulators.py'),'-','18.5'], { input:JSON.stringify(inventory), encoding:'utf8' });
   const inventory = { devices: {
     'com.apple.CoreSimulator.SimRuntime.iOS-15-0': [{name:'iPhone old',udid:'too-old',isAvailable:true}],
+    'com.apple.CoreSimulator.SimRuntime.iOS-26-2': [{name:'iPhone New',udid:'unsupported-phone',isAvailable:true},{name:'iPad New',udid:'unsupported-pad',isAvailable:true}],
     'com.apple.CoreSimulator.SimRuntime.iOS-18-5': [{name:'iPhone Test',udid:'phone-test',isAvailable:true},{name:'iPad Test',udid:'pad-test',isAvailable:true}],
     'com.apple.CoreSimulator.SimRuntime.tvOS-18-5': [{name:'Apple TV',udid:'tv',isAvailable:true}]
   } };

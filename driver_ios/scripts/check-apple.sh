@@ -12,7 +12,7 @@ xcodebuild -project FleetAIDriver.xcodeproj -scheme FleetAIDriver \
   -derivedDataPath DerivedData CODE_SIGNING_ALLOWED=NO build 2>&1 | tee TestResults/build.log
 if [ "${RUN_UI_TESTS:-0}" = "1" ]; then
   xcrun simctl list devices available --json > TestResults/simulators.json
-  python3 scripts/select-simulators.py TestResults/simulators.json > TestResults/destinations.txt
+  python3 scripts/select-simulators.py TestResults/simulators.json "$(xcrun --sdk iphonesimulator --show-sdk-version)" > TestResults/destinations.txt
   while read -r family udid; do
     xcodebuild -project FleetAIDriver.xcodeproj -scheme FleetAIDriver \
       -destination "platform=iOS Simulator,id=$udid" -destination-timeout 120 \

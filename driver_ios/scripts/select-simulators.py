@@ -5,10 +5,12 @@ import sys
 from pathlib import Path
 
 inventory = json.loads(sys.stdin.read() if sys.argv[1] == "-" else Path(sys.argv[1]).read_text())
+sdk_version = tuple(int(part) for part in sys.argv[2].split(".")[:2])
+sdk_version = (sdk_version + (0,))[:2]
 runtimes = []
 for runtime, entries in inventory["devices"].items():
     version = re.search(r"\.iOS-(\d+)(?:-(\d+))?", runtime)
-    if version and int(version[1]) >= 16:
+    if version and int(version[1]) >= 16 and (int(version[1]), int(version[2] or 0)) <= sdk_version:
         runtimes.append(((int(version[1]), int(version[2] or 0)), entries))
 devices = [device for _, entries in sorted(runtimes, key=lambda item: item[0], reverse=True)
            for device in entries if device.get("isAvailable")]

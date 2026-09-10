@@ -60,7 +60,7 @@ final class DriverStore: ObservableObject {
             session = try SessionVault.session(); restored = true
             if let session { try adapter.configureSavedProfile(session: session) }
         }
-        catch { error = error.localizedDescription; restored = false }
+        catch { self.error = error.localizedDescription; restored = false }
     }
     func pair(code: String, pin: String) async {
         guard !busy, session == nil, restored, outbox != nil else { return }
@@ -128,7 +128,7 @@ final class DriverStore: ObservableObject {
                         if spec.key == "coolantTempC" { coolantHistory.append(reading); coolantHistory = Array(coolantHistory.suffix(120)) }
                         if Date().timeIntervalSince(lastPersist) >= 2 {
                             try await persistReadings()
-                            Task { await flush() }
+                            Task { await self.flush() }
                         }
                     }
                     try await Task.sleep(nanoseconds: 150_000_000)
@@ -216,7 +216,7 @@ final class DriverStore: ObservableObject {
               signature.count <= 160, defects.count <= 2000 else { error = "Check your name, odometer and inspection results."; return false }
         busy = true; defer { busy = false }
         do {
-            let body: [String: Any] = ["clientRecordId":UUID().uuidString(),"type":type,"odometer":distance,
+            let body: [String: Any] = ["clientRecordId":UUID().uuidString,"type":type,"odometer":distance,
                 "inspectedItems":items,"defects":defects,"signature":signature,"inspectedAt":DriverContract.timestamp(Date())]
             try await outbox.enqueue(payload: JSONSerialization.data(withJSONObject: body), path: DriverContract.dvir, session: session)
             queued = try await outbox.count(scope: session.scope)
