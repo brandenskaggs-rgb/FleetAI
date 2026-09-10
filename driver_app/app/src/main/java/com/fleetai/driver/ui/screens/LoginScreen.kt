@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -54,42 +56,38 @@ fun LoginScreen(sessionViewModel: SessionViewModel) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .safeDrawingPadding()
+                .imePadding()
                 .verticalScroll(rememberScrollState())
                 .padding(20.dp),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Row(
+            Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .widthIn(max = 980.dp),
-                horizontalArrangement = Arrangement.spacedBy(18.dp),
-                verticalAlignment = Alignment.CenterVertically
+                    .widthIn(max = 520.dp)
+                    .fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(24.dp)
             ) {
                 Column(
-                    modifier = Modifier.weight(1.1f),
+                    modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(18.dp)
                 ) {
                     BrandHeader()
                     Text(
-                        text = "Start the shift from one clean driver console.",
+                        text = "Your shift starts here.",
                         style = MaterialTheme.typography.headlineLarge,
                         fontWeight = FontWeight.ExtraBold,
                         color = MaterialTheme.colorScheme.onBackground
                     )
                     Text(
-                        text = "Sign in, pair the tablet, complete inspections, review alerts, and keep duty actions simple for Android tablets.",
+                        text = "Sign in with your company code and driver PIN.",
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.72f)
                     )
-                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        FeatureLine("DOT inspection workflow")
-                        FeatureLine("Company code + driver PIN")
-                        FeatureLine("Tablet-ready large controls")
-                    }
                 }
 
-                FleetCard(modifier = Modifier.weight(0.9f)) {
+                FleetCard(modifier = Modifier.fillMaxWidth()) {
                     Text(
                         text = "Driver sign in",
                         style = MaterialTheme.typography.headlineMedium,
@@ -143,7 +141,7 @@ fun LoginScreen(sessionViewModel: SessionViewModel) {
                     )
                     Spacer(modifier = Modifier.height(10.dp))
                     if (com.fleetai.driver.BuildConfig.DEBUG) {
-                        OutlinedButton(
+                        TextButton(
                             onClick = { context.startActivity(Intent(context, ConnectActivity::class.java)) },
                             modifier = Modifier.fillMaxWidth()
                         ) {
@@ -165,7 +163,6 @@ private fun BrandHeader() {
         FleetBrandMark(modifier = Modifier.widthIn(min = 118.dp, max = 118.dp).height(50.dp))
         Column {
             Text("Fleet AI Driver", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
-            Text("Android tablet console", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.62f))
         }
     }
 }

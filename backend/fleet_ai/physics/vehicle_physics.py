@@ -243,7 +243,7 @@ def build_rf_matrix(X: "pd.DataFrame", missingness_cols: list[str], imputer=None
     from sklearn.impute import SimpleImputer
 
     if imputer is None:
-        imputer = SimpleImputer(strategy="median").fit(X)
+        imputer = SimpleImputer(strategy="median", keep_empty_features=True).fit(X)
     X_imputed = pd.DataFrame(imputer.transform(X), index=X.index, columns=X.columns)
 
     indicator_cols = [c for c in missingness_cols if c in X.columns]

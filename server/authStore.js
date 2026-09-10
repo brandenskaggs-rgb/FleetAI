@@ -152,7 +152,7 @@ function isCustomerRole(user) {
 
 function isEmployeeRole(user) {
   if (!user) return false;
-  return !isCustomerRole(user);
+  return ["SUPER_ADMIN", "EMPLOYEE", "ADMIN", "SUPPORT", "SALES"].includes(String(user.role || "").toUpperCase());
 }
 
 function hasPasswordHash(user) {

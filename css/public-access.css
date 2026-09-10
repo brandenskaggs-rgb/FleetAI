@@ -1,0 +1,27 @@
+:root { --primary: var(--blue); --text: var(--ink); --panel2: var(--canvas); }
+body { background: var(--canvas); }
+.container { width: min(1120px, calc(100% - 48px)); margin: auto; }
+.accessPage, body > .section { padding: 70px 0 90px; }
+.accessLayout, .loginSplit { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 480px); gap: 90px; align-items: start; }
+.accessCopy, .loginPanel { padding-top: 32px; }
+.accessCopy h1 { font-size: 40px; }
+.eyebrow { font-size: 14px; color: var(--blue); font-weight: 600; margin-bottom: 16px; display: block; }
+.accessCard, .loginSplit > .card { padding: 36px; border: 0; border-radius: 4px; background: var(--paper); box-shadow: 0 12px 36px rgba(24, 36, 46, .06); }
+.accessCard__head { margin-bottom: 26px; }
+.accessCard h2, .loginSplit h2 { font-size: 28px; }
+.shellLabel { display: none; }
+.fieldGroup { display: grid; gap: 6px; margin-bottom: 20px; font-size: 16px; font-weight: 600; }
+.formGrid { display: grid; gap: 14px; }
+input { display: block; width: 100%; min-height: 48px; border: 0; padding: 12px 14px; border-radius: 3px; background: var(--canvas); color: var(--ink); }
+.btn { display: inline-flex; justify-content: center; min-height: 46px; padding: 10px 20px; border: 0; border-radius: 3px; background: var(--canvas); color: var(--ink); font-weight: 600; }
+.btn.primary { background: var(--blue); color: var(--paper); }
+.accessSubmit { width: 100%; }
+.formError, .authNotice { margin: 16px 0; color: var(--bad); font-size: 16px; }
+.formSuccess { color: var(--ink); }
+.loginPanel .card { margin-top: 24px; }
+.card__title { font-weight: 600; }
+.accessFooter { padding: 30px 0; background: var(--paper); font-size: 15px; color: var(--muted); }
+.accessFooter__row { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 22px; }
+.accessFooter nav { display: flex; flex-wrap: wrap; gap: 24px; }
+@media (max-width: 820px) { .accessLayout, .loginSplit { grid-template-columns: 1fr; gap: 22px; max-width: 580px; } .accessCopy, .loginPanel { padding: 0; } .accessPage, body > .section { padding: 36px 0 50px; } .accessCopy h1 { font-size: 32px; } }
+@media (max-width: 480px) { .container { width: calc(100% - 36px); } .accessCard, .loginSplit > .card { padding: 24px; } }

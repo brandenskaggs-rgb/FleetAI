@@ -1,41 +1,31 @@
 <!doctype html>
 <html lang="en" >
 <head>
-  <link rel="stylesheet" href="css/theme.css" />
 
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Fleet AI Employee Portal</title>
-  <link rel="stylesheet" href="css/fonts.css?v=20260729" />
-  <link rel="stylesheet" href="css/site-tokens.css" />
-  <link rel="stylesheet" href="css/site-theme.css" />
-  <link rel="stylesheet" href="css/site-components.css" />
-  <link rel="stylesheet" href="css/site-layout.css" />
-  <link rel="stylesheet" href="css/design-system.css" />
-  <link rel="stylesheet" href="css/fleetai-sharp.css?v=20260813f" />
-  </head>
+
+
+
+
+
+
+
+  <link rel="stylesheet" href="/css/fonts.css?v=20260909" />
+<link rel="stylesheet" href="/css/public-site.css?v=20260909" />
+<link rel="stylesheet" href="/css/public-access.css?v=20260909" />
+</head>
 <body class="landingV2 authV2 accessV3 employeeAccess">
-  <header class="siteHeader accessHeader">
-    <div class="container siteHeader__row">
-      <a class="wordmark" href="index.html"><img class="wordmark__mark" src="assets/brand/fleet-ai-mark.svg" alt="" width="26" height="26" />
-        <span><span class="brandFleet">Fleet</span><span class="brandAI">AI</span></span></a>
-      <div class="siteActions">
-        <a class="siteSignIn" href="index.html">Back to website</a>
-      </div>
-    </div>
-  </header>
+  <header class="publicHeader"><div class="publicContainer publicHeader__row"><a class="publicBrand" href="/"><img src="/assets/brand/fleet-ai-mark.svg" width="33" height="33" alt="" />Fleet AI</a><div class="publicActions"><a href="/">Back to website</a></div></div></header>
 
   <main class="accessPage">
     <section class="container accessLayout">
       <div class="accessCopy">
         <div class="eyebrow">Internal operations</div>
-        <h1>Manage companies, onboarding, and Fleet AI users.</h1>
-        <p>Employee access is for Fleet AI staff managing organizations, pilot setup, customer invites, billing prep, feature flags, and internal team accounts.</p>
-        <div class="accessChecklist">
-          <div><span></span> Track companies from lead to pilot to active customer</div>
-          <div><span></span> Create customer access and onboarding invites</div>
-          <div><span></span> Add employees and assign internal roles</div>
-        </div>
+        <h1>Employee sign in.</h1>
+        <p>Fleet AI staff access for company onboarding and account administration. Customers should use customer sign in.</p>
+
       </div>
 
       <form class="accessCard" id="employeeLoginForm">
@@ -44,7 +34,7 @@
             <div class="shellLabel">fleet-ai / employee</div>
             <h2>Employee access</h2>
           </div>
-          <span class="accessStatus internal">Internal</span>
+
         </div>
         <div id="cookiePrompt" class="authNotice" style="display:none;">
           <strong>Cookies required for employee sign-in.</strong>
@@ -59,10 +49,7 @@
           <span>Password</span>
           <input id="employeePassword" type="password" placeholder="Enter password" autocomplete="current-password" required />
         </label>
-        <label class="fieldGroup">
-          <span>2FA code <em>optional</em></span>
-          <input id="employee2fa" type="text" placeholder="123456" inputmode="numeric" autocomplete="one-time-code" />
-        </label>
+
         <button class="btn primary accessSubmit" id="employeeSignIn" type="submit">Open employee console</button>
         <div class="formNote">Authorized Fleet AI employees only. Customer accounts use the customer sign-in page.</div>
         <div class="authDebugPanel" id="employeeDebugPanel" hidden aria-hidden="true">
@@ -76,10 +63,9 @@
     </section>
   </main>
 
-  <script src="js/site.js"></script>
+
   <script src="ui/js/apiConfig.js"></script>
-  <script src="js/scroll-reveal.js"></script>
+
   <script src="public/js/employee-login.js" defer></script>
 </body>
 </html>
-

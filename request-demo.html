@@ -1,143 +1,31 @@
 <!doctype html>
-<html lang="en" >
+<html lang="en">
 <head>
-  <link rel="stylesheet" href="css/theme.css" />
-  <meta charset="UTF-8" />
+  <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Fleet AI - Book Demo</title>
-  <meta name="description" content="Book a Fleet AI demo to review your fleet use case, evaluate product fit, and frame a realistic pilot path." />
-  <link rel="stylesheet" href="css/fonts.css?v=20260729" />
-  <link rel="stylesheet" href="css/site-tokens.css" />
-  <link rel="stylesheet" href="css/site-theme.css" />
-  <link rel="stylesheet" href="css/site-components.css" />
-  <link rel="stylesheet" href="css/site-layout.css" />
-  <link rel="stylesheet" href="css/design-system.css" />
-  <link rel="stylesheet" href="css/fleetai-sharp.css?v=20260813f" />
-  </head>
-<body class="landingV2 contentV2 demoV2">
-  <header class="siteHeader">
-    <div class="container siteHeader__row">
-      <a class="wordmark" href="index.html"><img class="wordmark__mark" src="assets/brand/fleet-ai-mark.svg" alt="" width="26" height="26" />
-        <span><span class="brandFleet">Fleet</span><span class="brandAI">AI</span></span></a>
-            <nav class="siteNav" id="siteNav">
-        <a href="product.html">Reliability OS</a>
-        <a href="pricing.html">Pilot Pricing</a>
-        <a href="developers.html">API</a>
-        <a href="security.html">Trust</a>
-        <a href="about.html">Company</a>
-      </nav>
-      <div class="siteActions">
-        <a class="siteSignIn" href="customer-login.html">Sign in</a>
-        <a class="btn primary" href="request-demo.html">Book demo</a>
-        <button class="navToggle" id="navToggle" type="button" aria-label="Menu" aria-controls="siteNav">&#9776;</button>
-      </div>
-    </div>
-  </header>
-
-  <div class="announceBar">
-    <div class="container">
-      <div class="announcePill"><a href="pilot.html">Want to move faster? Start with the pilot conversation.</a></div>
-      <a class="btn ghost" href="pilot.html">Pilot Program</a>
-    </div>
-  </div>
-
-  <section class="hero hero--spicy">
-    <div class="container heroGrid heroGrid--command">
-      <div>
-        <span class="badge">Book demo</span>
-        <h1>Let's look at your fleet, your operational pain, and whether Fleet AI is actually a fit.</h1>
-        <p>A good demo should not be generic. Tell us about your fleet and we'll frame the walkthrough around the real maintenance, uptime, and workflow questions you care about.</p>
-        <div class="heroProof">
-          <span class="pill">Use-case driven</span>
-          <span class="pill">Pilot-aware</span>
-          <span class="pill">No canned theatre</span>
-        </div>
-      </div>
-      <div class="commandShell">
-        <div class="commandShell__top"><span>Demo goal</span><span>Fit discovery</span></div>
-        <div class="commandShell__card commandShell__card--alert">
-          <div class="shellLabel">What we want to answer</div>
-          <h3>Is this useful for your actual operation, or just interesting in theory?</h3>
-          <p>The demo is where we pressure-test fit, not where we hide behind polished screens and vague promises.</p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <section class="section">
-    <div class="container formShell">
-      <div>
-        <div class="sectionHeader">
-          <h2>Book a Fleet AI demo</h2>
-          <p>Share enough context for us to make the conversation worth your time.</p>
-        </div>
-        <form id="demoForm" class="formCard formCard--executive">
-          <div class="formGrid formGrid--two">
-            <input id="demoCompany" type="text" placeholder="Company name" required />
-            <input id="demoName" type="text" placeholder="Contact name" required />
-            <input id="demoEmail" type="email" placeholder="Work email" required />
-            <input id="demoPhone" type="tel" placeholder="Phone (optional)" />
-            <input id="demoFleetSize" type="text" placeholder="Fleet size (approx.)" />
-            <input id="demoRegion" type="text" placeholder="Region / operating area" />
-          </div>
-          <textarea id="demoMessage" placeholder="What are you trying to solve or validate?"></textarea>
-          <button class="btn primary" type="submit">Book demo</button>
-          <div class="formNote">We'll follow up with next steps and shape the walkthrough around your use case.</div>
-          <div id="demoSuccess" class="formSuccess">Thanks. Your request has been received. We'll reach out with next steps.</div>
-          <div id="demoError" class="formNote" style="display:none; color:#b91c1c;"></div>
-          <div class="formNote">If email is easier, contact <a href="mailto:demo@fleetai.com">demo@fleetai.com</a>.</div>
-        </form>
-      </div>
-      <aside class="sideInfo">
-        <div class="card card--soft">
-          <h3>What to expect</h3>
-          <p>A focused walkthrough of product fit, deployment reality, and whether a pilot makes sense.</p>
-        </div>
-        <div class="card">
-          <h3>Current pilot offer</h3>
-          <p>$50 per vehicle / month for early pilot partners.</p>
-        </div>
-        <div class="card">
-          <h3>Want to move faster?</h3>
-          <p>If you already know you want live validation, the pilot page is the straightest path.</p>
-          <div class="heroActions" style="margin-top:12px;">
-            <a class="btn secondary" href="pilot.html">Pilot Program</a>
-            <a class="btn ghost" href="pricing.html">View Pricing</a>
-          </div>
-        </div>
-      </aside>
-    </div>
-  </section>
-
-  <footer class="footer">
-    <div class="container footerGrid">
-      <div class="footerCol footerBrand">
-        <div class="wordmark"><span class="brandFleet">Fleet</span><span class="brandAI">AI</span></div>
-        <div class="footerMeta">© 2026 Fleet AI</div>
-      </div>
-      <div class="footerCol">
-        <h4>Reliability OS</h4>
-        <a href="product.html">Reliability OS</a>
-        <a href="pricing.html">Pilot Pricing</a>
-        <a href="pilot.html">Pilot Program</a>
-      </div>
-      <div class="footerCol">
-        <h4>Company</h4>
-        <a href="security.html">Trust</a>
-        <a href="about.html">About</a>
-        <a href="request-demo.html">Contact</a>
-        <a href="employee-login.html" title="For Fleet AI staff only">Employee Portal</a>
-      </div>
-      <div class="footerCol">
-        <h4>Legal</h4>
-        <a href="legal/privacy.html">Privacy Policy</a>
-        <a href="legal/terms.html">Terms</a>
-      </div>
-    </div>
-  </footer>
-
-  <script src="js/config.js"></script>
-  <script src="js/site.js"></script>
-  <script src="js/scroll-reveal.js"></script>
+  <title>Request a demo | Fleet AI</title>
+  <meta name="description" content="Arrange a Fleet AI walkthrough around your fleet, hardware, and maintenance workflow." />
+  <link rel="canonical" href="https://fleetaiops.com/request-demo.html" />
+  <link rel="stylesheet" href="/css/fonts.css?v=20260909" />
+  <link rel="stylesheet" href="/css/public-site.css?v=20260909" />
+  <script src="/js/public-site.js?v=20260909" defer></script>
+</head>
+<body>
+  <header class="publicHeader"><div class="publicContainer publicHeader__row">
+    <a class="publicBrand" href="/" aria-label="Fleet AI home"><img src="/assets/brand/fleet-ai-mark.svg" width="33" height="33" alt="" />Fleet AI</a>
+    <nav class="publicNav" id="publicNav" aria-label="Main navigation"><a href="/product.html">Platform</a><a href="/pricing.html">Pricing</a><a href="/developers.html">Developers</a><a href="/security.html">Security</a><a href="/about.html">Company</a></nav>
+    <div class="publicActions"><a href="/customer-login.html">Sign in</a><a class="publicButton" href="/request-demo.html">Request a demo</a><button class="publicMenu" id="publicMenu" type="button" aria-label="Open navigation" aria-controls="publicNav" aria-expanded="false"><span></span></button></div>
+  </div></header>
+<main id="main">
+<section class="publicHero"><div class="publicContainer"><p class="publicEyebrow">Talk to the team</p><h1>See Fleet AI with your operation in mind.</h1><p>Tell us about the vehicles and the maintenance questions you want to answer. We will use that context to plan the walkthrough.</p></div></section>
+<section class="publicBand"><div class="publicContainer publicSplit"><form class="publicForm" id="demoForm"><h2>Request a demo</h2><div class="publicFormGrid"><div><label for="demoCompany">Company</label><input id="demoCompany" name="demoCompany" type="text" required /></div><div><label for="demoName">Contact name</label><input id="demoName" name="demoName" type="text" required /></div><div><label for="demoEmail">Work email</label><input id="demoEmail" name="demoEmail" type="email" required /></div><div><label for="demoPhone">Phone (optional)</label><input id="demoPhone" name="demoPhone" type="tel" /></div><div><label for="demoFleetSize">Number of vehicles (approximate)</label><input id="demoFleetSize" name="demoFleetSize" type="text" /></div><div><label for="demoRegion">Operating region (optional)</label><input id="demoRegion" name="demoRegion" type="text" /></div></div><div class="publicField"><label for="demoMessage">What would you like to explore?</label><textarea id="demoMessage" name="message"></textarea></div><button class="publicButton" type="submit">Send demo request</button><p class="formNote">Submitting this form requests a conversation. It does not create a customer login. <a class="publicLink" href="/legal/privacy.html">Privacy notice</a></p><p id="demoSuccess" class="formSuccess" role="status">Your request has been received. We will follow up with next steps.</p><p id="demoError" class="publicError" role="alert"></p></form><aside><h2>What we will cover</h2><dl class="publicRows"><div><dt>Your connection</dt><dd>Tablet, gateway, vehicle protocol, and available signals.</dd></div><div><dt>Your workflow</dt><dd>How your team reviews risks, schedules work, and records findings.</dd></div><div><dt>Your pilot</dt><dd>A small deployment with clear checks before a broader rollout. Fleet AI is $50 per active vehicle per month.</dd></div></dl><p class="publicHint">Already have access? <a class="publicLink" href="/customer-login.html">Sign in to your workspace</a>.</p></aside></div></section>
+</main>
+  <footer class="publicFooter"><div class="publicContainer"><div class="publicFooter__row">
+    <div><a class="publicBrand" href="/"><img src="/assets/brand/fleet-ai-mark.svg" width="33" height="33" alt="" />Fleet AI</a><p>Vehicle signals. Maintenance evidence. Decisions made by your team.</p></div>
+    <nav aria-label="Product links"><strong>Product</strong><a href="/product.html">Platform</a><a href="/pricing.html">Pricing</a><a href="/pilot.html">Pilot program</a><a href="/developers.html">Developers</a></nav>
+    <nav aria-label="Company links"><strong>Company</strong><a href="/about.html">About Fleet AI</a><a href="/security.html">Security</a><a href="/request-demo.html">Contact the team</a></nav>
+    <nav aria-label="Account and legal links"><strong>Access &amp; policies</strong><a href="/customer-login.html">Customer sign in</a><a href="/employee-login.html">Employee sign in</a><a href="/legal/privacy.html">Privacy</a><a href="/legal/terms.html">Terms</a></nav>
+  </div><small>&copy; 2026 Fleet AI. Recommendations support, not replace, qualified inspection and judgment.</small></div></footer>
+<script src="/js/site.js?v=20260909"></script>
 </body>
 </html>

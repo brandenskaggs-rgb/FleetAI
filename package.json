@@ -33,6 +33,11 @@
     "tag:known-good": "node tools/print-tag-instructions.js",
     "test:chain": "node tests/telemetry-chain.test.js",
     "test:engine-state": "node tests/engine-state.test.js",
+    "test:audit": "node tests/auth-concurrency.test.js && node tests/storage-atomicity.test.js && node tests/gps-route-persistence.test.js && node tests/solution-evidence.test.js && node tests/dashboard-request-safety.test.js && node tests/json-integrity.test.js",
+    "test:ui:browser": "node tests/dashboard-browser-smoke.js",
+    "test:public:browser": "node tests/public-pages-browser.test.js",
+    "preview:public": "node tests/public-pages-browser.test.js --serve",
+    "test:tenant-sessions": "node --test tests/session-tenant-isolation.test.js",
     "test:contract": "node tests/driver-app-contract.test.js",
     "test:security": "node tests/security-boundary.test.js && node tests/device-auth.test.js && node tests/rate-limiter-security.test.js && node tests/outbound-url-policy.test.js && node tests/partner-api-security.test.js && node tests/ml-service-auth-contract.test.js && node tests/system-status-security.test.js && node tests/storage-atomicity.test.js && node tests/static-source-exposure.test.js",
     "test:vehicles": "node tests/vehicle-recovery.test.js",
@@ -68,6 +73,9 @@
     "pngjs": "^7.0.0"
   },
   "overrides": {
-    "deepmerge-ts": "8.0.1"
+    "deepmerge-ts": "8.0.1",
+    "prisma": {
+      "mysql2": "3.24.4"
+    }
   }
 }

@@ -4,7 +4,7 @@ function toggleNav(){
   nav.classList.toggle("is-open");
 }
 
-const apiUrl = window.apiUrl || ((path)=> path);
+const siteApiUrl = window.apiUrl || ((path)=> path);
 
 const SITE_DIAG = (() => {
   try{
@@ -71,7 +71,7 @@ function initDemoForm(){
     if(btn) btn.disabled = true;
     try{
       diagLog("submit", "request-demo");
-      const res = await fetch(apiUrl("/api/leads/request-demo"), {
+      const res = await fetch(siteApiUrl("/api/leads/request-demo"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -81,7 +81,7 @@ function initDemoForm(){
           email,
           phone,
           fleetSize,
-          message,
+          message: [message, document.getElementById("demoRegion")?.value.trim() ? `Operating region: ${document.getElementById("demoRegion").value.trim()}` : ""].filter(Boolean).join("\n"),
           sourcePage: window.location.pathname || "web"
         })
       });
@@ -128,7 +128,7 @@ function initPilotForm(){
     if(btn) btn.disabled = true;
     try{
       diagLog("submit", "pilot-apply");
-      const res = await fetch(apiUrl("/api/leads/pilot-apply"), {
+      const res = await fetch(siteApiUrl("/api/leads/pilot-apply"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -138,7 +138,7 @@ function initPilotForm(){
           email,
           phone,
           fleetSize,
-          message,
+          message: [message, document.getElementById("pilotRegion")?.value.trim() ? `Operating region: ${document.getElementById("pilotRegion").value.trim()}` : ""].filter(Boolean).join("\n"),
           sourcePage: window.location.pathname || "web"
         })
       });

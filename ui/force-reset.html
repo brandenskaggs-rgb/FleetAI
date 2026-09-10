@@ -1,33 +1,23 @@
 <!doctype html>
-<html lang="en" data-theme="light-blue">
+<html lang="en">
 <head>
-  <link rel="stylesheet" href="/css/theme.css" />
 
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Fleet AI - Reset Password</title>
-  <link rel="stylesheet" href="/css/fonts.css?v=20260729" />
-  <link rel="stylesheet" href="/css/site-tokens.css" />
-  <link rel="stylesheet" href="/css/site-theme.css" />
-  <link rel="stylesheet" href="/css/site-components.css" />
-  <link rel="stylesheet" href="/css/site-layout.css" />
-  <link rel="stylesheet" href="/css/design-system.css" />
-  <script>try{document.documentElement.dataset.theme="light-blue";}catch(e){}</script>
+
+
+
+
+
+
+
+<link rel="stylesheet" href="/css/fonts.css?v=20260909" />
+<link rel="stylesheet" href="/css/public-site.css?v=20260909" />
+<link rel="stylesheet" href="/css/public-access.css?v=20260909" />
 </head>
 <body>
-  <header class="siteHeader">
-    <div class="container siteHeader__row">
-      <a class="wordmark" href="/index.html"><span class="brandFleet">Fleet</span><span class="brandAI">AI</span></a>
-      <div class="siteActions">
-        <select class="themeSelect" id="siteThemeSelect" aria-label="Theme">
-          <option value="light-blue">Light</option>
-          <option value="dark-blue">Dark Blue</option>
-          <option value="dark-gray">Dark Gray</option>
-        </select>
-        <a class="btn secondary" href="/customer-login.html">Customer Sign In</a>
-      </div>
-    </div>
-  </header>
+  <header class="publicHeader"><div class="publicContainer publicHeader__row"><a class="publicBrand" href="/"><img src="/assets/brand/fleet-ai-mark.svg" width="33" height="33" alt="" />Fleet AI</a><div class="publicActions"><a href="/">Back to website</a></div></div></header>
 
   <section class="section">
     <div class="container loginSplit">
@@ -46,8 +36,8 @@
           <p>Create a new password to continue.</p>
         </div>
         <div class="formGrid">
-          <input id="resetPassword" type="password" placeholder="New password (10+ characters)" />
-          <input id="resetPasswordConfirm" type="password" placeholder="Confirm new password" />
+          <label for="resetPassword">New password (10+ characters)</label><input id="resetPassword" type="password" autocomplete="new-password" />
+          <label for="resetPasswordConfirm">Confirm new password</label><input id="resetPasswordConfirm" type="password" autocomplete="new-password" />
           <button class="btn primary" id="resetPasswordBtn">Save New Password</button>
           <div class="formSuccess" id="resetMessage" style="display:none;"></div>
         </div>
@@ -55,36 +45,16 @@
     </div>
   </section>
 
-  <footer class="footer">
-    <div class="container footerGrid">
-      <div class="footerCol footerBrand">
-        <div class="wordmark"><span class="brandFleet">Fleet</span><span class="brandAI">AI</span></div>
-        <div class="footerMeta">Ac 2026 Fleet AI</div>
-      </div>
-      <div class="footerCol">
-        <h4>Product</h4>
-        <a href="/product.html">Product</a>
-        <a href="/pricing.html">Pricing</a>
-        <a href="/pilot.html">Pilot Program</a>
-      </div>
-      <div class="footerCol">
-        <h4>Company</h4>
-        <a href="/security.html">Security</a>
-        <a href="/about.html">About</a>
-        <a href="/request-demo.html">Contact</a>
-        <a href="/employee-login.html" title="For Fleet AI staff only">Employee Portal</a>
-      </div>
-      <div class="footerCol">
-        <h4>Legal</h4>
-        <a href="/legal/privacy.html">Privacy Policy</a>
-        <a href="/legal/terms.html">Terms</a>
-      </div>
-    </div>
-  </footer>
+    <footer class="publicFooter"><div class="publicContainer"><div class="publicFooter__row">
+    <div><a class="publicBrand" href="/"><img src="/assets/brand/fleet-ai-mark.svg" width="33" height="33" alt="" />Fleet AI</a><p>Vehicle signals. Maintenance evidence. Decisions made by your team.</p></div>
+    <nav aria-label="Product links"><strong>Product</strong><a href="/product.html">Platform</a><a href="/pricing.html">Pricing</a><a href="/pilot.html">Pilot program</a><a href="/developers.html">Developers</a></nav>
+    <nav aria-label="Company links"><strong>Company</strong><a href="/about.html">About Fleet AI</a><a href="/security.html">Security</a><a href="/request-demo.html">Contact the team</a></nav>
+    <nav aria-label="Account and legal links"><strong>Access &amp; policies</strong><a href="/customer-login.html">Customer sign in</a><a href="/employee-login.html">Employee sign in</a><a href="/legal/privacy.html">Privacy</a><a href="/legal/terms.html">Terms</a></nav>
+  </div><small>&copy; 2026 Fleet AI. Recommendations support, not replace, qualified inspection and judgment.</small></div></footer>
 
   <script src="/js/config.js"></script>
-  <script src="/js/site.js"></script>
+
   <script src="/js/force-reset.js"></script>
-  <script src="/js/scroll-reveal.js"></script>
+
 </body>
 </html>

@@ -49,8 +49,8 @@ function registerMlRoutes(app, deps) {
 
   app.get("/api/ml/state", requireEmployeeOrCustomerApi, async (req, res) => {
     try {
-      const states = await sqliteDb.getAllModelStates();
       const orgId = req.customer?.orgId || null;
+      const states = await sqliteDb.getAllModelStates(orgId, { allowAll: !req.customer });
       const filtered = orgId ? states.filter((s) => s.orgId === orgId) : states;
       return res.json({ ok: true, data: filtered });
     } catch (err) {
@@ -74,7 +74,7 @@ function registerMlRoutes(app, deps) {
       if (!vehicleId) return res.status(400).json({ ok: false, error: "vehicleId required" });
       const orgId = await resolveVehicleOrg(req, res, vehicleId);
       if (!orgId) return;
-      const samples = await sqliteDb.getSamplesForVehicle(vehicleId, { limit: 5000 });
+      const samples = await sqliteDb.getSamplesForVehicle(vehicleId, { limit: 5000, orgId });
       const vehicleMeta = await loadVehicleMetadata(vehicleId);
       const jsPrediction = ml.computeFullPrediction(samples, vehicleId, vehicleMeta);
       let pythonPrediction = null;
@@ -99,8 +99,8 @@ function registerMlRoutes(app, deps) {
         healthScore: prediction.healthScore,
         prediction
       });
-      if (prediction.featureVector) {
-        await sqliteDb.insertMlFeatureSnapshot({ orgId, vehicleId, predictionRunId: runId, features: prediction.featureVector });
+      if (prediction.featureVector || prediction.lineage) {
+        await sqliteDb.insertMlFeatureSnapshot({ orgId, vehicleId, predictionRunId: runId, features: { values: prediction.featureVector, lineage: prediction.lineage } });
       }
       return res.json({ ok: true, data: prediction });
     } catch (err) {
@@ -121,7 +121,7 @@ function registerMlRoutes(app, deps) {
       const { vehicleId } = req.params;
       const orgId = await resolveVehicleOrg(req, res, vehicleId);
       if (!orgId) return;
-      const samples = await sqliteDb.getSamplesForVehicle(vehicleId, { limit: 5000 });
+      const samples = await sqliteDb.getSamplesForVehicle(vehicleId, { limit: 5000, orgId });
       const vehicleMeta = await loadVehicleMetadata(vehicleId);
       const jsPrediction = ml.computeFullPrediction(samples, vehicleId, vehicleMeta);
       let pythonPrediction = null;
@@ -150,8 +150,8 @@ function registerMlRoutes(app, deps) {
         healthScore: prediction.healthScore,
         prediction
       });
-      if (prediction.featureVector) {
-        await sqliteDb.insertMlFeatureSnapshot({ orgId, vehicleId, predictionRunId: runId, features: prediction.featureVector });
+      if (prediction.featureVector || prediction.lineage) {
+        await sqliteDb.insertMlFeatureSnapshot({ orgId, vehicleId, predictionRunId: runId, features: { values: prediction.featureVector, lineage: prediction.lineage } });
       }
       return res.json({ ok: true, data: prediction });
     } catch (err) {
@@ -164,7 +164,7 @@ function registerMlRoutes(app, deps) {
       const { vehicleId } = req.params;
       const orgId = await resolveVehicleOrg(req, res, vehicleId);
       if (!orgId) return;
-      const report = await sqliteDb.getLatestAiReport(vehicleId);
+      const report = await sqliteDb.getLatestAiReport(vehicleId, orgId);
       if (!report) return res.status(404).json({ ok: false, error: "No report found" });
       return res.json({ ok: true, data: report });
     } catch (err) {
@@ -177,9 +177,9 @@ function registerMlRoutes(app, deps) {
       const { vehicleId } = req.params;
       const orgId = await resolveVehicleOrg(req, res, vehicleId);
       if (!orgId) return;
-      const samples = await sqliteDb.getSamplesForVehicle(vehicleId, { limit: 5000 });
+      const samples = await sqliteDb.getSamplesForVehicle(vehicleId, { limit: 5000, orgId });
       const vehicleMeta = await loadVehicleMetadata(vehicleId);
-      const prediction = ml.computeFullPrediction(samples, vehicleId, vehicleMeta);
+      const prediction = { ...ml.computeFullPrediction(samples, vehicleId, vehicleMeta), orgId };
       await sqliteDb.upsertModelState(prediction);
       const report = await aiReportSvc.generateReport(prediction, vehicleMeta);
       return res.json({ ok: true, data: report });

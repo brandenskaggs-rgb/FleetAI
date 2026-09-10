@@ -14,9 +14,11 @@ function createTelemetryPredictionCoordinator({
   const cache = new Map();
 
   async function predict({ orgId, vehicleId, vehicleMeta, samples, dtcCodes }) {
+    if (!orgId || !vehicleId) throw new Error("Prediction requires organization and vehicle scope");
+    const cacheKey = JSON.stringify([orgId, vehicleId]);
     const jsPrediction = ml.computeFullPrediction(samples, vehicleId, vehicleMeta || {});
     const sampleKey = latestSampleKey(samples);
-    const previous = cache.get(vehicleId) || null;
+    const previous = cache.get(cacheKey) || null;
     const elapsed = previous ? now() - previous.attemptedAt : Number.POSITIVE_INFINITY;
     const hasNewSample = !previous || previous.sampleKey !== sampleKey;
     const shouldAttempt = !previous || (elapsed >= intervalMs && (hasNewSample || !previous.serviceAvailable));
@@ -42,7 +44,7 @@ function createTelemetryPredictionCoordinator({
         pythonPrediction = null;
         pythonError = error?.message || "theorem_unavailable";
       }
-      cache.set(vehicleId, {
+      cache.set(cacheKey, {
         attemptedAt: now(),
         sampleKey,
         pythonPrediction,

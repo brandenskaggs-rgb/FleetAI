@@ -37,6 +37,27 @@ function registerAuthRoutes(app, deps) {
     firstLoginTokens
   } = deps;
 
+  async function establishBrowserSession(req, res, session, scope) {
+    // Retire the previous browser identity, including its already-open streams.
+    const previous = [
+      [getCustomerSession?.(req), customerSessionStore],
+      [getSession?.(req), sessionStore]
+    ];
+    for (const [old, store] of previous) {
+      if (!old || old.id === session.id) continue;
+      await pgSessionStore.deleteSession(old.id);
+      store?.delete(old.id);
+    }
+    persistSessionStoresSoon?.();
+    if (scope === "customer") {
+      setCustomerSessionCookie(res, session.id);
+      clearSessionCookie?.(res);
+    } else {
+      setSessionCookie(res, session.id);
+      clearCustomerSessionCookie?.(res);
+    }
+  }
+
   function sendRemovedRoute(res, canonicalPath) {
     setNoStore(res);
     return res.status(410).json({
@@ -64,8 +85,8 @@ function registerAuthRoutes(app, deps) {
           console.warn("[DEV-BYPASS] Dev password used for customer login:", email);
           const devLookup = await authService.getUserByEmail("customer", email);
           if (devLookup && devLookup.user) {
-            const devSession = issueSession("customer", devLookup.user);
-            setCustomerSessionCookie(res, devSession.id);
+            const devSession = await issueSession("customer", devLookup.user);
+            await establishBrowserSession(req, res, devSession, "customer");
             return res.status(200).json({
               ok: true,
               code: "OK",
@@ -112,7 +133,7 @@ function registerAuthRoutes(app, deps) {
         origin: req.headers.origin || "",
         referer: req.headers.referer || ""
       });
-      setCustomerSessionCookie(res, session.id);
+      await establishBrowserSession(req, res, session, "customer");
       return res.status(200).json({
         ok: true,
         code: "OK",
@@ -144,8 +165,8 @@ function registerAuthRoutes(app, deps) {
           console.warn("[DEV-BYPASS] Dev password used for employee login:", email);
           const devLookup = await authService.getUserByEmail("employee", email);
           if (devLookup && devLookup.user) {
-            const devSession = issueSession("employee", devLookup.user);
-            setSessionCookie(res, devSession.id);
+            const devSession = await issueSession("employee", devLookup.user);
+            await establishBrowserSession(req, res, devSession, "employee");
             return sendEmployeeLoginResponse(res, 200, {
               ok: true,
               success: true,
@@ -178,7 +199,7 @@ function registerAuthRoutes(app, deps) {
         });
       }
       const session = result.session;
-      setSessionCookie(res, session.id);
+      await establishBrowserSession(req, res, session, "employee");
       return sendEmployeeLoginResponse(res, 200, {
         ok: true,
         success: true,
@@ -193,6 +214,9 @@ function registerAuthRoutes(app, deps) {
       });
     } catch (err) {
       const message = err && err.message ? err.message : String(err);
+      if (err?.code === "AUTH_WRITE_CONFLICT") {
+        return sendEmployeeLoginResponse(res, 409, { ok: false, error: err.code, message: "Your account changed during sign-in. Please try again." });
+      }
       console.log("[AUTH] login error", { step, message });
       return sendEmployeeError(res);
     }
@@ -308,8 +332,8 @@ function registerAuthRoutes(app, deps) {
         }
       });
       await revokeUserSessions(user.id);
-      const session = issueSession("customer", updatedUser);
-      setCustomerSessionCookie(res, session.id);
+      const session = await issueSession("customer", updatedUser);
+      await establishBrowserSession(req, res, session, "customer");
       res.json({ ok: true, redirectTo: "/ui/fleetai-dashboard.html" });
     } catch (err) {
       next(err);
@@ -352,25 +376,25 @@ function registerAuthRoutes(app, deps) {
         }
       });
       await revokeUserSessions(user.id);
-      const session = issueSession("customer", updatedUser);
-      setCustomerSessionCookie(res, session.id);
+      const session = await issueSession("customer", updatedUser);
+      await establishBrowserSession(req, res, session, "customer");
       res.json({ ok: true, redirectTo: "/ui/fleetai-dashboard.html" });
     } catch (err) {
       next(err);
     }
   });
 
-  app.post("/api/auth/customer/logout", (req, res) => {
-    const session = getCustomerSession(req);
-    if (session) {
-      customerSessionStore.delete(session.id);
-      pgSessionStore.deleteSession(session.id).catch(() => {});
-      if (typeof persistSessionStoresSoon === "function") {
+  app.post("/api/auth/customer/logout", async (req, res, next) => {
+    try {
+      const session = getCustomerSession(req);
+      if (session) {
+        await pgSessionStore.deleteSession(session.id);
+        customerSessionStore.delete(session.id);
         persistSessionStoresSoon();
       }
-    }
-    clearCustomerSessionCookie(res);
-    res.json({ ok: true });
+      clearCustomerSessionCookie(res);
+      res.json({ ok: true });
+    } catch (error) { next(error); }
   });
 
   app.all("/api/employee/login", loginLimiter, handleEmployeeLoginRoute);
@@ -379,17 +403,17 @@ function registerAuthRoutes(app, deps) {
     app.all(route, (req, res) => sendRemovedRoute(res, "/api/auth/employee/login"));
   });
 
-  function handleEmployeeLogout(req, res) {
-    const session = getSession(req);
-    if (session) {
-      sessionStore.delete(session.id);
-      pgSessionStore.deleteSession(session.id).catch(() => {});
-      if (typeof persistSessionStoresSoon === "function") {
+  async function handleEmployeeLogout(req, res, next) {
+    try {
+      const session = getSession(req);
+      if (session) {
+        await pgSessionStore.deleteSession(session.id);
+        sessionStore.delete(session.id);
         persistSessionStoresSoon();
       }
-    }
-    clearSessionCookie(res);
-    return res.json({ ok: true });
+      clearSessionCookie(res);
+      return res.json({ ok: true });
+    } catch (error) { next(error); }
   }
 
   app.post("/api/employee/logout", handleEmployeeLogout);
@@ -444,12 +468,8 @@ function registerAuthRoutes(app, deps) {
       const user = result.user;
       const scope = authService.isCustomerRole(user) ? "customer" : "employee";
       await revokeUserSessions(user.id);
-      const session = issueSession(scope, user);
-      if (scope === "customer") {
-        setCustomerSessionCookie(res, session.id);
-      } else {
-        setSessionCookie(res, session.id);
-      }
+      const session = await issueSession(scope, user);
+      await establishBrowserSession(req, res, session, scope);
       if (firstLoginTokens) firstLoginTokens.delete(token);
       return res.status(200).json({
         ok: true,
@@ -462,6 +482,9 @@ function registerAuthRoutes(app, deps) {
         user: { id: user.id, email: user.email, role: user.role, orgId: user.orgId || null }
       });
     } catch (err) {
+      if (err?.code === "AUTH_WRITE_CONFLICT") {
+        return res.status(409).json({ ok: false, error: err.code, message: "Your account changed during password setup. Sign in again to continue." });
+      }
       return res.status(500).json(formatAuthError(AUTH_ERRORS.SERVER_MISCONFIG, {
         message: err.message || "Failed to set password"
       }));

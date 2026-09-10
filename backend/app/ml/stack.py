@@ -74,8 +74,13 @@ class StackMetaLearner:
         try:
             import joblib
             bundle = joblib.load(_STACK_MODEL_PATH)
+            if not str(bundle.get("metadata", {}).get("trainingSource", "")).startswith("synthetic"):
+                logger.warning("[stack] Legacy global artifact lacks approved cross-tenant provenance; advisory scoring disabled")
+                return False
             with self._lock:
-                self._model = bundle["model"]
+                if bundle.get("features") != STACK_FEATURES or bundle.get("scaler") is None:
+                    return False
+                self._model = (bundle["scaler"], bundle["model"])
                 self._trained = True
                 self._train_count = bundle.get("train_count", 0)
             logger.info("[stack] Loaded meta-learner (%d training rows)", self._train_count)
@@ -94,7 +99,10 @@ class StackMetaLearner:
         """
         try:
             vec = self._dict_to_vec(feature_row)
-            label = 1 if outcome == "confirmed_breakdown" else 0
+            from .feature_contract import supervised_label
+            label = supervised_label(outcome)
+            if label is None:
+                return
             with self._lock:
                 self._buffer.append((vec, label))
                 if len(self._buffer) > MAX_BUFFER_ROWS:
@@ -105,64 +113,12 @@ class StackMetaLearner:
     # ── Retrain if ready ──────────────────────────────────────────────────────
 
     def maybe_retrain(self) -> bool:
-        now = time.time()
-        with self._lock:
-            n = len(self._buffer)
-            since = now - self._last_train
-        if n < MIN_FEEDBACK_ROWS or since < self._retrain_cooldown:
-            return False
-        return self._retrain()
+        # This legacy buffer has no tenant/time/OOF provenance. Preserve scoring,
+        # but never fit or activate a model from these unverified rows.
+        return False
 
     def _retrain(self) -> bool:
-        try:
-            import numpy as np
-            from sklearn.linear_model import LogisticRegression
-            from sklearn.preprocessing import StandardScaler
-            import joblib
-
-            with self._lock:
-                snapshot = list(self._buffer)
-
-            X = np.array([row for row, _ in snapshot], dtype=np.float32)
-            y = np.array([lbl for _, lbl in snapshot], dtype=np.int32)
-
-            pos_rate = y.mean()
-            if pos_rate < 0.01 or pos_rate > 0.99:
-                logger.info("[stack] Skipping retrain — degenerate label distribution (pos=%.3f)", pos_rate)
-                return False
-
-            scaler = StandardScaler()
-            X_scaled = scaler.fit_transform(X)
-
-            model = LogisticRegression(
-                C=1.0,
-                class_weight="balanced",
-                max_iter=500,
-                random_state=42,
-                solver="lbfgs",
-            )
-            model.fit(X_scaled, y)
-
-            bundle = {
-                "model": model,
-                "scaler": scaler,
-                "features": STACK_FEATURES,
-                "train_count": len(snapshot),
-            }
-            _STACK_MODEL_PATH.parent.mkdir(parents=True, exist_ok=True)
-            joblib.dump(bundle, _STACK_MODEL_PATH)
-
-            with self._lock:
-                self._model = (scaler, model)
-                self._trained = True
-                self._train_count = len(snapshot)
-                self._last_train = time.time()
-
-            logger.info("[stack] Retrained on %d rows (pos_rate=%.3f)", len(snapshot), pos_rate)
-            return True
-        except Exception as exc:
-            logger.warning("[stack] Retrain failed: %s", exc)
-            return False
+        return False
 
     # ── Score ─────────────────────────────────────────────────────────────────
 

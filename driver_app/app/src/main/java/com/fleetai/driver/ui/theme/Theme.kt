@@ -8,13 +8,19 @@ import androidx.compose.ui.graphics.Color
 import com.fleetai.driver.data.model.ThemeMode
 
 private val FleetDarkScheme = darkColorScheme(
-    primary = FleetBlue,
+    primary = Color(0xFFACC5FF),
+    primaryContainer = Color(0xFF263A5E),
+    onPrimaryContainer = Color(0xFFDBE7FF),
     secondary = FleetGreen,
+    secondaryContainer = Color(0xFF303942),
+    onSecondaryContainer = Color(0xFFF1F4F7),
     tertiary = FleetCyan,
     background = FleetBlueDark,
-    surface = Color(0xFF0B1830),
-    surfaceVariant = Color(0xFF132340),
-    onPrimary = Color.White,
+    surface = Color(0xFF232A32),
+    surfaceVariant = Color(0xFF303942),
+    onSurfaceVariant = Color(0xFFD4DCE5),
+    outline = Color(0xFF8C99A8),
+    onPrimary = Color(0xFF112E68),
     onSecondary = Color.White,
     onBackground = Color.White,
     onSurface = Color.White
@@ -22,7 +28,11 @@ private val FleetDarkScheme = darkColorScheme(
 
 private val FleetLightScheme = lightColorScheme(
     primary = FleetBlue,
+    primaryContainer = Color(0xFFE7EDFA),
+    onPrimaryContainer = Color(0xFF1944B6),
     secondary = FleetGreen,
+    secondaryContainer = FleetSurfaceHigh,
+    onSecondaryContainer = FleetText,
     tertiary = FleetCyan,
     background = FleetBackground,
     surface = FleetSurface,
@@ -31,6 +41,7 @@ private val FleetLightScheme = lightColorScheme(
     onSecondary = Color.White,
     onBackground = FleetText,
     onSurface = FleetText,
+    onSurfaceVariant = FleetTextMuted,
     outline = FleetBorder,
     error = FleetDanger
 )

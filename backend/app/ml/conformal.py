@@ -67,6 +67,7 @@ class ConformalPredictor:
         self._scores_class: dict[str, list[float]] = {}
         self._fitted = False
         self._n_calibration = 0
+        self._metadata = {"status": "uncalibrated", "reason": "no_bound_artifact"}
 
     # ── Fit from calibration data ─────────────────────────────────────────────
 
@@ -75,6 +76,7 @@ class ConformalPredictor:
         cal_probs: list[float],
         cal_labels: list[int],
         cal_classes: list[str] | None = None,
+        metadata: dict | None = None,
     ) -> None:
         """
         Fit the conformal predictor on a calibration set.
@@ -85,8 +87,19 @@ class ConformalPredictor:
         """
         import bisect
 
+        import math
         n = len(cal_probs)
+        if (n != len(cal_labels) or (cal_classes is not None and len(cal_classes) != n)
+                or any(y not in (0, 1) for y in cal_labels)
+                or any(not math.isfinite(p) or not 0 <= p <= 1 for p in cal_probs)):
+            raise ValueError("Invalid conformal calibration observations")
         if n < 10:
+            with self._lock:
+                self._fitted = False
+                self._scores_global = []
+                self._scores_class = {}
+                self._n_calibration = 0
+                self._metadata = {"status": "uncalibrated", "reason": "insufficient_independent_observations"}
             logger.warning("[conformal] Too few calibration samples (%d) — skipping fit", n)
             return
 
@@ -115,6 +128,7 @@ class ConformalPredictor:
             }
             self._fitted = True
             self._n_calibration = n
+            self._metadata = metadata or {"status": "unbound", "fieldValidated": False}
 
         logger.info(
             "[conformal] Fitted on %d samples, %d class-conditional sets",
@@ -170,9 +184,9 @@ class ConformalPredictor:
         p_pos = self._pvalue(scores, alpha_pos, n)
         p_neg = self._pvalue(scores, alpha_neg, n)
 
-        if p_pos < epsilon:
+        if p_neg <= epsilon and p_pos > epsilon:
             verdict = "CONFIRMED"
-        elif p_neg < epsilon:
+        elif p_pos <= epsilon and p_neg > epsilon:
             verdict = "REJECTED"
         else:
             verdict = "UNCERTAIN"
@@ -182,7 +196,10 @@ class ConformalPredictor:
             "pvalue_null":         round(p_neg, 4),
             "epsilon":             epsilon,
             "verdict":             verdict,
-            "coverage_guarantee":  round(1.0 - epsilon, 4),
+            "coverage_guarantee": None,
+            "nominal_coverage": round(1.0 - epsilon, 4),
+            "coverage_condition": "Requires exchangeable calibration and future observations; not proven field coverage",
+            "calibration": self._metadata,
             "calibration_n":       n,
             "class_used":          class_used,
         }
@@ -199,45 +216,40 @@ class ConformalPredictor:
     @staticmethod
     def _not_fitted(epsilon: float) -> dict:
         return {
-            "pvalue": 0.5,
-            "pvalue_null": 0.5,
+            "pvalue": None,
+            "pvalue_null": None,
             "epsilon": epsilon,
             "verdict": "UNCERTAIN",
-            "coverage_guarantee": 1.0 - epsilon,
+            "coverage_guarantee": None,
             "calibration_n": 0,
             "class_used": "none",
         }
 
     # ── Persistence ───────────────────────────────────────────────────────────
 
-    def save(self) -> None:
-        import joblib
+    def to_bundle(self):
         with self._lock:
-            bundle = {
-                "scores_global": self._scores_global,
-                "scores_class":  self._scores_class,
-                "n_calibration": self._n_calibration,
-            }
-        _CONFORMAL_PATH.parent.mkdir(parents=True, exist_ok=True)
-        joblib.dump(bundle, _CONFORMAL_PATH)
-        logger.info("[conformal] Saved to %s", _CONFORMAL_PATH)
+            return {"scores_global": self._scores_global, "scores_class": self._scores_class,
+                    "n_calibration": self._n_calibration, "metadata": self._metadata}
+
+    def restore_bound(self, bundle, model_version):
+        meta = (bundle or {}).get("metadata", {})
+        if not model_version or meta.get("modelVersion") != model_version or meta.get("partition") != "independent_conformal":
+            return False
+        with self._lock:
+            self._scores_global = bundle["scores_global"]
+            self._scores_class = bundle.get("scores_class", {})
+            self._n_calibration = bundle.get("n_calibration", 0)
+            self._metadata = meta
+            self._fitted = self._n_calibration >= 10 and bool(self._scores_global)
+        return self._fitted
+
+    def save(self) -> None:
+        raise RuntimeError("Save conformal state inside its version-bound candidate model bundle")
 
     def load(self) -> bool:
-        if not _CONFORMAL_PATH.exists():
-            return False
-        try:
-            import joblib
-            bundle = joblib.load(_CONFORMAL_PATH)
-            with self._lock:
-                self._scores_global  = bundle["scores_global"]
-                self._scores_class   = bundle.get("scores_class", {})
-                self._n_calibration  = bundle.get("n_calibration", len(self._scores_global))
-                self._fitted = bool(self._scores_global)
-            logger.info("[conformal] Loaded (%d calibration scores)", self._n_calibration)
-            return True
-        except Exception as exc:
-            logger.warning("[conformal] Load failed: %s", exc)
-            return False
+        # Preserve legacy files but never attach unbound calibration to a new model.
+        return False
 
     def is_fitted(self) -> bool:
         return self._fitted
@@ -249,6 +261,7 @@ class ConformalPredictor:
                 "calibrationN": self._n_calibration,
                 "classConditionalSets": list(self._scores_class.keys()),
                 "defaultEpsilon": DEFAULT_EPSILON,
+                "calibration": self._metadata,
             }
 
 
@@ -277,13 +290,14 @@ def fit_conformal_from_bundle(model_bundle_path: str | Path) -> bool:
             )
             return False
 
-        _predictor.fit(
+        temporary = ConformalPredictor()
+        temporary.fit(
             list(val_probs),
             list(val_labels),
             list(val_classes) if val_classes is not None else None,
         )
-        _predictor.save()
-        return True
+        logger.warning("[conformal] Legacy validation scores cannot activate unbound calibration; train a version-bound candidate")
+        return False
     except Exception as exc:
         logger.warning("[conformal] fit_conformal_from_bundle error: %s", exc)
         return False

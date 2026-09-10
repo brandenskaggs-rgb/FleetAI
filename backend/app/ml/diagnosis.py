@@ -377,7 +377,10 @@ def _extract_slopes(window_stats: Optional[dict]) -> dict:
     slopes = {}
     for metric, stats in window_stats.items():
         h24 = stats.get("h24", {})
-        slope = h24.get("slope")
+        # Existing diagnostic cutoffs were authored in units/observation. Keep
+        # them separate from the corrected model features until operationally
+        # meaningful hourly cutoffs are validated against service outcomes.
+        slope = h24.get("legacy_sample_slope", h24.get("slope"))
         if slope is not None:
             slopes[metric] = slope
     return slopes

@@ -45,7 +45,7 @@
     .siteHeader { position: fixed; inset: 0 0 auto; z-index: 50; height: 76px; color: #fff; transition: color .25s ease, background .25s ease, box-shadow .25s ease; }
     .siteHeader.is-scrolled { color: var(--ink); background: rgba(255, 255, 255, .94); box-shadow: 0 1px 0 var(--line); backdrop-filter: blur(16px); }
     .headerRow { height: 100%; display: flex; align-items: center; gap: 32px; }
-    .brand { display: inline-flex; align-items: center; gap: 11px; flex: 0 0 auto; font-size: 19px; font-weight: 850; letter-spacing: -.03em; }
+    .brand { display: inline-flex; align-items: center; gap: 11px; flex: 0 0 auto; font-size: 19px; font-weight: 850; letter-spacing: 0; }
     .brand img { width: 34px; height: 34px; }
     .brand em { color: var(--amber); font-style: normal; }
     .siteNav { display: flex; align-items: center; gap: 26px; margin-left: auto; }
@@ -73,9 +73,9 @@
     .heroMedia::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(3, 9, 17, .88) 0%, rgba(3, 9, 17, .67) 43%, rgba(3, 9, 17, .12) 76%), linear-gradient(0deg, rgba(3, 9, 17, .66) 0%, transparent 42%); }
     .heroBody { position: relative; z-index: 2; height: 100%; display: flex; flex-direction: column; justify-content: center; padding-top: 64px; }
     .heroCopy { width: min(690px, 63%); }
-    .eyebrow { margin-bottom: 20px; color: #ffd28f; font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
-    h1 { max-width: 740px; margin-bottom: 24px; font-size: clamp(48px, 6.2vw, 82px); line-height: .95; letter-spacing: -.055em; font-weight: 900; }
-    .heroLead { max-width: 640px; margin-bottom: 30px; color: rgba(255, 255, 255, .82); font-size: clamp(17px, 1.6vw, 21px); line-height: 1.48; letter-spacing: -.015em; }
+    .eyebrow { margin-bottom: 20px; color: #ffd28f; font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 0; text-transform: uppercase; }
+    h1 { max-width: 740px; margin-bottom: 24px; font-size: clamp(48px, 6.2vw, 82px); line-height: .95; letter-spacing: 0; font-weight: 900; }
+    .heroLead { max-width: 640px; margin-bottom: 30px; color: rgba(255, 255, 255, .82); font-size: clamp(17px, 1.6vw, 21px); line-height: 1.48; letter-spacing: 0; }
     .heroActions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
     .heroFoot { position: absolute; z-index: 3; left: 0; right: 0; bottom: 0; }
     .heroFacts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 1px solid var(--line-dark); }
@@ -90,9 +90,9 @@
     .section.compact { padding: 82px 0; }
     .section.soft { background: var(--canvas); }
     .section.dark { color: #fff; background: var(--ink); }
-    .sectionLabel { margin-bottom: 16px; color: var(--blue); font-family: var(--mono); font-size: 10px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
+    .sectionLabel { margin-bottom: 16px; color: var(--blue); font-family: var(--mono); font-size: 10px; font-weight: 700; letter-spacing: 0; text-transform: uppercase; }
     .dark .sectionLabel { color: #78a9ff; }
-    .section h2 { max-width: 780px; margin-bottom: 20px; font-size: clamp(38px, 4.7vw, 62px); line-height: 1; letter-spacing: -.05em; font-weight: 880; }
+    .section h2 { max-width: 780px; margin-bottom: 20px; font-size: clamp(38px, 4.7vw, 62px); line-height: 1; letter-spacing: 0; font-weight: 880; }
     .sectionIntro { max-width: 700px; margin-bottom: 0; color: var(--muted); font-size: 18px; }
     .dark .sectionIntro { color: var(--muted-light); }
 
@@ -101,7 +101,7 @@
     .processStep { display: grid; grid-template-columns: 72px 1fr; gap: 20px; padding: 28px 0 32px; border-top: 1px solid var(--line); }
     .processStep:last-child { border-bottom: 1px solid var(--line); }
     .processIndex { color: var(--blue); font-family: var(--mono); font-size: 12px; font-weight: 700; }
-    .processStep h3 { margin-bottom: 8px; font-size: 24px; letter-spacing: -.03em; }
+    .processStep h3 { margin-bottom: 8px; font-size: 24px; letter-spacing: 0; }
     .processStep p { margin-bottom: 0; color: var(--muted); font-size: 15px; }
     .signalTags { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 16px; }
     .signalTags span { padding: 5px 8px; color: var(--ink-soft); background: var(--canvas-blue); border-radius: 3px; font-family: var(--mono); font-size: 10px; font-weight: 650; }
@@ -112,7 +112,7 @@
     .consoleSide { padding: 22px 14px; background: #fff; }
     .consoleBrand { display: flex; align-items: center; gap: 8px; margin-bottom: 30px; font-size: 13px; font-weight: 850; }
     .consoleBrand img { width: 24px; height: 24px; }
-    .consoleGroup { margin: 20px 0 8px; color: #8b98aa; font-family: var(--mono); font-size: 8px; letter-spacing: .12em; text-transform: uppercase; }
+    .consoleGroup { margin: 20px 0 8px; color: #8b98aa; font-family: var(--mono); font-size: 8px; letter-spacing: 0; text-transform: uppercase; }
     .consoleNav { display: grid; gap: 2px; }
     .consoleNav span { padding: 8px 9px; color: #4c5d73; border-radius: 3px; font-size: 10px; font-weight: 700; }
     .consoleNav .active { color: var(--blue-dark); background: #e9f0fd; box-shadow: inset 3px 0 0 var(--blue); }
@@ -122,7 +122,7 @@
     .consoleTop span { color: #758399; font-size: 10px; }
     .metricRow { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 14px; }
     .metric { padding: 14px; background: #fff; border-radius: 4px; box-shadow: 0 4px 12px rgba(26, 45, 72, .05); }
-    .metric label { display: block; margin-bottom: 5px; color: #7d8a9b; font-size: 8px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
+    .metric label { display: block; margin-bottom: 5px; color: #7d8a9b; font-size: 8px; font-weight: 800; letter-spacing: 0; text-transform: uppercase; }
     .metric strong { display: block; font-size: 24px; line-height: 1; }
     .metric small { color: #8491a3; font-size: 8px; }
     .metric.risk strong { color: var(--red); }
@@ -132,7 +132,7 @@
     .riskTableHead strong { font-size: 13px; }
     .riskTableHead span { color: #718096; font-size: 9px; }
     .riskRow { display: grid; grid-template-columns: 1.1fr .7fr 1fr .9fr .66fr; gap: 10px; align-items: center; min-height: 48px; border-top: 1px solid rgba(7, 17, 31, .07); font-size: 9px; }
-    .riskRow.head { min-height: 32px; color: #8491a3; font-size: 7px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+    .riskRow.head { min-height: 32px; color: #8491a3; font-size: 7px; font-weight: 800; letter-spacing: 0; text-transform: uppercase; }
     .unit { font-weight: 800; }
     .bar { height: 5px; overflow: hidden; background: #edf1f5; border-radius: 6px; }
     .bar i { display: block; height: 100%; background: var(--amber); border-radius: inherit; }
@@ -166,7 +166,7 @@
     .platformHead p { margin-bottom: 4px; color: var(--muted); font-size: 18px; }
     .moduleMatrix { border-top: 1px solid var(--line); }
     .moduleRow { display: grid; grid-template-columns: 210px 1fr; gap: 34px; padding: 27px 0; border-bottom: 1px solid var(--line); }
-    .moduleRow h3 { margin: 3px 0 0; font-size: 17px; letter-spacing: -.02em; }
+    .moduleRow h3 { margin: 3px 0 0; font-size: 17px; letter-spacing: 0; }
     .moduleList { display: flex; flex-wrap: wrap; gap: 8px 18px; }
     .moduleList span { position: relative; padding-left: 13px; color: var(--ink-soft); font-size: 13px; font-weight: 650; }
     .moduleList span::before { content: ""; position: absolute; left: 0; top: .64em; width: 4px; height: 4px; background: var(--blue); }
@@ -183,7 +183,7 @@
     .pricePanel { padding: 44px; color: #fff; background: var(--ink); border-radius: 6px; box-shadow: var(--shadow); }
     .pricePanel .sectionLabel { color: #8eb8ff; }
     .price { display: flex; align-items: baseline; gap: 10px; margin: 12px 0 20px; }
-    .price strong { font-size: 76px; line-height: 1; letter-spacing: -.06em; }
+    .price strong { font-size: 76px; line-height: 1; letter-spacing: 0; }
     .price span { max-width: 110px; color: #aab5c5; font-size: 12px; }
     .pricePanel > p { color: #b5c0ce; }
     .priceList { display: grid; gap: 0; margin: 26px 0 32px; }
@@ -276,20 +276,14 @@
     }
     @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; } }
   </style>
+  <link rel="stylesheet" href="/css/public-site.css?v=20260909" />
 </head>
-<body>
-  <header class="siteHeader" id="siteHeader">
-    <div class="container headerRow">
-      <a class="brand" href="index.html" aria-label="Fleet AI home"><img src="assets/brand/fleet-ai-mark.svg" alt="" width="34" height="34" /><span>Fleet <em>AI</em></span></a>
-      <nav class="siteNav" id="siteNav" aria-label="Main navigation">
-        <a href="#prediction">Prediction engine</a><a href="#operations">Operations console</a><a href="#platform">Platform</a><a href="security.html">Security</a><a href="about.html">Company</a>
-      </nav>
-      <div class="headerActions">
-        <a class="signIn" href="customer-login.html">Sign in</a><a class="btn primary" href="request-demo.html">Book a briefing</a>
-        <button class="navToggle" id="navToggle" type="button" aria-label="Open menu" aria-controls="siteNav" aria-expanded="false"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h16"/></svg></button>
-      </div>
-    </div>
-  </header>
+<body class="publicHome">
+  <header class="publicHeader"><div class="publicContainer publicHeader__row">
+    <a class="publicBrand" href="/" aria-label="Fleet AI home"><img src="/assets/brand/fleet-ai-mark.svg" width="33" height="33" alt="" />Fleet AI</a>
+    <nav class="publicNav" id="publicNav" aria-label="Main navigation"><a href="/product.html">Platform</a><a href="/pricing.html">Pricing</a><a href="/developers.html">Developers</a><a href="/security.html">Security</a><a href="/about.html">Company</a></nav>
+    <div class="publicActions"><a href="/customer-login.html">Sign in</a><a class="publicButton" href="/request-demo.html">Request a demo</a><button class="publicMenu" id="publicMenu" type="button" aria-label="Open navigation" aria-controls="publicNav" aria-expanded="false"><span></span></button></div>
+  </div></header>
 
   <main>
     <section class="hero" aria-labelledby="heroTitle">
@@ -359,29 +353,13 @@
     <section class="section compact finalCta"><div class="container finalInner"><div><div class="sectionLabel">Bring a real vehicle</div><h2>See what Fleet AI can learn from your operation.</h2><p>Walk through connectivity, telemetry coverage, maintenance workflow, and a practical pilot plan with the Fleet AI team.</p></div><div class="finalActions"><a class="btn light" href="request-demo.html">Book a fleet briefing</a><a class="btn text" href="product.html">Review the platform</a></div></div></section>
   </main>
 
-  <footer><div class="container footerRow"><div class="footerBrand"><a class="brand" href="index.html"><img src="assets/brand/fleet-ai-mark.svg" alt="" width="30" height="30" /><span>Fleet <em>AI</em></span></a><small>© 2026 Fleet AI. Predictive maintenance recommendations; humans decide.</small></div><nav class="footerLinks" aria-label="Footer navigation"><a href="product.html">Platform</a><a href="pricing.html">Pricing</a><a href="developers.html">Developers</a><a href="security.html">Security</a><a href="legal/privacy.html">Privacy</a><a href="legal/terms.html">Terms</a></nav></div></footer>
+  <footer class="publicFooter"><div class="publicContainer"><div class="publicFooter__row">
+    <div><a class="publicBrand" href="/"><img src="/assets/brand/fleet-ai-mark.svg" width="33" height="33" alt="" />Fleet AI</a><p>Vehicle signals. Maintenance evidence. Decisions made by your team.</p></div>
+    <nav aria-label="Product links"><strong>Product</strong><a href="/product.html">Platform</a><a href="/pricing.html">Pricing</a><a href="/pilot.html">Pilot program</a><a href="/developers.html">Developers</a></nav>
+    <nav aria-label="Company links"><strong>Company</strong><a href="/about.html">About Fleet AI</a><a href="/security.html">Security</a><a href="/request-demo.html">Contact the team</a></nav>
+    <nav aria-label="Account and legal links"><strong>Access &amp; policies</strong><a href="/customer-login.html">Customer sign in</a><a href="/employee-login.html">Employee sign in</a><a href="/legal/privacy.html">Privacy</a><a href="/legal/terms.html">Terms</a></nav>
+  </div><small>&copy; 2026 Fleet AI. Recommendations support, not replace, qualified inspection and judgment.</small></div></footer>
 
-  <script>
-    (() => {
-      const header = document.getElementById("siteHeader");
-      const navToggle = document.getElementById("navToggle");
-      const siteNav = document.getElementById("siteNav");
-      const video = document.getElementById("heroVideo");
-      const videoControl = document.getElementById("videoControl");
-      const pauseIcon = document.getElementById("pauseIcon");
-      const pausePath = '<path d="M7 5h4v14H7zM13 5h4v14h-4z"/>';
-      const playPath = '<path d="m8 5 11 7-11 7z"/>';
-      const updateHeader = () => header.classList.toggle("is-scrolled", window.scrollY > 36);
-      updateHeader();
-      window.addEventListener("scroll", updateHeader, { passive: true });
-      navToggle.addEventListener("click", () => { const open = document.body.classList.toggle("menu-open"); navToggle.setAttribute("aria-expanded", String(open)); navToggle.setAttribute("aria-label", open ? "Close menu" : "Open menu"); });
-      siteNav.addEventListener("click", (event) => { if (!event.target.closest("a")) return; document.body.classList.remove("menu-open"); navToggle.setAttribute("aria-expanded", "false"); navToggle.setAttribute("aria-label", "Open menu"); });
-      const updateVideoControl = () => { const paused = video.paused; pauseIcon.innerHTML = paused ? playPath : pausePath; const action = paused ? "Play" : "Pause"; videoControl.setAttribute("aria-label", `${action} background video`); videoControl.title = `${action} background video`; };
-      videoControl.addEventListener("click", async () => { if (video.paused) { try { await video.play(); } catch (_) { return; } } else { video.pause(); } updateVideoControl(); });
-      video.addEventListener("play", updateVideoControl);
-      video.addEventListener("pause", updateVideoControl);
-      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) { video.pause(); updateVideoControl(); }
-    })();
-  </script>
+  <script src="/js/public-site.js?v=20260909"></script>
 </body>
 </html>

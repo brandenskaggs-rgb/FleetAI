@@ -41,7 +41,7 @@ const motiveOAuth = require("./server/services/motiveOAuth");
 const { registerAdminRoutes, normalizeOrgStatus, normalizeLeadStatus, defaultBilling, defaultBillingSettings, defaultPaymentMethod, defaultFeatures } = require("./server/routes/adminRoutes");
 const { registerOrgManagementRoutes } = require("./server/routes/orgManagementRoutes");
 const { startWatchdog } = require("./tools/watchdog");
-const { normalizeAuthData, loadAuthStore, saveAuthStore } = require("./server/authStore");
+const { normalizeAuthData, loadAuthStore, saveAuthStore, isEmployeeRole } = require("./server/authStore");
 const { createAuthService } = require("./server/auth/authService");
 const prismaAuthAdapter = require("./server/auth/prismaAuthAdapter");
 const { AUTH_ERRORS, formatAuthError } = require("./server/auth/authErrors");
@@ -765,6 +765,28 @@ app.use(express.json({
   }
 }));
 
+// Resolve both cookies from the shared session store on every request. This
+// supports multiple Node replicas and makes persisted revocations authoritative.
+app.use(async (req, res, next) => {
+  if (!String(process.env.DATABASE_URL || "").trim()) return next();
+  // Public pages and assets do not depend on the session database. A stale
+  // cookie must not turn a database outage into a broken landing/login page.
+  if (["GET", "HEAD"].includes(req.method)
+    && (req.path === "/" || req.path === "/index.html" || PUBLIC_ROOT_FILES.has(req.path.slice(1))
+      || /^\/(?:css|assets|js|public\/js|legal)\//.test(req.path))) return next();
+  const cookies = parseCookies(req.headers.cookie || "");
+  try {
+    for (const [name, scope, store] of [[SESSION_COOKIE, "employee", sessionStore], [CUSTOMER_SESSION_COOKIE, "customer", customerSessionStore]]) {
+      const id = cookies[name];
+      if (!id) continue;
+      const session = await pgSessionStore.getActiveSession(id);
+      if (session?.loginRole === scope) store.set(id, session);
+      else store.delete(id);
+    }
+    return next();
+  } catch (error) { return next(error); }
+});
+
 // Legacy JSON-backed routes perform read-modify-write operations. Serialize
 // complete mutation requests so two successful requests cannot overwrite one
 // another's snapshot. Re-entrant app.handle aliases retain the same lock.
@@ -881,6 +903,10 @@ app.get("/", (req, res) => {
   res.set("Cache-Control", "no-cache, no-store, must-revalidate");
   res.set("Pragma", "no-cache");
   res.sendFile(path.join(SITE_ROOT, "index.html"));
+});
+
+app.get("/index.html", (_req, res) => {
+  res.redirect(301, "/");
 });
 
 app.get("/google4a2c448f2b2d0812.html", (_req, res) => {
@@ -1193,6 +1219,7 @@ registerMotiveDataRoutes(app, {
 registerSolutionRoutes(app, {
   readData,
   writeData,
+  telemetryLatest,
   sanitizeString,
   parseNumberField,
   nowIso,
@@ -1835,7 +1862,7 @@ async function revokeUserSessions(userId, exceptId = null) {
     }
   }
   persistSessionStoresSoon();
-  await pgSessionStore.deleteSessionsForUser(userId, exceptId).catch(() => {});
+  await pgSessionStore.deleteSessionsForUser(userId, exceptId);
 }
 
 async function validateSessionIdentity(session, expectedScope) {
@@ -1843,6 +1870,11 @@ async function validateSessionIdentity(session, expectedScope) {
   let user = null;
   let tenantExists = false;
   if (String(process.env.DATABASE_URL || "").trim()) {
+    const persisted = await pgSessionStore.getActiveSession(session.id);
+    if (!persisted || persisted.loginRole !== expectedScope || persisted.userId !== session.userId) {
+      revokeSessionIdentity(session);
+      return null;
+    }
     const prisma = sqliteDb.getPrisma();
     user = session.userId
       ? await prisma.user.findUnique({ where: { id: session.userId }, include: { org: { select: { id: true } } } })
@@ -1857,9 +1889,10 @@ async function validateSessionIdentity(session, expectedScope) {
   }
   const active = Boolean(user) && user.isActive !== false && user.active !== false
     && !["INACTIVE", "DISABLED", "LOCKED", "DELETED"].includes(String(user.status || "").toUpperCase());
-  const scopeMatches = Boolean(user) && (expectedScope === "customer" ? customerRole(user.role) : !customerRole(user.role));
-  const tenantValid = expectedScope !== "customer" || tenantExists;
-  if (!active || !scopeMatches || !tenantValid) {
+  const scopeMatches = Boolean(user) && (expectedScope === "customer" ? customerRole(user.role) : expectedScope === "employee" && isEmployeeRole(user));
+  const tenantValid = expectedScope !== "customer" || (tenantExists && user.orgId === session.orgId);
+  const passwordChanged = Date.parse(user?.passwordLastSetAt || user?.lastPasswordChangeAt || "") > Date.parse(session.createdAt || "");
+  if (!active || !scopeMatches || !tenantValid || passwordChanged) {
     revokeSessionIdentity(session);
     return null;
   }
@@ -1874,7 +1907,7 @@ async function validateSessionIdentity(session, expectedScope) {
   return session;
 }
 
-function issueSession(scope, user) {
+async function issueSession(scope, user) {
   const sessionId = crypto.randomBytes(24).toString("hex");
   const session = {
     id: sessionId,
@@ -1887,15 +1920,13 @@ function issueSession(scope, user) {
     createdAt: nowIso(),
     expiresAt: Date.now() + SESSION_TTL_MS
   };
+  await pgSessionStore.upsertSession(session);
   if (scope === "customer") {
     customerSessionStore.set(sessionId, session);
   } else {
     sessionStore.set(sessionId, session);
   }
   persistSessionStoresSoon();
-  pgSessionStore.upsertSession(session).catch((err) =>
-    console.warn("[AUTH] session DB write failed:", err.message)
-  );
   return session;
 }
 
@@ -2045,6 +2076,7 @@ async function requireCustomerApi(req, res, next) {
     }
     req.customer = validated;
     if (!bindCustomerTenant(req, res, validated, { enforceReadOnly: true })) return;
+    bindStreamSession(req, validated, "customer");
     next();
   } catch (err) {
     next(err);
@@ -2052,6 +2084,11 @@ async function requireCustomerApi(req, res, next) {
 }
 
 async function requireEmployeeOrCustomerApi(req, res, next) {
+  // A customer cookie must never inherit a coexisting staff cookie's access.
+  // Invalid customer credentials also fail closed rather than falling back.
+  if (parseCookies(req.headers.cookie || "")[CUSTOMER_SESSION_COOKIE]) {
+    return requireCustomerApi(req, res, next);
+  }
   const employee = getSession(req);
   const customer = getCustomerSession(req);
   if (!employee && !customer) {
@@ -2067,6 +2104,7 @@ async function requireEmployeeOrCustomerApi(req, res, next) {
     }
     if (validatedEmployee) {
       req.employee = validatedEmployee;
+      bindStreamSession(req, validatedEmployee, "employee");
       req.authScope = {
         kind: "employee",
         orgId: validatedEmployee.orgId || null,
@@ -2081,6 +2119,16 @@ async function requireEmployeeOrCustomerApi(req, res, next) {
   } catch (err) {
     return next(err);
   }
+}
+
+function bindStreamSession(req, session, scope) {
+  const bound = { id: session.id, orgId: session.orgId, role: session.role };
+  req.revalidateSession = async () => {
+    const current = scope === "customer" ? getCustomerSession(req) : getSession(req);
+    if (!current || current.id !== bound.id) return false;
+    const validated = await validateSessionIdentity(current, scope);
+    return Boolean(validated && validated.orgId === bound.orgId && validated.role === bound.role);
+  };
 }
 
 function requireRole(roles) {
@@ -3604,7 +3652,7 @@ async function runTelemetryPipeline() {
     // interval and the existing Node model remains the reliability fallback.
     for (const vehicleId of vehicles) {
       try {
-        const samples = await sqliteDb.getSamplesForVehicle(vehicleId, { limit: 5000 });
+        const samples = await sqliteDb.getSamplesForVehicle(vehicleId, { limit: 5000, orgId });
         if (!samples.length) continue;
         const orgId = vehicleById.get(vehicleId)?.orgId
           || await sqliteDb.getVehicleOrgId(vehicleId, "").catch(() => "")
@@ -3638,7 +3686,7 @@ async function runTelemetryPipeline() {
               healthScore: prediction.healthScore,
               prediction
             });
-            const features = prediction.features || prediction.featureVector || null;
+            const features = prediction.lineage ? { values: prediction.features || prediction.featureVector || null, lineage: prediction.lineage } : prediction.features || prediction.featureVector || null;
             if (features) {
               await sqliteDb.insertMlFeatureSnapshot({ orgId, vehicleId, predictionRunId: runId, features });
             }
@@ -3986,6 +4034,7 @@ const PUBLIC_ROOT_FILES = new Set([
 app.get("/:publicFile", (req, res, next) => {
   const fileName = String(req.params.publicFile || "");
   if (!PUBLIC_ROOT_FILES.has(fileName)) return next();
+  if (fileName.endsWith(".html")) setNoStore(res);
   return res.sendFile(path.join(SITE_ROOT, fileName));
 });
 app.use("/ui", express.static(UI_DIR));
@@ -4152,6 +4201,9 @@ app.use("/api", (req, res) => {
 app.use((err, req, res, next) => {
   if (req.path.startsWith("/api")) {
     if (res.headersSent) return;
+    if (["DATA_WRITE_CONFLICT", "AUTH_WRITE_CONFLICT"].includes(err?.code)) {
+      return res.status(409).json({ ok: false, error: err.code, message: "Records changed during this request. Refresh and try again." });
+    }
     const detail = err && err.message ? err.message : "Server error";
     const payload = { ok: false, error: "Server error" };
     if (process.env.NODE_ENV !== "production") {

@@ -48,6 +48,16 @@ async function attachDevice(req, _res, next) {
           deviceId: pairing.deviceId,
           deviceLabel: pairing.deviceLabel
         };
+        if (req.path === "/api/telemetry/stream") {
+          req.revalidateSession = async () => {
+            const current = await db.findPairingByDeviceToken(token);
+            return Boolean(current && current.id === pairing.id
+              && current.orgId === pairing.orgId
+              && current.vehicleId === pairing.vehicleId
+              && current.driverId === pairing.driverId
+              && current.deviceId === pairing.deviceId);
+          };
+        }
       }
     }
   } catch (err) {
@@ -85,6 +95,13 @@ async function requireDevice(req, res, next) {
 function requireOperatorOrDevice(requireOperator) {
   return async function (req, res, next) {
     await attachDevice(req, res, () => {});
+    if (req.deviceAuthError) {
+      return res.status(503).json({
+        ok: false,
+        error: "DEVICE_AUTH_UNAVAILABLE",
+        message: "Device authorization could not be verified. Telemetry remains queued; retry shortly."
+      });
+    }
     if (req.device) return next();
     return requireOperator(req, res, next);
   };

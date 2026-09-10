@@ -160,32 +160,38 @@ class ActiveLearningQueue:
 
         with self._lock:
             self._total_submitted += 1
-            existing = self._index.get(vehicle_id)
+            existing = self._index.get((org_id, vehicle_id))
             if existing and existing.priority <= candidate.priority:
                 return False  # existing entry is already more uncertain
-            self._index[vehicle_id] = candidate
+            self._index[(org_id, vehicle_id)] = candidate
             heapq.heappush(self._heap, candidate)
             self._prune_stale()
             return True
 
     # ── Label a vehicle ───────────────────────────────────────────────────────
 
-    def label(self, vehicle_id: str, outcome: str) -> Optional[dict]:
+    def peek(self, vehicle_id: str, org_id: str) -> Optional[dict]:
+        with self._lock:
+            candidate = self._index.get((org_id, vehicle_id))
+            return {**candidate.to_dict(), "features": candidate.stack_features} if candidate else None
+
+    def label(self, vehicle_id: str, outcome: str, org_id: str, queued_at=None) -> Optional[dict]:
         """
         Mark a vehicle as labeled with an outcome string.
         Returns the stack features for feeding into stack.add_feedback(), or None.
 
         outcome: "confirmed_breakdown" | "false_positive" | "normal"
         """
-        from .stack import stack_add_feedback
-
         with self._lock:
-            candidate = self._index.pop(vehicle_id, None)
+            candidate = self._index.get((org_id, vehicle_id))
             if candidate is None:
                 return None
+            if queued_at is not None and candidate.queued_at != queued_at:
+                return None  # A newer prediction arrived while the outcome was saved.
+            self._index.pop((org_id, vehicle_id))
             self._labeled_count += 1
 
-        stack_add_feedback(candidate.stack_features, outcome)
+        # Reviewed production output is not OOF evidence; never auto-train it.
         logger.info(
             "[active_learning] Labeled %s as '%s' (margin=%.3f)",
             vehicle_id, outcome, candidate.margin,
@@ -194,13 +200,13 @@ class ActiveLearningQueue:
 
     # ── Read the queue ────────────────────────────────────────────────────────
 
-    def top_candidates(self, n: int = 20) -> list[dict]:
+    def top_candidates(self, n: int = 20, org_id: str | None = None) -> list[dict]:
         """Return the n highest-priority (most uncertain) unlabeled candidates."""
         now = time.time()
         with self._lock:
             live = [
                 c for c in self._index.values()
-                if now - c.queued_at < STALENESS_SECONDS
+                if c.org_id == org_id and now - c.queued_at < STALENESS_SECONDS
             ]
         live.sort()  # sorts by priority (margin, lower = more uncertain)
         return [c.to_dict() for c in live[:n]]
@@ -209,11 +215,10 @@ class ActiveLearningQueue:
         with self._lock:
             return len(self._index)
 
-    def meta(self) -> dict:
+    def meta(self, org_id=None) -> dict:
         return {
-            "queueSize":        self.queue_size(),
-            "labeledCount":     self._labeled_count,
-            "totalSubmitted":   self._total_submitted,
+            "queueSize":        len(self.top_candidates(MAX_QUEUE_SIZE, org_id)),
+            "persistence":      "pending_queue_memory_reviewed_outcomes_database",
             "uncertaintyThreshold": UNCERTAINTY_THRESHOLD,
             "stalenessHours":   STALENESS_SECONDS // 3600,
         }
@@ -254,13 +259,17 @@ def al_maybe_enqueue(
     )
 
 
-def al_label(vehicle_id: str, outcome: str) -> Optional[dict]:
-    return _queue.label(vehicle_id, outcome)
+def al_label(vehicle_id: str, outcome: str, org_id: str, queued_at=None) -> Optional[dict]:
+    return _queue.label(vehicle_id, outcome, org_id, queued_at)
 
 
-def al_top_candidates(n: int = 20) -> list[dict]:
-    return _queue.top_candidates(n)
+def al_peek(vehicle_id: str, org_id: str) -> Optional[dict]:
+    return _queue.peek(vehicle_id, org_id)
 
 
-def get_al_meta() -> dict:
-    return _queue.meta()
+def al_top_candidates(n: int = 20, org_id: str | None = None) -> list[dict]:
+    return _queue.top_candidates(n, org_id)
+
+
+def get_al_meta(org_id=None) -> dict:
+    return _queue.meta(org_id)

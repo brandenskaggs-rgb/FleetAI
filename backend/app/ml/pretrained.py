@@ -26,7 +26,9 @@ logger = logging.getLogger(__name__)
 # Import shared vehicle physics registry. Works from repo root; falls back to
 # inline table only if fleet_ai package is unreachable (e.g. stripped deploys).
 try:
-    _REPO_ROOT = Path(__file__).parents[3]
+    _REPO_ROOT = Path(__file__).resolve().parents[4]
+    if not (_REPO_ROOT / "fleet_ai" / "physics").is_dir():
+        _REPO_ROOT = Path(__file__).resolve().parents[3]
     if str(_REPO_ROOT) not in sys.path:
         sys.path.insert(0, str(_REPO_ROOT))
     from fleet_ai.physics.vehicle_physics import VEHICLE_SPECS as _VEHICLE_SPECS
@@ -59,9 +61,9 @@ def _find_model_file(filename: str) -> Path:
         # fleet_ai_model.pkl had been stale since May while every retrain
         # landed in the root dir — so this scorer and ml_service.py were
         # silently serving two different models. Order matters here.
-        _here.parents[3] / "fleet_ai" / "models" / filename if len(_here.parents) > 3 else None,
+        _here.parents[4] / "fleet_ai" / "models" / filename if len(_here.parents) > 4 else None,
         # backend/ as service root (no repo root above it)
-        _here.parents[2] / "fleet_ai" / "models" / filename,
+        _here.parents[3] / "fleet_ai" / "models" / filename,
         # Railway absolute fallbacks
         Path("/app/fleet_ai/models") / filename,
         Path("/app/backend/fleet_ai/models") / filename,
@@ -70,55 +72,14 @@ def _find_model_file(filename: str) -> Path:
         if p and p.exists():
             return p
     # Default: backend-relative path (correct once Railway deploys the file)
-    return _here.parents[2] / "fleet_ai" / "models" / filename
+    return _here.parents[3] / "fleet_ai" / "models" / filename
 
 
 _MODEL_PATH = _find_model_file("fleet_ai_model.pkl")
 
 # Default feature list — overridden by bundle["features"] at runtime.
-PRETRAINED_FEATURE_COLUMNS = [
-    "vehicle_class_code", "protocol_code", "make_code", "powertrain_code",
-    "model_year", "odometer_miles", "engine_hours",
-    "drive_cycle_phase_code", "time_since_start_min",
-    "rpm", "engine_temp", "oil_temp", "transmission_temp",
-    "fuel_pressure", "fuel_rate", "battery_voltage", "vibration",
-    "dpf_soot_load", "brake_temp", "tire_pressure",
-    "ambient_temp_c", "elevation_ft",
-    "payload_ratio", "road_grade_pct", "idle_hours_day",
-    "stop_go_ratio", "long_haul_ratio", "towing_ratio",
-    "maintenance_neglect", "sensor_missing_rate",
-    "engine_temp_delta_30d", "fuel_pressure_delta_30d",
-    "battery_voltage_delta_30d", "vibration_delta_30d",
-    "dpf_soot_delta_30d", "brake_temp_delta_30d",
-    "egr_flow_rate", "coolant_oil_delta", "maf_throttle_ratio",
-    "intake_ambient_delta", "dpf_differential_kpa", "oil_pressure",
-    "fuel_trim_short", "fuel_trim_long", "idle_heat_soak",
-    "throttle_lag_score", "turbo_boost_kpa", "exhaust_back_pressure",
-    "engine_efficiency", "rpm_variance_load_adj", "coolant_temp_oscillation",
-    # v4 — atmosphere & aerodynamics
-    "air_density_kg_m3", "aero_drag_kw", "rolling_resistance_kw",
-    "road_load_kw", "volumetric_efficiency_pct",
-    # v4 — combustion & exhaust
-    "bsfc_g_per_kwh", "charge_density_ratio", "egt_c", "turbo_outlet_temp_c",
-    "scr_inlet_temp_c", "def_consumption_rate_pct",
-    # v4 — thermal
-    "thermal_lag", "heat_soak_delta_c", "egr_cooler_fouling",
-    # v4 — oil / lubrication
-    "oil_viscosity_cst", "lubrication_regime_index", "oil_tbn",
-    # v4 — bearing & hub
-    "bearing_wear_index", "bearing_spall_stage",
-    "hub_temp_fl_c", "hub_temp_fr_c", "hub_temp_rl_c", "hub_temp_rr_c",
-    # v4 — DPF / emissions
-    "dpf_ash_pct", "dpf_in_regen",
-    # v4 — battery / electrical
-    "battery_soh_pct", "battery_soc_pct", "alternator_deficit_w", "cranking_voltage_v",
-    # v4 — sensor drift
-    "sensor_coolant_error_c", "sensor_maf_error_pct", "sensor_o2_lag_ms",
-    # v4 — accelerometer-derived 24-hour rolling features (0.0 when no IMU available)
-    "hubTempFL_accel_h24", "hubTempFR_accel_h24", "hubTempRL_accel_h24", "hubTempRR_accel_h24",
-    "coolantTemp_accel_h24", "oilTemp_accel_h24", "batteryVoltage_accel_h24",
-    "dpfSootLoad_accel_h24", "bearingFreqScore_accel_h24", "turboBearingTemp_accel_h24",
-]
+from .feature_contract import PRETRAINED_FEATURES, TEMPORAL_KEYS, SENSOR_FEATURES, DELTA_FEATURES, vector, finite, manifest, validate_features
+PRETRAINED_FEATURE_COLUMNS = list(PRETRAINED_FEATURES)
 
 _VEHICLE_CLASS_CODES: dict[str, int] = {
     "heavy_duty_j1939": 0, "heavy": 0, "heavy_duty": 0,
@@ -389,12 +350,17 @@ class PretrainedScorer:
         with self._lock:
             if self._bundle is not None:
                 return True
-            if not _MODEL_PATH.exists():
-                logger.info("[pretrained] Model file not present — running without pretrained scorer (fallback active)")
-                return False
             try:
                 import joblib
-                bundle = joblib.load(_MODEL_PATH)
+                from .artifact_registry import configured_registry
+                registry = configured_registry()
+                bundle = registry.load_active("pretrained") if registry else None
+                if bundle is None:
+                    if not _MODEL_PATH.exists():
+                        return False
+                    bundle = joblib.load(_MODEL_PATH)
+                from .feature_contract import validate_bundle_schema
+                validate_bundle_schema(bundle)
                 if not isinstance(bundle, dict) or bundle.get("model_type") != "ensemble":
                     self._load_error = f"Unexpected bundle format at {_MODEL_PATH}"
                     logger.warning(f"[pretrained] Unexpected bundle format at {_MODEL_PATH}")
@@ -418,6 +384,7 @@ class PretrainedScorer:
         current_metrics: dict,
         window_stats: dict,
         vehicle_meta: Optional[dict],
+        flat_features: Optional[dict] = None,
     ) -> dict[str, float]:
         meta = vehicle_meta or {}
 
@@ -443,13 +410,9 @@ class PretrainedScorer:
             v = current_metrics.get(key)
             return float(v) if v is not None else default
 
-        def _ws_delta(key: str, default: float) -> float:
-            stats = window_stats.get(key, {})
-            recent = (stats.get("h24") or {}).get("mean")
-            all_m  = (stats.get("all")  or {}).get("mean")
-            if recent is not None and all_m is not None:
-                return float(recent) - float(all_m)
-            return default
+        def _ws_delta(feature: str) -> float:
+            value = finite((flat_features or {}).get(feature))
+            return value if value is not None else float("nan")
 
         def _ws_mean(key: str, default: float) -> float:
             stats = window_stats.get(key, {})
@@ -477,10 +440,10 @@ class PretrainedScorer:
         idle_hours_day = float(meta.get("idleHoursDay", _DEFAULTS["idle_hours_day"]))
 
         # ── Deltas from window_stats ─────────────────────────────────────────
-        engine_temp_delta  = _ws_delta("coolantTemp",    _DEFAULTS["engine_temp_delta_30d"])
-        fuel_pressure_delta = _ws_delta("fuelPressure",  _DEFAULTS["fuel_pressure_delta_30d"])
-        batt_delta         = _ws_delta("batteryVoltage", _DEFAULTS["battery_voltage_delta_30d"])
-        dpf_delta          = _ws_delta("dpfSootLoad",    _DEFAULTS["dpf_soot_delta_30d"])
+        engine_temp_delta = _ws_delta("engine_temp_delta_30d")
+        fuel_pressure_delta = _ws_delta("fuel_pressure_delta_30d")
+        batt_delta = _ws_delta("battery_voltage_delta_30d")
+        dpf_delta = _ws_delta("dpf_soot_delta_30d")
 
         # ── v3 derived features ──────────────────────────────────────────────
         coolant_oil_delta = oil_temp - engine_temp
@@ -624,7 +587,7 @@ class PretrainedScorer:
             "odometer_miles":     odometer_miles,
             "engine_hours":       engine_hours,
             # drive cycle
-            "drive_cycle_phase_code": 2.0,  # assume cruise
+            "drive_cycle_phase_code": 3.0,  # simulator encoding: cruise
             "time_since_start_min":   time_since_start,
             # core OBD-II
             "rpm":               rpm,
@@ -722,11 +685,52 @@ class PretrainedScorer:
             "sensor_o2_lag_ms":       o2_lag_ms,
         }
 
+    def build_input(self, current_metrics, window_stats, vehicle_meta=None, flat_features=None):
+        """Retain measured missingness separately from physics estimates."""
+        current_metrics = {k: finite(v) for k, v in current_metrics.items() if finite(v) is not None}
+        safe_meta = dict(vehicle_meta or {})
+        for key in ("year", "odometer", "engineHours", "elevation", "payloadRatio", "roadGradePct", "idleHoursDay"):
+            if finite(safe_meta.get(key)) is None:
+                safe_meta.pop(key, None)
+        row = self._build_row(current_metrics, window_stats, safe_meta, flat_features)
+        for feature, sensor in SENSOR_FEATURES.items():
+            row[feature] = finite(current_metrics.get(sensor))
+        row["sensor_missing_rate"] = sum(row[f] is None for f in SENSOR_FEATURES) / len(SENSOR_FEATURES)
+        flat = flat_features or {}
+        for feature in [*(f"{k}_accel_h24" for k in TEMPORAL_KEYS), *DELTA_FEATURES]:
+            row[feature] = finite(flat.get(feature))
+        row["coolant_temp_oscillation"] = finite(window_stats.get("coolantTemp", {}).get("h24", {}).get("std"))
+        if row["battery_voltage_delta_30d"] is None:
+            row["battery_soc_pct"] = None
+        # Exact ordering comes from the artifact, never from dict iteration.
+        names = (self._bundle or {}).get("features", PRETRAINED_FEATURES)
+        missing = [name for name in names if finite(row.get(name)) is None]
+        return row, {"missingFeatures": missing,
+                     "physicsEstimatesMayUseDefaults": True,
+                     "assumedSensorInputs": [sensor for sensor in SENSOR_FEATURES.values() if finite(current_metrics.get(sensor)) is None],
+                     "assumedVehicleInputs": [key for key in ("year", "odometer", "engineHours", "elevation", "payloadRatio", "roadGradePct", "idleHoursDay") if (vehicle_meta or {}).get(key) is None],
+                     "schema": manifest(),
+                     "artifactSchema": (self._bundle or {}).get("feature_schema", {"version": "legacy_unversioned"}),
+                     "compatibility": "canonical" if (self._bundle or {}).get("feature_schema") == manifest() else "legacy_artifact_requires_revalidation"}
+
+    def evidence(self):
+        bundle = self._bundle or {}
+        calibration = bundle.get("calibration_metadata", {"status": "unverified_legacy", "fieldValidated": False})
+        if bundle.get("artifactId") and (calibration.get("artifactId") != bundle["artifactId"]
+                or calibration.get("modelVersion") != bundle.get("model_version")
+                or bundle.get("ensemble_calibrator") is None):
+            calibration = {"status": "uncalibrated", "reason": "no_valid_bound_calibrator", "fieldValidated": False}
+        return {"modelVersion": bundle.get("model_version", "legacy_unversioned"),
+                "trainingSource": bundle.get("training_source", "synthetic_legacy"),
+                "featureSchema": bundle.get("feature_schema", {"version": "legacy_unversioned"}),
+                "artifactId": bundle.get("artifactId"), "calibration": calibration}
+
     def score(
         self,
         current_metrics: dict,
         window_stats: dict,
         vehicle_meta: Optional[dict] = None,
+        flat_features: Optional[dict] = None,
     ) -> Optional[float]:
         """Return a risk probability [0, 1], or None if model not loaded."""
         if not self.is_loaded:
@@ -734,8 +738,8 @@ class PretrainedScorer:
         try:
             bundle = self._bundle
             feature_cols = bundle.get("features", PRETRAINED_FEATURE_COLUMNS)
-            row   = self._build_row(current_metrics, window_stats, vehicle_meta)
-            X_arr = np.array([[row.get(f, 0.0) for f in feature_cols]], dtype=np.float64)
+            row, _ = self.build_input(current_metrics, window_stats, vehicle_meta, flat_features)
+            X_arr = np.array([vector(row, feature_cols)], dtype=np.float64)
             X     = pd.DataFrame(X_arr, columns=feature_cols)
             rf_w  = float(bundle.get("rf_weight", 0.5))
             hgb_w = float(bundle.get("hgb_weight", 0.5))
@@ -770,6 +774,8 @@ class PretrainedScorer:
 
             # Step 3: ensemble-level calibration (v4.2+ — calibrates the blended output)
             ens_cal = bundle.get("ensemble_calibrator")
+            if bundle.get("artifactId") and self.evidence()["calibration"].get("status") != "calibrated":
+                ens_cal = None
             if ens_cal is not None:
                 if hasattr(ens_cal, "predict_proba"):
                     blended = float(ens_cal.predict_proba([[blended]])[0, 1])
@@ -795,9 +801,15 @@ def score_pretrained(
     current_metrics: dict,
     window_stats: dict,
     vehicle_meta: Optional[dict] = None,
+    flat_features: Optional[dict] = None,
 ) -> Optional[float]:
     """Return [0, 1] risk probability from the pretrained model, or None."""
-    return _scorer.score(current_metrics, window_stats, vehicle_meta)
+    return _scorer.score(current_metrics, window_stats, vehicle_meta, flat_features)
+
+
+def pretrained_evidence(current_metrics, window_stats, vehicle_meta=None, flat_features=None):
+    row, evidence = _scorer.build_input(current_metrics, window_stats, vehicle_meta, flat_features)
+    return {**_scorer.evidence(), **evidence, "inputFeatures": row}
 
 
 def is_pretrained_loaded() -> bool:

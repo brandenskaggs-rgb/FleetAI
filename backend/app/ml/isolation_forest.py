@@ -13,9 +13,11 @@ from typing import Optional
 
 import numpy as np
 from sklearn.ensemble import IsolationForest
+from sklearn.impute import SimpleImputer
 import joblib
 
 from .features import METRIC_KEYS, build_numpy_feature_row
+from .feature_contract import manifest
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +56,7 @@ class VehicleIsolationForest:
 
     def __init__(self) -> None:
         self._model: Optional[IsolationForest] = None
+        self._imputer = None
         self._trained_at: Optional[float] = None  # unix timestamp
         self._train_sample_count: int = 0
 
@@ -80,8 +83,10 @@ class VehicleIsolationForest:
                 random_state=42,
                 n_jobs=-1,
             )
-            model.fit(X)
+            imputer = SimpleImputer(strategy="median", add_indicator=True, keep_empty_features=True)
+            model.fit(imputer.fit_transform(X))
             self._model = model
+            self._imputer = imputer
             self._trained_at = time.time()
             self._train_sample_count = X.shape[0]
             logger.info(f"[IF] trained on {X.shape[0]} samples")
@@ -102,6 +107,10 @@ class VehicleIsolationForest:
             return None
         try:
             row = build_numpy_feature_row(flat, IF_FEATURE_KEYS).reshape(1, -1)
+            if self._imputer is not None:
+                row = self._imputer.transform(row)
+            elif not np.isfinite(row).all():
+                return None
             raw = self._model.decision_function(row)[0]
             # decision_function: more negative = more anomalous
             # Typical range is roughly [-0.5, 0.5]; we map to [0, 1]
@@ -117,6 +126,10 @@ class VehicleIsolationForest:
             return "unknown"
         try:
             row = build_numpy_feature_row(flat, IF_FEATURE_KEYS).reshape(1, -1)
+            if self._imputer is not None:
+                row = self._imputer.transform(row)
+            elif not np.isfinite(row).all():
+                return "unknown"
             label = self._model.predict(row)[0]  # +1 = normal, -1 = anomaly
             return "anomaly" if label == -1 else "normal"
         except Exception:
@@ -130,7 +143,7 @@ class VehicleIsolationForest:
             return None
         try:
             buf = io.BytesIO()
-            joblib.dump(self._model, buf)
+            joblib.dump({"model": self._model, "imputer": self._imputer, "features": IF_FEATURE_KEYS}, buf)
             return base64.b64encode(buf.getvalue()).decode("ascii")
         except Exception as exc:
             logger.warning(f"[IF] serialize failed: {exc}")
@@ -142,16 +155,28 @@ class VehicleIsolationForest:
             "trained_at": self._trained_at,
             "train_sample_count": self._train_sample_count,
             "feature_keys": IF_FEATURE_KEYS,
+            "feature_schema": manifest(IF_FEATURE_KEYS),
         }
 
     @classmethod
     def from_state_dict(cls, state: dict) -> "VehicleIsolationForest":
         obj = cls()
         model_b64 = state.get("model_b64")
+        if state.get("feature_schema") is not None and state["feature_schema"] != manifest(IF_FEATURE_KEYS):
+            return obj
         if model_b64:
             try:
                 buf = io.BytesIO(base64.b64decode(model_b64))
-                obj._model = joblib.load(buf)
+                loaded = joblib.load(buf)
+                if state.get("feature_keys") != IF_FEATURE_KEYS:
+                    return obj
+                if isinstance(loaded, dict):
+                    if loaded.get("features") != IF_FEATURE_KEYS:
+                        return obj
+                    obj._model = loaded["model"]
+                    obj._imputer = loaded.get("imputer")
+                else:
+                    obj._model = loaded
                 obj._trained_at = state.get("trained_at")
                 obj._train_sample_count = state.get("train_sample_count", 0)
             except Exception as exc:

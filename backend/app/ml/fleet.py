@@ -42,6 +42,8 @@ def _fleet_z(vehicle_mean: float, fleet_mean: float, fleet_std: float) -> float:
 async def compute_fleet_normalization(
     vehicle_id: str,
     window_stats: dict,  # from features.extract_features()["window_stats"]
+    org_id: Optional[str] = None,
+    vehicle_class: Optional[str] = None,
 ) -> dict:
     """
     For each METRIC_KEY, fetch fleet-wide stats and compute:
@@ -88,7 +90,7 @@ async def compute_fleet_normalization(
             continue
 
         try:
-            fleet_data = await pg_db.get_fleet_baselines(metric_key)
+            fleet_data = await pg_db.get_fleet_baselines(metric_key, vehicle_class, org_id, vehicle_id)
         except Exception as exc:
             logger.debug(f"[fleet] fleet baseline fetch failed for {metric_key}: {exc}")
             fleet_data = {}

@@ -31,15 +31,15 @@ def _find_model_file(filename: str) -> Path:
         Path(os.getenv("FLEETAI_MODEL_DIR", "")) / filename if os.getenv("FLEETAI_MODEL_DIR") else None,
         # Repo root first — training writes there; the backend-local copy used
         # to shadow it with stale artifacts (see pretrained._find_model_file).
-        _here.parents[3] / "fleet_ai" / "models" / filename if len(_here.parents) > 3 else None,
-        _here.parents[2] / "fleet_ai" / "models" / filename,
+        _here.parents[4] / "fleet_ai" / "models" / filename if len(_here.parents) > 4 else None,
+        _here.parents[3] / "fleet_ai" / "models" / filename,
         Path("/app/fleet_ai/models") / filename,
         Path("/app/backend/fleet_ai/models") / filename,
     ]
     for p in candidates:
         if p and p.exists():
             return p
-    return _here.parents[2] / "fleet_ai" / "models" / filename
+    return _here.parents[3] / "fleet_ai" / "models" / filename
 
 _MODEL_DIR = _find_model_file("stage2_model.pkl").parent
 _STAGE2_MODEL_PATH = _MODEL_DIR / "stage2_model.pkl"
@@ -48,38 +48,11 @@ _STAGE2_MODEL_PATH = _MODEL_DIR / "stage2_model.pkl"
 STAGE1_THRESHOLD = float(os.getenv("STAGE1_THRESHOLD", "0.35"))
 
 # ── Feature schema (29 features) ──────────────────────────────────────────────
-STAGE2_FEATURES = [
-    # Stage 1 signal scores
-    "stage1_score", "pretrained_score", "if_score", "welford_score",
-    "threshold_score", "dtc_score",
-    # Effective weights at prediction time
-    "w_pretrained", "w_if", "w_welford", "w_threshold", "w_dtc",
-    # Multi-signal agreement
-    "signal_agreement",
-    # Fleet context
-    "fleet_percentile", "mv_stress_max",
-    # Per-vehicle model maturity
-    "sample_count", "welford_confidence", "pretrained_decayed",
-    # DTC category flags
-    "has_cooling_dtc", "has_fuel_dtc", "has_electrical_dtc",
-    "has_emissions_dtc", "has_engine_dtc",
-    # Diagnosis urgency (0-1)
-    "diagnosis_urgency",
-    # Vehicle class
-    "vehicle_class_code",
-    # Top-importance temperature features from v3 model
-    "ambient_temp", "idle_heat_soak", "coolant_temp_oscillation",
-    "battery_voltage", "engine_temp_delta_30d",
-]
+from .feature_contract import STAGE2_FEATURES as CANONICAL_STAGE2_FEATURES, manifest, supervised_label, validate_features
+STAGE2_FEATURES = list(CANONICAL_STAGE2_FEATURES)
 
 # ── Vehicle class → int mapping ───────────────────────────────────────────────
-_CLASS_MAP = {
-    "passenger_car": 0,
-    "light_duty_truck": 1,
-    "cargo_van": 2,
-    "medium_duty": 3,
-    "heavy_duty_j1939": 4,
-}
+from .feature_contract import STAGE2_CLASS_CODES as _CLASS_MAP
 
 # ── DTC system keyword detection ──────────────────────────────────────────────
 _DTC_SYSTEM_KEYWORDS = {
@@ -101,18 +74,39 @@ class Stage2Classifier:
         self._train_sample_count = 0
         self._feedback_samples = 0
         self._load_time: Optional[float] = None
+        self._calibrator = None
+        from .conformal import ConformalPredictor
+        self._conformal = ConformalPredictor()
+        self._metadata = {"calibration": {"status": "uncalibrated", "reason": "legacy_no_artifact"}}
 
     # ── Load ──────────────────────────────────────────────────────────────────
 
-    def load(self) -> bool:
-        if not _STAGE2_MODEL_PATH.exists():
-            logger.info("[stage2] Model file not found at %s — cold start", _STAGE2_MODEL_PATH)
-            return False
+    def load(self, bundle_override=None) -> bool:
         try:
             import joblib
-            bundle = joblib.load(_STAGE2_MODEL_PATH)
+            from .artifact_registry import configured_registry
+            registry = configured_registry()
+            bundle = bundle_override if bundle_override is not None else registry.load_active("stage2") if registry else None
+            if bundle is None:
+                if not _STAGE2_MODEL_PATH.exists():
+                    return False
+                bundle = joblib.load(_STAGE2_MODEL_PATH)
+            from .feature_contract import validate_bundle_schema
+            validate_bundle_schema(bundle, STAGE2_FEATURES)
             with self._lock:
                 self._model = bundle["model"]
+                self._metadata = bundle.get("metadata") or {"modelVersion": "stage2-legacy", "trainingSource": "synthetic_proxy_stacking"}
+                cal_meta = bundle.get("calibration") or self._metadata.get("calibration") or {}
+                valid_cal = (bool(bundle.get("artifactId")) and bundle.get("calibrator") is not None and cal_meta.get("status") == "calibrated"
+                             and cal_meta.get("artifactId") == bundle.get("artifactId")
+                             and cal_meta.get("modelVersion") == self._metadata.get("modelVersion"))
+                self._calibrator = bundle.get("calibrator") if valid_cal else None
+                self._metadata["calibration"] = cal_meta if valid_cal else {"status": "uncalibrated", "reason": "no_valid_bound_calibrator"}
+                from .conformal import ConformalPredictor
+                self._conformal = ConformalPredictor()
+                conformal_bundle = bundle.get("conformal") or {}
+                if bundle.get("artifactId") and conformal_bundle.get("metadata", {}).get("artifactId") == bundle.get("artifactId"):
+                    self._conformal.restore_bound(conformal_bundle, self._metadata.get("modelVersion"))
                 self._train_sample_count = bundle.get("train_sample_count", 0)
                 self._feedback_samples = bundle.get("feedback_samples", 0)
                 self._loaded = True
@@ -160,12 +154,18 @@ class Stage2Classifier:
             dtc = vehicle_context.get("dtcAnalysis") or {}
             diag = vehicle_context.get("diagnosis") or {}
 
+            def observed(mapping, *keys):
+                for key in keys:
+                    if mapping.get(key) is not None:
+                        return float(mapping[key])
+                return float("nan")
+
             # Stage 1 signal scores
             stage1_score = float(stage1_output.get("riskProbability", 0.0))
-            pretrained_s = float(comps.get("pretrained") or 0.0)
-            if_s = float(comps.get("isolationForest") or 0.0)
-            welford_s = float(comps.get("welford") or 0.0)
-            threshold_s = float(comps.get("threshold") or 0.0)
+            pretrained_s = observed(comps, "pretrained")
+            if_s = observed(comps, "isolationForest")
+            welford_s = observed(comps, "welford")
+            threshold_s = observed(comps, "threshold")
             dtc_s = float(comps.get("dtc") or 0.0)
 
             # Effective weights
@@ -218,11 +218,11 @@ class Stage2Classifier:
             class_code = float(_CLASS_MAP.get(vehicle_class, 0))
 
             # Top temperature features
-            ambient_temp = float(cm.get("ambientTemp") or cm.get("ambient_temp_c") or 20.0)
-            idle_heat = float(cm.get("idleHeatSoak") or cm.get("idle_heat_soak") or 0.0)
-            coolant_osc = float(cm.get("coolantTempOscillation") or cm.get("coolant_temp_oscillation") or 0.0)
-            batt_v = float(cm.get("batteryVoltage") or cm.get("battery_voltage") or 12.6)
-            eng_temp_delta = float(cm.get("engineTempDelta30d") or cm.get("engine_temp_delta_30d") or 0.0)
+            ambient_temp = observed(cm, "ambientTemp", "ambient_temp_c")
+            idle_heat = observed(cm, "idleHeatSoak", "idle_heat_soak")
+            coolant_osc = observed(cm, "coolantTempOscillation", "coolant_temp_oscillation")
+            batt_v = observed(cm, "batteryVoltage", "battery_voltage")
+            eng_temp_delta = observed(cm, "engineTempDelta30d", "engine_temp_delta_30d")
 
             row = np.array([
                 stage1_score, pretrained_s, if_s, welford_s, threshold_s, dtc_s,
@@ -255,8 +255,16 @@ class Stage2Classifier:
         if row is None:
             return None
 
-        with self._lock:
-            prob = float(self._model.predict_proba(row)[0, 1])
+        try:
+            with self._lock:
+                prob = float(self._model.predict_proba(row)[0, 1])
+                if self._calibrator is not None:
+                    prob = float(self._calibrator.predict([prob])[0])
+            if not np.isfinite(prob) or not 0 <= prob <= 1:
+                raise ValueError("Invalid Stage 2 probability")
+        except Exception:
+            logger.warning("[stage2] Inference unavailable; retaining Stage 1 evidence")
+            return None
 
         confirmed = prob >= 0.50
         agreement = float(stage1_output.get("signalAgreement", 0.5))
@@ -268,17 +276,22 @@ class Stage2Classifier:
             "stage2_probability": round(prob, 4),
             "signal_agreement": round(agreement, 4),
             "confirmation_reason": reason,
+            "calibration": self._metadata.get("calibration"),
+            "missingFeatures": [f for f, v in zip(STAGE2_FEATURES, row[0]) if not np.isfinite(v)],
+            "conformal": self._conformal.predict(prob, str((vehicle_context.get("vehicleMeta") or {}).get("vehicleClass", ""))),
         }
 
     # ── Retrain from feedback ─────────────────────────────────────────────────
 
-    async def retrain_from_feedback(self, db) -> bool:
+    async def retrain_from_feedback(self, db, org_id=None) -> bool:
         """
         Pull labeled FeedbackLog rows from PostgreSQL and retrain Stage 2.
         Runs in a thread to avoid blocking the event loop.
         """
         try:
-            rows = await db.get_feedback_for_training()
+            if not org_id:
+                return False
+            rows = await db.get_feedback_for_training(org_id=org_id)
             if len(rows) < 50:
                 logger.info("[stage2] Only %d feedback rows — skipping retrain (need 50+)", len(rows))
                 return False
@@ -287,28 +300,39 @@ class Stage2Classifier:
             )
             return result
         except Exception as exc:
-            logger.warning("[stage2] retrain_from_feedback error: %s", exc)
-            return False
+            logger.warning("[stage2] Candidate training failed; durable scheduler must retry")
+            raise
 
     def _retrain_sync(self, rows: list[dict]) -> bool:
         import lightgbm as lgb
         import joblib
 
+        from .stacking_evidence import require_oof
+        from .artifact_registry import configured_registry
+        registry = configured_registry()
+        organizations = {r.get("orgId") for r in rows}
+        if registry is None or len(organizations) != 1 or None in organizations:
+            return False
         X_list, y_list = [], []
         for row in rows:
             feats = row.get("features", {})
             if not feats:
                 continue
             try:
-                vec = [float(feats.get(f, 0.0)) for f in STAGE2_FEATURES]
-                outcome = row.get("outcome", "")
-                label = 1 if outcome == "confirmed_breakdown" else 0
+                require_oof({"provenance": feats.get("provenance")})
+                from .feature_contract import vector
+                if not all(f in feats for f in STAGE2_FEATURES):
+                    continue
+                vec = vector(feats, STAGE2_FEATURES)
+                label = supervised_label(row.get("outcome"))
+                if label is None:
+                    continue
                 X_list.append(vec)
                 y_list.append(label)
             except Exception:
                 continue
 
-        if len(X_list) < 50:
+        if len(X_list) < 50 or len(set(y_list)) != 2:
             return False
 
         X = np.array(X_list, dtype=np.float32)
@@ -326,34 +350,21 @@ class Stage2Classifier:
         bundle = {
             "model": model,
             "features": STAGE2_FEATURES,
-            "train_sample_count": self._train_sample_count,
+            "train_sample_count": len(X_list),
             "feedback_samples": len(X_list),
         }
-        import joblib
-        _STAGE2_MODEL_PATH.parent.mkdir(parents=True, exist_ok=True)
-        joblib.dump(bundle, _STAGE2_MODEL_PATH)
-
-        with self._lock:
-            self._model = model
-            self._feedback_samples = len(X_list)
-            self._loaded = True
-
-        logger.info("[stage2] Retrained on %d feedback rows", len(X_list))
+        registry.candidate("stage2", bundle, {
+            "modelVersion": "stage2-feedback-candidate", "trainingSource": "real_oof",
+            "featureSchema": manifest(STAGE2_FEATURES),
+            "calibration": {"status": "uncalibrated"},
+            "evaluationRequired": True,
+        }, scope="tenant:" + str(next(iter(organizations))))
+        logger.info("[stage2] Candidate saved; evaluation and explicit promotion required")
         return True
 
+
     def save(self) -> None:
-        if not self._loaded:
-            return
-        import joblib
-        bundle = {
-            "model": self._model,
-            "features": STAGE2_FEATURES,
-            "train_sample_count": self._train_sample_count,
-            "feedback_samples": self._feedback_samples,
-        }
-        _STAGE2_MODEL_PATH.parent.mkdir(parents=True, exist_ok=True)
-        joblib.dump(bundle, _STAGE2_MODEL_PATH)
-        logger.info("[stage2] Saved to %s", _STAGE2_MODEL_PATH)
+        raise RuntimeError("Use the candidate registry; overwriting the active artifact is disabled")
 
 
 # ── Reason builder ────────────────────────────────────────────────────────────
@@ -405,6 +416,23 @@ def _build_reason(
 # ── Module-level singleton ────────────────────────────────────────────────────
 
 _classifier = Stage2Classifier()
+_tenant_classifiers = {}
+
+
+def _classifier_for(org_id=None):
+    if not org_id:
+        return _classifier
+    if org_id not in _tenant_classifiers:
+        from .artifact_registry import configured_registry
+        registry = configured_registry()
+        try:
+            bundle = registry.load_active("stage2", "tenant:" + org_id) if registry else None
+        except Exception:
+            logger.warning("[stage2] Tenant artifact unavailable; using approved global prior")
+            bundle = None
+        candidate = Stage2Classifier() if bundle else None
+        _tenant_classifiers[org_id] = candidate if candidate and candidate.load(bundle) else None
+    return _tenant_classifiers[org_id] or _classifier
 
 
 def load_stage2() -> bool:
@@ -412,20 +440,22 @@ def load_stage2() -> bool:
 
 
 def score_stage2(stage1_output: dict, vehicle_context: dict) -> Optional[dict]:
-    return _classifier.score(stage1_output, vehicle_context)
+    return _classifier_for(vehicle_context.get("orgId")).score(stage1_output, vehicle_context)
 
 
 def is_stage2_loaded() -> bool:
     return _classifier.is_loaded()
 
 
-def get_stage2_meta() -> dict:
+def get_stage2_meta(org_id=None) -> dict:
+    classifier = _classifier_for(org_id)
     return {
-        "loaded": _classifier.is_loaded(),
-        "trainSampleCount": _classifier._train_sample_count,
-        "feedbackSamplesIncorporated": _classifier._feedback_samples,
+        **classifier._metadata,
+        "loaded": classifier.is_loaded(),
+        "trainSampleCount": classifier._train_sample_count,
+        "feedbackSamplesIncorporated": classifier._feedback_samples,
     }
 
 
-async def retrain_stage2_from_feedback(db) -> bool:
-    return await _classifier.retrain_from_feedback(db)
+async def retrain_stage2_from_feedback(db, org_id=None) -> bool:
+    return await _classifier.retrain_from_feedback(db, org_id)

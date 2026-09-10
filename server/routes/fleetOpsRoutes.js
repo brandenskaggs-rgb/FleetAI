@@ -1,4 +1,5 @@
 const db = require("../db");
+const { protectSessionStream } = require("../middleware/sessionStream");
 
 const { requireOperatorOrDevice: buildOperatorOrDevice, requireDevice } = require("../middleware/deviceAuth");
 const { prepareTelemetryIngest, TelemetryPayloadError } = require("../telematics/ingest/prepareTelemetryIngest");
@@ -399,7 +400,8 @@ function registerFleetOpsRoutes(app, deps) {
         const bodyDriverId = sanitizeString(payload.driverId || payload.driver_id || "", 80);
         if (bodyDriverId && req.customer) {
           const driver = await db.getDriverByDriverId(bodyDriverId);
-          if (!driver || denyCustomerOrgMismatch(req, res, driver.orgId)) return;
+          if (!driver) return res.status(404).json({ ok: false, error: "driver_not_found" });
+          if (denyCustomerOrgMismatch(req, res, driver.orgId)) return;
         }
       }
       // The Android tablet sends `timestamp`; only `ts` was read, so every
@@ -662,7 +664,7 @@ function registerFleetOpsRoutes(app, deps) {
       const paths = historyMetricPaths[metric];
       if (!paths) return res.status(400).json({ ok: false, error: "unsupported_metric" });
       const rangeMs = { "1h": 3600000, "6h": 21600000, "24h": 86400000, "7d": 604800000 }[req.query.range] || 86400000;
-      const samples = await db.getSamplesForVehicle(vehicleId, { limit: 5000, since: new Date(Date.now() - rangeMs) });
+      const samples = await db.getSamplesForVehicle(vehicleId, { orgId: vehicleOrgId, limit: 5000, since: new Date(Date.now() - rangeMs) });
       const data = samples.map((sample) => ({
         id: sample.id,
         vehicleId,
@@ -699,7 +701,8 @@ function registerFleetOpsRoutes(app, deps) {
     for (const sub of telemetrySubscribers) {
       const scope = sub.__fleetScope;
       if (scope) {
-        if (scope.kind === "device" && scope.vehicleId !== snapshot.vehicleId) continue;
+        if (scope.kind === "device" && (scope.vehicleId !== snapshot.vehicleId
+          || !scope.orgId || scope.orgId !== orgId)) continue;
         // An operator with no resolvable org sees nothing rather than
         // everything: failing closed is the correct default for a leak that
         // would otherwise be silent.
@@ -723,6 +726,7 @@ function registerFleetOpsRoutes(app, deps) {
   // whole fleet in real time. EventSource cannot set headers, so the device
   // token may also arrive as ?deviceToken= (see middleware/deviceAuth.js).
   app.get("/api/telemetry/stream", requireOperatorOrDevice, (req, res) => {
+    protectSessionStream(req, res);
     res.writeHead(200, {
       "Content-Type": "text/event-stream",
       "Cache-Control": "no-cache, no-store, must-revalidate",
@@ -753,10 +757,12 @@ function registerFleetOpsRoutes(app, deps) {
         res.write(`event: heartbeat\ndata: ${JSON.stringify({ ok: true, now: nowIso() })}\n\n`);
       } catch (_) {}
     }, 15000);
-    req.on("close", () => {
+    const cleanup = () => {
       clearInterval(heartbeat);
       telemetrySubscribers.delete(res);
-    });
+    };
+    req.on("close", cleanup);
+    res.on?.("close", cleanup);
   });
 }
 

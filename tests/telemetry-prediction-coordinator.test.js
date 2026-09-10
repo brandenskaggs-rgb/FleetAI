@@ -32,13 +32,13 @@ function nodePrediction(samples, vehicleId) {
   });
 
   const firstSamples = [{ id: "TS_1", ts: "2026-08-17T12:00:00.000Z", metrics: { rpm: 700 } }];
-  const first = await coordinator.predict({ vehicleId: "CAR_1", samples: firstSamples });
+  const first = await coordinator.predict({ orgId: "FIXTURE_ORG", vehicleId: "CAR_1", samples: firstSamples });
   assert.strictEqual(first.attempted, true);
   assert.strictEqual(first.prediction.predictionSource, "python_ml_ensemble");
   assert.strictEqual(calls, 1);
 
   clock += 10_000;
-  const cached = await coordinator.predict({ vehicleId: "CAR_1", samples: firstSamples });
+  const cached = await coordinator.predict({ orgId: "FIXTURE_ORG", vehicleId: "CAR_1", samples: firstSamples });
   assert.strictEqual(cached.attempted, false);
   assert.strictEqual(cached.prediction.predictionSource, "python_ml_ensemble");
   assert.strictEqual(calls, 1);
@@ -49,14 +49,14 @@ function nodePrediction(samples, vehicleId) {
     ts: "2026-08-17T12:01:10.000Z",
     metrics: { rpm: 725 }
   });
-  const refreshed = await coordinator.predict({ vehicleId: "CAR_1", samples: secondSamples });
+  const refreshed = await coordinator.predict({ orgId: "FIXTURE_ORG", vehicleId: "CAR_1", samples: secondSamples });
   assert.strictEqual(refreshed.attempted, true);
   assert.strictEqual(calls, 2);
 
   fail = true;
   clock += 60_000;
   const failed = await coordinator.predict({
-    vehicleId: "CAR_1",
+    orgId: "FIXTURE_ORG", vehicleId: "CAR_1",
     samples: secondSamples.concat({ id: "TS_3", ts: "2026-08-17T12:02:10.000Z", metrics: { rpm: 730 } })
   });
   assert.strictEqual(failed.attempted, true);

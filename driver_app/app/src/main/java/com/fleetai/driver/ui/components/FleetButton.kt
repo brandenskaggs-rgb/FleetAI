@@ -10,6 +10,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.shape.RoundedCornerShape
 
 @Composable
 fun FleetButton(
@@ -22,6 +23,7 @@ fun FleetButton(
         onClick = onClick,
         enabled = enabled,
         modifier = modifier.heightIn(min = 48.dp),
+        shape = RoundedCornerShape(8.dp),
         colors = ButtonDefaults.buttonColors(
             containerColor = MaterialTheme.colorScheme.primary,
             contentColor = MaterialTheme.colorScheme.onPrimary
@@ -41,6 +43,7 @@ fun LargeActionButton(
     Button(
         onClick = onClick,
         enabled = enabled,
+        shape = RoundedCornerShape(8.dp),
         modifier = modifier
             .fillMaxWidth()
             .padding(vertical = 4.dp)

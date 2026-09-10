@@ -20,6 +20,13 @@ function bindCustomerTenant(req, res, customer, { enforceReadOnly = false } = {}
     return false;
   }
 
+  const expectedOrg = normalizeOrgId(req.headers?.["x-fleet-org"]);
+  const expectedUser = normalizeOrgId(req.headers?.["x-fleet-user"] || req.query?.workspaceUserId);
+  if ((expectedOrg && expectedOrg !== orgId) || (expectedUser && expectedUser !== customer.userId)) {
+    res.status(403).json({ ok: false, error: "workspace_changed", message: "Your signed-in account changed. Reload this workspace." });
+    return false;
+  }
+
   if (suppliedOrgIds(req).some((requestedOrgId) => requestedOrgId !== orgId)) {
     res.status(403).json({ ok: false, error: "cross_org_access_denied" });
     return false;

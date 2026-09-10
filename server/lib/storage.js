@@ -1,6 +1,9 @@
 const fs = require("fs");
 const fsp = require("fs/promises");
 const path = require("path");
+const crypto = require("node:crypto");
+const STORAGE_REVISION = Symbol("storageRevision");
+const revisionOf = (raw) => crypto.createHash("sha256").update(raw).digest("hex");
 
 const DEFAULT_SCHEMA_VERSION = 1;
 const DEFAULT_BACKUP_LIMIT = 10;
@@ -46,12 +49,6 @@ function listBackups(filePath) {
   }
 }
 
-function latestBackup(filePath) {
-  const list = listBackups(filePath);
-  if (!list.length) return null;
-  return path.join(path.dirname(filePath), list[list.length - 1]);
-}
-
 function normalizeSchema(data, defaultData) {
   const out = typeof data === "object" && data ? { ...data } : {};
   const defaults = defaultData || {};
@@ -73,6 +70,35 @@ function createStorage(options) {
   const normalize = options.normalize || ((data) => normalizeSchema(data, defaultData));
   const backupLimit = options.backupLimit || DEFAULT_BACKUP_LIMIT;
   let writeChain = Promise.resolve();
+  let lastDamagedHash = null;
+
+  function enqueue(work) {
+    const result = writeChain.catch(() => null).then(work);
+    writeChain = result;
+    return result;
+  }
+
+  function validateShape(data) {
+    if (!data || typeof data !== "object" || Array.isArray(data)) {
+      throw new Error("Data snapshot must be a JSON object.");
+    }
+    const collections = new Set([
+      "users", "orgs", "vehicles", "drivers", "pairings", "leads", "audit",
+      ...Object.keys(defaultData).filter((key) => Array.isArray(defaultData[key]))
+    ]);
+    for (const key of collections) {
+      if (Object.hasOwn(data, key) && !Array.isArray(data[key])) {
+        throw new Error(`Data collection ${key} must be an array.`);
+      }
+    }
+    return data;
+  }
+
+  function versioned(data, raw) {
+    const payload = normalize(validateShape(data));
+    payload[STORAGE_REVISION] = { hash: revisionOf(raw) };
+    return payload;
+  }
 
   const status = {
     state: "unknown",
@@ -87,7 +113,8 @@ function createStorage(options) {
     try {
       await fsp.access(dataPath);
     } catch (err) {
-      await saveData(defaultData);
+      if (err.code !== "ENOENT") throw err;
+      await writeAtomic(`${JSON.stringify(normalize(validateShape(defaultData)), null, 2)}\n`);
     }
   }
 
@@ -106,9 +133,12 @@ function createStorage(options) {
     const backupPath = `${dataPath}.bak-${stamp}`;
 
     const handle = await fsp.open(tmpPath, "w", FILE_MODE);
-    await handle.writeFile(contents, "utf8");
-    await handle.sync();
-    await handle.close();
+    try {
+      await handle.writeFile(contents, "utf8");
+      await handle.sync();
+    } finally {
+      await handle.close();
+    }
     await setFilePermissions(tmpPath);
 
     if (fs.existsSync(dataPath)) {
@@ -162,74 +192,90 @@ function createStorage(options) {
   }
 
   async function saveData(data) {
-    const payload = normalize(data);
+    const payload = normalize(validateShape(data));
     const json = `${JSON.stringify(payload, null, 2)}\n`;
-    writeChain = writeChain
-      .catch(() => null)
-      .then(() => writeAtomic(json));
-    await writeChain;
+    const revision = data[STORAGE_REVISION];
+    const expected = revision?.hash;
+    await enqueue(async () => {
+        if (expected) {
+          const current = await fsp.readFile(dataPath, "utf8");
+          if (revisionOf(current) !== expected) {
+            const error = new Error("Records changed while this request was running. Refresh and try again.");
+            error.code = "DATA_WRITE_CONFLICT";
+            throw error;
+          }
+        }
+        await writeAtomic(json);
+        if (revision) revision.hash = revisionOf(json);
+      });
     return payload;
   }
 
-  async function loadData() {
-    await writeChain.catch(() => null);
+  async function loadSnapshot() {
     await ensureFile();
     const raw = await fsp.readFile(dataPath, "utf8");
     const cleaned = stripBom(raw);
     try {
-      const parsed = JSON.parse(cleaned);
+      const data = versioned(JSON.parse(cleaned), raw);
       status.state = "OK";
       status.lastError = null;
       status.note = null;
-      return normalize(parsed);
+      lastDamagedHash = null;
+      return data;
     } catch (err) {
       const stamp = new Date().toISOString().replace(/[:.]/g, "-");
       const badPath = `${dataPath}.bad-${stamp}.json`;
       try {
-        await fsp.writeFile(badPath, raw, { encoding: "utf8", mode: FILE_MODE });
-        await setFilePermissions(badPath);
+        if (lastDamagedHash !== revisionOf(raw)) {
+          await fsp.writeFile(badPath, raw, { encoding: "utf8", mode: FILE_MODE });
+          await setFilePermissions(badPath);
+          lastDamagedHash = revisionOf(raw);
+        }
       } catch (writeErr) {
         console.warn(`[STORAGE] failed to write bad snapshot: ${badPath}`);
       }
-      try {
-        const corruptPath = `${dataPath}.corrupt-${stamp}`;
-        await fsp.rename(dataPath, corruptPath);
-        await setFilePermissions(corruptPath);
-        status.lastBackup = corruptPath;
-      } catch (renameErr) {
-        // ignore
-      }
+      // Leave the damaged primary in place until a recovery succeeds. Removing
+      // it lets the next read mistake corruption for a brand-new installation.
       const recovered = attemptJsonRecovery(raw);
       if (recovered && recovered.data) {
-        const payload = normalize(recovered.data);
-        await saveData(payload);
-        status.state = "RECOVERED";
-        status.lastError = err.message;
-        status.note = recovered.note || "recovered";
-        return payload;
+        let candidate;
+        try { candidate = normalize(validateShape(recovered.data)); } catch (_) { /* Try a validated backup next. */ }
+        if (candidate) return restore(candidate, recovered.note || "recovered", err);
       }
-      const backupPath = latestBackup(dataPath);
-      if (backupPath) {
+      for (const backupName of listBackups(dataPath).reverse()) {
+        const backupPath = path.join(path.dirname(dataPath), backupName);
+        let candidate;
         try {
           const backupRaw = await fsp.readFile(backupPath, "utf8");
-          const backupData = JSON.parse(stripBom(backupRaw));
-          const payload = normalize(backupData);
-          await saveData(payload);
-          status.state = "RECOVERED";
-          status.lastError = err.message;
-          status.note = `backup:${path.basename(backupPath)}`;
-          return payload;
+          candidate = normalize(validateShape(JSON.parse(stripBom(backupRaw))));
         } catch (backupErr) {
           console.warn(`[STORAGE] backup restore failed: ${backupPath}`);
         }
+        if (candidate) return restore(candidate, `backup:${backupName}`, err);
       }
-      const payload = normalize(defaultData);
-      await saveData(payload);
-      status.state = "RESET";
+      status.state = "CORRUPT";
       status.lastError = err.message;
-      status.note = "reset_to_default";
-      return payload;
+      status.note = "manual_recovery_required";
+      const failure = new Error("Data store is corrupt and no valid backup could be restored. Manual recovery required.");
+      failure.code = "DATA_STORE_CORRUPT";
+      throw failure;
     }
+  }
+
+  async function restore(payload, note, error) {
+    const json = `${JSON.stringify(payload, null, 2)}\n`;
+    await writeAtomic(json);
+    status.state = "RECOVERED";
+    status.lastError = error.message;
+    status.note = note;
+    console.warn(`[STORAGE] recovered snapshot (${note}); review data recovery diagnostics.`);
+    return versioned(payload, json);
+  }
+
+  // Reads, initialization, recovery and writes share one queue: a recovery can
+  // never overwrite a successful request that ran while it was reading a backup.
+  function loadData() {
+    return enqueue(loadSnapshot);
   }
 
   async function validateConfig() {

@@ -102,6 +102,8 @@ class SignalHistory:
         self._buf: deque[_Obs] = deque(maxlen=maxlen)
 
     def push(self, ts_days: float, value: float) -> None:
+        if self._buf and ts_days <= self._buf[-1].ts_days:
+            return  # Replayed uploads must not invent extra temporal evidence.
         self._buf.append(_Obs(ts_days, value))
 
     def prune(self, cutoff_days: float) -> None:
@@ -131,7 +133,7 @@ class TemporalBuffer:
         self._lock = threading.Lock()
         # vehicle_id → signal_name → SignalHistory
         self._store: dict[str, dict[str, SignalHistory]] = {}
-        self._last_prune: float = 0.0
+        self._last_prune: dict[str, float] = {}
 
     def push(self, vehicle_id: str, signal: str, ts_days: float, value: float) -> None:
         with self._lock:
@@ -144,24 +146,59 @@ class TemporalBuffer:
         with self._lock:
             return self._store.get(vehicle_id, {}).get(signal)
 
-    def prune_old(self, now_days: float) -> None:
+    def prune_old(self, now_days: float, vehicle_id: str) -> None:
         """Drop observations older than MAX_BUFFER_AGE_DAYS. Rate-limited to once/hour."""
-        if now_days - self._last_prune < 1.0 / 24:
+        if now_days - self._last_prune.get(vehicle_id, 0) < 1.0 / 24:
             return
         cutoff = now_days - MAX_BUFFER_AGE_DAYS
         with self._lock:
-            for vh in self._store.values():
-                for hist in vh.values():
-                    hist.prune(cutoff)
-        self._last_prune = now_days
+            for hist in self._store.get(vehicle_id, {}).values():
+                hist.prune(cutoff)
+            self._last_prune[vehicle_id] = now_days
 
-    def vehicle_count(self) -> int:
+    def vehicle_count(self, org_id=None) -> int:
+        import json
         with self._lock:
-            return len(self._store)
+            if not org_id:
+                return 0
+            count = 0
+            for key in self._store:
+                try:
+                    identity = json.loads(key)
+                    count += int(isinstance(identity, list) and len(identity) == 2 and identity[0] == org_id)
+                except (TypeError, ValueError):
+                    continue
+            return count
 
 
 # Module-level singleton buffer shared across requests
 _buffer = TemporalBuffer()
+
+
+def export_vehicle_history(vehicle_id: str) -> dict:
+    """Bounded, versioned evidence snapshot, scoped to one tenant/vehicle key."""
+    with _buffer._lock:
+        return {"version": 1, "signals": {
+            name: [[obs.ts_days, obs.value] for obs in history._buf]
+            for name, history in _buffer._store.get(vehicle_id, {}).items()
+            if name in _SIGNAL_THRESHOLDS
+        }}
+
+
+def restore_vehicle_history(vehicle_id: str, snapshot: dict | None) -> None:
+    restored = {}
+    if snapshot and snapshot.get("version") == 1:
+        for name, points in snapshot.get("signals", {}).items():
+            if name not in _SIGNAL_THRESHOLDS:
+                continue
+            history = SignalHistory()
+            for timestamp, value in sorted(points[-500:]):
+                if math.isfinite(timestamp) and math.isfinite(value):
+                    history.push(float(timestamp), float(value))
+            restored[name] = history
+    with _buffer._lock:
+        _buffer._store[vehicle_id] = restored
+        _buffer._last_prune.pop(vehicle_id, None)
 
 
 # ── Derivative computation ────────────────────────────────────────────────────
@@ -314,7 +351,7 @@ class Stage3Arbitrator:
 
         # Update temporal buffer with current readings
         self._ingest(vehicle_id, current_metrics, now_days)
-        _buffer.prune_old(now_days)
+        _buffer.prune_old(now_days, vehicle_id)
 
         # Compute derivatives and projections for each tracked signal
         projections: dict[str, Optional[float]] = {}
@@ -465,9 +502,9 @@ def evaluate_stage3(
         return None
 
 
-def get_stage3_buffer_stats() -> dict:
+def get_stage3_buffer_stats(org_id=None) -> dict:
     return {
-        "vehiclesTracked": _buffer.vehicle_count(),
+        "vehiclesTracked": _buffer.vehicle_count(org_id),
         "activationBand": [STAGE3_LOW, STAGE3_HIGH],
         "projectionDays": PROJECTION_DAYS,
         "confirmThreshold": CONFIRM_THRESHOLD,

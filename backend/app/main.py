@@ -159,15 +159,15 @@ async def _restore_from_db() -> None:
 
 
 async def _stage2_retrain_loop() -> None:
-    """Retrain Stage 2 from operator feedback every 7 days."""
+    """Poll durable tenant schedules; training creates candidates only."""
     import asyncio
-    SEVEN_DAYS = 7 * 24 * 3600
+    from app.ml.retraining import run_due_retraining
     while True:
-        await asyncio.sleep(SEVEN_DAYS)
         try:
-            await retrain_stage2_from_feedback(pg_db)
+            await run_due_retraining(pg_db)
         except Exception as exc:
             logger.warning("[stage2] Scheduled retrain error: %s", exc)
+        await asyncio.sleep(60)
 
 
 @asynccontextmanager

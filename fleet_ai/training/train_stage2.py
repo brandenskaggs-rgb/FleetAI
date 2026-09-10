@@ -1,187 +1,106 @@
-"""
-Train the Stage 2 (confirmatory) LightGBM classifier.
-
-Usage:
-  python train_stage2.py                   # train from existing parquet
-  python train_stage2.py --generate-data   # generate data first, then train
-"""
+"""Train LightGBM candidates; test data never controls early stopping."""
 from __future__ import annotations
-
 import argparse
-import json
+import sys
 from pathlib import Path
-
-import joblib
-import lightgbm as lgb
 import numpy as np
 import pandas as pd
-from sklearn.metrics import (
-    accuracy_score,
-    classification_report,
-    f1_score,
-    precision_score,
-    recall_score,
-    roc_auc_score,
-)
-from sklearn.model_selection import StratifiedKFold, train_test_split
+import lightgbm as lgb
+from sklearn.model_selection import train_test_split
+from sklearn.model_selection import GroupShuffleSplit
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from backend.app.ml.feature_contract import STAGE2_FEATURES, manifest
+from backend.app.ml.evaluation import partition, metrics, fit_calibration, binary_labels
+from backend.app.ml.artifact_registry import training_registry
 
-MODEL_DIR = Path(__file__).resolve().parents[1] / "models"
-DATA_PATH = MODEL_DIR / "fleet_ai_stage2_training.parquet"
-MODEL_PATH = MODEL_DIR / "stage2_model.pkl"
-
-STAGE2_FEATURES = [
-    "stage1_score", "pretrained_score", "if_score", "welford_score",
-    "threshold_score", "dtc_score",
-    "w_pretrained", "w_if", "w_welford", "w_threshold", "w_dtc",
-    "signal_agreement",
-    "fleet_percentile", "mv_stress_max",
-    "sample_count", "welford_confidence", "pretrained_decayed",
-    "has_cooling_dtc", "has_fuel_dtc", "has_electrical_dtc",
-    "has_emissions_dtc", "has_engine_dtc",
-    "diagnosis_urgency", "vehicle_class_code",
-    "ambient_temp", "idle_heat_soak", "coolant_temp_oscillation",
-    "battery_voltage", "engine_temp_delta_30d",
-]
+DATA_PATH = Path(__file__).resolve().parents[1] / "models" / "fleet_ai_stage2_training.parquet"
 
 
-def train(generate_data: bool = False, n_seeds: int = 50, sample_per_seed: int = 5000) -> None:
-    if generate_data or not DATA_PATH.exists():
-        print("Generating Stage 2 training data...")
-        import sys
-        sys.path.insert(0, str(Path(__file__).parent))
-        from fleet_simulation import generate_stage2_training_data
-        generate_stage2_training_data(n_seeds=n_seeds, sample_per_seed=sample_per_seed)
-
-    print(f"Loading {DATA_PATH}...")
-    df = pd.read_parquet(DATA_PATH)
-    print(f"Loaded {len(df):,} rows  |  failure rate: {df['label'].mean():.3%}")
-    print(f"FP types: {df['fp_type'].value_counts().to_dict()}")
-
-    available = [f for f in STAGE2_FEATURES if f in df.columns]
-    missing = [f for f in STAGE2_FEATURES if f not in df.columns]
+def train_frame(df, *, source="synthetic_proxy_stacking", registry=None, scope="global_synthetic"):
+    missing = set(STAGE2_FEATURES) - set(df.columns)
     if missing:
-        print(f"Warning: {len(missing)} features missing from dataset: {missing}")
-
-    X = df[available].values.astype(np.float32)
-    y = df["label"].values.astype(np.int32)
-
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.20, random_state=42, stratify=y
-    )
-
-    print(f"\nTraining set: {len(X_train):,} rows  |  Test set: {len(X_test):,} rows")
-    print(f"Positive rate — train: {y_train.mean():.3%}  |  test: {y_test.mean():.3%}")
-
-    model = lgb.LGBMClassifier(
-        n_estimators=300,
-        learning_rate=0.04,
-        num_leaves=31,
-        max_depth=6,
-        min_child_samples=20,
-        subsample=0.85,
-        colsample_bytree=0.85,
-        class_weight="balanced",
-        reg_alpha=0.05,
-        reg_lambda=0.10,
-        random_state=42,
-        verbose=-1,
-    )
-
-    model.fit(
-        X_train,
-        y_train,
-        eval_set=[(X_test, y_test)],
-        callbacks=[lgb.early_stopping(50, verbose=False), lgb.log_evaluation(100)],
-    )
-
-    y_prob = model.predict_proba(X_test)[:, 1]
-    y_pred = (y_prob >= 0.50).astype(int)
-
-    precision = float(precision_score(y_test, y_pred, zero_division=0))
-    recall = float(recall_score(y_test, y_pred, zero_division=0))
-    f1 = float(f1_score(y_test, y_pred, zero_division=0))
-    roc_auc = float(roc_auc_score(y_test, y_prob))
-    accuracy = float(accuracy_score(y_test, y_pred))
-
-    print("\n--- Stage 2 Test Results ---")
-    print(f"Accuracy:  {accuracy:.4f}")
-    print(f"Precision: {precision:.4f}")
-    print(f"Recall:    {recall:.4f}")
-    print(f"F1:        {f1:.4f}")
-    print(f"ROC-AUC:   {roc_auc:.4f}")
-    print()
-    print(classification_report(y_test, y_pred, target_names=["not_failure", "failure"]))
-
-    # Feature importance
-    feat_imp = sorted(
-        zip(available, model.feature_importances_),
-        key=lambda x: x[1],
-        reverse=True,
-    )
-    print("--- Top 10 Feature Importances ---")
-    for feat, imp in feat_imp[:10]:
-        print(f"  {feat:<35} {imp:.4f}")
-
-    # Per-FP-type breakdown on test set
-    test_idx = np.arange(len(X_test))
-    # We can't easily recover fp_type for test rows here — summarize by threshold
-    print("\n--- Threshold Sensitivity ---")
-    for thr in [0.35, 0.40, 0.45, 0.50, 0.55, 0.60, 0.65]:
-        preds_t = (y_prob >= thr).astype(int)
-        p = precision_score(y_test, preds_t, zero_division=0)
-        r = recall_score(y_test, preds_t, zero_division=0)
-        print(f"  thr={thr:.2f}  precision={p:.4f}  recall={r:.4f}  f1={f1_score(y_test, preds_t, zero_division=0):.4f}")
-
-    # Save
-    bundle = {
-        "model": model,
-        "features": available,
-        "train_sample_count": len(X_train),
-        "feedback_samples": 0,
-        "metrics": {
-            "accuracy": round(accuracy, 6),
-            "precision": round(precision, 6),
-            "recall": round(recall, 6),
-            "f1": round(f1, 6),
-            "roc_auc": round(roc_auc, 6),
-        },
-    }
-    MODEL_DIR.mkdir(parents=True, exist_ok=True)
-    joblib.dump(bundle, MODEL_PATH)
-
-    # Save eval report
-    report = {
-        "modelVersion": "stage2-v1.0.0",
-        "trainRows": int(len(X_train)),
-        "testRows": int(len(X_test)),
-        "features": available,
-        "featureCount": len(available),
-        "metrics": bundle["metrics"],
-        "featureImportance": [
-            {"feature": f, "importance": round(float(imp), 6)}
-            for f, imp in feat_imp[:20]
-        ],
-        "notes": "Stage 2 confirmatory LightGBM. Trained on synthetic false-positive archetypes at natural 0.4% failure rate.",
-    }
-    report_path = MODEL_DIR / "stage2_eval_report.json"
-    report_path.write_text(json.dumps(report, indent=2), encoding="utf-8")
-
-    print(f"\nSaved model:  {MODEL_PATH}")
-    print(f"Saved report: {report_path}")
+        raise ValueError("Missing Stage 2 schema columns: " + ", ".join(sorted(missing)))
+    binary_labels(df["label"])
+    if not source.startswith("synthetic"):
+        # Production predictions do not prove OOF provenance. Real training must
+        # arrive through a reviewed upstream replay/export with outer splits.
+        raise ValueError("Real Stage 2 promotion is blocked pending validated upstream OOF replay integration")
+    if "vehicle_id" in df:
+        train_df, val_df, test_df = partition(df, chronological=False)
+        split_kind = "vehicle_disjoint_synthetic"
+    else:
+        train_df, rest = train_test_split(df, test_size=.4, random_state=42, stratify=df["label"])
+        val_df, test_df = train_test_split(rest, test_size=.5, random_state=43, stratify=rest["label"])
+        split_kind = "legacy_synthetic_rows_only_no_group_generalization_claim"
+    # Reserve calibration examples before early stopping. No examples from test
+    # or calibration are exposed to the boosting fit.
+    def split_validation(part, fraction, seed):
+        if "vehicle_id" in part:
+            if part.vehicle_id.nunique() < 2:
+                raise ValueError("More independent validation vehicles are required")
+            left, right = next(GroupShuffleSplit(n_splits=1, test_size=fraction, random_state=seed).split(part, groups=part.vehicle_id))
+            return part.iloc[left], part.iloc[right]
+        return train_test_split(part, test_size=fraction, random_state=seed, stratify=part["label"])
+    select_df, calibration_pool = split_validation(val_df, .6, 44)
+    cal_df, conformal_df = split_validation(calibration_pool, .5, 45)
+    def X(part):
+        return part[list(STAGE2_FEATURES)].to_numpy(dtype=np.float32)
+    model = lgb.LGBMClassifier(n_estimators=300, learning_rate=.04, num_leaves=31,
+        max_depth=6, min_child_samples=20, subsample=.85, colsample_bytree=.85,
+        class_weight="balanced", reg_alpha=.05, reg_lambda=.10, random_state=42, verbose=-1, n_jobs=2)
+    model.fit(X(train_df), train_df["label"].to_numpy(),
+              eval_set=[(X(select_df), select_df["label"].to_numpy())],
+              callbacks=[lgb.early_stopping(50, verbose=False)])
+    version = "stage2-v2-candidate"
+    cal, calibration = fit_calibration(cal_df["label"], model.predict_proba(X(cal_df))[:,1], source, version)
+    from backend.app.ml.conformal import ConformalPredictor
+    conformal = ConformalPredictor()
+    conformal_probs = model.predict_proba(X(conformal_df))[:,1]
+    if cal is not None:
+        conformal_probs = cal.predict(conformal_probs)
+    conformal.fit(conformal_probs.tolist(), conformal_df["label"].tolist(), metadata={
+        "modelVersion": version, "source": source, "partition": "independent_conformal", "fieldValidated": False})
+    probability = model.predict_proba(X(test_df))[:,1]
+    if cal is not None:
+        probability = cal.predict(probability)
+    report = {"partition": "untouched_test", "evidenceSource": source, "split": split_kind,
+        "trainRows": len(train_df), "selectionRows": len(select_df), "calibrationRows": len(cal_df),
+        "testRows": len(test_df), "conformalRows": len(conformal_df), "metrics": metrics(test_df["label"], probability, .5, source),
+        "calibration": calibration, "realWorldAccuracyEstablished": False}
+    metadata = {"modelVersion": version, "trainingSource": source,
+        "featureSchema": manifest(STAGE2_FEATURES), "calibration": calibration,
+        "stackingEvidence": "synthetic_upstream_proxies_not_real_oof"}
+    bundle = {"model": model, "features": list(STAGE2_FEATURES), "calibrator": cal,
+        "calibration": calibration, "train_sample_count": len(train_df),
+        "feedback_samples": 0, "metrics": report["metrics"], "conformal": conformal.to_bundle()}
+    registry = registry or training_registry()
+    identifier = registry.candidate("stage2", bundle, metadata, scope=scope)
+    registry.evaluate(identifier, report)
+    return identifier, report
 
 
-def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Train Stage 2 LightGBM confirmatory classifier.")
-    parser.add_argument("--generate-data", action="store_true", help="Generate training data before training")
-    parser.add_argument("--n-seeds", type=int, default=50, help="Seeds for data generation")
-    parser.add_argument("--sample-per-seed", type=int, default=5000, help="Rows per seed")
-    return parser.parse_args()
+def train(generate_data=False, n_seeds=50, sample_per_seed=5000, data_path=None):
+    path = Path(data_path) if data_path else DATA_PATH
+    if generate_data:
+        from fleet_ai.training.fleet_simulation import generate_stage2_training_data
+        generated = generate_stage2_training_data(n_seeds=n_seeds, sample_per_seed=sample_per_seed)
+        if isinstance(generated, pd.DataFrame):
+            frame = generated
+        else:
+            raise ValueError("Generator must return its new frame without replacing existing data")
+    else:
+        frame = pd.read_parquet(path)
+    identifier, report = train_frame(frame)
+    print(f"Evaluated candidate: {identifier}; active model unchanged")
+    print(f"Synthetic test rows: {report['testRows']}; F1: {report['metrics']['f1']:.4f}")
+    return identifier, report
 
 
 if __name__ == "__main__":
-    args = parse_args()
-    train(
-        generate_data=args.generate_data,
-        n_seeds=args.n_seeds,
-        sample_per_seed=args.sample_per_seed,
-    )
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--generate-data", action="store_true")
+    parser.add_argument("--n-seeds", type=int, default=50)
+    parser.add_argument("--sample-per-seed", type=int, default=5000)
+    parser.add_argument("--data", type=Path)
+    args = parser.parse_args()
+    train(args.generate_data, args.n_seeds, args.sample_per_seed, args.data)

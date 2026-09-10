@@ -553,6 +553,7 @@ const METRIC_SOURCE_KEYS = {
   absoluteLoad: ["absoluteLoadPct"],
   ignitionTiming: ["ignitionTimingAdvanceDeg"],
   fuelPressure: ["fuelPressureKpa"],
+  fuelPressureKpa: ["fuelPressureKpa"],
   fuelRailPressureRelative: ["fuelRailPressureRelativeKpa"],
   fuelRailPressureGauge: ["fuelRailGaugePressureKpa"],
   fuelRailPressureAbsolute: ["fuelRailAbsolutePressureKpa"],
@@ -615,6 +616,8 @@ function buildTelemetrySample(normalized, extra = {}) {
     absoluteLoad: engine.absoluteLoadPct ?? null,
     ignitionTiming: engine.ignitionTimingAdvanceDeg ?? null,
     fuelPressure: engine.fuelPressureKpa ?? null,
+    // Keep the legacy dashboard field in kPa; ML must use the explicit unit.
+    fuelPressureKpa: engine.fuelPressureKpa ?? null,
     fuelRailPressureRelative: engine.fuelRailPressureRelativeKpa ?? null,
     fuelRailPressureGauge: engine.fuelRailGaugePressureKpa ?? null,
     fuelRailPressureAbsolute: engine.fuelRailAbsolutePressureKpa ?? null,
@@ -650,6 +653,15 @@ function buildTelemetrySample(normalized, extra = {}) {
     .update(JSON.stringify([normalized.vehicleId || null, timestamp, metrics, raw]))
     .digest("hex")
     .slice(0, 24);
+  // Keep tablet position evidence in the durable sample, not just the optional
+  // JSON mirror. Do not copy arbitrary adapter metadata into every row.
+  const meta = extra.meta || normalized.meta || {};
+  if (Number.isFinite(meta.latitude) && Number.isFinite(meta.longitude) && Number.isFinite(meta.locationCapturedAt)) {
+    raw.location = Object.fromEntries([
+      "latitude", "longitude", "locationCapturedAt", "locationAccuracyMeters",
+      "locationSpeedMps", "locationBearingDegrees"
+    ].filter((key) => Number.isFinite(meta[key])).map((key) => [key, meta[key]]));
+  }
   return {
     id: `TS_${fingerprint}`,
     orgId: normalized.orgId || null,

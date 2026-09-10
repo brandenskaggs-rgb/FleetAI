@@ -1,6 +1,6 @@
 # Fleet AI Real-World Training
 
-Use this flow when you want production-grade evidence from real fleet history.
+Use this flow to evaluate labeled fleet history. Exporting a model does not establish production readiness or validated breakdown prediction.
 
 ## 1) Prepare CSV
 
@@ -29,10 +29,12 @@ Use `REAL_DATA_TEMPLATE.csv` as a schema example.
 ## 2) Train with time-based split
 
 ```bash
-python fleet_ai/training/train_real_world.py --csv fleet_ai/training/REAL_DATA_TEMPLATE.csv
+python fleet_ai/training/train_real_world.py --csv your_labeled_fleet_history.csv
 ```
 
 Optional:
+
+The template demonstrates the schema only. Both the earlier training period and the later test period must contain failure and non-failure outcomes. Invalid timestamps, missing/fractional labels, and one-class splits are rejected before model export. Null AUC means not assessed, not zero performance. The historical three-row report is not validation evidence.
 
 ```bash
 python fleet_ai/training/train_real_world.py --csv your_file.csv --test-fraction 0.25
@@ -55,4 +57,4 @@ The report contains:
 
 ## 4) Deploy
 
-To use this model in API/prediction, replace `fleet_ai/models/fleet_ai_model.pkl` with the real-world model file.
+Do not automatically replace the active model with an export. Review feature units, sampling intervals, missingness, calibration, independent outcomes, and performance by vehicle class first. Threshold selection currently reuses part of the training period; independent calibration and validation must be addressed before production promotion. Preserve a rollback copy and validate the inference contract in staging.

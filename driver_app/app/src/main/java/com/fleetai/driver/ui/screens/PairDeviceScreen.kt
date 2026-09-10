@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -22,8 +24,10 @@ import androidx.compose.material.icons.filled.Pin
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.ui.graphics.Color
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -54,53 +58,43 @@ fun PairDeviceScreen(
     var pairingCode by remember { mutableStateOf("") }
     var driverPin by remember { mutableStateOf("") }
     var deviceLabel by remember { mutableStateOf("Fleet AI Tablet") }
-    var statusMessage by remember { mutableStateOf("Enter both six-digit values shown in Fleet AI dispatch.") }
+    var statusMessage by remember { mutableStateOf("") }
     var isSubmitting by remember { mutableStateOf(false) }
 
     Surface(color = MaterialTheme.colorScheme.background) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .safeDrawingPadding()
+                .imePadding()
                 .verticalScroll(rememberScrollState())
                 .padding(20.dp),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Row(
+            Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .widthIn(max = 1040.dp),
-                horizontalArrangement = Arrangement.spacedBy(18.dp),
-                verticalAlignment = Alignment.CenterVertically
+                    .widthIn(max = 520.dp)
+                    .fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(24.dp)
             ) {
-                FleetCard(modifier = Modifier.weight(1f)) {
+                Column(modifier = Modifier.fillMaxWidth()) {
                     FleetBrandMark(modifier = Modifier.width(150.dp).height(62.dp))
                     Spacer(modifier = Modifier.height(12.dp))
-                    Text("Activate this tablet", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.ExtraBold)
+                    Text("Connect to your fleet", style = MaterialTheme.typography.headlineLarge)
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        "The pairing code and driver PIN securely identify the company, driver, vehicle, and this tablet in one step. The PIN is not stored on the device.",
+                        "Enter the pairing code and driver PIN issued by your fleet manager.",
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.70f)
                     )
                     Spacer(modifier = Modifier.height(14.dp))
-                    AssistChip(
-                        onClick = {},
-                        label = { Text("Secure dispatch activation") },
-                        leadingIcon = { Icon(Icons.Default.AdminPanelSettings, contentDescription = null) }
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    AssistChip(
-                        onClick = {},
-                        label = { Text("Device: ${sessionState.deviceId.take(10)}") },
-                        leadingIcon = { Icon(Icons.Default.Devices, contentDescription = null) }
-                    )
+                    Text("Device ${sessionState.deviceId.take(10)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
 
-                FleetCard(modifier = Modifier.weight(0.95f)) {
-                    Text("Enter dispatch codes", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.ExtraBold)
-                    Spacer(modifier = Modifier.height(16.dp))
-                    OutlinedTextField(
+                FleetCard(modifier = Modifier.fillMaxWidth()) {
+                    TextField(
+                        colors = pairingFieldColors(),
                         value = pairingCode,
                         onValueChange = { raw ->
                             pairingCode = raw.filter(Char::isDigit).take(6)
@@ -112,7 +106,8 @@ fun PairDeviceScreen(
                         modifier = Modifier.fillMaxWidth()
                     )
                     Spacer(modifier = Modifier.height(12.dp))
-                    OutlinedTextField(
+                    TextField(
+                        colors = pairingFieldColors(),
                         value = driverPin,
                         onValueChange = { raw -> driverPin = raw.filter(Char::isDigit).take(6) },
                         leadingIcon = { Icon(Icons.Default.AdminPanelSettings, contentDescription = null) },
@@ -123,7 +118,8 @@ fun PairDeviceScreen(
                         modifier = Modifier.fillMaxWidth()
                     )
                     Spacer(modifier = Modifier.height(12.dp))
-                    OutlinedTextField(
+                    TextField(
+                        colors = pairingFieldColors(),
                         value = deviceLabel,
                         onValueChange = { deviceLabel = it.take(48) },
                         leadingIcon = { Icon(Icons.Default.Devices, contentDescription = null) },
@@ -156,20 +152,20 @@ fun PairDeviceScreen(
                     Text(statusMessage, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f))
                     Spacer(modifier = Modifier.height(12.dp))
                     if (com.fleetai.driver.BuildConfig.DEBUG) {
-                        OutlinedButton(
+                        TextButton(
                             onClick = { context.startActivity(Intent(context, ConnectActivity::class.java)) },
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text("Server settings")
                         }
                     }
-                    OutlinedButton(
+                    TextButton(
                         onClick = { sessionViewModel.logout() },
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text("Sign out")
                     }
-                    OutlinedButton(
+                    TextButton(
                         onClick = { sessionViewModel.startTrainingDemo() },
                         modifier = Modifier.fillMaxWidth()
                     ) {
@@ -193,3 +189,11 @@ fun PairDeviceScreen(
         }
     }
 }
+
+@Composable
+private fun pairingFieldColors() = TextFieldDefaults.colors(
+    focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+    focusedIndicatorColor = Color.Transparent,
+    unfocusedIndicatorColor = Color.Transparent
+)

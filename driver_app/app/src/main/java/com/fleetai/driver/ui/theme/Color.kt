@@ -2,14 +2,14 @@ package com.fleetai.driver.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-val FleetBlue = Color(0xFF145FE8)
-val FleetBlueDark = Color(0xFF0A3478)
+val FleetBlue = Color(0xFF2456D6)
+val FleetBlueDark = Color(0xFF171C22)
 val FleetCyan = Color(0xFF19A7CE)
 val FleetGreen = Color(0xFF059669)
-val FleetBackground = Color(0xFFF6F8FB)
+val FleetBackground = Color(0xFFF2F4F5)
 val FleetSurface = Color(0xFFFFFFFF)
-val FleetSurfaceHigh = Color(0xFFEAF1FA)
-val FleetText = Color(0xFF07172F)
+val FleetSurfaceHigh = Color(0xFFEBEEF0)
+val FleetText = Color(0xFF17212D)
 val FleetTextMuted = Color(0xFF52667F)
 val FleetSuccess = Color(0xFF059669)
 val FleetWarning = Color(0xFFE08A00)

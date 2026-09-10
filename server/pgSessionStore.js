@@ -30,7 +30,14 @@ async function deleteSession(id) {
   if (!process.env.DATABASE_URL) return;
   try {
     await getPrisma().session.delete({ where: { id } });
-  } catch (_) {}
+  } catch (error) { if (error.code !== "P2025") throw error; }
+}
+
+async function getActiveSession(id) {
+  if (!process.env.DATABASE_URL || !id) return null;
+  const row = await getPrisma().session.findFirst({ where: { id, expiresAt: { gt: new Date() } } });
+  if (!row) return null;
+  return { ...row, createdAt: row.createdAt.toISOString(), expiresAt: row.expiresAt.getTime() };
 }
 
 async function deleteSessionsForUser(userId, exceptId = null) {
@@ -72,4 +79,4 @@ async function pruneExpiredSessions() {
   } catch (_) {}
 }
 
-module.exports = { upsertSession, deleteSession, deleteSessionsForUser, loadActiveSessions, pruneExpiredSessions };
+module.exports = { upsertSession, deleteSession, deleteSessionsForUser, getActiveSession, loadActiveSessions, pruneExpiredSessions };

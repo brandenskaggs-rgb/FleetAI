@@ -34,7 +34,8 @@ function createDataStore({ dataPath, defaultData, normalize }) {
   }
 
   async function safeWriteData(data) {
-    return storage.saveData(ensureSchema(data));
+    // Validate the caller's snapshot before normalization can discard bad fields.
+    return storage.saveData(data);
   }
 
   async function createBackup() {

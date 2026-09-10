@@ -87,15 +87,36 @@ function _advisoryText(py, jsPrediction) {
 }
 
 function mergePythonAndNodePrediction(jsPrediction, pythonPrediction, context = {}) {
-  const py = pythonPrediction && pythonPrediction.available !== false && pythonPrediction.ok !== false
+  const lineage = {
+    version: 1,
+    mergePolicy: "python_risk_node_health_minimum_confidence_v1",
+    node: {
+      modelVersion: jsPrediction.modelVersion || "node-ewma-v2",
+      riskProbability: jsPrediction.riskProbability ?? null,
+      healthScore: jsPrediction.healthScore ?? null,
+      confidence: jsPrediction.confidence ?? null,
+      evidence: jsPrediction.lineage || null
+    },
+    python: pythonPrediction ? {
+      available: pythonPrediction.available !== false && pythonPrediction.ok !== false,
+      riskProbability: pythonPrediction.riskProbability ?? null,
+      confidence: pythonPrediction.confidence ?? null,
+      evidence: pythonPrediction.lineage || null
+    } : null
+  };
+  const scopeMatches = (!pythonPrediction?.orgId || !context.orgId || pythonPrediction.orgId === context.orgId)
+    && (!pythonPrediction?.vehicleId || !context.vehicleId || pythonPrediction.vehicleId === context.vehicleId);
+  if (!scopeMatches) lineage.python = { available: false, reason: "scope_mismatch" };
+  const py = scopeMatches && pythonPrediction && pythonPrediction.available !== false && pythonPrediction.ok !== false
     ? pythonPrediction
     : null;
 
   if (!py) {
     return Object.assign({}, jsPrediction, {
-      orgId: jsPrediction.orgId || context.orgId || null,
+      orgId: context.orgId || jsPrediction.orgId || null,
       vehicleId: context.vehicleId || jsPrediction.vehicleId,
       predictionSource: "node_fallback",
+      lineage,
       mlServiceAvailable: false,
       mlServiceError: context.pythonError || null,
       confidenceStage: jsPrediction.insufficientData || jsPrediction.insufficientHistory
@@ -138,7 +159,7 @@ function mergePythonAndNodePrediction(jsPrediction, pythonPrediction, context = 
     : deriveSensorRisksFromPython(py);
 
   return Object.assign({}, jsPrediction, {
-    orgId: jsPrediction.orgId || py.orgId || context.orgId || null,
+    orgId: context.orgId || jsPrediction.orgId || py.orgId || null,
     vehicleId: context.vehicleId || jsPrediction.vehicleId || py.vehicleId,
     insufficientData: Boolean(jsPrediction.insufficientData),
     insufficientHistory: Boolean(jsPrediction.insufficientHistory),
@@ -157,8 +178,11 @@ function mergePythonAndNodePrediction(jsPrediction, pythonPrediction, context = 
 
     // Model metadata
     confidenceStage: py.modelStatus?.ifTrained ? "ensemble" : "welford_only",
-    trainingSource: "live_vehicle_telemetry",
-    modelVersion: "python-ensemble-v1",
+    trainingSource: "synthetic_priors_and_vehicle_telemetry",
+    modelVersion: py.modelVersion || "python-multistage-legacy",
+    lineage,
+    stageSystem: py.stageSystem || null,
+    calibration: py.lineage?.calibration || { ensemble: "uncalibrated" },
     modelStatus: py.modelStatus || null,
     engineEvent: py.engineEvent || jsPrediction.engineEvent || null,
     excludedEngineOffSamples: py.dataQuality?.excludedEngineOffSamples

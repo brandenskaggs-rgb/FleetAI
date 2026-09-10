@@ -68,6 +68,17 @@ async function invoke(app, body) {
     recordTelemetryActivity: (snapshot) => { lastActivity = snapshot; }
   });
 
+  const priorVehicleOrg = db.getVehicleOrgId, priorDriver = db.getDriverByDriverId;
+  db.getVehicleOrgId = async () => "ORG_A";
+  db.getDriverByDriverId = async () => null;
+  const missingDriver = response();
+  await app.routes.get("POST /api/telemetry/ingest").at(-1)({
+    customer: { orgId: "ORG_A" }, body: { vehicleId: "TRUCK_1", driverId: "MISSING" }
+  }, missingDriver, (error) => { throw error; });
+  assert.strictEqual(missingDriver.statusCode, 404, "invalid driver must return rather than leave the upload hanging");
+  db.getVehicleOrgId = priorVehicleOrg;
+  db.getDriverByDriverId = priorDriver;
+
   const payload = {
     batchId: "batch-1",
     vehicleId: "TRUCK_1",

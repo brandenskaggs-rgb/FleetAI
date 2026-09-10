@@ -129,11 +129,12 @@ function sanitizeLegacyRecords(records, orgId, limit, mapper) {
 }
 
 async function buildFleetAdvisorContext({ db, orgId, query, selectedVehicleId, legacyData = {}, now = new Date() }) {
+  if (typeof orgId !== "string" || !orgId.trim()) throw new Error("Advisor context requires an organization");
   const prisma = db.getPrisma();
   const lookback = new Date(now.getTime() - DEFAULT_LOOKBACK_DAYS * 86_400_000);
   const selectedId = String(selectedVehicleId || "").trim();
   const vehicleWhere = { orgId };
-  const sampleWhere = { vehicle: { orgId }, ts: { gte: lookback } };
+  const sampleWhere = { orgId, vehicle: { orgId }, ts: { gte: lookback } };
   if (selectedId) sampleWhere.vehicleId = selectedId;
 
   const [org, vehicles, drivers, alerts, modelRows, samples, maintenance, workOrders, scans, fuelEvents, aiReports, predictionRuns, eldEvents, eldDiagnostics, certifications] = await Promise.all([

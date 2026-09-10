@@ -2,6 +2,8 @@ package com.fleetai.driver.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -14,6 +16,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Engineering
 import androidx.compose.material.icons.filled.Route
 import androidx.compose.material.icons.filled.Settings
@@ -21,6 +24,9 @@ import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -57,33 +63,31 @@ fun HomeScreen(
         modifier = Modifier
             .padding(contentPadding)
             .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+            .padding(24.dp),
+        verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
-        FleetCard(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.fillMaxWidth()) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                 FleetBrandMark(modifier = Modifier.width(86.dp).height(48.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("Good shift, ${sessionState.driverName.ifBlank { "Driver" }}", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.ExtraBold)
-                    Text("Vehicle ${sessionState.vehicleId.ifBlank { "--" }} · ${if (sessionState.demoMode) "Demo feed" else "Live-ready"}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.64f))
+                    Text(sessionState.driverName.ifBlank { "Driver workspace" }, style = MaterialTheme.typography.headlineMedium)
+                    Text("Vehicle ${sessionState.vehicleId.ifBlank { "--" }}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                AssistChip(onClick = {}, label = { Text(obdStatus) })
             }
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(if (sessionState.demoMode) "Training demo / Sample data" else obdStatus, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(modifier = Modifier.height(18.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                StatusTile("Duty", state.dutyStatus.name.replace("_", " "), Modifier.weight(1f))
-                StatusTile(
-                    "ELD",
+            StatusGrid(listOf(
+                "Duty" to state.dutyStatus.name.replace("_", " "),
+                "ELD" to
                     when {
                         !state.eldEnabled -> "Not enabled"
                         state.productionAuthorized -> "Recording"
-                        else -> "Shadow"
+                        else -> "Pilot only"
                     },
-                    Modifier.weight(1f)
-                )
-                StatusTile("Motion", if (state.vehicleMoving) "Moving" else "Stopped", Modifier.weight(1f))
-                StatusTile("Diagnostics", state.activeDiagnosticCount.toString(), Modifier.weight(1f))
-            }
+                "Motion" to if (state.vehicleMoving) "Moving" else "Stopped",
+                "Diagnostics" to state.activeDiagnosticCount.toString()
+            ))
             if (state.lastTelemetryAt.isNotBlank()) {
                 Spacer(modifier = Modifier.height(10.dp))
                 Text("Last engine sync: ${state.lastTelemetryAt}", style = MaterialTheme.typography.bodySmall)
@@ -96,7 +100,7 @@ fun HomeScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Text("Hours of service", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
                     Text(
                         state.hosRuleLabel.ifBlank { "Rule profile not available" },
@@ -104,22 +108,18 @@ fun HomeScreen(
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.64f)
                     )
                 }
-                AssistChip(
+                TextButton(
                     onClick = { viewModel.refresh() },
-                    label = { Text(if (state.hosHistorySufficient) "Clock history complete" else "History incomplete") }
-                )
+                ) { Text("Refresh") }
             }
+            Text(if (state.hosHistorySufficient) "Required clock history available" else "Duty history incomplete", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(modifier = Modifier.height(12.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                StatusTile("Drive left", formatClock(state.driveRemainingMinutes), Modifier.weight(1f))
-                StatusTile("Window left", formatClock(state.windowRemainingMinutes), Modifier.weight(1f))
-                StatusTile(
-                    "Break in",
-                    if (state.hosRuleLabel.startsWith("California")) "Not required" else formatClock(state.breakRemainingMinutes),
-                    Modifier.weight(1f)
-                )
-                StatusTile("Cycle left", formatClock(state.cycleRemainingMinutes), Modifier.weight(1f))
-            }
+            StatusGrid(listOf(
+                "Drive left" to formatClock(state.driveRemainingMinutes),
+                "Window left" to formatClock(state.windowRemainingMinutes),
+                "Break in" to if (state.hosRuleLabel.startsWith("California")) "Not required" else formatClock(state.breakRemainingMinutes),
+                "Cycle left" to formatClock(state.cycleRemainingMinutes)
+            ))
             Spacer(modifier = Modifier.height(10.dp))
             Text(
                 "Base clock reset: 10 consecutive hours off duty. Split-sleeper and other exception relief is not applied automatically.",
@@ -136,8 +136,8 @@ fun HomeScreen(
             }
         }
 
-        FleetCard(modifier = Modifier.fillMaxWidth()) {
-            Text("Ready checklist", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Text("Before you drive", style = MaterialTheme.typography.titleLarge)
             Spacer(modifier = Modifier.height(10.dp))
             ChecklistLine("Complete pre-trip inspection before driving when required.")
             ChecklistLine("Review unresolved defects from the last DVIR before operating.")
@@ -204,6 +204,9 @@ fun HomeScreen(
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
                 ToolButton("Status", Icons.Default.CheckCircle, onOpenStatus, Modifier.weight(1f))
                 ToolButton("Diagnostics", Icons.Default.Engineering, onOpenDiagnostics, Modifier.weight(1f))
+            }
+            Spacer(modifier = Modifier.height(10.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
                 ToolButton("Route", Icons.Default.Route, onOpenRoute, Modifier.weight(1f))
                 ToolButton("Settings", Icons.Default.Settings, onOpenSettings, Modifier.weight(1f))
             }
@@ -215,26 +218,25 @@ fun HomeScreen(
 private fun StatusTile(label: String, value: String, modifier: Modifier = Modifier) {
     Column(
         modifier = modifier
-            .background(MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.shapes.medium)
-            .padding(12.dp)
+            .padding(vertical = 10.dp, horizontal = 4.dp)
     ) {
         Text(label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.58f))
         Spacer(modifier = Modifier.height(6.dp))
-        Text(value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
+        Text(value, style = MaterialTheme.typography.headlineSmall)
     }
 }
 
 @Composable
 private fun ChecklistLine(text: String) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(9.dp), modifier = Modifier.padding(vertical = 4.dp)) {
-        Icon(Icons.Default.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.secondary)
+        Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(text, style = MaterialTheme.typography.bodyMedium)
     }
 }
 
 @Composable
 private fun ToolButton(label: String, icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    androidx.compose.material3.OutlinedButton(onClick = onClick, modifier = modifier.height(64.dp)) {
+    FilledTonalButton(onClick = onClick, modifier = modifier.heightIn(min = 76.dp), shape = RoundedCornerShape(8.dp)) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Icon(icon, contentDescription = null)
             Text(label, style = MaterialTheme.typography.labelLarge)
@@ -245,4 +247,18 @@ private fun ToolButton(label: String, icon: androidx.compose.ui.graphics.vector.
 private fun formatClock(minutes: Int?, unavailable: String = "--"): String {
     if (minutes == null) return unavailable
     return (minutes / 60).toString() + "h " + (minutes % 60).toString() + "m"
+}
+
+@Composable
+private fun StatusGrid(items: List<Pair<String, String>>) {
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        val columns = if (maxWidth < 600.dp) 2 else 4
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            items.chunked(columns).forEach { row ->
+                Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.fillMaxWidth()) {
+                    row.forEach { (label, value) -> StatusTile(label, value, Modifier.weight(1f)) }
+                }
+            }
+        }
+    }
 }

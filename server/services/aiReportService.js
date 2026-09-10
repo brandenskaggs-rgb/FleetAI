@@ -103,7 +103,7 @@ async function generateReport(prediction, vehicleMeta = {}) {
   }
 
   // Cooldown check
-  const existing = await db.getLatestAiReport(prediction.vehicleId);
+  const existing = await db.getLatestAiReport(prediction.vehicleId, prediction.orgId);
   if (existing) {
     const ageMinutes = (Date.now() - new Date(existing.createdAt).getTime()) / 60000;
     if (ageMinutes < REPORT_COOLDOWN_MINUTES) {

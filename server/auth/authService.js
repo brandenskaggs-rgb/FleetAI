@@ -88,8 +88,9 @@ function createAuthService(options) {
     const data = await loadData();
     const user = (data.users || []).find((u) => normalizeEmail(u.email) === emailNormalized) || null;
     if (!user) return { user: null, emailNormalized, data };
-    if (scope === "customer" && !isCustomerRole(user) && user.kind !== "customer") return { user: null, emailNormalized, data };
-    if (scope === "employee" && !isEmployeeRole(user) && user.kind !== "employee") return { user: null, emailNormalized, data };
+    if (scope !== "customer" && scope !== "employee") return { user: null, emailNormalized, data };
+    if (scope === "customer" && !isCustomerRole(user)) return { user: null, emailNormalized, data };
+    if (scope === "employee" && !isEmployeeRole(user)) return { user: null, emailNormalized, data };
     return { user, emailNormalized, data };
   }
 
@@ -143,7 +144,7 @@ function createAuthService(options) {
     }
     user.lastLoginAt = new Date().toISOString();
     await saveData(data);
-    const session = issueSession(scope, user);
+    const session = await issueSession(scope, user);
     return { ok: true, user, session };
   }
 

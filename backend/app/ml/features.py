@@ -51,13 +51,15 @@ METRIC_KEYS = [
 ]
 
 # Derived hub-temp signals computed at extraction time (not raw sensor keys)
+from .feature_contract import SENSOR_FEATURES
+METRIC_KEYS = list(dict.fromkeys([*METRIC_KEYS, *SENSOR_FEATURES.values()]))
 _HUB_TEMP_KEYS = ["hubTempFL", "hubTempFR", "hubTempRL", "hubTempRR"]
 
 WINDOW_HOURS = [24, 168, 720]  # 1d, 7d, 30d
 
 
 def _to_f(v) -> Optional[float]:
-    if v is None or v == "":
+    if v is None or v == "" or isinstance(v, bool):
         return None
     try:
         n = float(v)
@@ -82,6 +84,23 @@ _VALID_RANGES = {
 def metric_value(sample: dict, metric_key: str) -> Optional[float]:
     metrics = sample.get("metrics") if isinstance(sample.get("metrics"), dict) else {}
     value = _to_f(metrics.get(metric_key))
+    # Explicit unit fields take precedence over ambiguous legacy names. Fuel
+    # and oil models use psi; tire-pressure training observations use kPa.
+    aliases = {"fuelPressure": ("fuelPressureKpa", 1 / 6.894757293),
+               "oilPressure": ("oilPressureKpa", 1 / 6.894757293),
+               "tirePressure": ("tirePressureKpa", 1),
+               "transmissionTemp": ("transmissionTempC", 1)}
+    alias, scale = aliases.get(metric_key, ("", 1))
+    if alias in metrics:
+        observed = _to_f(metrics.get(alias))
+        value = observed * scale if observed is not None else None
+    elif metric_key == "fuelPressure" and value is not None:
+        # Historical exports renamed raw kPa to fuelPressure. Convert only
+        # when raw evidence agrees; never revive a nulled/stale measurement.
+        raw = sample.get("raw") if isinstance(sample.get("raw"), dict) else {}
+        raw_kpa = _to_f(raw.get("fuelPressureKpa"))
+        if raw_kpa is not None and math.isclose(value, raw_kpa, abs_tol=1e-8):
+            value = raw_kpa / 6.894757293
     limits = _VALID_RANGES.get(metric_key)
     if value is None or limits is None:
         return value
@@ -90,20 +109,30 @@ def metric_value(sample: dict, metric_key: str) -> Optional[float]:
 
 def coalesce_samples(samples: list[dict], bucket_seconds: int = 5) -> list[dict]:
     """Merge burst uploads into one richer physical observation per time bucket."""
-    unique: dict[str, dict] = {}
-    for sample in samples:
-        timestamp = str(sample.get("ts") or sample.get("timestamp") or "").strip()
-        try:
-            parsed = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
-            bucket = int(parsed.timestamp() // bucket_seconds)
-        except (TypeError, ValueError):
-            bucket = timestamp
+    if bucket_seconds <= 0:
+        raise ValueError("Observation bucket must be positive")
+    unique = {}
+    ordered = [(parsed, sample) for sample in samples
+               if (parsed := _parse_ts(sample.get("ts") or sample.get("timestamp"))) is not None]
+    for parsed, sample in sorted(ordered, key=lambda entry: entry[0]):
+        timestamp = parsed.astimezone(timezone.utc).isoformat()
+        bucket = int(parsed.timestamp() // bucket_seconds)
         vehicle_id = str(sample.get("vehicleId") or "").strip()
-        metrics = sample.get("metrics") if isinstance(sample.get("metrics"), dict) else {}
-        key = f"{vehicle_id}:{bucket}"
+        metrics = dict(sample.get("metrics")) if isinstance(sample.get("metrics"), dict) else {}
+        # Resolve ambiguous units before merging frames, while each value still
+        # has its own raw provenance. Explicit aliases stay mutually consistent.
+        for field, alias, scale in [("fuelPressure", "fuelPressureKpa", 6.894757293),
+                                    ("oilPressure", "oilPressureKpa", 6.894757293),
+                                    ("tirePressure", "tirePressureKpa", 1),
+                                    ("transmissionTemp", "transmissionTempC", 1)]:
+            if field in metrics or alias in metrics:
+                value = metric_value(sample, field)
+                metrics[field] = value
+                metrics[alias] = value * scale if value is not None else None
+        key = (sample.get("orgId"), vehicle_id, bucket)
         existing = unique.get(key)
         if existing is None:
-            unique[key] = {**sample, "metrics": dict(metrics)}
+            unique[key] = {**sample, "ts": timestamp, "metrics": metrics}
             continue
         merged_metrics = dict(existing.get("metrics") or {})
         merged_metrics.update({k: v for k, v in metrics.items() if v is not None and v != ""})
@@ -131,7 +160,7 @@ def _parse_ts(ts_str) -> Optional[datetime]:
 
 def _window_samples(samples: list[dict], now_ts: datetime, hours: int) -> list[dict]:
     cutoff_ms = now_ts.timestamp() - hours * 3600
-    return [s for s in samples if _parse_ts(s.get("ts")) and _parse_ts(s.get("ts")).timestamp() >= cutoff_ms]
+    return [s for s in samples if _parse_ts(s.get("ts")) and cutoff_ms <= _parse_ts(s.get("ts")).timestamp() <= now_ts.timestamp()]
 
 
 def _stats(values: list[float]) -> dict:
@@ -162,11 +191,8 @@ def _stats(values: list[float]) -> dict:
 
 # Phase 2B: Signals for which temporal acceleration features are computed.
 # Only the highest-importance signals to avoid feature explosion.
-_TEMPORAL_SLOPE_KEYS = [
-    "hubTempFL", "hubTempFR", "hubTempRL", "hubTempRR",
-    "coolantTemp", "oilTemp", "batteryVoltage",
-    "bearingFreqScore", "dpfSootLoad", "turboBearingTemp",
-]
+from .feature_contract import TEMPORAL_KEYS, temporal_acceleration, elapsed_delta
+_TEMPORAL_SLOPE_KEYS = TEMPORAL_KEYS
 
 
 def _temporal_acceleration(values: list[float]) -> Optional[float]:
@@ -314,7 +340,7 @@ def _multivariate_stress(values_by_metric: dict[str, list[float]]) -> dict:
     return results
 
 
-def extract_features(samples: list[dict], vehicle_meta: Optional[dict] = None) -> dict:
+def extract_features(samples: list[dict], vehicle_meta: Optional[dict] = None, lag_samples: Optional[list[dict]] = None) -> dict:
     """
     Extract a rich feature vector from telemetry samples.
 
@@ -332,6 +358,9 @@ def extract_features(samples: list[dict], vehicle_meta: Optional[dict] = None) -
     def safe_ts(s):
         t = _parse_ts(s.get("ts"))
         return t.timestamp() if t else 0
+    samples = [s for s in samples if _parse_ts(s.get("ts")) is not None]
+    if not samples:
+        return {"available": False}
     sorted_samples = sorted(samples, key=safe_ts)
     latest = sorted_samples[-1]
     now_ts = _parse_ts(latest.get("ts")) or datetime.now(timezone.utc)
@@ -344,12 +373,20 @@ def extract_features(samples: list[dict], vehicle_meta: Optional[dict] = None) -
         all_vals = [metric_value(s, key) for s in sorted_samples]
         all_vals = [v for v in all_vals if v is not None]
         all_metric_values[key] = all_vals
-        key_stats = {"all": _stats(all_vals)}
+        from .feature_contract import temporal_slope
+        def observed_stats(observations):
+            values = [metric_value(s, key) for s in observations]
+            result = _stats([v for v in values if v is not None])
+            result["legacy_sample_slope"] = result["slope"]
+            result["slope"] = temporal_slope([(s.get("ts"), metric_value(s, key)) for s in observations])
+            result["slopeUnit"] = "sensor_unit/hour"
+            return result
+        key_stats = {"all": observed_stats(sorted_samples)}
         for h in WINDOW_HOURS:
             w_samples = _window_samples(sorted_samples, now_ts, h)
             w_vals = [metric_value(s, key) for s in w_samples]
             w_vals = [v for v in w_vals if v is not None]
-            key_stats[f"h{h}"] = _stats(w_vals)
+            key_stats[f"h{h}"] = observed_stats(w_samples)
         window_stats[key] = key_stats
 
     # Current values from latest sample
@@ -362,14 +399,12 @@ def extract_features(samples: list[dict], vehicle_meta: Optional[dict] = None) -
     coolant_h24 = window_stats.get("coolantTemp", {}).get("h24", {})
     coolant_h720 = window_stats.get("coolantTemp", {}).get("h720", {})  # 720h = 30 days
     current_metrics["coolantTempOscillation"] = coolant_h24.get("std")
-    if coolant_h24.get("mean") is not None and coolant_h720.get("mean") is not None:
-        current_metrics["engineTempDelta30d"] = round(coolant_h24["mean"] - coolant_h720["mean"], 4)
-    else:
-        current_metrics["engineTempDelta30d"] = None
+    current_metrics["engineTempDelta30d"] = elapsed_delta(
+        [(s.get("ts"), metric_value(s, "coolantTemp")) for s in [*(lag_samples or []), *sorted_samples]], now_ts)
     # idle_heat_soak has no real-telemetry equivalent yet — nothing in
     # window_stats/METRIC_KEYS tracks idle duration or idle-specific heat
     # buildup (duty_cycle_score below measures hard-use time, not idle time).
-    # Left unset (Stage 2 falls back to 0.0) rather than guessing at a proxy.
+    # Left missing (Stage 2 receives NaN), not a fabricated zero heat-soak value.
 
     # Duty cycle and density
     duty_cycle = _duty_cycle_score(sorted_samples[-500:] if len(sorted_samples) > 500 else sorted_samples)
@@ -426,11 +461,14 @@ def extract_features(samples: list[dict], vehicle_meta: Optional[dict] = None) -
 
     # Phase 2B: temporal acceleration features for key signals
     for tkey in _TEMPORAL_SLOPE_KEYS:
-        h24_vals = [metric_value(s, tkey)
-                    for s in _window_samples(sorted_samples, now_ts, 24)]
-        h24_vals = [v for v in h24_vals if v is not None]
-        accel = _temporal_acceleration(h24_vals)
-        flat[f"{tkey}_accel_h24"] = accel if accel is not None else 0.0
+        points = [(s.get("ts"), metric_value(s, tkey))
+                  for s in _window_samples(sorted_samples, now_ts, 24)]
+        flat[f"{tkey}_accel_h24"] = temporal_acceleration(points, now_ts)
+
+    from .feature_contract import DELTA_FEATURES
+    for feature, metric in DELTA_FEATURES.items():
+        flat[feature] = elapsed_delta(
+            [(s.get("ts"), metric_value(s, metric)) for s in [*(lag_samples or []), *sorted_samples]], now_ts)
 
     # Vehicle meta
     if vehicle_meta:
@@ -457,5 +495,5 @@ def build_numpy_feature_row(flat: dict[str, Optional[float]], feature_keys: list
     row = []
     for k in feature_keys:
         v = flat.get(k)
-        row.append(float(v) if v is not None else 0.0)
+        row.append(float(v) if v is not None else float("nan"))
     return np.array(row, dtype=np.float32)

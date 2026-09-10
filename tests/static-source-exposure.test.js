@@ -10,5 +10,6 @@ for (const directory of ["backend", "db", "deploy", "docs", "prisma", "telemetry
 }
 assert(source.includes("PUBLIC_ROOT_FILES"), "public root files must use an explicit allowlist");
 assert(/app\.get\("\/admin\/debug\.html", requireSuperAdmin/.test(source), "admin diagnostics must require superadmin access");
+assert(/app\.get\("\/index\.html"[\s\S]*?res\.redirect\(301, "\/"\)/.test(source), "legacy index.html links must redirect to the canonical homepage");
 
 console.log("Static source exposure tests passed");

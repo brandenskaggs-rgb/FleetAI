@@ -83,8 +83,9 @@ function rowToSample(row) {
   };
 }
 
-async function getSamplesForVehicle(vehicleId, { limit = 5000, since = null } = {}) {
-  const where = { vehicleId };
+async function getSamplesForVehicle(vehicleId, { limit = 5000, since = null, orgId } = {}) {
+  if (!orgId) throw new Error("Organization scope required for telemetry history");
+  const where = { vehicleId, orgId };
   if (since) where.ts = { gte: toDate(since) };
   const rows = await getPrisma().telemetrySample.findMany({
     where,
@@ -94,33 +95,42 @@ async function getSamplesForVehicle(vehicleId, { limit = 5000, since = null } = 
   return rows.reverse().map(rowToSample);
 }
 
-async function getSampleCountForVehicle(vehicleId) {
-  return getPrisma().telemetrySample.count({ where: { vehicleId } });
+async function getSampleCountForVehicle(vehicleId, orgId) {
+  if (!orgId) throw new Error("Organization scope required for telemetry counts");
+  return getPrisma().telemetrySample.count({ where: { vehicleId, orgId } });
 }
 
 // ─── Model States ─────────────────────────────────────────────────────────────
 
 async function upsertModelState(state) {
-  await ensureVehicleStub(state.vehicleId);
-  const existing = await getPrisma().modelState.findUnique({
-    where: { vehicleId: state.vehicleId },
-    select: { state: true }
-  });
-  const mergedState = Object.assign({}, existing?.state || {}, state);
-  await getPrisma().modelState.upsert({
-    where: { vehicleId: state.vehicleId },
-    update: { orgId: state.orgId || null, state: mergedState },
-    create: { vehicleId: state.vehicleId, orgId: state.orgId || null, state: mergedState }
-  });
+  if (!state.orgId || !state.vehicleId) throw new Error("Organization and vehicle scope required for model state");
+  // Atomic JSONB merge preserves concurrent Python Welford/IF writes. Never
+  // reassign a persisted model to another tenant or create an unowned vehicle.
+  const nodeState = { ...state };
+  // Reads include both engines. Never write a stale copy of Python-owned state.
+  for (const key of ["welford", "learningHistory", "learningBeforeReconciliation",
+    "isolation_forest", "last_running_sample_ts", "updated_at", "stage3History", "reviewCandidate"]) delete nodeState[key];
+  const updated = await getPrisma().$executeRaw`
+    INSERT INTO "ModelState" ("vehicleId", "orgId", "state", "updatedAt")
+    SELECT ${state.vehicleId}, ${state.orgId}, ${JSON.stringify(nodeState)}::jsonb, now()
+    WHERE EXISTS (SELECT 1 FROM "Vehicle" WHERE "vehicleId"=${state.vehicleId} AND "orgId"=${state.orgId})
+    ON CONFLICT ("vehicleId") DO UPDATE SET
+      "state"=COALESCE("ModelState"."state", '{}'::jsonb) || EXCLUDED."state",
+      "updatedAt"=now()
+    WHERE "ModelState"."orgId"=EXCLUDED."orgId"
+  `;
+  if (!updated) throw new Error("Vehicle model state ownership mismatch");
 }
 
-async function getModelState(vehicleId) {
-  const row = await getPrisma().modelState.findUnique({ where: { vehicleId } });
+async function getModelState(vehicleId, orgId) {
+  if (!orgId) throw new Error("Organization scope required for model state");
+  const row = await getPrisma().modelState.findFirst({ where: { vehicleId, orgId } });
   return row ? row.state : null;
 }
 
-async function getAllModelStates() {
-  const rows = await getPrisma().modelState.findMany({ orderBy: { updatedAt: "desc" } });
+async function getAllModelStates(orgId, { allowAll = false } = {}) {
+  if (!orgId && !allowAll) throw new Error("Organization scope required for model states");
+  const rows = await getPrisma().modelState.findMany({ where: orgId ? { orgId } : {}, orderBy: { updatedAt: "desc" } });
   return rows.map((r) => Object.assign({}, r.state || {}, {
     vehicleId: r.state?.vehicleId || r.vehicleId,
     orgId: r.state?.orgId || r.orgId || null
@@ -271,9 +281,10 @@ async function insertAiReport(report) {
   return id;
 }
 
-async function getLatestAiReport(vehicleId) {
+async function getLatestAiReport(vehicleId, orgId) {
+  if (!orgId) throw new Error("Organization scope required for AI reports");
   const row = await getPrisma().aiReport.findFirst({
-    where: { vehicleId },
+    where: { vehicleId, orgId },
     orderBy: { createdAt: "desc" }
   });
   if (!row) return null;
@@ -459,8 +470,8 @@ async function findMlBaselineProfile({ make, model, vehicleClass } = {}) {
 // ─── ML Prediction Runs ───────────────────────────────────────────────────────
 
 async function insertMlPredictionRun(run = {}) {
+  await requireMlVehicleOwner(run.vehicleId, run.orgId);
   const id = run.id || makeId("MLRUN");
-  await ensureVehicleStub(run.vehicleId);
   await getPrisma().mlPredictionRun.create({
     data: {
       id,
@@ -482,8 +493,15 @@ async function insertMlPredictionRun(run = {}) {
 // ─── ML Feature Snapshots ─────────────────────────────────────────────────────
 
 async function insertMlFeatureSnapshot(snapshot = {}) {
+  await requireMlVehicleOwner(snapshot.vehicleId, snapshot.orgId);
+  if (snapshot.predictionRunId) {
+    const run = await getPrisma().mlPredictionRun.findFirst({
+      where: { id: snapshot.predictionRunId, orgId: snapshot.orgId, vehicleId: snapshot.vehicleId },
+      select: { id: true }
+    });
+    if (!run) throw new Error("Prediction run ownership mismatch");
+  }
   const id = snapshot.id || makeId("MLFEAT");
-  await ensureVehicleStub(snapshot.vehicleId);
   await getPrisma().mlFeatureSnapshot.create({
     data: {
       id,
@@ -498,6 +516,14 @@ async function insertMlFeatureSnapshot(snapshot = {}) {
 }
 
 // ─── Vehicles ─────────────────────────────────────────────────────────────────
+
+async function requireMlVehicleOwner(vehicleId, orgId) {
+  if (!vehicleId || !orgId) throw new Error("Vehicle and organization scope required");
+  const vehicle = await getPrisma().vehicle.findFirst({
+    where: { vehicleId, orgId }, select: { vehicleId: true }
+  });
+  if (!vehicle) throw new Error("Prediction vehicle ownership mismatch");
+}
 
 function rowToVehicle(row) {
   return {

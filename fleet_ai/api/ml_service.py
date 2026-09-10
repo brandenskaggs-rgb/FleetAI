@@ -98,14 +98,19 @@ def load_artifacts(force: bool = False) -> None:
     global MODEL, METADATA, PROFILES
     if MODEL is not None and not force:
         return
-    if not MODEL_PATH.exists():
-        MODEL = None
-    else:
+    from backend.app.ml.artifact_registry import configured_registry
+    registry = configured_registry()
+    MODEL = registry.load_active("pretrained") if registry else None
+    if MODEL is None and MODEL_PATH.exists():
         loaded = joblib.load(MODEL_PATH)
         MODEL = loaded if isinstance(loaded, dict) else {"model": loaded, "model_type": "single", "threshold": 0.5}
-    METADATA = _load_json(METADATA_PATH, {})
-    profile_payload = _load_json(PROFILES_PATH, {"profiles": {}})
-    PROFILES = profile_payload.get("profiles", profile_payload if isinstance(profile_payload, dict) else {})
+    if MODEL and MODEL.get("artifactId"):
+        METADATA = MODEL.get("metadata", {})
+        PROFILES = MODEL.get("baseline_profiles", {})
+    else:
+        METADATA = _load_json(METADATA_PATH, {})
+        profile_payload = _load_json(PROFILES_PATH, {"profiles": {}})
+        PROFILES = profile_payload.get("profiles", profile_payload if isinstance(profile_payload, dict) else {})
 
 
 def _norm(value: Any) -> str:
@@ -143,7 +148,6 @@ def resolve_profile(meta: VehicleMeta) -> dict:
     if make:
         candidates.extend([key for key, profile in PROFILES.items() if _norm(profile.get("make")) == make and profile.get("vehicleClass") == vehicle_class])
     candidates.extend([key for key, profile in PROFILES.items() if profile.get("vehicleClass") == vehicle_class])
-    candidates.extend(list(PROFILES.keys()))
     for key in candidates:
         profile = PROFILES.get(key)
         if profile:
@@ -158,7 +162,7 @@ def resolve_profile(meta: VehicleMeta) -> dict:
         "trainingSource": "synthetic_prior_unmatched",
         "modelVersion": METADATA.get("modelVersion", "unknown"),
         "sampleCount": 0,
-        "failureRate": 0.04,
+        "failureRate": None,
         "baselineMetrics": {},
         "subsystemPriors": {},
     }
@@ -318,38 +322,28 @@ def predict(req: PredictRequest):
     if MODEL is None:
         raise HTTPException(status_code=503, detail="model unavailable")
     profile = resolve_profile(req.vehicleMeta)
-    vector = feature_vector(req, profile)
-    features = MODEL.get("features", list(vector.keys()))
-    input_df = pd.DataFrame([{key: vector.get(key, 0) for key in features}])
-    model_type = MODEL.get("model_type", "single")
+    from backend.app.ml.pretrained import PretrainedScorer
+    from backend.app.ml.features import extract_features, coalesce_samples
+    from backend.app.ml.engine_state import select_engine_running_samples
+    from backend.app.ml.feature_contract import validate_features, json_safe
+    if not req.orgId:
+        raise HTTPException(status_code=422, detail="orgId is required")
+    validate_features(MODEL.get("features", []))
+    samples = select_engine_running_samples(coalesce_samples([sample.model_dump() for sample in req.samples]))
+    extracted = extract_features(samples, vehicle_meta=req.vehicleMeta.model_dump(exclude_none=True))
+    if not extracted.get("available"):
+        return {"ok": True, "available": False, "reason": "insufficient_observed_telemetry", "vehicleId": req.vehicleId}
+    scorer = PretrainedScorer()
+    scorer._bundle = MODEL
+    meta = req.vehicleMeta.model_dump(exclude_none=True)
+    vector, input_evidence = scorer.build_input(extracted["current_metrics"], extracted["window_stats"], meta, extracted["flat"])
+    risk_probability = scorer.score(extracted["current_metrics"], extracted["window_stats"], meta, extracted["flat"])
+    if risk_probability is None:
+        raise HTTPException(status_code=503, detail="Model input or artifact incompatible")
     thresholds = MODEL.get("thresholds", {})
-    threshold = float(thresholds.get(req.alertMode, thresholds.get("launch_default", MODEL.get("threshold", 0.5))))
-    if model_type == "ensemble":
-        models = MODEL["models"]
-        rf_weight = float(MODEL.get("rf_weight", 0.5))
-        hgb_weight = float(MODEL.get("hgb_weight", 0.5))
+    threshold = float(thresholds.get(req.alertMode, thresholds.get("launch_default", MODEL.get("threshold", .5))))
 
-        # RF was trained on an imputed + "_was_missing"-flagged matrix (see
-        # fleet_ai/training/fleet_simulation.py _train_from_df); it needs that
-        # same shape here, not the raw feature vector HGB uses. Live scoring is
-        # a single best-effort vector with no actual missing values, so the
-        # indicator flags are always 0 — but the column set still has to match
-        # what RF was fit on, or predict_proba raises/misaligns silently.
-        rf_imputer = MODEL.get("rf_imputer")
-        rf_missingness_cols = MODEL.get("rf_missingness_cols")
-        if build_rf_matrix is not None and rf_imputer is not None and rf_missingness_cols is not None:
-            rf_input_df, _ = build_rf_matrix(input_df, rf_missingness_cols, rf_imputer)
-        else:
-            rf_input_df = input_df
-
-        risk_probability = (rf_weight * float(models["random_forest"].predict_proba(rf_input_df)[0, 1])) + (
-            hgb_weight * float(models["hist_gradient_boosting"].predict_proba(input_df)[0, 1])
-        )
-    else:
-        model = MODEL["model"]
-        risk_probability = float(model.predict_proba(input_df)[0, 1]) if hasattr(model, "predict_proba") else float(model.predict(input_df)[0])
-
-    stage, confidence = confidence_stage(len(req.samples))
+    stage, confidence = "pretrained_prior", min(.3, confidence_stage(len(samples))[1])
     subsystem_priors = profile.get("subsystemPriors", {})
     return {
         "ok": True,
@@ -380,7 +374,8 @@ def predict(req: PredictRequest):
         },
         "topFeatures": top_features(vector, profile, risk_probability),
         "subsystemPriors": subsystem_priors,
-        "featureVector": vector,
+        "featureVector": json_safe(vector),
+        "lineage": {"pretrained": scorer.evidence(), "input": json_safe(input_evidence), "service": "stateless_prior"},
     }
 
 
@@ -389,8 +384,7 @@ def _run_training(args: list[str]) -> dict:
     proc = subprocess.run(cmd, cwd=str(ROOT.parents[0]), capture_output=True, text=True, timeout=3600)
     if proc.returncode != 0:
         raise HTTPException(status_code=500, detail=proc.stderr[-2000:])
-    load_artifacts(force=True)
-    return {"ok": True, "stdout": proc.stdout[-4000:], "status": model_status()}
+    return {"ok": True, "result": "candidate_created_evaluation_required", "activeModelUnchanged": True}
 
 
 @app.post("/retrain/synthetic")

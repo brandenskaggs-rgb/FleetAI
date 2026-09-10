@@ -1,17 +1,19 @@
 const db = require("../db");
+const { protectSessionStream } = require("../middleware/sessionStream");
 const { completeChat, getAiProviderStatus } = require("../services/aiProviderService");
 const { buildAdvisorMessages } = require("../services/advisorConversation");
 const { buildFleetAdvisorContext } = require("../services/advisorContextService");
 const { buildReportArtifact, planAdvisorActions, renderReportHtml, renderReportText } = require("../services/advisorAgentService");
 
 function finiteInRange(value, min, max) {
+  if (value === null || value === undefined || typeof value === "boolean" || String(value).trim() === "") return null;
   const number = Number(value);
   return Number.isFinite(number) && number >= min && number <= max ? number : null;
 }
 
 function gpsPositionFromSnapshot(snapshot, nowMs = Date.now()) {
   if (!snapshot || typeof snapshot !== "object") return null;
-  const meta = snapshot.meta || {};
+  const meta = snapshot.deviceDiagnostics || snapshot.meta || snapshot.raw?.location || {};
   const normalized = snapshot.normalizedMetrics || snapshot.metrics || snapshot.signals || {};
   const vehicle = normalized.vehicle || {};
   const lat = finiteInRange(snapshot.latitude ?? meta.latitude ?? normalized.latitude ?? normalized.lat, -90, 90);
@@ -22,7 +24,7 @@ function gpsPositionFromSnapshot(snapshot, nowMs = Date.now()) {
     1,
     Number.MAX_SAFE_INTEGER
   ) ?? new Date(snapshot.ts || snapshot.timestamp || 0).getTime();
-  if (!Number.isFinite(capturedMs) || capturedMs <= 0) return null;
+  if (!Number.isFinite(capturedMs) || capturedMs <= 0 || capturedMs > nowMs + 30_000) return null;
   const speedMps = finiteInRange(snapshot.locationSpeedMps ?? meta.locationSpeedMps, 0, 100);
   const speedKph = finiteInRange(vehicle.speedKph ?? snapshot.speedKph ?? normalized.speedKph, 0, 320);
   const heading = finiteInRange(snapshot.locationBearingDegrees ?? meta.locationBearingDegrees, 0, 360);
@@ -48,6 +50,7 @@ function registerSolutionRoutes(app, deps) {
     nowIso,
     makeId,
     addAudit,
+    telemetryLatest = new Map(),
     requireEmployeeOrCustomerApi
   } = deps;
 
@@ -161,6 +164,28 @@ function registerSolutionRoutes(app, deps) {
       if (addonId) out[addonId] = Boolean(value);
     });
     return out;
+  }
+
+  for (const [endpoint, model] of [["/api/work-orders", "workOrder"], ["/api/maintenance-logs", "maintenanceLog"]]) {
+    app.get(endpoint, requireEmployeeOrCustomerApi, async (req, res, next) => {
+      try {
+        const orgId = resolveRequestOrgId(req);
+        if (!orgId) return res.status(400).json({ ok: false, error: "orgId required" });
+        const vehicleId = sanitizeString(req.query.vehicleId || "", 80);
+        const records = await db.getPrisma()[model].findMany({
+          where: { orgId, ...(vehicleId ? { vehicleId } : {}) },
+          orderBy: { updatedAt: "desc" },
+          take: 500,
+          include: { vehicle: { select: { unitName: true, orgId: true } } }
+        });
+        // A vehicle may have moved companies. Never expose its new details
+        // through a historical record still associated with the old company.
+        const visible = records.map(({ vehicle, ...record }) => ({
+          ...record, vehicleName: vehicle?.orgId === orgId ? vehicle.unitName : record.vehicleId
+        }));
+        return res.json({ ok: true, data: visible });
+      } catch (error) { next(error); }
+    });
   }
 
   app.get("/api/fleet/addons", requireEmployeeOrCustomerApi, async (req, res, next) => {
@@ -840,9 +865,19 @@ function registerSolutionRoutes(app, deps) {
         }
       }
       const vehicles = data.vehicles.filter((v) => matchesOrg(v, orgId));
-      const positions = vehicles.map((v) => {
+      const positions = (await Promise.all(vehicles.map(async (v) => {
         const vid = v.vehicleId || v.id;
-        const position = latestByVehicle[vid];
+        let position = latestByVehicle[vid];
+        const live = gpsPositionFromSnapshot(telemetryLatest.get(vid));
+        if (live && (!position || live.capturedMs > position.capturedMs)) position = live;
+        if (!position || position.stale) {
+          const samples = await db.getSamplesForVehicle(vid, { limit: 30, orgId });
+          for (const sample of samples) {
+            if (sample.orgId !== orgId) continue;
+            const saved = gpsPositionFromSnapshot(sample);
+            if (saved && (!position || saved.capturedMs > position.capturedMs)) position = saved;
+          }
+        }
         if (!position) return null;
         return {
           vehicleId: vid,
@@ -855,7 +890,7 @@ function registerSolutionRoutes(app, deps) {
           stale: position.stale,
           updatedAt: position.updatedAt
         };
-      }).filter(Boolean);
+      }))).filter(Boolean);
       res.json({ ok: true, data: positions });
     } catch (err) { next(err); }
   });
@@ -949,16 +984,20 @@ function registerSolutionRoutes(app, deps) {
       if (!orgId) return res.status(400).json({ error: "orgId required" });
       data.maintenanceLogs = Array.isArray(data.maintenanceLogs) ? data.maintenanceLogs : [];
       data.recommendations = Array.isArray(data.recommendations) ? data.recommendations : [];
-      const mlScores = Array.isArray(data.mlPredictions) ? data.mlPredictions : [];
+      const mlScores = await db.getAllModelStates(orgId);
       const vehicles = data.vehicles.filter((v) => matchesOrg(v, orgId));
 
       let created = 0;
+      let assessed = 0;
+      let flagged = 0;
       const results = [];
       for (const vehicle of vehicles) {
         const vid = vehicle.vehicleId || vehicle.id;
         const ml = mlScores.find((p) => (p.vehicleId === vid || p.vehicle_id === vid) && matchesOrg(p, orgId));
-        const score = ml ? parseNumberField(ml.healthScore || ml.health_score || ml.score, 100) : null;
+        const score = ml ? finiteInRange(ml.healthScore ?? ml.health_score ?? ml.score, 0, 100) : null;
+        if (score !== null) assessed++;
         if (score !== null && score < 70) {
+          flagged++;
           const existing = data.recommendations.find(
             (r) => matchesOrg(r, orgId) && r.vehicleId === vid && r.status === "open"
           );
@@ -971,11 +1010,11 @@ function registerSolutionRoutes(app, deps) {
               healthScore: score,
               priority: score < 50 ? "critical" : "high",
               recommendation: score < 50
-                ? "Critical health score — immediate inspection required."
-                : "Elevated risk — schedule preventive service within 7 days.",
+                ? "Critical health score. Review the evidence and arrange an inspection."
+                : "Elevated risk. Review the evidence with your maintenance team.",
               serviceType: score < 50 ? "IMMEDIATE_INSPECTION" : "PREVENTIVE_MAINTENANCE",
               status: "open",
-              autoScheduled: true,
+              autoScheduled: false,
               createdAt: nowIso()
             };
             data.recommendations.push(rec);
@@ -985,16 +1024,23 @@ function registerSolutionRoutes(app, deps) {
         }
       }
       if (created > 0) {
-        addAudit(data, "PREDICTIVE_SCHEDULER_RUN", `${created} work orders created`);
+        addAudit(data, "PREDICTIVE_SCHEDULER_RUN", `${created} service recommendations created`);
         await writeData(data);
       }
       res.json({
         ok: true,
         checked: vehicles.length,
+        assessed,
+        unassessed: vehicles.length - assessed,
+        flagged,
         created,
         message: created
-          ? `Auto-scheduled ${created} work order(s) for vehicles with health score below 70.`
-          : "All vehicles within healthy parameters. No new work orders needed.",
+          ? `${created} service recommendation(s) added for review. No service dates were booked.`
+          : assessed === 0
+            ? "No vehicle health scores are available. Fleet condition has not been assessed."
+            : flagged > 0
+              ? "Flagged vehicles already have open recommendations. Review them before scheduling service."
+              : "No assessed vehicles are below the review threshold. This does not confirm mechanical condition.",
         results
       });
     } catch (err) { next(err); }
@@ -1009,6 +1055,10 @@ function registerSolutionRoutes(app, deps) {
       const type = sanitizeString(req.query.type || "full", 20);
       const fromDate = req.query.from ? new Date(sanitizeString(req.query.from, 30)) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
       const toDate = req.query.to ? new Date(sanitizeString(req.query.to, 30)) : new Date();
+      if (/^\d{4}-\d{2}-\d{2}$/.test(String(req.query.to || ""))) toDate.setUTCHours(23, 59, 59, 999);
+      if (!Number.isFinite(fromDate.getTime()) || !Number.isFinite(toDate.getTime()) || fromDate > toDate) {
+        return res.status(400).json({ ok: false, error: "A valid date range with start before end is required." });
+      }
       const inRange = (iso) => { const d = new Date(iso || 0); return d >= fromDate && d <= toDate; };
 
       const dvirRecords = data.dvirRecords.filter((r) => matchesOrg(r, orgId) && inRange(r.submittedAt));
@@ -1093,17 +1143,20 @@ function registerSolutionRoutes(app, deps) {
     try {
       const orgId = sanitizeString(req.customer?.orgId || req.query?.orgId || "", 80);
       if (!orgId) { res.status(400).end(); return; }
+      protectSessionStream(req, res);
       res.set({ "Content-Type": "text/event-stream", "Cache-Control": "no-cache", Connection: "keep-alive" });
       res.flushHeaders();
       res.write(`data: ${JSON.stringify({ type: "connected", orgId })}\n\n`);
-      if (!app._msgClients) app._msgClients = {};
+      if (!app._msgClients) app._msgClients = Object.create(null);
       if (!app._msgClients[orgId]) app._msgClients[orgId] = [];
       app._msgClients[orgId].push(res);
-      req.on("close", () => {
+      const cleanup = () => {
         if (app._msgClients[orgId]) {
           app._msgClients[orgId] = app._msgClients[orgId].filter((c) => c !== res);
         }
-      });
+      };
+      req.on("close", cleanup);
+      res.on?.("close", cleanup);
     } catch (err) { next(err); }
   });
 }

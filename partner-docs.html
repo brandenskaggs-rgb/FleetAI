@@ -6,172 +6,21 @@
   <title>Fleet AI Partner Integration Reference</title>
   <meta name="description" content="Complete technical integration guide for Fleet AI marketplace partners. API reference, webhook setup, and data schemas." />
   <link rel="stylesheet" href="css/fonts.css?v=20260729" />
-  <style>
-    :root {
-      --ink:    #F7F8F9;
-      --text:   #A7B8CC;
-      --muted:  #8FA3BA;
-      --line:   rgba(150,180,215,.16);
-      --bg:     #16212F;
-      --white:  #FFFFFF;
-      --surface: #0E1722;   /* page + card surface (dark) */
-      --surface-2: #16212F;  /* raised card */
-      --blue:   #1F5EFF;
-      --blue-text:#6C9BFF;
-      --warn-wash: rgba(245,166,35,.14);
-      --blue-lt:rgba(31,94,255,.14);
-      --green:  #35C98D;
-      --warn:   #F5A623;
-      --red:    #FF5F52;
-      --navy:   #05080E;
-      --code-bg:#0D1117;
-      --font:   'Archivo', 'Segoe UI', system-ui, sans-serif;
-      --display:'Archivo', 'Segoe UI', system-ui, sans-serif;
-      --mono:   'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-      --syn-kw: #79C0FF;
-      --syn-str:#A5D6A7;
-      --syn-cmt:#8B949E;
-      --syn-fn: #D2A8FF;
-      --syn-prop:#FFA657;
-      --syn-num:#FF7B72;
-      --syn-var:#E6EDF3;
-    }
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html { scroll-behavior: smooth; -webkit-font-smoothing: antialiased; }
-    body { font-family: var(--font); color: var(--text); background: var(--surface); line-height: 1.6; }
-    a { color:var(--blue-text); text-decoration: none; }
-    a:hover { text-decoration: underline; }
-    code { font-family: var(--mono); font-size: .875em; background: var(--blue-lt); color:var(--blue-text); padding: 1px 6px; border-radius: 4px; }
-    h1,h2,h3,h4 { font-family: var(--display); color: var(--ink); }
-
-    /* LAYOUT */
-    .layout { display: grid; grid-template-columns: 260px 1fr; min-height: 100vh; }
-
-    /* SIDEBAR */
-    .sidebar {
-      position: sticky; top: 0; height: 100vh; overflow-y: auto;
-      background: var(--bg); border-right: 1px solid var(--line);
-      padding: 28px 0;
-    }
-    .sidebar__brand {
-      padding: 0 20px 20px; border-bottom: 1px solid var(--line); margin-bottom: 16px;
-    }
-    .sidebar__brand h1 { font-size: 15px; font-weight: 700; color: var(--ink); }
-    .sidebar__brand p  { font-size: 11px; color: var(--muted); margin-top: 2px; }
-    .sidebar__group { margin-bottom: 4px; }
-    .sidebar__group-label {
-      font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;
-      color: var(--muted); padding: 10px 20px 4px;
-    }
-    .sidebar a {
-      display: block; padding: 6px 20px; font-size: 13px; font-weight: 500;
-      color: var(--muted); border-left: 3px solid transparent; transition: all .1s;
-    }
-    .sidebar a:hover { color: var(--ink); text-decoration: none; background: rgba(15,23,42,.04); }
-    .sidebar a.active { color:var(--blue-text); border-left-color:var(--blue-text); background: var(--blue-lt); }
-    .sidebar a.method-link { font-family: var(--mono); font-size: 12px; }
-
-    /* MAIN */
-    .main { padding: 48px 64px 96px; max-width: 860px; }
-
-    /* SECTION */
-    .doc-section { padding-top: 48px; border-top: 1px solid var(--line); margin-top: 48px; }
-    .doc-section:first-child { border-top: none; margin-top: 0; padding-top: 0; }
-    .doc-section h2 { font-size: 26px; font-weight: 700; letter-spacing: -.5px; margin-bottom: 14px; }
-    .doc-section h3 { font-size: 18px; font-weight: 700; letter-spacing: -.3px; margin: 28px 0 10px; }
-    .doc-section p  { font-size: 14px; line-height: 1.75; color: var(--text); margin-bottom: 14px; }
-    .doc-section ul, .doc-section ol { padding-left: 20px; margin-bottom: 14px; }
-    .doc-section li { font-size: 14px; line-height: 1.75; color: var(--text); }
-
-    /* ENDPOINT BLOCK */
-    .endpoint-block { margin: 28px 0; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
-    .endpoint-block__title {
-      display: flex; align-items: center; gap: 12px;
-      padding: 14px 18px; background: var(--bg); border-bottom: 1px solid var(--line);
-    }
-    .endpoint-block__desc { padding: 14px 18px; font-size: 13px; color: var(--muted); border-bottom: 1px solid var(--line); }
-    .endpoint-block__body { padding: 18px; }
-
-    /* METHOD PILLS */
-    .method {
-      display: inline-flex; align-items: center; justify-content: center;
-      height: 22px; padding: 0 8px; border-radius: 5px;
-      font-family: var(--mono); font-size: 11px; font-weight: 800; letter-spacing: .5px;
-      flex-shrink: 0;
-    }
-    .m-get    { background: rgba(37,99,235,.16);  color: #6C9BFF; }
-    .m-post   { background: rgba(5,150,105,.16);  color: #35C98D; }
-    .m-delete { background: rgba(220,38,38,.16);  color: #FF8A80; }
-
-    .path { font-family: var(--mono); font-size: 14px; font-weight: 600; color: var(--ink); }
-
-    /* CODE BLOCKS */
-    .code-block {
-      background: var(--code-bg); border-radius: 10px; overflow: hidden;
-      margin: 14px 0; border: 1px solid rgba(255,255,255,.06);
-    }
-    .code-block__label {
-      padding: 8px 16px; font-size: 11px; font-weight: 600;
-      color: rgba(255,255,255,.64); font-family: var(--mono);
-      background: rgba(255,255,255,.04); border-bottom: 1px solid rgba(255,255,255,.06);
-    }
-    .code-block pre {
-      padding: 18px 20px; font-size: 12.5px; line-height: 1.8;
-      font-family: var(--mono); color: var(--syn-var); overflow-x: auto;
-    }
-    .kw   { color: var(--syn-kw); }
-    .str  { color: var(--syn-str); }
-    .cmt  { color: var(--syn-cmt); }
-    .fn   { color: var(--syn-fn); }
-    .prop { color: var(--syn-prop); }
-    .num  { color: var(--syn-num); }
-    .dim  { color: rgba(255,255,255,.60); }
-
-    /* PARAM TABLE */
-    .param-table { width: 100%; border-collapse: collapse; font-size: 13px; margin: 14px 0; }
-    .param-table th { text-align: left; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); padding: 8px 12px; background: var(--bg); border-bottom: 2px solid var(--line); }
-    .param-table td { padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
-    .param-table tr:last-child td { border-bottom: none; }
-    .param-name { font-family: var(--mono); font-weight: 600; color: var(--ink); font-size: 12px; }
-    .param-req  { font-size: 10px; font-weight: 700; color: #FF8A80; margin-left: 6px; }
-    .param-opt  { font-size: 10px; font-weight: 700; color: var(--muted); margin-left: 6px; }
-    .param-type { font-family: var(--mono); font-size: 11px; color:var(--blue-text); }
-    .param-desc { color: var(--muted); line-height: 1.5; }
-
-    /* ALERT BOXES */
-    .alert { padding: 14px 16px; border-radius: 8px; font-size: 13px; margin: 14px 0; line-height: 1.6; }
-    .alert-info  { background: var(--blue-lt);    border-left: 3px solid var(--blue); color: #6C9BFF; }
-    .alert-warn  { background: var(--warn-wash);           border-left: 3px solid var(--warn); color: #F5C06B; }
-    .alert-green { background: rgba(5,150,105,.08); border-left: 3px solid var(--green); color: #35C98D; }
-
-    /* VALUE TABLE (for enum values etc) */
-    .value-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 14px 0; }
-    .value-item { padding: 10px 14px; border: 1px solid var(--line); border-radius: 8px; }
-    .value-item code { display: block; font-size: 12px; margin-bottom: 4px; }
-    .value-item p { font-size: 12px; color: var(--muted); margin: 0; }
-
-    /* ERROR TABLE */
-    .error-table { width: 100%; border-collapse: collapse; font-size: 13px; margin: 14px 0; }
-    .error-table th { text-align: left; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); padding: 8px 12px; background: var(--bg); border-bottom: 2px solid var(--line); }
-    .error-table td { padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; font-size: 13px; }
-    .error-table tr:last-child td { border-bottom: none; }
-
-    /* RESPONSIVE */
-    @media (max-width: 900px) {
-      .layout { grid-template-columns: 1fr; }
-      .sidebar { position: relative; height: auto; }
-      .main { padding: 32px 24px; }
-    }
-  </style>
+  <link rel="stylesheet" href="/css/public-site.css?v=20260909" />
+<link rel="stylesheet" href="/css/public-docs.css?v=20260909" />
 </head>
-<body>
+<body class="publicDocs">  <header class="publicHeader"><div class="publicContainer publicHeader__row">
+    <a class="publicBrand" href="/" aria-label="Fleet AI home"><img src="/assets/brand/fleet-ai-mark.svg" width="33" height="33" alt="" />Fleet AI</a>
+    <nav class="publicNav" id="publicNav" aria-label="Main navigation"><a href="/product.html">Platform</a><a href="/pricing.html">Pricing</a><a href="/developers.html" aria-current="page">Developers</a><a href="/security.html">Security</a><a href="/about.html">Company</a></nav>
+    <div class="publicActions"><a href="/customer-login.html">Sign in</a><a class="publicButton" href="/request-demo.html">Request a demo</a><button class="publicMenu" id="publicMenu" type="button" aria-label="Open navigation" aria-controls="publicNav" aria-expanded="false"><span></span></button></div>
+  </div></header>
 
 <div class="layout">
 
   <!-- ── SIDEBAR ── -->
   <aside class="sidebar">
     <div class="sidebar__brand">
-      <h1>Fleet AI</h1>
+      <p class="docsTitle">API reference</p>
       <p>Partner Integration Reference</p>
     </div>
 
@@ -229,7 +78,7 @@
       </div>
 
       <h3>How it works</h3>
-      <p>Your platform sends telemetry samples to <code>POST /api/partner/predict</code>. Fleet AI runs your data through a two-stage ML ensemble (Node.js EWMA + Python gradient boosting) and returns a risk probability, diagnosis, and recommended action within ~350ms. You surface that result inside your product.</p>
+      <p>Your platform sends telemetry samples to <code>POST /api/partner/predict</code>. Fleet AI runs your data through the available Node and Python prediction stages and returns a risk probability, diagnosis, and recommended action with processing time dependent on model availability and request size. You surface that result inside your product.</p>
       <p>For fleets of any size, use <code>POST /api/partner/predict/batch</code> to score up to 200 vehicles in a single call. Register a webhook to receive push events when a vehicle's risk crosses a threshold so you don't need to poll.</p>
     </div>
 
@@ -789,8 +638,13 @@ app.<span class="fn">post</span>(<span class="str">'/hooks/fleetai'</span>, (req
     });
   }
 
-  document.querySelector('.main').addEventListener('scroll', updateActive);
+  window.addEventListener('scroll', updateActive, { passive: true });
   updateActive();
 </script>
-</body>
+  <footer class="publicFooter"><div class="publicContainer"><div class="publicFooter__row">
+    <div><a class="publicBrand" href="/"><img src="/assets/brand/fleet-ai-mark.svg" width="33" height="33" alt="" />Fleet AI</a><p>Vehicle signals. Maintenance evidence. Decisions made by your team.</p></div>
+    <nav aria-label="Product links"><strong>Product</strong><a href="/product.html">Platform</a><a href="/pricing.html">Pricing</a><a href="/pilot.html">Pilot program</a><a href="/developers.html">Developers</a></nav>
+    <nav aria-label="Company links"><strong>Company</strong><a href="/about.html">About Fleet AI</a><a href="/security.html">Security</a><a href="/request-demo.html">Contact the team</a></nav>
+    <nav aria-label="Account and legal links"><strong>Access &amp; policies</strong><a href="/customer-login.html">Customer sign in</a><a href="/employee-login.html">Employee sign in</a><a href="/legal/privacy.html">Privacy</a><a href="/legal/terms.html">Terms</a></nav>
+  </div><small>&copy; 2026 Fleet AI. Recommendations support, not replace, qualified inspection and judgment.</small></div></footer><script src="/js/public-site.js?v=20260909"></script></body>
 </html>

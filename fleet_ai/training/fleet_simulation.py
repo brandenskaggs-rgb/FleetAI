@@ -37,8 +37,8 @@ from sklearn.metrics import (accuracy_score, brier_score_loss, f1_score,
                              precision_score, recall_score, roc_auc_score)
 from sklearn.model_selection import GroupShuffleSplit, train_test_split
 
-MODEL_VERSION = "physics-v4.4.0"
-TRAINING_SOURCE = "physics_calibrated_v4"
+MODEL_VERSION = "physics-v5.0.0-candidate"
+TRAINING_SOURCE = "synthetic_physics_v5"
 
 # ── Identity codes ─────────────────────────────────────────────────────────────
 VEHICLE_CLASS_CODES = {
@@ -102,75 +102,8 @@ def _phys(vehicle_class: np.ndarray, key: str) -> np.ndarray:
     return vals[np.clip(code.astype(int), 0, len(vals) - 1)]
 
 # ── Feature columns ────────────────────────────────────────────────────────────
-FEATURE_COLUMNS = [
-    # Vehicle identity
-    "vehicle_class_code", "protocol_code", "make_code", "powertrain_code",
-    "model_year", "odometer_miles", "engine_hours",
-    # Drive cycle context
-    "drive_cycle_phase_code", "time_since_start_min",
-    # Core OBD-II / J1939 sensors (v1-v3)
-    "rpm", "engine_temp", "oil_temp", "transmission_temp",
-    "fuel_pressure", "fuel_rate", "battery_voltage", "vibration",
-    "dpf_soot_load", "brake_temp", "tire_pressure",
-    "ambient_temp_c", "elevation_ft",
-    # Operational profile
-    "payload_ratio", "road_grade_pct", "idle_hours_day",
-    "stop_go_ratio", "long_haul_ratio", "towing_ratio",
-    "maintenance_neglect", "sensor_missing_rate",
-    # 30-day delta features
-    "engine_temp_delta_30d", "fuel_pressure_delta_30d",
-    "battery_voltage_delta_30d", "vibration_delta_30d",
-    "dpf_soot_delta_30d", "brake_temp_delta_30d",
-    # v3 engine features
-    "egr_flow_rate", "coolant_oil_delta", "maf_throttle_ratio",
-    "intake_ambient_delta", "dpf_differential_kpa", "oil_pressure",
-    "fuel_trim_short", "fuel_trim_long", "idle_heat_soak",
-    "throttle_lag_score", "turbo_boost_kpa", "exhaust_back_pressure",
-    "engine_efficiency", "rpm_variance_load_adj", "coolant_temp_oscillation",
-    # v4 — atmosphere & aerodynamics
-    "air_density_kg_m3",        # ISA: altitude + temp corrected
-    "aero_drag_kw",             # 0.5·rho·Cd·A·v³
-    "rolling_resistance_kw",    # Crr·m·g·v (tire inflation + surface)
-    "road_load_kw",             # total tractive power demand
-    "volumetric_efficiency_pct",# charge density vs sea-level reference
-    # v4 — combustion & exhaust
-    "bsfc_g_per_kwh",           # brake-specific fuel consumption (2-D map)
-    "charge_density_ratio",     # ρ/ρ_SL air-density proxy (renamed from lambda_afr)
-    "egt_c",                    # exhaust gas temperature
-    "turbo_outlet_temp_c",      # compressor discharge temperature
-    "scr_inlet_temp_c",         # SCR catalyst inlet (DEF efficiency)
-    "def_consumption_rate_pct", # DEF as % of fuel (diesel only)
-    # v4 — thermal
-    "thermal_lag",              # 0-1 distance from steady-state
-    "heat_soak_delta_c",        # temp rise after key-off (turbo soak)
-    "egr_cooler_fouling",       # thermal resistance buildup (0-1)
-    # v4 — oil / lubrication
-    "oil_viscosity_cst",        # Walther equation at current oil temp
-    "lubrication_regime_index", # Stribeck regime score (1=full film, 0=boundary)
-    "oil_tbn",                  # total base number (10=fresh, 0=depleted)
-    # v4 — bearing & hub
-    "bearing_wear_index",       # L10 life consumed (>1.0 past expected life)
-    "bearing_spall_stage",      # 0=healthy 1=early 2=mid 3=severe
-    "hub_temp_fl_c", "hub_temp_fr_c", "hub_temp_rl_c", "hub_temp_rr_c",
-    # v4 — DPF / emissions
-    "dpf_ash_pct",              # cumulative ash (non-regenerable) %
-    "dpf_in_regen",             # 1 during active forced regen
-    # v4 — battery / electrical
-    "battery_soh_pct",          # Arrhenius aging (100=new)
-    "battery_soc_pct",          # state of charge
-    "alternator_deficit_w",     # electrical load minus alternator output
-    "cranking_voltage_v",       # cold-start voltage sag (Peukert + temp)
-    # v4 — sensor drift / degradation
-    "sensor_coolant_error_c",   # NTC thermistor calibration offset
-    "sensor_maf_error_pct",     # MAF hot-wire fouling drift
-    "sensor_o2_lag_ms",         # O2 sensor response time degradation
-    # Phase 2B — temporal acceleration (d²signal/dt²), matches features.py inference names
-    "hubTempFL_accel_h24", "hubTempFR_accel_h24",
-    "hubTempRL_accel_h24", "hubTempRR_accel_h24",
-    "coolantTemp_accel_h24", "oilTemp_accel_h24",
-    "batteryVoltage_accel_h24", "dpfSootLoad_accel_h24",
-    "bearingFreqScore_accel_h24", "turboBearingTemp_accel_h24",
-]
+from backend.app.ml.feature_contract import PRETRAINED_FEATURES, STAGE2_FEATURES, manifest
+FEATURE_COLUMNS = list(PRETRAINED_FEATURES)
 
 BASELINE_METRICS = [
     "rpm", "engine_temp", "oil_temp", "transmission_temp",
@@ -1266,7 +1199,8 @@ def generate_mixed_fleet_data(
 
     # ── DataFrame ──────────────────────────────────────────────────────────────
     df = pd.DataFrame({
-        "vehicle_id":            [f"SIM-{i:05d}" for i in vehicle_idx],
+        "vehicle_id":            [f"SIM-{seed}-{i:05d}" for i in vehicle_idx],
+        "timestamp": pd.Timestamp("2026-01-01", tz="UTC") + pd.to_timedelta(np.tile(np.arange(steps_per_vehicle), fleet_size) * (24 / observations_per_day), unit="h"),
         "profile_key":           [Profile(a, b, c, d, e).profile_key
                                   for a, b, c, d, e in zip(make, model, vehicle_class, protocol, powertrain)],
         "make": make, "model": model, "vehicle_class": vehicle_class,
@@ -1458,16 +1392,21 @@ def _train_from_df(df: pd.DataFrame, seed: int = 42, calibrate: bool = False) ->
     """
     Train the RF+HGB ensemble.
 
-    calibrate=True: apply isotonic regression Platt scaling on the validation
-    set so output probabilities reflect the real failure base-rate rather than
-    the 50/50 training balance.  Use this with natural-proportion training data.
+    calibrate=True reserves independent synthetic calibration vehicles. This
+    estimates simulation probabilities only, not a real-world failure rate.
     """
-    available_features = [c for c in FEATURE_COLUMNS if c in df.columns]
+    from fleet_ai.training.canonical_inputs import canonical_training_frame
+    from backend.app.ml.evaluation import fit_calibration, metrics as evidence_metrics
+    from backend.app.ml.artifact_registry import training_registry
+    df = canonical_training_frame(df)
+    available_features = list(FEATURE_COLUMNS)
+    if not all(c in df.columns for c in available_features):
+        raise ValueError("Training data does not match canonical feature schema")
     X = df[available_features]
     y = df["failure"]
 
     # Grouped split by vehicle_id prevents same-truck rows leaking across train/test.
-    # Falls back to stratified random split when vehicle_id is absent.
+    # Missing vehicle groups are rejected rather than row-random split.
     val_frac = 0.25 if calibrate else 0.20
     if "vehicle_id" in df.columns:
         groups = df["vehicle_id"].values
@@ -1481,17 +1420,25 @@ def _train_from_df(df: pd.DataFrame, seed: int = 42, calibrate: bool = False) ->
         X_train, X_val = X_dev.iloc[tr_idx], X_dev.iloc[val_idx]
         y_train, y_val = y_dev.iloc[tr_idx], y_dev.iloc[val_idx]
     else:
-        X_dev, X_test, y_dev, y_test = train_test_split(
-            X, y, test_size=0.22, random_state=seed, stratify=y)
-        X_train, X_val, y_train, y_val = train_test_split(
-            X_dev, y_dev, test_size=val_frac, random_state=seed, stratify=y_dev)
+        raise ValueError("Grouped training requires vehicle_id; row-random fallback is disabled")
+
+    # Independent calibration vehicles are reserved before any model selection.
+    cal_groups = df.loc[X_val.index, "vehicle_id"]
+    if calibrate and cal_groups.nunique() >= 2:
+        split_cal = GroupShuffleSplit(n_splits=1, test_size=.4, random_state=seed + 1)
+        select_idx, cal_idx = next(split_cal.split(X_val, y_val, groups=cal_groups))
+        X_cal, y_cal = X_val.iloc[cal_idx], y_val.iloc[cal_idx]
+        X_val, y_val = X_val.iloc[select_idx], y_val.iloc[select_idx]
+    else:
+        X_cal, y_cal = X_val.iloc[:0], y_val.iloc[:0]
+        calibrate = False
 
     # RandomForest can't accept NaN (HistGradientBoosting can, and uses missingness
     # as a native split signal). Build RF's own median-imputed + "_was_missing"
     # indicator matrix via the shared helper (single implementation, also used by
     # both live inference services) so RF keeps that signal explicitly instead of
     # losing it. Imputer is fit on X_train ONLY to avoid leaking val/test stats.
-    missingness_cols = [c for c in BASELINE_METRICS if c in available_features]
+    missingness_cols = list(available_features)
     X_train_rf, rf_imputer = build_rf_matrix(X_train, missingness_cols)
     X_val_rf,  _           = build_rf_matrix(X_val,  missingness_cols, rf_imputer)
     X_test_rf, _           = build_rf_matrix(X_test, missingness_cols, rf_imputer)
@@ -1521,33 +1468,16 @@ def _train_from_df(df: pd.DataFrame, seed: int = 42, calibrate: bool = False) ->
         random_state=seed, n_jobs=-1)
     hgb_model = HistGradientBoostingClassifier(
         max_depth=9, learning_rate=0.045, max_iter=500,
-        l2_regularization=0.06, random_state=seed)
+        l2_regularization=0.06, random_state=seed, early_stopping=False)
     rf_model.fit(X_train_rf, y_train, sample_weight=sample_w)
     hgb_model.fit(X_train, y_train, sample_weight=sample_w)
 
-    # ── Step 1: Per-model isotonic calibrators on first half of val ──────────
-    # Fitting on a subset of val prevents the calibrators from overfitting the
-    # same data used for ensemble-weight search and ensemble calibration below.
-    rf_val_raw   = rf_model.predict_proba(X_val_rf)[:, 1]
-    hgb_val_raw  = hgb_model.predict_proba(X_val)[:, 1]
-    y_val_arr    = y_val.to_numpy()
-    n_half       = len(y_val_arr) // 2
-
+    rf_val_raw = rf_model.predict_proba(X_val_rf)[:, 1]
+    hgb_val_raw = hgb_model.predict_proba(X_val)[:, 1]
+    y_val_arr = y_val.to_numpy()
     rf_calibrator = hgb_calibrator = None
-    if calibrate:
-        rf_calibrator  = IsotonicRegression(out_of_bounds="clip").fit(
-            rf_val_raw[:n_half], y_val_arr[:n_half])
-        hgb_calibrator = IsotonicRegression(out_of_bounds="clip").fit(
-            hgb_val_raw[:n_half], y_val_arr[:n_half])
-        print(f"  Per-model calibrators: {n_half:,} val rows  (pos={y_val_arr[:n_half].mean():.3%})")
-
-    # ── Step 2: Apply per-model calibration to full val set ──────────────────
-    if calibrate:
-        rf_val_cal  = rf_calibrator.predict(rf_val_raw)
-        hgb_val_cal = hgb_calibrator.predict(hgb_val_raw)
-    else:
-        rf_val_cal  = rf_val_raw
-        hgb_val_cal = hgb_val_raw
+    rf_val_cal, hgb_val_cal = rf_val_raw, hgb_val_raw
+    n_half = 0
 
     # ── Step 3: Brier-optimal weight search on second half of val ────────────
     # Weights are chosen to minimize Brier of the calibrated blend, subject to
@@ -1572,27 +1502,16 @@ def _train_from_df(df: pd.DataFrame, seed: int = 42, calibrate: bool = False) ->
     print(f"  Brier-optimal weights:  rf={rf_weight:.2f}  hgb={hgb_weight:.2f}"
           f"  (val-B raw Brier={best_brier_w:.5f})")
 
-    # ── Step 4: Ensemble-level calibrator on full val blended output ─────────
-    # Calibrates the blended probability as a unit.  Tries both isotonic and
-    # Platt (logistic) scaling and keeps whichever scores lower Brier on val.
-    ensemble_calibrator      = None
+    # A fixed calibration method fit ONLY on independent calibration vehicles.
+    ensemble_calibrator = None
     ensemble_calibrator_type = "none"
+    calibration_metadata = {"status": "uncalibrated", "reason": "no_independent_calibration_data", "fieldValidated": False}
     if calibrate:
-        _blend_full = rf_weight * rf_val_cal + hgb_weight * hgb_val_cal
-        _iso   = IsotonicRegression(out_of_bounds="clip").fit(_blend_full, y_val_arr)
-        _platt = LogisticRegression(C=1e4, solver="lbfgs").fit(
-            _blend_full.reshape(-1, 1), y_val_arr)
-        _iso_b   = brier_score_loss(y_val_arr, _iso.predict(_blend_full))
-        _platt_b = brier_score_loss(
-            y_val_arr, _platt.predict_proba(_blend_full.reshape(-1, 1))[:, 1])
-        if _iso_b <= _platt_b:
-            ensemble_calibrator      = _iso
-            ensemble_calibrator_type = "isotonic"
-        else:
-            ensemble_calibrator      = _platt
-            ensemble_calibrator_type = "platt"
-        print(f"  Ensemble calibrator: {ensemble_calibrator_type}"
-              f"  (isotonic={_iso_b:.5f}  platt={_platt_b:.5f}  on val)")
+        X_cal_rf, _ = build_rf_matrix(X_cal, missingness_cols, rf_imputer)
+        raw_cal = (rf_weight * rf_model.predict_proba(X_cal_rf)[:, 1]
+                   + hgb_weight * hgb_model.predict_proba(X_cal)[:, 1])
+        ensemble_calibrator, calibration_metadata = fit_calibration(y_cal, raw_cal, TRAINING_SOURCE, MODEL_VERSION)
+        ensemble_calibrator_type = "isotonic" if ensemble_calibrator is not None else "none"
 
     # ── Step 5: Full inference pipeline helper ────────────────────────────────
     def _pipeline(rf_raw_p: np.ndarray, hgb_raw_p: np.ndarray) -> np.ndarray:
@@ -1649,6 +1568,8 @@ def _train_from_df(df: pd.DataFrame, seed: int = 42, calibrate: bool = False) ->
     }
 
     model_bundle = {
+        "feature_schema": manifest(),
+        "calibration_metadata": calibration_metadata,
         "model_type": "ensemble",
         "models": {"random_forest": rf_model, "hist_gradient_boosting": hgb_model},
         "calibrators": {"random_forest": rf_calibrator, "hist_gradient_boosting": hgb_calibrator},
@@ -1691,6 +1612,7 @@ def _train_from_df(df: pd.DataFrame, seed: int = 42, calibrate: bool = False) ->
 
     # ── Holdout through full calibrated pipeline ──────────────────────────────
     holdout_df    = generate_heavy_duty_data(seed=777)
+    holdout_df = canonical_training_frame(holdout_df)
     holdout_feats = [c for c in available_features if c in holdout_df.columns]
     holdout_X_rf, _ = build_rf_matrix(holdout_df[holdout_feats], missingness_cols, rf_imputer)
     ho_rf_raw  = rf_model.predict_proba(holdout_X_rf)[:, 1]
@@ -1804,16 +1726,25 @@ def _train_from_df(df: pd.DataFrame, seed: int = 42, calibrate: bool = False) ->
     # actual column list or feature_importances_ silently misaligns via zip().
     feature_importance = _feature_importances(rf_model, list(X_train_rf.columns), top_n=25)
 
-    model_dir = Path(__file__).resolve().parents[1] / "models"
-    model_dir.mkdir(parents=True, exist_ok=True)
+    registry = training_registry()
+    import uuid
+    model_dir = registry.root / str(uuid.uuid4())
+    model_dir.mkdir(parents=True, exist_ok=False)
 
     metadata = {
+        "featureSchema": manifest(),
+        "calibration": calibration_metadata,
+        "evaluationPartition": "untouched_test",
+        "evidenceMetrics": evidence_metrics(y_test, test_prob, threshold, TRAINING_SOURCE),
         "model_file":      str(model_dir / "fleet_ai_model.pkl"),
         "modelVersion":    MODEL_VERSION,
         "trainingSource":  TRAINING_SOURCE,
         "features":        available_features,
         "featureCount":    len(available_features),
         "rows":            int(len(df)),
+        "trainingFeatureObservedCounts": {name: int(X_train[name].notna().sum()) for name in available_features},
+        "splitRows": {"train": len(X_train), "selection": len(X_val), "calibration": len(X_cal), "test": len(X_test)},
+        "dataSha256": __import__("hashlib").sha256(pd.util.hash_pandas_object(df[["vehicle_id", "timestamp", *available_features, "failure"]], index=False).values.tobytes()).hexdigest(),
         "failure_rate":    round(float(y.mean()), 6),
         "synthetic_accuracy": round(float(accuracy_score(y_test, predictions)), 6),
         "precision":       round(float(precision_score(y_test, predictions, zero_division=0)), 6),
@@ -1830,19 +1761,21 @@ def _train_from_df(df: pd.DataFrame, seed: int = 42, calibrate: bool = False) ->
         "featureImportance": feature_importance,
         "brier_score":     brier,
         "physics_engine":  "v4.4 — ISA/aero/BSFC/thermal/Walther/L10/DPF/Peukert/sensor-drift + isotonic calibration + shared registry",
-        "calibrated":      calibrate,
+        "calibrated":      ensemble_calibrator is not None,
         "notes": (
-            "Physics-informed synthetic priors v4.3. "
-            "v4.2 audit fixes retained. v4.3 adds: "
-            "(5) training/inference vehicle specs unified (mass, engine_kw, Cd, Crr, frontal_m2 now identical); "
-            "(6) grade generator produces realistic downhill grades normal(0.5,2.0) clipped to [-5.5,8.5]%; "
-            "(7) hub bearing omega floor removed — zero speed produces zero friction heat. "
-            "Natural-balance simulation training (approximately 8.5% synthetic failure prevalence) + Platt isotonic calibration. "
-            "Bearing life from field-calibrated L10; DPF from sawtooth regen state machine; "
-            "battery from Peukert + Arrhenius aging; oil from Walther viscosity equation."
+            "Simulation-backed physics priors replayed through the canonical production feature builder. "
+            "Independent synthetic vehicle partitions; calibration status is reported separately. "
+            "L10 bearing-life, DPF regeneration, Peukert/Arrhenius battery aging and Walther oil-viscosity "
+            "models are engineering estimates, not demonstrated field failure accuracy. "
+            "Confirmed real maintenance outcomes and lead-time validation remain required."
         ),
     }
 
+    model_bundle["baseline_profiles"] = profiles
+    identifier = registry.candidate("pretrained", model_bundle, metadata)
+    registry.evaluate(identifier, {"partition": "untouched_test", "evidenceSource": TRAINING_SOURCE, "metrics": metadata["evidenceMetrics"]})
+    metadata["artifactId"] = identifier
+    metadata["status"] = "evaluated_candidate_not_active"
     joblib.dump(model_bundle, model_dir / "fleet_ai_model.pkl")
     df.to_csv(model_dir / "fleet_ai_synthetic_dataset.csv", index=False)
     (model_dir / "fleet_ai_baseline_profiles.json").write_text(
@@ -1882,10 +1815,27 @@ def train_and_save_model(
     _train_from_df(df, seed=seed)
 
 
+def sample_vehicle_histories(frame, row_budget, seed):
+    """Budget whole histories; row sampling would discard temporal evidence."""
+    if row_budget <= 0:
+        raise ValueError("row_budget must be positive")
+    groups = frame["vehicle_id"].unique().copy()
+    np.random.default_rng(seed).shuffle(groups)
+    counts = frame.groupby("vehicle_id").size()
+    selected, rows = [], 0
+    for group in groups:
+        if selected and rows + counts[group] > row_budget:
+            break
+        selected.append(group)
+        rows += counts[group]
+    return frame.loc[frame.vehicle_id.isin(selected)].copy()
+
+
 def run_multi_seed_training(
     n_seeds: int = 20,
     fleet_size: int = 50000,
     sample_per_seed: int = 10000,
+    observations_per_day: int = 1,
 ) -> None:
     """
     Multi-seed training for maximum dataset diversity.
@@ -1897,17 +1847,9 @@ def run_multi_seed_training(
     for i in range(n_seeds):
         seed = i
         print(f"  [{i+1:3d}/{n_seeds}] seed={seed} generating {fleet_size:,} trucks... ", end="", flush=True)
-        df    = generate_mixed_fleet_data(fleet_size=fleet_size, days=45, seed=seed)
-        pos   = df[df["failure"] == 1]
-        neg   = df[df["failure"] == 0]
-        n_pos = min(len(pos), sample_per_seed // 2)
-        n_neg = min(len(neg), sample_per_seed - n_pos)
-        rng   = np.random.default_rng(seed + 9999)
-        sampled = pd.concat([
-            pos.sample(n=n_pos, random_state=int(rng.integers(0, 2**31))),
-            neg.sample(n=n_neg, random_state=int(rng.integers(0, 2**31))),
-        ])
-        print(f"{len(sampled):,} rows (failure={len(pos)/max(len(df),1):.1%})")
+        df = generate_mixed_fleet_data(fleet_size=fleet_size, days=45, seed=seed, observations_per_day=observations_per_day)
+        sampled = sample_vehicle_histories(df, sample_per_seed, seed + 9999)
+        print(f"{len(sampled):,} complete-history rows (synthetic failure={sampled.failure.mean():.1%})")
         all_frames.append(sampled)
         del df
 
@@ -1920,6 +1862,7 @@ def run_calibrated_training(
     n_seeds: int = 30,
     fleet_size: int = 50000,
     sample_per_seed: int = 15000,
+    observations_per_day: int = 1,
 ) -> None:
     """
     Natural-balance + isotonic calibration training.
@@ -1950,14 +1893,12 @@ def run_calibrated_training(
         seed = i + 100  # offset from multi-seed seeds to maximise diversity
         print(f"  [{i+1:3d}/{n_seeds}] seed={seed} generating {fleet_size:,} trucks... ",
               end="", flush=True)
-        df  = generate_mixed_fleet_data(fleet_size=fleet_size, days=45, seed=seed)
+        df = generate_mixed_fleet_data(fleet_size=fleet_size, days=45, seed=seed, observations_per_day=observations_per_day)
         nat_rate = df["failure"].mean()
         # Make vehicle_id globally unique across seeds so grouped splits work correctly
         df["vehicle_id"] = f"S{seed}_" + df["vehicle_id"].astype(str)
         # Proportional sample — preserves natural class ratio
-        n_sample = min(len(df), sample_per_seed)
-        rng = np.random.default_rng(seed + 77777)
-        sampled = df.sample(n=n_sample, random_state=int(rng.integers(0, 2**31)))
+        sampled = sample_vehicle_histories(df, sample_per_seed, seed + 77777)
         print(f"{len(sampled):,} rows (natural failure={nat_rate:.1%})")
         all_frames.append(sampled)
         del df
@@ -1978,18 +1919,7 @@ def generate_stage2_training_data(
     Natural ~0.4% synthetic failure prevalence; injects three FP archetypes:
       sensor_spike, load_stress, prior_artifact.
     """
-    STAGE2_FEATURES_LOCAL = [
-        "stage1_score", "pretrained_score", "if_score", "welford_score",
-        "threshold_score", "dtc_score",
-        "w_pretrained", "w_if", "w_welford", "w_threshold", "w_dtc",
-        "signal_agreement", "fleet_percentile", "mv_stress_max",
-        "sample_count", "welford_confidence", "pretrained_decayed",
-        "has_cooling_dtc", "has_fuel_dtc", "has_electrical_dtc",
-        "has_emissions_dtc", "has_engine_dtc",
-        "diagnosis_urgency", "vehicle_class_code",
-        "ambient_temp", "idle_heat_soak", "coolant_temp_oscillation",
-        "battery_voltage", "engine_temp_delta_30d",
-    ]
+    STAGE2_FEATURES_LOCAL = list(STAGE2_FEATURES)
 
     print(f"Stage 2 data: {n_seeds} seeds x {fleet_size:,} trucks, {sample_per_seed:,}/seed")
     all_rows: list[dict] = []
@@ -2068,14 +1998,15 @@ def generate_stage2_training_data(
             signal_agreement = float(max(0.0, min(1.0, 1.0 - cv)))
 
             vc = str(row.get("vehicle_class", "light_duty_truck"))
-            class_code_map = {"passenger_car": 0, "light_duty_truck": 1,
-                               "cargo_van": 2, "medium_duty": 3, "heavy_duty_j1939": 4}
+            from backend.app.ml.feature_contract import STAGE2_CLASS_CODES as class_code_map
             vehicle_class_code = float(class_code_map.get(vc, 1))
 
             if stage1_score < 0.35 and fp_type == "true_negative":
                 continue
 
             all_rows.append({
+                "vehicle_id": str(row.get("vehicle_id", f"seed-{seed}")),
+                "training_source": "synthetic_proxy_stacking",
                 "stage1_score":      round(stage1_score, 4),
                 "pretrained_score":  round(pretrained_s, 4),
                 "if_score":          round(if_s, 4),
@@ -2114,14 +2045,17 @@ def generate_stage2_training_data(
         del df
 
     out_df    = pd.DataFrame(all_rows)
-    model_dir = Path(__file__).resolve().parents[1] / "models"
-    model_dir.mkdir(parents=True, exist_ok=True)
-    out_path  = model_dir / "fleet_ai_stage2_training.parquet"
+    from backend.app.ml.artifact_registry import training_registry
+    import uuid
+    model_dir = training_registry().root / str(uuid.uuid4())
+    model_dir.mkdir(parents=True, exist_ok=False)
+    out_path = model_dir / "fleet_ai_stage2_training.parquet"
     out_df.to_parquet(out_path, index=False)
     total, pos = len(out_df), int(out_df["label"].sum())
     print(f"\nStage 2: {total:,} rows, {pos:,} positives ({pos/total:.2%})")
     print(f"FP types: {out_df['fp_type'].value_counts().to_dict()}")
     print(f"Saved: {out_path}")
+    return out_df
 
 
 def parse_args() -> argparse.Namespace:
@@ -2155,12 +2089,14 @@ if __name__ == "__main__":
             n_seeds=args.n_seeds if args.n_seeds != 20 else 30,
             fleet_size=args.fleet_size,
             sample_per_seed=args.sample_per_seed if args.sample_per_seed != 10000 else 15000,
+            observations_per_day=args.observations_per_day,
         )
     elif args.multi_seed or args.full:
         run_multi_seed_training(
             n_seeds=200 if args.full else args.n_seeds,
             fleet_size=args.fleet_size,
             sample_per_seed=args.sample_per_seed,
+            observations_per_day=args.observations_per_day,
         )
     else:
         train_and_save_model(

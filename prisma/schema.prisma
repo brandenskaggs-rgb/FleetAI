@@ -273,6 +273,16 @@ model Pairing {
 // TELEMETRY
 // ─────────────────────────────────────────────
 
+model MlLearningObservation {
+  orgId         String
+  vehicleId     String
+  schemaVersion String
+  bucketAt      DateTime
+  observations  Json
+
+  @@id([orgId, vehicleId, schemaVersion, bucketAt])
+}
+
 model TelemetrySample {
   id          String   @id @default(cuid())
   orgId       String?
@@ -288,6 +298,7 @@ model TelemetrySample {
   vehicle Vehicle @relation(fields: [vehicleId], references: [vehicleId])
 
   @@index([vehicleId, ts])
+  @@index([vehicleId, orgId, createdAt, id])
   @@index([orgId])
   @@index([ts])
 }

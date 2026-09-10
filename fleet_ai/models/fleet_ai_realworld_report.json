@@ -2,6 +2,8 @@
   "rows_total": 3,
   "rows_train": 2,
   "rows_test": 1,
+  "validation_status": "insufficient_evidence",
+  "validation_note": "Historical three-row run with one test row. Not evidence of predictive performance. Undefined AUC values are null; no model was retrained.",
   "features": [
     "rpm",
     "engine_temp",
@@ -32,8 +34,8 @@
     "precision": 0.0,
     "recall": 0.0,
     "f1": 0.0,
-    "roc_auc": NaN,
-    "pr_auc": 1.0,
+    "roc_auc": null,
+    "pr_auc": null,
     "confusion_matrix": {
       "tn": 0,
       "fp": 0,
@@ -46,8 +48,8 @@
     "precision": 0.0,
     "recall": 0.0,
     "f1": 0.0,
-    "roc_auc": NaN,
-    "pr_auc": 1.0,
+    "roc_auc": null,
+    "pr_auc": null,
     "confusion_matrix": {
       "tn": 0,
       "fp": 0,
@@ -60,8 +62,8 @@
     "precision": 0.0,
     "recall": 0.0,
     "f1": 0.0,
-    "roc_auc": NaN,
-    "pr_auc": 1.0,
+    "roc_auc": null,
+    "pr_auc": null,
     "confusion_matrix": {
       "tn": 0,
       "fp": 0,
