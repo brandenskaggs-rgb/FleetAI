@@ -73,6 +73,7 @@ class ClassicBluetoothObdTransport : ObdTransport {
     }
 
     override suspend fun sendCommand(command: String): String? = withContext(Dispatchers.IO) {
+        require(ObdReadOnlyPolicy.allows(command)) { "Only supported read-only diagnostic commands are allowed" }
         val out = output ?: return@withContext null
         val inputStream = input ?: return@withContext null
         synchronized(ioLock) {

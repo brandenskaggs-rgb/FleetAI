@@ -1,365 +1,103 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <meta name="google-site-verification" content="8a24_NZt5kcHcmiGCas0EHybUio8yqylwkFceuevzUA" />
-  <title>Fleet AI | Predictive Maintenance Intelligence</title>
-  <meta name="description" content="Fleet AI turns live vehicle telemetry into prioritized maintenance risk, evidence, and service action for modern fleets." />
-  <meta name="robots" content="index, follow" />
-  <link rel="canonical" href="https://fleetaiops.com/" />
-  <meta name="theme-color" content="#07111f" />
-  <link rel="stylesheet" href="css/fonts.css?v=20260821" />
-  <link rel="preload" as="image" href="assets/images/fleetai-highway-hero-poster.webp" />
-  <style>
-    :root {
-      --ink: #07111f;
-      --ink-soft: #17263a;
-      --muted: #5d6b7d;
-      --muted-light: #aab5c5;
-      --paper: #ffffff;
-      --canvas: #f3f6f9;
-      --canvas-blue: #eaf0f7;
-      --line: rgba(7, 17, 31, .11);
-      --line-dark: rgba(255, 255, 255, .16);
-      --blue: #1658c7;
-      --blue-dark: #0d3d91;
-      --amber: #f1a53b;
-      --amber-soft: #fff2dc;
-      --green: #16845b;
-      --red: #d94747;
-      --shadow: 0 22px 60px rgba(4, 17, 35, .14);
-      --font: Archivo, Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-    }
-    * { box-sizing: border-box; }
-    html { scroll-behavior: smooth; }
-    body { margin: 0; color: var(--ink); background: var(--paper); font-family: var(--font); font-size: 16px; line-height: 1.55; -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
-    body.menu-open { overflow: hidden; }
-    a { color: inherit; text-decoration: none; }
-    button, input { font: inherit; }
-    img, video { display: block; max-width: 100%; }
-    h1, h2, h3, p { margin-top: 0; }
-    .container { width: min(1180px, calc(100% - 48px)); margin: 0 auto; }
-
-    .siteHeader { position: fixed; inset: 0 0 auto; z-index: 50; height: 76px; color: #fff; transition: color .25s ease, background .25s ease, box-shadow .25s ease; }
-    .siteHeader.is-scrolled { color: var(--ink); background: rgba(255, 255, 255, .94); box-shadow: 0 1px 0 var(--line); backdrop-filter: blur(16px); }
-    .headerRow { height: 100%; display: flex; align-items: center; gap: 32px; }
-    .brand { display: inline-flex; align-items: center; gap: 11px; flex: 0 0 auto; font-size: 19px; font-weight: 850; letter-spacing: 0; }
-    .brand img { width: 34px; height: 34px; }
-    .brand em { color: var(--amber); font-style: normal; }
-    .siteNav { display: flex; align-items: center; gap: 26px; margin-left: auto; }
-    .siteNav a { color: inherit; font-size: 13px; font-weight: 720; opacity: .86; transition: opacity .2s ease; }
-    .siteNav a:hover, .siteNav a:focus-visible { opacity: 1; }
-    .headerActions { display: flex; align-items: center; gap: 10px; }
-    .signIn { padding: 10px 12px; font-size: 13px; font-weight: 750; }
-    .navToggle { display: none; width: 40px; height: 40px; align-items: center; justify-content: center; color: inherit; background: rgba(255, 255, 255, .1); border: 0; border-radius: 4px; cursor: pointer; }
-    .siteHeader.is-scrolled .navToggle { background: var(--canvas); }
-
-    .btn { display: inline-flex; min-height: 44px; align-items: center; justify-content: center; gap: 9px; padding: 10px 18px; border: 0; border-radius: 4px; font-size: 13px; font-weight: 800; cursor: pointer; transition: transform .2s ease, background .2s ease, color .2s ease, box-shadow .2s ease; }
-    .btn:hover { transform: translateY(-1px); }
-    .btn svg { width: 17px; height: 17px; stroke-width: 2; }
-    .btn.primary { color: #fff; background: var(--blue); box-shadow: 0 12px 28px rgba(22, 88, 199, .24); }
-    .btn.primary:hover { background: var(--blue-dark); }
-    .btn.light { color: var(--ink); background: #fff; box-shadow: 0 12px 34px rgba(0, 0, 0, .22); }
-    .btn.light:hover { background: #f2f5f8; }
-    .btn.text { color: inherit; background: transparent; box-shadow: none; }
-    .btn.text:hover { background: rgba(255, 255, 255, .09); }
-    .siteHeader.is-scrolled .btn.text:hover { background: var(--canvas); }
-
-    .hero { position: relative; height: min(850px, 90svh); min-height: 690px; overflow: hidden; color: #fff; background: #111820; }
-    .heroMedia { position: absolute; inset: 0; overflow: hidden; }
-    .heroMedia video { position: absolute; width: 104%; height: 104%; left: -2%; top: -2%; object-fit: cover; object-position: center 52%; }
-    .heroMedia::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(3, 9, 17, .88) 0%, rgba(3, 9, 17, .67) 43%, rgba(3, 9, 17, .12) 76%), linear-gradient(0deg, rgba(3, 9, 17, .66) 0%, transparent 42%); }
-    .heroBody { position: relative; z-index: 2; height: 100%; display: flex; flex-direction: column; justify-content: center; padding-top: 64px; }
-    .heroCopy { width: min(690px, 63%); }
-    .eyebrow { margin-bottom: 20px; color: #ffd28f; font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 0; text-transform: uppercase; }
-    h1 { max-width: 740px; margin-bottom: 24px; font-size: clamp(48px, 6.2vw, 82px); line-height: .95; letter-spacing: 0; font-weight: 900; }
-    .heroLead { max-width: 640px; margin-bottom: 30px; color: rgba(255, 255, 255, .82); font-size: clamp(17px, 1.6vw, 21px); line-height: 1.48; letter-spacing: 0; }
-    .heroActions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
-    .heroFoot { position: absolute; z-index: 3; left: 0; right: 0; bottom: 0; }
-    .heroFacts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 1px solid var(--line-dark); }
-    .heroFact { min-height: 94px; padding: 21px 22px 17px 0; }
-    .heroFact + .heroFact { padding-left: 22px; border-left: 1px solid var(--line-dark); }
-    .heroFact strong { display: block; margin-bottom: 2px; color: #fff; font-size: 19px; line-height: 1.2; }
-    .heroFact span { color: rgba(255, 255, 255, .64); font-size: 12px; }
-    .videoControl { position: absolute; right: 24px; bottom: 116px; z-index: 5; display: inline-grid; width: 42px; height: 42px; place-items: center; color: #fff; background: rgba(5, 12, 22, .52); border: 0; border-radius: 50%; backdrop-filter: blur(10px); cursor: pointer; }
-    .videoControl svg { width: 18px; height: 18px; fill: currentColor; }
-
-    .section { padding: 118px 0; }
-    .section.compact { padding: 82px 0; }
-    .section.soft { background: var(--canvas); }
-    .section.dark { color: #fff; background: var(--ink); }
-    .sectionLabel { margin-bottom: 16px; color: var(--blue); font-family: var(--mono); font-size: 10px; font-weight: 700; letter-spacing: 0; text-transform: uppercase; }
-    .dark .sectionLabel { color: #78a9ff; }
-    .section h2 { max-width: 780px; margin-bottom: 20px; font-size: clamp(38px, 4.7vw, 62px); line-height: 1; letter-spacing: 0; font-weight: 880; }
-    .sectionIntro { max-width: 700px; margin-bottom: 0; color: var(--muted); font-size: 18px; }
-    .dark .sectionIntro { color: var(--muted-light); }
-
-    .thesisGrid { display: grid; grid-template-columns: minmax(0, .76fr) minmax(520px, 1.24fr); gap: 76px; align-items: start; }
-    .thesisCopy { position: sticky; top: 116px; }
-    .processStep { display: grid; grid-template-columns: 72px 1fr; gap: 20px; padding: 28px 0 32px; border-top: 1px solid var(--line); }
-    .processStep:last-child { border-bottom: 1px solid var(--line); }
-    .processIndex { color: var(--blue); font-family: var(--mono); font-size: 12px; font-weight: 700; }
-    .processStep h3 { margin-bottom: 8px; font-size: 24px; letter-spacing: 0; }
-    .processStep p { margin-bottom: 0; color: var(--muted); font-size: 15px; }
-    .signalTags { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 16px; }
-    .signalTags span { padding: 5px 8px; color: var(--ink-soft); background: var(--canvas-blue); border-radius: 3px; font-family: var(--mono); font-size: 10px; font-weight: 650; }
-
-    .consoleIntro { display: flex; align-items: end; justify-content: space-between; gap: 40px; margin-bottom: 48px; }
-    .consoleIntro .sectionIntro { max-width: 560px; }
-    .console { display: grid; grid-template-columns: 172px minmax(0, 1fr) 252px; min-height: 600px; overflow: hidden; color: var(--ink); background: #f6f8fb; border-radius: 7px; box-shadow: 0 34px 90px rgba(0, 0, 0, .34); }
-    .consoleSide { padding: 22px 14px; background: #fff; }
-    .consoleBrand { display: flex; align-items: center; gap: 8px; margin-bottom: 30px; font-size: 13px; font-weight: 850; }
-    .consoleBrand img { width: 24px; height: 24px; }
-    .consoleGroup { margin: 20px 0 8px; color: #8b98aa; font-family: var(--mono); font-size: 8px; letter-spacing: 0; text-transform: uppercase; }
-    .consoleNav { display: grid; gap: 2px; }
-    .consoleNav span { padding: 8px 9px; color: #4c5d73; border-radius: 3px; font-size: 10px; font-weight: 700; }
-    .consoleNav .active { color: var(--blue-dark); background: #e9f0fd; box-shadow: inset 3px 0 0 var(--blue); }
-    .consoleMain { padding: 20px; min-width: 0; }
-    .consoleTop { display: flex; align-items: center; justify-content: space-between; margin-bottom: 22px; }
-    .consoleTop strong { font-size: 14px; }
-    .consoleTop span { color: #758399; font-size: 10px; }
-    .metricRow { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 14px; }
-    .metric { padding: 14px; background: #fff; border-radius: 4px; box-shadow: 0 4px 12px rgba(26, 45, 72, .05); }
-    .metric label { display: block; margin-bottom: 5px; color: #7d8a9b; font-size: 8px; font-weight: 800; letter-spacing: 0; text-transform: uppercase; }
-    .metric strong { display: block; font-size: 24px; line-height: 1; }
-    .metric small { color: #8491a3; font-size: 8px; }
-    .metric.risk strong { color: var(--red); }
-    .metric.due strong { color: #d77c0a; }
-    .riskTable { padding: 18px; background: #fff; border-radius: 4px; box-shadow: 0 6px 18px rgba(26, 45, 72, .055); }
-    .riskTableHead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
-    .riskTableHead strong { font-size: 13px; }
-    .riskTableHead span { color: #718096; font-size: 9px; }
-    .riskRow { display: grid; grid-template-columns: 1.1fr .7fr 1fr .9fr .66fr; gap: 10px; align-items: center; min-height: 48px; border-top: 1px solid rgba(7, 17, 31, .07); font-size: 9px; }
-    .riskRow.head { min-height: 32px; color: #8491a3; font-size: 7px; font-weight: 800; letter-spacing: 0; text-transform: uppercase; }
-    .unit { font-weight: 800; }
-    .bar { height: 5px; overflow: hidden; background: #edf1f5; border-radius: 6px; }
-    .bar i { display: block; height: 100%; background: var(--amber); border-radius: inherit; }
-    .severity { width: max-content; padding: 3px 7px; color: #9e5a00; background: var(--amber-soft); border-radius: 999px; font-size: 8px; font-weight: 800; }
-    .severity.critical { color: #b82626; background: #ffe8e8; }
-    .consoleLower { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
-    .miniPanel { min-height: 132px; padding: 15px; background: #fff; border-radius: 4px; }
-    .miniPanel strong { display: block; margin-bottom: 15px; font-size: 11px; }
-    .driftLine { display: flex; align-items: end; gap: 7px; height: 58px; }
-    .driftLine i { flex: 1; background: #dce8f9; }
-    .driftLine i:nth-child(1) { height: 32%; }
-    .driftLine i:nth-child(2) { height: 44%; }
-    .driftLine i:nth-child(3) { height: 48%; }
-    .driftLine i:nth-child(4) { height: 62%; background: #ffd18d; }
-    .driftLine i:nth-child(5) { height: 87%; background: var(--red); }
-    .scheduleMini { display: grid; gap: 10px; }
-    .scheduleMini div { display: flex; justify-content: space-between; gap: 10px; color: #526178; font-size: 9px; }
-    .scheduleMini b { color: var(--ink); }
-    .advisorRail { display: flex; flex-direction: column; padding: 22px 18px; background: #fff; }
-    .advisorRail h3 { margin-bottom: 3px; font-size: 15px; }
-    .advisorRail > p { color: #77869a; font-size: 10px; }
-    .advisorSignal { margin-top: 10px; padding: 15px; background: #f2f6fb; border-radius: 4px; }
-    .advisorSignal small { color: #78869a; font-size: 8px; font-weight: 800; text-transform: uppercase; }
-    .advisorSignal strong { display: block; margin: 7px 0; font-size: 12px; }
-    .advisorSignal p { margin-bottom: 0; color: #68778b; font-size: 9px; }
-    .advisorPrompts { display: grid; gap: 7px; margin-top: 16px; }
-    .advisorPrompts span { padding: 9px; color: var(--blue-dark); background: #edf3fd; border-radius: 3px; font-size: 9px; font-weight: 750; }
-    .consoleNote { margin: 20px 0 0; color: rgba(255, 255, 255, .52); font-size: 12px; text-align: right; }
-
-    .platformHead { display: grid; grid-template-columns: 1fr .72fr; gap: 70px; align-items: end; margin-bottom: 58px; }
-    .platformHead p { margin-bottom: 4px; color: var(--muted); font-size: 18px; }
-    .moduleMatrix { border-top: 1px solid var(--line); }
-    .moduleRow { display: grid; grid-template-columns: 210px 1fr; gap: 34px; padding: 27px 0; border-bottom: 1px solid var(--line); }
-    .moduleRow h3 { margin: 3px 0 0; font-size: 17px; letter-spacing: 0; }
-    .moduleList { display: flex; flex-wrap: wrap; gap: 8px 18px; }
-    .moduleList span { position: relative; padding-left: 13px; color: var(--ink-soft); font-size: 13px; font-weight: 650; }
-    .moduleList span::before { content: ""; position: absolute; left: 0; top: .64em; width: 4px; height: 4px; background: var(--blue); }
-
-    .commercial { display: grid; grid-template-columns: 1fr 1fr; gap: 70px; align-items: stretch; }
-    .commercialCopy { padding: 18px 0; }
-    .commercialCopy h2 { max-width: 610px; }
-    .commercialCopy p { max-width: 610px; color: var(--muted); font-size: 18px; }
-    .principles { display: grid; gap: 15px; margin-top: 35px; }
-    .principle { display: grid; grid-template-columns: 30px 1fr; gap: 13px; align-items: start; }
-    .principle svg { width: 20px; color: var(--green); stroke-width: 2.2; }
-    .principle strong { display: block; margin-bottom: 2px; }
-    .principle span { color: var(--muted); font-size: 14px; }
-    .pricePanel { padding: 44px; color: #fff; background: var(--ink); border-radius: 6px; box-shadow: var(--shadow); }
-    .pricePanel .sectionLabel { color: #8eb8ff; }
-    .price { display: flex; align-items: baseline; gap: 10px; margin: 12px 0 20px; }
-    .price strong { font-size: 76px; line-height: 1; letter-spacing: 0; }
-    .price span { max-width: 110px; color: #aab5c5; font-size: 12px; }
-    .pricePanel > p { color: #b5c0ce; }
-    .priceList { display: grid; gap: 0; margin: 26px 0 32px; }
-    .priceList div { display: flex; justify-content: space-between; gap: 18px; padding: 13px 0; border-top: 1px solid rgba(255, 255, 255, .12); font-size: 13px; }
-    .priceList span { color: #aeb9c8; }
-    .priceList strong { text-align: right; }
-
-    .finalCta { position: relative; overflow: hidden; color: #fff; background: #0a1728; }
-    .finalCta::before { content: ""; position: absolute; inset: 0; background: url("assets/images/fleetai-highway-hero-poster.webp") center 55% / cover no-repeat; opacity: .16; }
-    .finalCta::after { content: ""; position: absolute; inset: 0; background: rgba(3, 10, 20, .64); }
-    .finalInner { position: relative; z-index: 2; display: grid; grid-template-columns: 1fr auto; gap: 48px; align-items: end; }
-    .finalInner h2 { margin-bottom: 14px; }
-    .finalInner p { max-width: 650px; margin-bottom: 0; color: #c0cad6; font-size: 17px; }
-    .finalActions { display: flex; gap: 10px; flex-wrap: wrap; }
-
-    footer { padding: 34px 0; background: #050c15; color: #fff; }
-    .footerRow { display: flex; align-items: center; justify-content: space-between; gap: 28px; }
-    .footerBrand { display: grid; gap: 6px; }
-    .footerBrand .brand { font-size: 16px; }
-    .footerBrand small { color: #8794a6; font-size: 11px; }
-    .footerLinks { display: flex; flex-wrap: wrap; gap: 20px; color: #aab4c2; font-size: 12px; }
-    .footerLinks a:hover { color: #fff; }
-    :focus-visible { outline: 3px solid rgba(97, 153, 255, .8); outline-offset: 3px; }
-
-    @media (max-width: 980px) {
-      .container { width: min(100% - 36px, 760px); }
-      .navToggle { display: inline-flex; }
-      .siteNav { position: fixed; inset: 76px 0 0; display: none; align-content: start; gap: 0; padding: 26px 24px; color: var(--ink); background: #fff; }
-      .menu-open .siteNav { display: grid; }
-      .siteNav a { padding: 16px 4px; border-bottom: 1px solid var(--line); font-size: 17px; }
-      .headerActions .signIn, .headerActions .btn.primary { display: none; }
-      .heroCopy { width: min(690px, 78%); }
-      .thesisGrid, .platformHead, .commercial { grid-template-columns: 1fr; }
-      .thesisCopy { position: static; }
-      .console { grid-template-columns: 140px minmax(0, 1fr); }
-      .advisorRail { display: none; }
-      .consoleIntro { align-items: start; flex-direction: column; }
-      .finalInner { grid-template-columns: 1fr; align-items: start; }
-    }
-    @media (max-width: 700px) {
-      .container { width: min(100% - 28px, 560px); }
-      .siteHeader { height: 66px; }
-      .siteNav { inset: 66px 0 0; }
-      .brand { font-size: 16px; }
-      .brand img { width: 30px; height: 30px; }
-      .hero { height: 92svh; min-height: 730px; max-height: 830px; }
-      .heroMedia video { width: 112%; height: 112%; left: -6%; top: -6%; object-position: 61% center; }
-      .heroMedia::after { background: linear-gradient(90deg, rgba(3, 9, 17, .8) 0%, rgba(3, 9, 17, .45) 100%), linear-gradient(0deg, rgba(3, 9, 17, .88) 0%, rgba(3, 9, 17, .1) 78%); }
-      .heroBody { justify-content: flex-start; padding-top: 128px; }
-      .heroCopy { width: 100%; }
-      .eyebrow { margin-bottom: 15px; }
-      h1 { max-width: 500px; font-size: clamp(43px, 13.3vw, 62px); }
-      .heroLead { max-width: 520px; font-size: 16px; }
-      .heroActions .btn { width: 100%; }
-      .heroActions .btn.text { min-height: 38px; }
-      .heroFacts { grid-template-columns: 1fr 1fr; }
-      .heroFact { min-height: 72px; padding: 13px 12px 12px 0; }
-      .heroFact + .heroFact { padding-left: 12px; }
-      .heroFact:nth-child(3) { padding-left: 0; border-left: 0; border-top: 1px solid var(--line-dark); }
-      .heroFact:nth-child(4) { border-top: 1px solid var(--line-dark); }
-      .heroFact strong { font-size: 15px; }
-      .heroFact span { font-size: 10px; }
-      .videoControl { right: 14px; bottom: 164px; }
-      .section { padding: 82px 0; }
-      .section.compact { padding: 66px 0; }
-      .section h2 { font-size: clamp(37px, 11vw, 50px); }
-      .sectionIntro { font-size: 16px; }
-      .thesisGrid { gap: 42px; }
-      .processStep { grid-template-columns: 46px 1fr; gap: 10px; }
-      .processStep h3 { font-size: 21px; }
-      .consoleIntro { margin-bottom: 32px; }
-      .console { display: block; min-height: 0; }
-      .consoleSide { display: none; }
-      .consoleMain { padding: 12px; }
-      .metricRow { grid-template-columns: 1fr 1fr; }
-      .metric { min-height: 92px; }
-      .riskTable { padding: 12px; overflow: hidden; }
-      .riskRow { grid-template-columns: 1.25fr .8fr .72fr; }
-      .riskRow > :nth-child(3), .riskRow > :nth-child(4) { display: none; }
-      .riskRow > :nth-child(5) { display: block; }
-      .consoleLower { grid-template-columns: 1fr; }
-      .consoleNote { text-align: left; }
-      .platformHead { gap: 20px; margin-bottom: 35px; }
-      .moduleRow { grid-template-columns: 1fr; gap: 14px; padding: 24px 0; }
-      .moduleList { gap: 8px 14px; }
-      .pricePanel { padding: 30px 24px; }
-      .price strong { font-size: 66px; }
-      .finalActions, .finalActions .btn { width: 100%; }
-      .footerRow { align-items: flex-start; flex-direction: column; }
-    }
-    @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; } }
-  </style>
-  <link rel="stylesheet" href="/css/public-site.css?v=20260909" />
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta name="google-site-verification" content="8a24_NZt5kcHcmiGCas0EHybUio8yqylwkFceuevzUA" />
+<title>Fleet AI | Predictive Fleet Maintenance</title>
+<meta name="description" content="Connect vehicle signals, physics, and operating history to earlier maintenance decisions. Explore Fleet AI and plan a focused fleet pilot." />
+<link rel="canonical" href="https://fleetaiops.com/" />
+<meta name="theme-color" content="#172225" />
+<link rel="icon" href="/assets/brand/fleet-ai-mark.svg?v=link1" type="image/svg+xml" />
+<link rel="stylesheet" href="/css/fonts.css?v=link1" />
+<link rel="stylesheet" href="/css/public-site.css?v=link1" />
+<link rel="stylesheet" href="/css/link-home.css?v=link1" />
+<link rel="preload" as="image" href="/assets/images/fleetai-highway-hero-poster.webp" />
+<script src="/js/public-site.js?v=link1" defer></script>
+<script src="/js/link-motion.js?v=link1" defer></script>
 </head>
-<body class="publicHome">
-  <header class="publicHeader"><div class="publicContainer publicHeader__row">
-    <a class="publicBrand" href="/" aria-label="Fleet AI home"><img src="/assets/brand/fleet-ai-mark.svg" width="33" height="33" alt="" />Fleet AI</a>
-    <nav class="publicNav" id="publicNav" aria-label="Main navigation"><a href="/product.html">Platform</a><a href="/pricing.html">Pricing</a><a href="/developers.html">Developers</a><a href="/security.html">Security</a><a href="/about.html">Company</a></nav>
-    <div class="publicActions"><a href="/customer-login.html">Sign in</a><a class="publicButton" href="/request-demo.html">Request a demo</a><button class="publicMenu" id="publicMenu" type="button" aria-label="Open navigation" aria-controls="publicNav" aria-expanded="false"><span></span></button></div>
-  </div></header>
+<body class="linkHome">
+<a class="skipLink" href="#main">Skip to content</a>
+<header class="publicHeader"><div class="publicContainer publicHeader__row">
+<a class="publicBrand" href="/" aria-label="Fleet AI home"><img src="/assets/brand/fleet-ai-mark.svg?v=link1" width="32" height="32" alt="" />Fleet AI</a>
+<nav class="publicNav" id="publicNav" aria-label="Main navigation"><a href="/product.html">How it works</a><a href="/pricing.html">Pricing</a><a href="/developers.html">For developers</a><a href="/about.html">Our company</a></nav>
+<div class="publicActions"><a href="/customer-login.html">Sign in</a><a class="publicButton" href="/request-demo.html">Talk to our team</a><button class="publicMenu" id="publicMenu" type="button" aria-label="Open navigation" aria-controls="publicNav" aria-expanded="false"><span></span></button></div>
+</div></header>
+<main id="main">
+<section class="roadHero" aria-labelledby="heroTitle">
+  <div class="roadHero__media" aria-hidden="true">
+    <video id="heroVideo" muted loop playsinline preload="metadata" poster="/assets/images/fleetai-highway-hero-poster.webp"><source src="/assets/video/fleetai-highway-hero.mp4" type="video/mp4" /></video>
+  </div>
+  <div class="publicContainer roadHero__body">
+    <div class="roadHero__copy">
+      <p class="roadHero__category">Predictive fleet maintenance</p>
+      <h1 id="heroTitle">Fleet AI</h1>
+      <p class="roadHero__statement">See the warning.<br />Plan the work.</p>
+      <p class="roadHero__lead">Turn the signals your vehicles already produce into a clearer picture of what needs attention. Before an unexpected stop makes the decision for you.</p>
+      <div class="publicActionsRow"><a class="publicButton white" href="/request-demo.html">See it with your fleet</a><a class="roadHero__explore" href="#prediction">Follow the signals <span aria-hidden="true">&#8595;</span></a></div>
+    </div>
+    <div class="roadHero__foot"><span>Vehicle data. Physical context. Human judgment.</span><button id="videoControl" class="mediaControl" type="button" aria-label="Play background video">Play film</button></div>
+  </div>
+</section>
+<section class="openingNote"><div class="publicContainer"><p>A connected vehicle tells a story.<br /><strong>Make it part of your maintenance plan.</strong></p><span>Built for fleet managers,<br />drivers, and the people in the shop.</span></div></section>
 
-  <main>
-    <section class="hero" aria-labelledby="heroTitle">
-      <div class="heroMedia" aria-hidden="true"><video id="heroVideo" autoplay muted loop playsinline preload="metadata" poster="assets/images/fleetai-highway-hero-poster.webp"><source src="assets/video/fleetai-highway-hero.mp4" type="video/mp4" /></video></div>
-      <div class="container heroBody">
-        <div class="heroCopy">
-          <div class="eyebrow">Fleet reliability intelligence</div>
-          <h1 id="heroTitle">Fleet AI predicts maintenance risk before downtime.</h1>
-          <p class="heroLead">Turn live OBD-II and J1939 signals into vehicle-specific risk, clear evidence, and a maintenance plan your team can act on.</p>
-          <div class="heroActions"><a class="btn light" href="request-demo.html">Start a fleet pilot<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg></a><a class="btn text" href="#prediction">See how prediction works</a></div>
+<section class="signalStory" id="prediction" aria-labelledby="storyTitle">
+  <div class="signalStage">
+    <div class="signalStage__footage" aria-hidden="true"><img src="/assets/images/fleetai-highway-hero-poster.webp" alt="" loading="lazy" /><canvas id="roadFrames"></canvas></div>
+    <div class="signalStage__wash" aria-hidden="true"></div>
+    <div class="publicContainer signalStage__layout">
+      <div class="signalStory__copy">
+        <p class="publicEyebrow" id="storyTitle">From the road to the work order</p>
+        <div class="storyText">
+          <article class="storyChapter is-active" data-chapter="0"><span class="storyStep">01 / Observe</span><h2>Start with what<br />the vehicle knows.</h2><p>RPM. Coolant temperature. Voltage. Available engine signals arrive through a compatible OBD-II or J1939 connection, with timestamps and connection status intact.</p><span class="storyEvidence">Supported signals depend on the vehicle and hardware.</span></article>
+          <article class="storyChapter" data-chapter="1"><span class="storyStep">02 / Understand</span><h2>A reading needs<br />a reference.</h2><p>Physics checks and learned operating history put changes in context. Fleet AI looks for sustained deviation, not just a number crossing a line.</p><span class="storyEvidence">Synthetic priors begin the process. Real history refines it.</span></article>
+          <article class="storyChapter" data-chapter="2"><span class="storyStep">03 / Act</span><h2>Give the shop<br />a better starting point.</h2><p>Review the evidence, prioritize an inspection, and schedule the work. Record what the technician finds so the next recommendation has more context.</p><a class="publicLink" href="/product.html">Explore the maintenance workflow <span aria-hidden="true">&#8599;</span></a></article>
         </div>
       </div>
-      <button class="videoControl" id="videoControl" type="button" aria-label="Pause background video" title="Pause background video"><svg id="pauseIcon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h4v14H7zM13 5h4v14h-4z"/></svg></button>
-      <div class="heroFoot"><div class="container heroFacts" aria-label="Fleet AI facts"><div class="heroFact"><strong>$50</strong><span>per active vehicle / month</span></div><div class="heroFact"><strong>Read-only</strong><span>vehicle network access</span></div><div class="heroFact"><strong>OBD-II + J1939</strong><span>light and heavy-duty telemetry</span></div><div class="heroFact"><strong>Human approved</strong><span>recommendations, not control commands</span></div></div></div>
-    </section>
+      <div class="signalObject" aria-hidden="true"><canvas id="linkFrames"></canvas><img class="signalObject__fallback" src="/assets/brand/fleet-ai-mark.svg?v=link1" alt="" /><div class="objectLabel objectLabel--top">Vehicle signals</div><div class="objectLabel objectLabel--bottom">Maintenance decisions</div></div>
+    </div>
+    <div class="publicContainer storyControls"><div class="storyProgress" aria-hidden="true"><span></span></div><nav aria-label="Prediction story"><button type="button" data-story-target="0" aria-current="step">Observe</button><button type="button" data-story-target="1">Understand</button><button type="button" data-story-target="2">Act</button></nav><button class="storyMotionToggle" id="storyMotionToggle" type="button" aria-pressed="false">Reduce motion</button></div>
+  </div>
+</section>
 
-    <section class="section" id="prediction">
-      <div class="container thesisGrid">
-        <div class="thesisCopy"><div class="sectionLabel">The prediction layer</div><h2>From raw signal to a service decision.</h2><p class="sectionIntro">Fleet AI evaluates how a vehicle behaves under its own load, route, weather, and operating history. The output is a ranked maintenance queue, not another wall of sensor data.</p></div>
-        <div class="process">
-          <article class="processStep"><div class="processIndex">01</div><div><h3>Establish the operating baseline</h3><p>Each unit starts with class and powertrain priors, then calibrates toward its own normal behavior as real telemetry accumulates.</p><div class="signalTags"><span>vehicle class</span><span>engine family</span><span>payload</span><span>duty cycle</span></div></div></article>
-          <article class="processStep"><div class="processIndex">02</div><div><h3>Watch systems move together</h3><p>Temperature, pressure, voltage, load, RPM, fuel, emissions, braking, and motion signals are evaluated as related systems instead of isolated thresholds.</p><div class="signalTags"><span>cooling</span><span>charging</span><span>fuel</span><span>air and brakes</span><span>aftertreatment</span></div></div></article>
-          <article class="processStep"><div class="processIndex">03</div><div><h3>Rank developing risk</h3><p>Physics checks, historical patterns, fault evidence, and data quality combine into a risk score with a component, confidence state, and review window.</p><div class="signalTags"><span>risk probability</span><span>evidence</span><span>confidence</span><span>time window</span></div></div></article>
-          <article class="processStep"><div class="processIndex">04</div><div><h3>Move the finding into maintenance</h3><p>Operators can inspect the evidence, schedule service, coordinate dispatch, and document the outcome so future recommendations improve.</p><div class="signalTags"><span>inspection</span><span>work order</span><span>parts</span><span>service history</span></div></div></article>
-        </div>
+<section class="publicBand workSurface" id="workspace">
+  <div class="publicContainer">
+    <div class="sectionOpening" data-reveal><div><p class="publicEyebrow">The maintenance workspace</p><h2>The right conversation.<br />With the evidence beside it.</h2></div><p>Bring an alert, the vehicle's history, and your next action into the same view. No hunting through disconnected logs.</p></div>
+    <div class="productWorkspace" aria-label="Illustrative maintenance workspace">
+      <div class="workspaceHeader"><div class="workspaceBrand"><img src="/assets/brand/fleet-ai-mark.svg?v=link1" width="24" height="24" alt="" /><strong>Fleet AI</strong><span>Maintenance review</span></div><span class="exampleLabel">Illustrative example</span></div>
+      <div class="workspaceBody">
+        <div class="reviewQueue"><div class="reviewQueue__head"><h3>Review queue</h3><span>Inspection priorities</span></div><div class="reviewTable"><table><thead><tr><th>Vehicle</th><th>Finding</th><th>Next action</th></tr></thead><tbody>
+        <tr class="selected"><td><strong>Unit 204</strong><small>Heavy-duty / Diesel</small></td><td><span class="riskLabel">Review</span><span>Cooling trend has shifted</span></td><td>Inspect cooling system</td></tr>
+        <tr><td><strong>Unit 118</strong><small>Light-duty / Gasoline</small></td><td><span class="riskLabel neutral">Monitor</span><span>Charging variance</span></td><td>Check operating context</td></tr>
+        <tr><td><strong>Unit 306</strong><small>Van / Diesel</small></td><td><span class="riskLabel neutral">Service</span><span>Inspection follow-up</span></td><td>Review technician notes</td></tr></tbody></table></div>
+        <div class="reviewContext"><div><span>Operating context</span><strong>Compare like-for-like conditions.</strong><p>Load, temperature, and recent history help explain what changed.</p></div><div><span>Service planning</span><strong>Assign the next inspection.</strong><p>Keep the finding, work record, and outcome together.</p></div></div></div>
+        <aside class="advisorExample"><div class="advisorExample__title"><img src="/assets/brand/fleet-ai-mark.svg?v=link1" width="22" height="22" alt="" /><h3>Fleet Advisor</h3></div><p class="exampleQuestion">What should we review on Unit 204?</p><p>The cooling trend deserves a closer look. Compare the recent readings with similar operating conditions, then review the cooling system and recent service notes.</p><p>That is an inspection recommendation, not a confirmed diagnosis.</p><a href="/request-demo.html" class="publicLink">See the Advisor in a demo</a></aside>
       </div>
-    </section>
+    </div>
+    <p class="productCaption">Illustrative records, not live fleet data. Fleet AI recommends; your team decides.</p>
+  </div>
+</section>
 
-    <section class="section dark" id="operations">
-      <div class="container">
-        <div class="consoleIntro"><div><div class="sectionLabel">Operations console</div><h2>One queue for the work that protects uptime.</h2></div><p class="sectionIntro">Risk, live signal health, inspection findings, service timing, and AI guidance stay in one operational view.</p></div>
-        <div class="console" role="img" aria-label="Fleet AI operations console showing fleet health, predictive risk, maintenance schedule, and Fleet Advisor">
-          <aside class="consoleSide"><div class="consoleBrand"><img src="assets/brand/fleet-ai-mark.svg" alt="" />Fleet AI</div><div class="consoleGroup">Command</div><div class="consoleNav"><span class="active">Command center</span><span>Risk inbox</span></div><div class="consoleGroup">Signals</div><div class="consoleNav"><span>Live telemetry</span><span>Signal history</span><span>Health index</span></div><div class="consoleGroup">Operations</div><div class="consoleNav"><span>Fleet directory</span><span>Inspections</span><span>Work queue</span><span>Parts</span></div></aside>
-          <div class="consoleMain">
-            <div class="consoleTop"><strong>Maintenance overview</strong><span>Fleet health updated 42 sec ago</span></div>
-            <div class="metricRow"><div class="metric"><label>Fleet health</label><strong>87</strong><small>stable across 46 units</small></div><div class="metric risk"><label>Vehicles at risk</label><strong>3</strong><small>require near-term review</small></div><div class="metric due"><label>Service due</label><strong>6</strong><small>next seven days</small></div><div class="metric"><label>Signal quality</label><strong>98%</strong><small>active data coverage</small></div></div>
-            <div class="riskTable"><div class="riskTableHead"><strong>Predictive risk queue</strong><span>Ranked by urgency and confidence</span></div><div class="riskRow head"><span>Vehicle</span><span>Risk</span><span>System</span><span>Window</span><span>Status</span></div><div class="riskRow"><span class="unit">Unit 2701</span><span><span class="bar"><i style="width:92%"></i></span></span><span>Cooling</span><span>Within 36 hrs</span><span class="severity critical">Critical</span></div><div class="riskRow"><span class="unit">LAM-734</span><span><span class="bar"><i style="width:84%"></i></span></span><span>Air system</span><span>Before next route</span><span class="severity">High</span></div><div class="riskRow"><span class="unit">USX-908</span><span><span class="bar"><i style="width:78%"></i></span></span><span>Charging</span><span>48–72 hrs</span><span class="severity">High</span></div><div class="riskRow"><span class="unit">VAN-118</span><span><span class="bar"><i style="width:64%"></i></span></span><span>Fuel delivery</span><span>Next service</span><span class="severity">Review</span></div></div>
-            <div class="consoleLower"><div class="miniPanel"><strong>Sensor drift · Unit 2701</strong><div class="driftLine"><i></i><i></i><i></i><i></i><i></i></div></div><div class="miniPanel"><strong>Upcoming service</strong><div class="scheduleMini"><div><b>Cooling inspection</b><span>Today · 2.0 hr</span></div><div><b>DPF cleaning</b><span>Tomorrow · 1.5 hr</span></div><div><b>Battery load test</b><span>Friday · 1.0 hr</span></div></div></div></div>
-          </div>
-          <aside class="advisorRail"><h3>Fleet Advisor</h3><p>Grounded in current fleet data</p><div class="advisorSignal"><small>Maintenance recommendation</small><strong>Review Unit 2701 first</strong><p>Cooling variance is sustained across load-adjusted temperature and RPM stability.</p></div><div class="advisorPrompts"><span>Why is this unit high risk?</span><span>Show the supporting signals</span><span>Build this week's service plan</span><span>Summarize open inspection defects</span></div></aside>
-        </div>
-        <p class="consoleNote">Illustrative product view. Recommendations remain subject to operator and technician review.</p>
-      </div>
-    </section>
+<section class="platformBand" id="platform"><div class="publicContainer">
+  <div class="sectionOpening" data-reveal><div><p class="publicEyebrow">31 connected solution areas</p><h2>Built around the work.<br />Not another dashboard to watch.</h2></div><p>Prediction is the starting point. The workspace connects it to vehicles, people, service records, and the cost of keeping a fleet moving.</p></div>
+  <div class="platformIndex">
+  <details open><summary><span>Vehicle intelligence</span><span class="platformCount">6 solution areas</span></summary><div class="platformDetail"><p>Follow the readings, recognize changes, and keep the evidence behind each finding.</p><ul><li>Predictive breakdown risk</li><li>Live telemetry</li><li>Signal history</li><li>Vehicle health scoring</li><li>Diagnostic fault analysis</li><li>Alert management</li></ul></div></details>
+  <details><summary><span>Maintenance operations</span><span class="platformCount">5 solution areas</span></summary><div class="platformDetail"><p>Move from an inspection recommendation to recorded service work.</p><ul><li>Preventative maintenance</li><li>Work orders</li><li>Service logs</li><li>Parts inventory</li><li>Recall tracking</li></ul></div></details>
+  <details><summary><span>Fleet coordination</span><span class="platformCount">6 solution areas</span></summary><div class="platformDetail"><p>Keep vehicles, assignments, and location context connected to the operation.</p><ul><li>Asset tracking</li><li>GPS and geofencing</li><li>Dispatch</li><li>Load management</li><li>Route planning</li><li>Camera context</li></ul></div></details>
+  <details><summary><span>Drivers and inspections</span><span class="platformCount">6 solution areas</span></summary><div class="platformDetail"><p>Record findings and support the people responsible for the vehicle.</p><ul><li>Driver management</li><li>Safety scoring</li><li>Pre- and post-trip inspections</li><li>Compliance review</li><li>Hours-of-service workflows</li><li>ELD integration support</li></ul></div></details>
+  <details><summary><span>Costs and reporting</span><span class="platformCount">4 solution areas</span></summary><div class="platformDetail"><p>Connect maintenance activity to operating costs and useful reports.</p><ul><li>Fuel management</li><li>Expense records</li><li>Fleet analytics</li><li>Audit exports</li></ul></div></details>
+  <details><summary><span>Team workspace</span><span class="platformCount">4 solution areas</span></summary><div class="platformDetail"><p>Give the right people access to the right company context.</p><ul><li>Fleet Advisor</li><li>Document management</li><li>Team roles</li><li>Organization management</li></ul></div></details>
+  </div><p class="publicHint">Available capabilities depend on deployment scope and connected integrations. Compliance workflows are not a claim of ELD certification.</p>
+</div></section>
 
-    <section class="section soft" id="platform">
-      <div class="container">
-        <div class="platformHead"><div><div class="sectionLabel">31 connected solutions</div><h2>A fleet operating system organized around real work.</h2></div><p>Monitoring is only useful when it connects to the people, maintenance, compliance, and cost workflows that follow.</p></div>
-        <div class="moduleMatrix" aria-label="Fleet AI platform modules">
-          <div class="moduleRow"><h3>Prediction and signals</h3><div class="moduleList"><span>Breakdown prediction</span><span>Live telemetry</span><span>Signal history</span><span>Vehicle health</span><span>DTC analysis</span><span>Alert management</span></div></div>
-          <div class="moduleRow"><h3>Service operations</h3><div class="moduleList"><span>Preventative maintenance</span><span>Work orders</span><span>Service logs</span><span>Parts inventory</span><span>Recall management</span></div></div>
-          <div class="moduleRow"><h3>Fleet operations</h3><div class="moduleList"><span>Asset tracking</span><span>GPS and geofencing</span><span>Fleet dispatch</span><span>Load management</span><span>Route optimization</span><span>Dashcam context</span></div></div>
-          <div class="moduleRow"><h3>Drivers and compliance</h3><div class="moduleList"><span>Driver management</span><span>Safety scores</span><span>DVIR and inspections</span><span>DOT status</span><span>Hours of service</span><span>ELD integration</span></div></div>
-          <div class="moduleRow"><h3>Cost intelligence</h3><div class="moduleList"><span>Fuel management</span><span>Expense tracking</span><span>Analytics and reports</span><span>Audit export</span></div></div>
-          <div class="moduleRow"><h3>Workspace intelligence</h3><div class="moduleList"><span>Fleet Advisor</span><span>Document management</span><span>Team and roles</span><span>Multi-organization management</span></div></div>
-        </div>
-      </div>
-    </section>
-
-    <section class="section" id="pilot">
-      <div class="container commercial">
-        <div class="commercialCopy"><div class="sectionLabel">Pilot with evidence</div><h2>Prove the signal on vehicles your team already knows.</h2><p>A Fleet AI pilot compares recommendations against inspections, repairs, service history, and real operating outcomes. The goal is measurable maintenance value, not a polished demo.</p><div class="principles"><div class="principle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg><div><strong>Read-only connection</strong><span>Fleet AI reads supported vehicle signals and does not send control commands to the truck.</span></div></div><div class="principle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg><div><strong>Fleet-specific validation</strong><span>Review prediction quality against the maintenance events and duty cycles that matter to your operation.</span></div></div><div class="principle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg><div><strong>Humans remain in control</strong><span>Fleet AI recommends. Operators, drivers, and qualified technicians decide what action to take.</span></div></div></div></div>
-        <aside class="pricePanel" aria-label="Fleet AI pilot pricing"><div class="sectionLabel">Straightforward pricing</div><div class="price"><strong>$50</strong><span>per active vehicle each month</span></div><p>Start with a focused deployment and expand only when the operational evidence supports it.</p><div class="priceList"><div><span>Platform access</span><strong>31 modules</strong></div><div><span>Vehicle coverage</span><strong>OBD-II and J1939 paths</strong></div><div><span>Prediction state</span><strong>Priors plus fleet calibration</strong></div><div><span>Decision authority</span><strong>Your operation</strong></div></div><a class="btn light" href="pilot.html">Review the pilot program</a></aside>
-      </div>
-    </section>
-
-    <section class="section compact finalCta"><div class="container finalInner"><div><div class="sectionLabel">Bring a real vehicle</div><h2>See what Fleet AI can learn from your operation.</h2><p>Walk through connectivity, telemetry coverage, maintenance workflow, and a practical pilot plan with the Fleet AI team.</p></div><div class="finalActions"><a class="btn light" href="request-demo.html">Book a fleet briefing</a><a class="btn text" href="product.html">Review the platform</a></div></div></section>
-  </main>
-
-  <footer class="publicFooter"><div class="publicContainer"><div class="publicFooter__row">
-    <div><a class="publicBrand" href="/"><img src="/assets/brand/fleet-ai-mark.svg" width="33" height="33" alt="" />Fleet AI</a><p>Vehicle signals. Maintenance evidence. Decisions made by your team.</p></div>
-    <nav aria-label="Product links"><strong>Product</strong><a href="/product.html">Platform</a><a href="/pricing.html">Pricing</a><a href="/pilot.html">Pilot program</a><a href="/developers.html">Developers</a></nav>
-    <nav aria-label="Company links"><strong>Company</strong><a href="/about.html">About Fleet AI</a><a href="/security.html">Security</a><a href="/request-demo.html">Contact the team</a></nav>
-    <nav aria-label="Account and legal links"><strong>Access &amp; policies</strong><a href="/customer-login.html">Customer sign in</a><a href="/employee-login.html">Employee sign in</a><a href="/legal/privacy.html">Privacy</a><a href="/legal/terms.html">Terms</a></nav>
-  </div><small>&copy; 2026 Fleet AI. Recommendations support, not replace, qualified inspection and judgment.</small></div></footer>
-
-  <script src="/js/public-site.js?v=20260909"></script>
+<section class="publicBand proofBand"><div class="publicContainer publicSplit"><div data-reveal><p class="publicEyebrow">What a useful pilot proves</p><h2>Fewer unknowns.<br />Better service decisions.</h2><p>The aim is to reduce avoidable downtime and give maintenance teams time to act. The proof comes from comparing recommendations with actual inspections and repairs.</p><a href="/pilot.html" class="publicLink">Plan the field review <span aria-hidden="true">&#8599;</span></a></div><dl class="publicRows"><div><dt>Did the warning help?</dt><dd>Record whether a recommendation led to a useful finding, a false alarm, or more investigation.</dd></div><div><dt>Was there time to act?</dt><dd>Measure the gap between the first useful warning and the confirmed maintenance outcome.</dd></div><div><dt>Did the work change?</dt><dd>Compare unplanned stops, inspection effort, and service decisions. Do not substitute simulation scores for field results.</dd></div></dl></div></section>
+<section class="pilotClose" id="pilot"><div class="publicContainer"><div><p class="publicEyebrow">Start with a truck your team knows.</p><h2>Bring the vehicle.<br />We will start with the connection.</h2><p>Review your hardware, available signals, and a practical pilot plan. Fleet AI is $50 per active vehicle per month.</p><div class="publicActionsRow"><a class="publicButton" href="/request-demo.html">Talk through your fleet</a><a class="publicLink" href="/pricing.html">View pricing</a></div></div><img src="/assets/brand/fleet-ai-mark.svg?v=link1" alt="" width="260" height="260" loading="lazy" /></div></section>
+</main>
+<footer class="publicFooter"><div class="publicContainer"><div class="publicFooter__row">
+<div><a class="publicBrand" href="/"><img src="/assets/brand/fleet-ai-mark-white.svg?v=link1" width="32" height="32" alt="" />Fleet AI</a><p>Know your fleet.<br />Plan its next service.</p></div>
+<nav aria-label="Fleet maintenance"><strong>Fleet maintenance</strong><a href="/product.html">How it works</a><a href="/pricing.html">Plans &amp; pricing</a><a href="/pilot.html">The pilot program</a><a href="/developers.html">Developer access</a></nav>
+<nav aria-label="About Fleet AI"><strong>About Fleet AI</strong><a href="/about.html">Our company</a><a href="/security.html">Data &amp; security</a><a href="/request-demo.html">Talk to the team</a><a href="/assets/brand/download.html">Brand resources</a></nav>
+<nav aria-label="Account and policies"><strong>Account &amp; policies</strong><a href="/customer-login.html">Customer sign in</a><a href="/employee-login.html">Employee sign in</a><a href="/legal/privacy.html">Privacy notice</a><a href="/legal/terms.html">Terms of service</a></nav>
+</div><small>&copy; 2026 Fleet AI. Recommendations support, not replace, qualified inspection and judgment.</small></div></footer>
 </body>
 </html>

@@ -1,8 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:fillViewport="true">
+<LinearLayout
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
     android:orientation="vertical"
     android:padding="24dp"
     tools:ignore="HardcodedText">
@@ -12,15 +17,16 @@
         android:layout_width="180dp"
         android:layout_height="72dp"
         android:contentDescription="@string/logo_content_description"
-        android:scaleType="centerCrop"
-        android:src="@drawable/fleet_ai_logo" />
+        android:scaleType="fitStart"
+        app:tint="?android:attr/textColorPrimary"
+        android:src="@drawable/fleet_ai_link" />
 
     <TextView
         android:id="@+id/connectTitle"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="12dp"
-        android:text="Connect to Fleet AI Server"
+        android:text="Fleet AI / Connection setup"
         android:textSize="20sp"
         android:textStyle="bold" />
 
@@ -29,7 +35,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
-        android:text="Example: https://your-fleet-ai.up.railway.app" />
+        android:text="Use the server address supplied by your fleet manager." />
 
     <EditText
         android:id="@+id/serverInput"
@@ -87,3 +93,4 @@
         android:layout_marginTop="16dp"
         android:text="Save" />
 </LinearLayout>
+</ScrollView>

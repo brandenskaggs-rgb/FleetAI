@@ -36,7 +36,6 @@ interface DriverRepository {
     suspend fun notifyFleet(message: String)
 
     suspend fun getDiagnosticCodes(): List<DtcCode>
-    suspend fun clearDiagnosticCodes(): Boolean
 
     suspend fun setThemeMode(mode: ThemeMode)
     suspend fun setDemoMode(enabled: Boolean)

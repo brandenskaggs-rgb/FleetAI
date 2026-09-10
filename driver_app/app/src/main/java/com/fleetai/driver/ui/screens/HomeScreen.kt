@@ -68,8 +68,9 @@ fun HomeScreen(
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                FleetBrandMark(modifier = Modifier.width(86.dp).height(48.dp))
+                FleetBrandMark(modifier = Modifier.width(48.dp).height(48.dp))
                 Column(modifier = Modifier.weight(1f)) {
+                    Text("Fleet AI / Today", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text(sessionState.driverName.ifBlank { "Driver workspace" }, style = MaterialTheme.typography.headlineMedium)
                     Text("Vehicle ${sessionState.vehicleId.ifBlank { "--" }}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
@@ -86,12 +87,18 @@ fun HomeScreen(
                         else -> "Pilot only"
                     },
                 "Motion" to if (state.vehicleMoving) "Moving" else "Stopped",
-                "Diagnostics" to state.activeDiagnosticCount.toString()
+                "Fault codes" to state.activeDiagnosticCount.toString()
             ))
             if (state.lastTelemetryAt.isNotBlank()) {
                 Spacer(modifier = Modifier.height(10.dp))
                 Text("Last engine sync: ${state.lastTelemetryAt}", style = MaterialTheme.typography.bodySmall)
             }
+        }
+
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+            ToolButton("Duty status", Icons.Default.CheckCircle, onOpenStatus, Modifier.weight(1f))
+            ToolButton("Fault codes", Icons.Default.Engineering, onOpenDiagnostics, Modifier.weight(1f))
+            ToolButton("Settings", Icons.Default.Settings, onOpenSettings, Modifier.weight(1f))
         }
 
         FleetCard(modifier = Modifier.fillMaxWidth()) {
@@ -198,19 +205,7 @@ fun HomeScreen(
             }
         }
 
-        FleetCard(modifier = Modifier.fillMaxWidth()) {
-            Text("Tools", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
-            Spacer(modifier = Modifier.height(10.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                ToolButton("Status", Icons.Default.CheckCircle, onOpenStatus, Modifier.weight(1f))
-                ToolButton("Diagnostics", Icons.Default.Engineering, onOpenDiagnostics, Modifier.weight(1f))
-            }
-            Spacer(modifier = Modifier.height(10.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                ToolButton("Route", Icons.Default.Route, onOpenRoute, Modifier.weight(1f))
-                ToolButton("Settings", Icons.Default.Settings, onOpenSettings, Modifier.weight(1f))
-            }
-        }
+        ToolButton("Open route", Icons.Default.Route, onOpenRoute, Modifier.fillMaxWidth())
     }
 }
 

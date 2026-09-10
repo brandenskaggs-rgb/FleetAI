@@ -1,9 +1,1 @@
-<svg width="160" height="160" viewBox="0 0 160 160" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
-  <title id="title">Fleet AI mark</title>
-  <desc id="desc">A simple geometric Fleet AI mark made from forward-leaning signal bars.</desc>
-  <rect width="160" height="160" rx="28" fill="#174EA6"/>
-  <path d="M43 42H118L108 58H33L43 42Z" fill="white"/>
-  <path d="M52 70H107L97 86H42L52 70Z" fill="white" fill-opacity=".88"/>
-  <path d="M61 98H96L86 114H51L61 98Z" fill="white" fill-opacity=".76"/>
-  <path d="M100 42H122L86 114H64L100 42Z" fill="#8DB7FF"/>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" role="img" aria-label="Fleet AI"><title>Fleet AI Link</title><path fill="#172225" d="M0 760V220L220 0H760V240H310L240 310V760Z M240 1000H780L1000 780V240H760V690L690 760H240Z"/></svg>

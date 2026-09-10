@@ -284,9 +284,6 @@ class ObdConnectionManager(private val context: Context) {
         ObdParser.parseVin(sendCommand("0902") ?: return@withContext null)
     }
 
-    suspend fun clearDtcs(): Boolean = withContext(Dispatchers.IO) {
-        sendCommand("04") != null
-    }
 
     suspend fun discoverSupportedPids(): Set<String> {
         val supported = mutableSetOf<String>()
@@ -399,6 +396,7 @@ class ObdConnectionManager(private val context: Context) {
     }
 
     private suspend fun sendCommandUnlocked(command: String): String? {
+        require(ObdReadOnlyPolicy.allows(command)) { "Only supported read-only diagnostic commands are allowed" }
         val response = when (activeTransport) {
             Transport.BLE  -> sendCommandBle(command)
             Transport.SPP  -> sendCommandSpp(command)

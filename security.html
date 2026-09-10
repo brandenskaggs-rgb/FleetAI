@@ -6,27 +6,28 @@
   <title>Security and company access | Fleet AI</title>
   <meta name="description" content="How Fleet AI handles company-scoped access, sessions, and connected vehicle data." />
   <link rel="canonical" href="https://fleetaiops.com/security.html" />
-  <link rel="stylesheet" href="/css/fonts.css?v=20260909" />
-  <link rel="stylesheet" href="/css/public-site.css?v=20260909" />
-  <script src="/js/public-site.js?v=20260909" defer></script>
+  <link rel="stylesheet" href="/css/fonts.css?v=link1" />
+  <link rel="stylesheet" href="/css/public-site.css?v=link1" />
+  <script src="/js/public-site.js?v=link1" defer></script>
+<link rel="icon" href="/assets/brand/fleet-ai-mark.svg?v=link1" type="image/svg+xml" />
 </head>
-<body>
+<body class="page-security">
   <header class="publicHeader"><div class="publicContainer publicHeader__row">
-    <a class="publicBrand" href="/" aria-label="Fleet AI home"><img src="/assets/brand/fleet-ai-mark.svg" width="33" height="33" alt="" />Fleet AI</a>
-    <nav class="publicNav" id="publicNav" aria-label="Main navigation"><a href="/product.html">Platform</a><a href="/pricing.html">Pricing</a><a href="/developers.html">Developers</a><a href="/security.html" aria-current="page">Security</a><a href="/about.html">Company</a></nav>
-    <div class="publicActions"><a href="/customer-login.html">Sign in</a><a class="publicButton" href="/request-demo.html">Request a demo</a><button class="publicMenu" id="publicMenu" type="button" aria-label="Open navigation" aria-controls="publicNav" aria-expanded="false"><span></span></button></div>
-  </div></header>
+<a class="publicBrand" href="/" aria-label="Fleet AI home"><img src="/assets/brand/fleet-ai-mark.svg?v=link1" width="32" height="32" alt="" />Fleet AI</a>
+<nav class="publicNav" id="publicNav" aria-label="Main navigation"><a href="/product.html">How it works</a><a href="/pricing.html">Pricing</a><a href="/developers.html">For developers</a><a href="/about.html">Our company</a></nav>
+<div class="publicActions"><a href="/customer-login.html">Sign in</a><a class="publicButton" href="/request-demo.html">Talk to our team</a><button class="publicMenu" id="publicMenu" type="button" aria-label="Open navigation" aria-controls="publicNav" aria-expanded="false"><span></span></button></div>
+</div></header>
 <main id="main">
-<section class="publicHero"><div class="publicContainer"><p class="publicEyebrow">Security</p><h1>Your fleet. Your workspace.</h1><p>Access to company records and connected vehicle data must follow the authenticated account, not a company identifier supplied by a browser.</p></div></section>
+<section class="publicHero"><div class="publicContainer"><p class="publicEyebrow">Security</p><h1>Fleet data security.</h1><p>Access to company records and connected vehicle data must follow the authenticated account, not a company identifier supplied by a browser.</p></div></section>
 <section class="publicBand"><div class="publicContainer publicSplit"><div><h2>Separation starts with identity.</h2><p>Customer access is scoped to an organization. Vehicle data, reports, and Advisor context should stay within that scope. Fleet AI staff access is separate from customer access.</p><p>Security is an ongoing engineering process. This page describes the product's approach, not an independent certification or a guarantee that vulnerabilities cannot exist.</p></div><dl class="publicRows"><div><dt>Account access</dt><dd>Passwords are hashed using bcrypt. Browser authentication uses server-managed sessions instead of storing an authentication token in local storage.</dd></div><div><dt>Company records</dt><dd>Authenticated organization scope is checked on customer requests. A vehicle or driver belonging to another organization is not an authorized reference.</dd></div><div><dt>Connected devices</dt><dd>Pairing associates a device with its company, vehicle, and driver. Keep pairing codes and device credentials private, and revoke access when assignments end.</dd></div><div><dt>Advisor context</dt><dd>Fleet data used for Advisor answers is scoped to the company making the request. Review the privacy notice for information about service providers.</dd></div></dl></div></section>
 <section class="publicBand soft"><div class="publicContainer publicNarrow"><h2>Plan access before the pilot.</h2><p>Identify who needs administrative access, who needs read-only access, and who will manage devices. Agree on the data to collect and the process for removing access when someone leaves.</p><p>Ask the Fleet AI team for current deployment controls, retention arrangements, and any security review your organization requires before sharing production data.</p><div class="publicActionsRow"><a class="publicButton" href="/request-demo.html">Discuss a security review</a><a class="publicLink" href="/legal/privacy.html">Read the privacy notice</a></div></div></section>
 </main>
   <footer class="publicFooter"><div class="publicContainer"><div class="publicFooter__row">
-    <div><a class="publicBrand" href="/"><img src="/assets/brand/fleet-ai-mark.svg" width="33" height="33" alt="" />Fleet AI</a><p>Vehicle signals. Maintenance evidence. Decisions made by your team.</p></div>
-    <nav aria-label="Product links"><strong>Product</strong><a href="/product.html">Platform</a><a href="/pricing.html">Pricing</a><a href="/pilot.html">Pilot program</a><a href="/developers.html">Developers</a></nav>
-    <nav aria-label="Company links"><strong>Company</strong><a href="/about.html">About Fleet AI</a><a href="/security.html">Security</a><a href="/request-demo.html">Contact the team</a></nav>
-    <nav aria-label="Account and legal links"><strong>Access &amp; policies</strong><a href="/customer-login.html">Customer sign in</a><a href="/employee-login.html">Employee sign in</a><a href="/legal/privacy.html">Privacy</a><a href="/legal/terms.html">Terms</a></nav>
-  </div><small>&copy; 2026 Fleet AI. Recommendations support, not replace, qualified inspection and judgment.</small></div></footer>
+<div><a class="publicBrand" href="/"><img src="/assets/brand/fleet-ai-mark-white.svg?v=link1" width="32" height="32" alt="" />Fleet AI</a><p>Know your fleet.<br />Plan its next service.</p></div>
+<nav aria-label="Fleet maintenance"><strong>Fleet maintenance</strong><a href="/product.html">How it works</a><a href="/pricing.html">Plans &amp; pricing</a><a href="/pilot.html">The pilot program</a><a href="/developers.html">Developer access</a></nav>
+<nav aria-label="About Fleet AI"><strong>About Fleet AI</strong><a href="/about.html">Our company</a><a href="/security.html">Data &amp; security</a><a href="/request-demo.html">Talk to the team</a><a href="/assets/brand/download.html">Brand resources</a></nav>
+<nav aria-label="Account and policies"><strong>Account &amp; policies</strong><a href="/customer-login.html">Customer sign in</a><a href="/employee-login.html">Employee sign in</a><a href="/legal/privacy.html">Privacy notice</a><a href="/legal/terms.html">Terms of service</a></nav>
+</div><small>&copy; 2026 Fleet AI. Recommendations support, not replace, qualified inspection and judgment.</small></div></footer>
 
 </body>
 </html>

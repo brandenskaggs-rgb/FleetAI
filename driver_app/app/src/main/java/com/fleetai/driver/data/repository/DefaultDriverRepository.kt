@@ -427,9 +427,6 @@ class DefaultDriverRepository(
         return response.map { DtcCode(it.code.toString(), it.description, it.severity) }
     }
 
-    override suspend fun clearDiagnosticCodes(): Boolean {
-        return false
-    }
 
     override suspend fun setThemeMode(mode: ThemeMode) {
         preferences.setThemeMode(mode)

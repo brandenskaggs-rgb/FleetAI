@@ -63,6 +63,7 @@ const SENSORS = [
   { key: "absoluteLoadPct", path: "engine.absoluteLoadPct", label: "Absolute engine load", unit: "%", spn: null, pid: "0143", group: "engine", normal: null, precision: 1 },
   { key: "ignitionTimingAdvanceDeg", path: "engine.ignitionTimingAdvanceDeg", label: "Ignition timing advance", unit: "°", spn: null, pid: "010E", group: "engine", normal: null, precision: 1 },
   { key: "referenceTorqueNm", path: "engine.referenceTorqueNm", label: "Engine reference torque", unit: "Nm", spn: 544, pid: "0163", group: "engine", normal: null, precision: 0 },
+  { key: "actualTorquePct", path: "engine.actualTorquePct", label: "ECU actual torque", unit: "%", spn: 513, pid: "0162", group: "engine", normal: null, precision: 1 },
   { key: "driverDemandTorquePct", path: "engine.driverDemandTorquePct", label: "Driver demand torque", unit: "%", spn: 512, pid: "0161", group: "engine", normal: null, precision: 0 },
 
   { key: "stft2", path: "engine.shortTermFuelTrimBank2Pct", label: "Short-term fuel trim B2", unit: "%", spn: null, pid: "0108", group: "fuel", normal: [-10, 10], precision: 1 },

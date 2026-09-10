@@ -7,7 +7,7 @@ const os = require("node:os");
 const http = require("node:http");
 const { chromium } = require("playwright");
 const root = path.resolve(__dirname, "..");
-const pages = ["index.html", "product.html", "pricing.html", "security.html", "about.html", "developers.html", "partner-docs.html", "pilot.html", "request-demo.html", "signup.html", "legal/privacy.html", "legal/terms.html", "customer-login.html", "employee-login.html", "org/reset-password.html", "ui/force-reset.html", "ui/settings/set-password.html"];
+const pages = ["index.html", "product.html", "pricing.html", "security.html", "about.html", "developers.html", "partner-docs.html", "pilot.html", "request-demo.html", "signup.html", "legal/privacy.html", "legal/terms.html", "customer-login.html", "employee-login.html", "org/reset-password.html", "ui/force-reset.html", "ui/settings/set-password.html", "assets/brand/download.html", "admin/setup.html"];
 const types = { ".html": "text/html; charset=utf-8", ".css": "text/css", ".js": "application/javascript", ".svg": "image/svg+xml", ".png": "image/png", ".webp": "image/webp", ".jpg": "image/jpeg", ".woff2": "font/woff2", ".ttf": "font/ttf", ".mp4": "video/mp4" };
 const server = http.createServer(async (req, res) => {
   const pathname = new URL(req.url, "http://localhost").pathname;
@@ -118,6 +118,54 @@ const server = http.createServer(async (req, res) => {
     await page.locator("#signupStatus").filter({ hasText: "Account activated" }).waitFor();
     assert.equal(submissions.at(-1).path, "/api/invites/synthetic-invite/accept");
     assert.equal(submissions.at(-1).body.email, "qa@example.test");
+    // Exercise real scrolling and rendered pixels, not just the reduced-motion layout.
+    await page.emulateMedia({ reducedMotion: "no-preference" });
+    for (const [width, height] of [[1440, 900], [1024, 768], [390, 844]]) {
+      await page.setViewportSize({ width, height });
+      await page.goto(base, { waitUntil: "networkidle" });
+      const heroBottom = await page.locator(".roadHero").evaluate(node => node.getBoundingClientRect().bottom);
+      assert.ok(heroBottom < height, `Hero must reveal the next section at ${width}px`);
+      await page.locator("#heroVideo").evaluate(video => video.pause());
+      await page.screenshot({ path: path.join(output, `link-home-${width}.png`) });
+      let previousPixels = null;
+      for (const [chapter, fraction] of [[0, .08], [1, .5], [2, .91], [0, .1]]) {
+        await page.evaluate(fraction => {
+          const root=document.getElementById("prediction"),stage=root.querySelector(".signalStage");
+          scrollTo({top:scrollY+root.getBoundingClientRect().top-parseFloat(getComputedStyle(stage).top)+(root.offsetHeight-stage.offsetHeight)*fraction,behavior:"instant"});
+        }, fraction);
+        await page.waitForFunction(chapter => document.getElementById("prediction").dataset.stage===String(chapter), chapter);
+        const canvas = chapter===0 ? "roadFrames" : "linkFrames";
+        await page.waitForFunction(({id,minimum}) => Number(document.getElementById(id).dataset.frame)>=minimum, {id:canvas,minimum:chapter===0?8:chapter===1?18:44});
+        assert.equal(await page.locator(".storyChapter").evaluateAll(nodes => nodes.filter(node=>getComputedStyle(node).visibility!=="hidden").length),1,"Chapter transitions must not overlap text");
+        await page.locator(`.storyChapter[data-chapter="${chapter}"]`).evaluate(node=>Promise.all(node.getAnimations().map(animation=>animation.finished)));
+        const pixels=await page.locator(`#${canvas}`).evaluate(node => {
+          const context=node.getContext("2d"),data=context.getImageData(0,0,node.width,node.height).data;
+          let painted=0; for(let i=3;i<data.length;i+=4)if(data[i]>0)painted++;
+          return { painted, frame:node.dataset.frame, digest:node.toDataURL().slice(-4000) };
+        });
+        assert.ok(pixels.painted>100, `${width}px ${canvas} must contain rendered pixels`);
+        if(chapter===2) assert.notEqual(pixels.digest,previousPixels,"Blender frames must change while scrolling");
+        if(chapter===1) previousPixels=pixels.digest;
+        assert.equal(await page.locator(".storyChapter:not([inert])").count(),1,"Only the current motion chapter is interactive");
+        await page.screenshot({path:path.join(output,`link-story-${width}-${chapter}.png`)});
+      }
+      await page.locator('[data-story-target="2"]').click();
+      await page.waitForFunction(()=>document.getElementById("prediction").dataset.stage==="2");
+      await page.locator("#storyMotionToggle").click();
+      assert.equal(await page.locator(".story-enhanced").count(),0,"Reduce motion returns all text to normal document flow");
+      assert.equal(await page.locator(".storyChapter:not([inert])").count(),3);
+      assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
+    }
+    await page.emulateMedia({reducedMotion:"reduce"});
+    await page.reload();
+    assert.equal(await page.locator(".story-enhanced").count(),0);
+    assert.equal(await page.locator("#heroVideo").evaluate(video=>video.paused),true);
+    const noScript=await browser.newContext({javaScriptEnabled:false,viewport:{width:390,height:844}});
+    const staticPage=await noScript.newPage();
+    await staticPage.goto(base);
+    assert.equal(await staticPage.locator(".storyChapter").count(),3);
+    assert.ok(await staticPage.locator('[data-chapter="2"]').isVisible());
+    await noScript.close();
     assert.deepEqual([...new Set(brokenAssets)], [], "no missing public assets");
     assert.deepEqual(errors, [], "no page script exceptions");
     assert.deepEqual(overflow, [], "no horizontal page overflow");

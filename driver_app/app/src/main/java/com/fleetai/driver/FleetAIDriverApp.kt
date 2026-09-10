@@ -1,6 +1,13 @@
 package com.fleetai.driver
 
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.NavigationRail
+import androidx.compose.material3.NavigationRailItem
+import androidx.compose.ui.unit.dp
+import com.fleetai.driver.ui.components.FleetBrandMark
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.ListAlt
@@ -78,9 +85,44 @@ private fun MainScaffold(sessionState: SessionState) {
     )
 
     Surface(color = MaterialTheme.colorScheme.background) {
+      BoxWithConstraints {
+       val wide = maxWidth >= 840.dp
+       Row {
+        if (wide) {
+            NavigationRail(
+                modifier = Modifier.width(120.dp).fillMaxHeight().verticalScroll(rememberScrollState()),
+                containerColor = MaterialTheme.colorScheme.surface,
+                header = {
+                    FleetBrandMark(Modifier.size(42.dp).padding(top = 4.dp))
+                    Text("Fleet AI", style = MaterialTheme.typography.titleMedium)
+                    Spacer(Modifier.height(24.dp))
+                }
+            ) {
+                items.forEach { screen ->
+                    NavigationRailItem(
+                        modifier = Modifier.padding(vertical = 10.dp),
+                        selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true,
+                        onClick = { navController.navigate(screen.route) {
+                            popUpTo(MainRoute.Home) { saveState = true }
+                            launchSingleTop = true
+                            restoreState = screen != MainScreen.Home
+                        } },
+                        icon = { Icon(when (screen) {
+                            MainScreen.Home -> Icons.Default.Home
+                            MainScreen.Logbook -> Icons.Default.ListAlt
+                            MainScreen.Inspections -> Icons.Default.Rule
+                            MainScreen.Sensors -> Icons.Default.Speed
+                            MainScreen.Notifications -> Icons.Default.Notifications
+                        }, contentDescription = null) },
+                        label = { Text(screen.label) }
+                    )
+                }
+            }
+        }
         Scaffold(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.weight(1f).fillMaxSize(),
             bottomBar = {
+              if (!wide) {
                 NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
                     items.forEach { screen ->
                         val selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true
@@ -97,7 +139,7 @@ private fun MainScaffold(sessionState: SessionState) {
                                 navController.navigate(screen.route) {
                                     popUpTo(MainRoute.Home) { saveState = true }
                                     launchSingleTop = true
-                                    restoreState = true
+                                    restoreState = screen != MainScreen.Home
                                 }
                             },
                             icon = { Icon(imageVector = icon, contentDescription = screen.label) },
@@ -112,6 +154,7 @@ private fun MainScaffold(sessionState: SessionState) {
                         )
                     }
                 }
+              }
             }
         ) { padding ->
             MainNavGraph(
@@ -121,5 +164,7 @@ private fun MainScaffold(sessionState: SessionState) {
                 sensorViewModel = sensorViewModel
             )
         }
+       }
+      }
     }
 }

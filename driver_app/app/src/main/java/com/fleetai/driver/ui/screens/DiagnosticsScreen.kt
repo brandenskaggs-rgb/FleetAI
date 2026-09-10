@@ -15,6 +15,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.material3.TextButton
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -31,6 +35,8 @@ fun DiagnosticsScreen(contentPadding: PaddingValues) {
     val message by viewModel.message.collectAsState()
     val apiDiagnostics by viewModel.apiDiagnostics.collectAsState()
     val networkMessage by viewModel.networkMessage.collectAsState()
+    val scanning by viewModel.scanning.collectAsState()
+    var showNetwork by remember { mutableStateOf(false) }
 
     LazyColumn(
         modifier = Modifier
@@ -41,11 +47,11 @@ fun DiagnosticsScreen(contentPadding: PaddingValues) {
     ) {
         item {
             FleetCard(modifier = Modifier.fillMaxWidth()) {
-                Text(text = "Diagnostics", style = MaterialTheme.typography.headlineMedium)
+                Text(text = "Fault codes", style = MaterialTheme.typography.headlineMedium)
+                Text("Read-only diagnostics. Codes cannot be erased from this app.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    FleetButton(text = "Scan", onClick = { viewModel.scan() })
-                    FleetButton(text = "Clear", onClick = { viewModel.clear() })
+                    FleetButton(text = if (scanning) "Reading codes..." else "Read fault codes", onClick = { viewModel.scan() }, enabled = !scanning)
                 }
                 if (message.isNotBlank()) {
                     Spacer(modifier = Modifier.height(8.dp))
@@ -56,7 +62,8 @@ fun DiagnosticsScreen(contentPadding: PaddingValues) {
 
         item {
             FleetCard(modifier = Modifier.fillMaxWidth()) {
-                Text(text = "Network Diagnostics", style = MaterialTheme.typography.titleMedium)
+                TextButton(onClick = { showNetwork = !showNetwork }) { Text(if (showNetwork) "Hide connection details" else "Connection details") }
+                if (showNetwork) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(text = "Base URL: ${apiDiagnostics.baseUrl.ifBlank { "--" }}")
                 Text(text = "Last Request: ${apiDiagnostics.lastMethod} ${apiDiagnostics.lastUrl}".trim())
@@ -71,11 +78,12 @@ fun DiagnosticsScreen(contentPadding: PaddingValues) {
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(text = networkMessage)
                 }
+                }
             }
         }
 
         if (dtcs.isNotEmpty()) {
-            item { WarningBanner(message = "Check engine: diagnostic codes detected.", isCritical = true) }
+            item { WarningBanner(message = "Share these codes with your maintenance team.", isCritical = false) }
         }
 
         items(dtcs, key = { it.code }) { dtc ->
@@ -84,7 +92,6 @@ fun DiagnosticsScreen(contentPadding: PaddingValues) {
                 Text(text = dtc.description)
                 Text(text = "Severity: ${dtc.severity}")
                 Spacer(modifier = Modifier.height(8.dp))
-                FleetButton(text = "Explain fault", onClick = { })
             }
         }
     }

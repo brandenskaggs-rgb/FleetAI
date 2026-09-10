@@ -1,74 +1,12 @@
 <!doctype html>
-<html lang="en">
-<head>
-  <link rel="stylesheet" href="/css/theme.css" />
-
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Fleet AI Internal Setup</title>
-  <link rel="stylesheet" href="/css/site-tokens.css" />
-  <link rel="stylesheet" href="/css/site-theme.css" />
-  <link rel="stylesheet" href="/css/site-components.css" />
-  <link rel="stylesheet" href="/css/site-layout.css" />
-  <link rel="stylesheet" href="/css/design-system.css" />
-</head>
-<body>
-  <header class="siteHeader">
-    <div class="container siteHeader__row">
-      <a class="wordmark" href="/"><span class="brandFleet">Fleet</span><span class="brandAI">AI</span></a>
-      <div class="siteActions">
-        <select class="themeSelect" id="siteThemeSelect" aria-label="Theme">
-          <option value="light-blue">Light</option>
-          <option value="dark-blue">Dark Blue</option>
-          <option value="dark-gray">Dark Gray</option>
-        </select>
-        <a class="btn secondary" href="/employee-login.html">Back to Employee Login</a>
-      </div>
-    </div>
-  </header>
-
-  <section class="section">
-    <div class="container">
-      <div class="sectionHeader">
-        <h2>Fleet AI Internal Setup</h2>
-        <p>Create the first Super Admin account (one-time).</p>
-      </div>
-      <div class="card" style="margin-bottom:16px;">
-        <p class="card__meta">This setup page is for Fleet AI internal use only. It is disabled automatically after a Super Admin account is created.</p>
-      </div>
-      <div class="card" style="margin-bottom:16px;">
-        <p class="card__meta" id="setupStatus">Checking setup status...</p>
-      </div>
-      <div class="formCard" style="max-width:520px;">
-        <div id="setupError" class="formSuccess" style="display:none;"></div>
-        <label>
-          Setup Key
-          <input id="setupKey" type="password" placeholder="Setup key" required />
-        </label>
-        <label>
-          Email
-          <input id="setupEmail" type="email" placeholder="name@fleetai.com" required />
-        </label>
-        <label>
-          Password
-          <input id="setupPassword" type="password" placeholder="Minimum 10 characters" required />
-        </label>
-        <label>
-          Confirm Password
-          <input id="setupConfirm" type="password" placeholder="Confirm password" required />
-        </label>
-        <div class="heroActions">
-          <button class="btn primary" id="setupSubmit" type="button">Create Super Admin</button>
-          <a class="btn secondary" href="/employee-login.html">Back to Employee Login</a>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <script src="/js/site.js"></script>
-  <script src="/js/config.js"></script>
-  <script src="/js/admin-setup.js"></script>
-  <script src="/js/scroll-reveal.js"></script>
-</body>
-</html>
+<html lang="en"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" /><title>Fleet AI | Internal Setup</title><link rel="stylesheet" href="/css/fonts.css?v=link1" /><link rel="stylesheet" href="/css/public-site.css?v=link1" /><link rel="stylesheet" href="/css/public-access.css?v=link1" /><link rel="icon" href="/assets/brand/fleet-ai-mark.svg?v=link1" /></head>
+<body><header class="publicHeader"><div class="publicContainer publicHeader__row"><a class="publicBrand" href="/"><img src="/assets/brand/fleet-ai-mark.svg?v=link1" width="32" height="32" alt="" />Fleet AI</a><div class="publicActions"><a href="/employee-login.html">Employee sign in</a></div></div></header>
+<main class="accessPage"><div class="container accessLayout"><div class="accessCopy"><span class="eyebrow">Internal account setup</span><h1>Initialize Fleet AI.</h1><p>Create the first super administrator. This one-time setup is restricted to authorized Fleet AI staff and closes after initialization.</p><p id="setupStatus" role="status">Checking setup status...</p></div>
+<div class="accessCard"><h2>Administrator details</h2><div id="setupError" class="formSuccess" role="alert" style="display:none;"></div>
+<label class="fieldGroup">Setup key<input id="setupKey" type="password" autocomplete="off" required /></label>
+<label class="fieldGroup">Email<input id="setupEmail" type="email" autocomplete="email" required /></label>
+<label class="fieldGroup">Password<input id="setupPassword" type="password" autocomplete="new-password" minlength="10" required /></label>
+<label class="fieldGroup">Confirm password<input id="setupConfirm" type="password" autocomplete="new-password" minlength="10" required /></label>
+<button class="btn primary accessSubmit" id="setupSubmit" type="button">Create super administrator</button><p class="formNote">Use at least 10 characters and a password not used elsewhere.</p></div></div></main>
+<script src="/js/config.js"></script><script src="/js/admin-setup.js"></script><script src="/js/public-site.js?v=link1"></script></body></html>
 

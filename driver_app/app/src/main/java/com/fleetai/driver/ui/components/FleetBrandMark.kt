@@ -18,13 +18,15 @@ fun FleetBrandMark(
     contentDescription: String = "Fleet AI"
 ) {
     Box(
-        modifier = modifier.background(Color.White),
-        contentAlignment = Alignment.Center
+        modifier = modifier,
+        contentAlignment = Alignment.CenterStart
     ) {
         Image(
-            painter = painterResource(R.drawable.fleet_ai_logo),
+            painter = painterResource(R.drawable.fleet_ai_link),
             contentDescription = contentDescription,
-            contentScale = ContentScale.Crop,
+            contentScale = ContentScale.Fit,
+            alignment = Alignment.CenterStart,
+            colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(androidx.compose.material3.MaterialTheme.colorScheme.onSurface),
             modifier = Modifier.fillMaxSize()
         )
     }

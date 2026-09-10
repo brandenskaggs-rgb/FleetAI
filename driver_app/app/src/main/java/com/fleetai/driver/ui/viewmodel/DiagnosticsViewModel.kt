@@ -31,6 +31,8 @@ class DiagnosticsViewModel(
 
     private val _message = MutableStateFlow("")
     val message: StateFlow<String> = _message
+    private val _scanning = MutableStateFlow(false)
+    val scanning: StateFlow<Boolean> = _scanning.asStateFlow()
 
     val apiDiagnostics: StateFlow<ApiClient.ApiDiagnostics> = ApiClient.diagnostics
 
@@ -48,40 +50,29 @@ class DiagnosticsViewModel(
     }
 
     fun scan() {
+        if (_scanning.value) return
+        _scanning.value = true
         viewModelScope.launch {
-            _message.value = "Scanning..."
-            val codes = if (obd.isConnected()) {
-                val obdCodes = obd.readDtcs()
-                if (obdCodes.isEmpty()) {
-                    emptyList()
+            try {
+                _message.value = "Scanning..."
+                val codes = if (obd.isConnected()) {
+                    obd.readDtcs().map { DtcCode(it, "OBD reported code", "medium") }
                 } else {
-                    obdCodes.map { DtcCode(it, "OBD reported code", "medium") }
+                    repository.getDiagnosticCodes()
                 }
-            } else {
-                repository.getDiagnosticCodes()
+                _dtcs.value = codes
+                _message.value = if (codes.isEmpty()) {
+                    "No codes returned. This is not a mechanical inspection."
+                } else {
+                    "Fault codes returned."
+                }
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                _message.value = "Unable to read codes. Check the connection and try again. Previous results are shown."
+            } finally {
+                _scanning.value = false
             }
-            _dtcs.value = codes
-            _message.value = if (codes.isEmpty()) "No active codes." else "Codes detected."
-        }
-    }
-
-    fun clear() {
-        viewModelScope.launch {
-            if (obd.isConnected()) {
-                val cleared = obd.clearDtcs()
-                if (!cleared) {
-                    _message.value = "Unable to clear codes. Check adapter connection and try again."
-                    return@launch
-                }
-            } else {
-                val cleared = repository.clearDiagnosticCodes()
-                if (!cleared) {
-                    _message.value = "Unable to clear codes right now."
-                    return@launch
-                }
-            }
-            _dtcs.value = emptyList()
-            _message.value = "Codes cleared."
         }
     }
 

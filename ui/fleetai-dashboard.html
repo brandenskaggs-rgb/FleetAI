@@ -4,182 +4,10 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Fleet AI - Customer Workspace</title>
+  <link rel="icon" href="/assets/brand/fleet-ai-mark.svg?v=link1" type="image/svg+xml" />
   <link rel="stylesheet" href="../assets/vendor/leaflet/leaflet.css" />
   <link rel="stylesheet" href="../css/fonts.css?v=20260908" />
-  <style>
-    :root{
-      --bg:#F5F6F8; --surface2:#ECEFF2; --panel:#FFFFFF; --panel2:#F4F5F7; --sidebar:#FFFFFF; --sidebar-status:#F4F5F7;
-      --border:#DCE3EB; --text:#17212D; --muted:#566476;
-      --primary:#2456D6; --primary-dark:#1944B6; --primary-soft:rgba(36,86,214,.09);
-      --good:#0F9F63; --warn:#B76A0B; --bad:#C7362F;
-      --shadow:0 16px 48px rgba(23,36,57,.14); --shadow2:0 1px 3px rgba(23,36,57,.035);
-      --hover:rgba(15,23,42,.045); --row:rgba(15,23,42,.035); --input:rgba(15,23,42,.045); --divider:rgba(15,23,42,.06);
-      --r:8px;--r-lg:10px;--r-sm:6px;
-      --font:'Source Sans 3','Segoe UI',system-ui,sans-serif;
-      --display:'Source Sans 3','Segoe UI',system-ui,sans-serif;
-      --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
-    }
-    *{box-sizing:border-box}
-    body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font);font-size:15px;line-height:1.5;overflow:hidden}
-    :focus-visible{outline:2px solid var(--primary);outline-offset:3px}
-    button:disabled{opacity:.55;cursor:wait}
-    .main>*{min-width:0}
-    .dashboardGrid>*,.todayRail>*,.grid2>*,.grid3>*,.grid4>*,.advisorWorkspace>*,.card,.opsPanel{min-width:0}
-    .cardHead>div,.opsPanel__head>div,.form-group{min-width:0}
-    .cardHead,.opsPanel__head{flex-wrap:wrap}
-    .cardMeta,.opsPanel__meta,.table td{overflow-wrap:anywhere}
-    .table td{max-width:380px}
-    button,input,select,textarea{font:inherit}
-    button{cursor:pointer}
-    a{color:inherit}
-    .app{height:100dvh;display:grid;grid-template-columns:240px minmax(0,1fr);background:var(--bg);transition:grid-template-columns .22s ease}
-    .app.nav-collapsed{grid-template-columns:0 minmax(0,1fr)}
-    .sidebar{height:100dvh;display:flex;flex-direction:column;overflow:hidden;padding:22px 14px 16px;background:var(--sidebar);transition:opacity .2s ease,transform .2s ease}
-    .sidebar .brand{flex-shrink:0}.sidebar .nav{min-height:0;overflow:auto;scrollbar-width:thin;flex:1}
-    .app.nav-collapsed .sidebar{opacity:0;transform:translateX(-18px);pointer-events:none}
-    .brand{display:flex;gap:10px;align-items:center;padding:5px 8px 20px}
-    .logo{width:34px;height:34px;border-radius:4px;background:#fff;display:grid;place-items:center;overflow:hidden}
-    .logo img{width:36px;height:36px;display:block}
-    .brand h1{margin:0;font:700 17px/1 var(--display);letter-spacing:0}
-    .brand p{margin:4px 0 0;color:var(--muted);font-size:12px}
-    .navGroup{margin:4px 0}
-    .navGroupToggle{width:100%;height:38px;border:0;border-radius:4px;background:transparent;color:var(--muted);display:flex;align-items:center;justify-content:space-between;padding:0 10px;font-size:13px;font-weight:600;text-align:left}
-    .navGroupToggle:hover{background:var(--hover);color:var(--text)}
-    .navChevron{font-family:var(--mono);font-size:12px;transition:transform .18s ease}
-    .navGroup.open .navChevron{transform:rotate(90deg)}
-    .navGroupItems{display:grid;gap:1px;max-height:0;overflow:hidden;opacity:0;transition:max-height .22s ease,opacity .16s ease,padding .2s ease;padding:0}
-    .navGroup.open .navGroupItems{max-height:420px;opacity:1;padding:2px 0 7px}
-    .nav .navRoute{width:100%;min-height:38px;border:0;border-radius:4px;background:transparent;color:var(--muted);display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 10px 7px 14px;font-size:15px;font-weight:500;text-align:left}
-    .nav .navRoute:hover{background:var(--hover);color:var(--text)}
-    .nav .navRoute.active{background:var(--primary-soft);color:var(--primary-dark);font-weight:650}
-    .navMain{display:flex;align-items:center;gap:9px;min-width:0}
-    .navIcon{display:none}
-    .navName{min-width:0;overflow-wrap:anywhere;text-align:left}
-    .tag,.pill,.chip{border:0;background:var(--panel2);color:var(--muted);border-radius:999px;font-size:12px;font-weight:800;padding:3px 9px;white-space:nowrap}
-    .tag.new{background:rgba(22,163,74,.12);color:#15803d}
-    .pill.good{color:var(--good);background:color-mix(in srgb,var(--good) 14%,transparent)}
-    .pill.warn{color:var(--warn);background:color-mix(in srgb,var(--warn) 14%,transparent)}
-    .pill.bad{color:var(--bad);background:color-mix(in srgb,var(--bad) 14%,transparent)}
-    .sidebarStatus{display:flex;gap:10px;align-items:flex-start;margin:18px 6px 4px;padding:13px 12px;background:var(--sidebar-status);border-radius:8px}.sidebarStatusDot{width:8px;height:8px;margin-top:4px;border-radius:50%;background:var(--good);box-shadow:0 0 0 4px color-mix(in srgb,var(--good) 12%,transparent)}.sidebarStatus strong{display:block;font-size:12px}.sidebarStatus span{display:block;margin-top:3px;color:var(--muted);font-size:12px;line-height:1.45}
-    .pairingResult{display:none;margin:16px 0 4px;padding:16px;border-radius:12px;background:linear-gradient(135deg,var(--primary-soft),var(--panel2));box-shadow:inset 3px 0 0 var(--primary)}
-    .pairingResult.show{display:block}
-    .pairingCodes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px}
-    .pairingCodeBox{background:var(--panel);border-radius:12px;padding:14px;box-shadow:var(--shadow2)}
-    .pairingCodeLabel{font-family:var(--mono);font-size:12px;letter-spacing:0;text-transform:uppercase;color:var(--muted);font-weight:700}
-    .pairingCodeValue{margin-top:5px;font-family:var(--mono);font-size:26px;line-height:1;font-weight:800;letter-spacing:0;color:var(--text)}
-    .pairingMiniActions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
-    .pairingTableBlock{margin-top:18px}
-    .pairingTableBlock h4{margin:0 0 8px;font:800 13px/1 var(--display);letter-spacing:0}
-    .main{height:100vh;min-width:0;overflow:auto;padding:0 clamp(22px,3vw,44px) 52px}
-    .app-header{position:sticky;top:0;z-index:20;background:color-mix(in srgb,var(--bg) 92%,transparent);backdrop-filter:blur(20px);display:grid;grid-template-columns:minmax(180px,1fr) minmax(220px,390px) auto;align-items:center;gap:16px;padding:15px 0 13px;box-shadow:0 1px 0 color-mix(in srgb,var(--muted) 10%,transparent)}
-    .crumb{min-width:0}
-    .crumb h2{margin:0;font:700 17px/1.05 var(--display);letter-spacing:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .crumb p{margin:4px 0 0;color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:520px}
-    .search{width:100%;height:38px;border:0;background:var(--input);color:var(--text);border-radius:999px;padding:0 14px;outline:none;font-size:13px}
-    .search:focus{box-shadow:0 0 0 2px color-mix(in srgb,var(--primary) 34%,transparent)}
-    .headerActions{display:flex;align-items:center;justify-content:flex-end;gap:4px;min-width:0;white-space:nowrap}
-    .headerActions .chip{background:transparent;padding:0 4px;color:var(--muted)}
-    .btn{min-height:36px;border:0;border-radius:6px;background:transparent;color:var(--text);padding:0 12px;font-size:14px;font-weight:600;white-space:nowrap}
-    .btn:hover{background:var(--hover)}
-    .btn.primary{background:var(--primary);color:#fff;box-shadow:none}
-    .btn.primary:hover{background:var(--primary-dark)}
-    .btn.ghost{background:transparent}
-    .btn.danger{color:var(--muted);background:transparent}
-    .btn.danger:hover{color:var(--bad);background:color-mix(in srgb,var(--bad) 9%,transparent)}
-    .buildStamp{display:none;font-family:var(--mono);font-size:12px;color:var(--muted);white-space:nowrap}
-    .utilityMenu{position:relative}.utilityMenuButton{display:flex;align-items:center;gap:7px;background:var(--panel);box-shadow:0 1px 2px rgba(23,36,57,.06)}.utilityPopover{position:absolute;right:0;top:44px;width:210px;padding:8px;background:var(--panel);border-radius:8px;box-shadow:var(--shadow);z-index:50}.utilityPopover[hidden]{display:none}.utilityIdentity{padding:9px 10px 10px}.utilityIdentity strong{display:block;font-size:12px}.utilityIdentity span{display:block;margin-top:2px;color:var(--muted);font-size:12px}.utilityPopover .btn{display:flex;width:100%;justify-content:flex-start}.utilityPopover .danger{margin-top:3px}
-    .subHeader{display:none}
-    .topTab{height:29px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--muted);font-size:12px;font-weight:800;padding:0 8px;white-space:nowrap}
-    .topTab.active{color:var(--text);border-bottom-color:var(--primary)}
-    .viewHeader{padding:30px 0 20px}
-    .viewHeader h2{margin:0;font:700 28px/1.08 var(--display);letter-spacing:0}
-    .viewHeader p{margin:6px 0 0;color:var(--muted);font-size:13px}
-    .section{display:block}.section.hide{display:none}
-    .grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px}.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}.grid4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px}
-    .card,.opsPanel{background:var(--panel);border:0;border-radius:8px;box-shadow:none;overflow:hidden}
-    .cardHead,.opsPanel__head{min-height:60px;padding:21px 24px 7px;display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
-    .cardHead h3,.opsPanel__title{margin:0;font:700 16px/1.2 var(--display)}
-    .cardMeta,.opsPanel__meta{margin-top:5px;color:var(--muted);font-size:12px}
-    .cardBody,.opsPanel__body{padding:18px 24px 24px}
-    .section>.card:only-child{background:transparent;overflow:visible}
-    .section>.card:only-child>.cardHead{padding:8px 0 20px}
-    .section>.card:only-child>.cardBody{padding:0}
-    .section>.card:only-child .table{background:var(--panel)}
-    .section>.card:only-child .form-grid{margin-bottom:24px}
-    .overviewHeading{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:24px 0 12px}
-    .overviewHeading h3{margin:0;font:650 21px/1.3 var(--display)}
-    .overviewHeading p{margin:5px 0 0;color:var(--muted);font-size:14px}
-    .overviewUpdated{color:var(--muted);font-size:13px;text-align:right}
-    .metricLink{display:block;text-decoration:none;min-width:0;color:inherit}
-    .metricLink:hover{background:var(--hover)}
-    .unitLink{border:0;background:transparent;color:var(--primary-dark);padding:4px 0;font-weight:650;text-align:left}
-    .unitLink:hover{text-decoration:underline}
-    #view-dashboard .dashboardKpis{background:transparent;box-shadow:none;gap:20px}
-    #view-dashboard .dashboardKpis .commandMetric{padding:12px 0 22px;box-shadow:none}
-    #view-dashboard .dashboardKpis .commandMetric__value{font-size:38px;margin:12px 0}
-    #view-dashboard .dashboardGrid>.todayRail{background:var(--surface2);padding:6px 4px}
-    #view-dashboard .todayPanel{background:transparent;box-shadow:none}
-    #view-dashboard .scheduleItem{padding:12px 0;background:transparent}
-    #view-dashboard .evidenceDisclosure{background:transparent;box-shadow:none}
-    #view-dashboard .evidenceDisclosure summary{padding:20px 0}
-    #view-dashboard .evidenceDisclosureBody{padding:0 0 20px}
-    #view-dashboard .readinessRow{box-shadow:none}
-    @media(max-width:760px){#view-dashboard .dashboardKpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 18px}#view-dashboard .commandMetric__sub{font-size:12px}#view-dashboard .dashboardKpis .commandMetric__value{font-size:32px}.overviewHeading{flex-wrap:wrap}.overviewUpdated{text-align:left}}
-    .overviewHero{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(300px,.65fr);gap:18px;margin-bottom:18px}
-    .heroPanel{background:var(--panel);color:var(--text);border-radius:4px;padding:26px 28px;box-shadow:0 1px 2px rgba(15,23,42,.04),0 8px 24px rgba(15,23,42,.045)}
-    .heroPanel:after{content:none}
-    .heroPanel h3{margin:0;font:700 22px/1.16 var(--display);letter-spacing:0;max-width:680px}
-    .heroPanel p{color:var(--muted);max-width:760px;margin:10px 0 0;font-size:14px}
-    .heroPanel .sectionActions{margin-top:20px}
-    .heroPanel .btn{color:var(--text)}.heroPanel .btn.primary{background:var(--primary);color:#fff;box-shadow:none}
-    .planPanel{background:var(--panel);border-radius:4px;padding:22px 24px;box-shadow:0 1px 2px rgba(15,23,42,.04),0 8px 24px rgba(15,23,42,.045)}
-    .planPanel h3{margin:0 0 14px;font:700 18px/1.2 var(--display)}
-    .planItem{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;padding:12px 0;box-shadow:inset 0 -1px 0 var(--divider)}
-    .planItem:last-child{box-shadow:none}.planDot{width:10px;height:10px;border-radius:999px;background:var(--primary)}
-    .commandStrip{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:18px}
-    .commandMetric{background:var(--panel);border:0;border-radius:8px;padding:19px 21px;box-shadow:var(--shadow2)}
-    .commandMetric__label{color:var(--muted);font-family:var(--font);font-size:14px;font-weight:600;text-transform:none;letter-spacing:0}
-    .commandMetric__value{font:700 32px/1 var(--display);margin:9px 0;color:var(--text);letter-spacing:0;font-variant-numeric:tabular-nums}
-    .commandMetric__value.good{color:var(--good)}.commandMetric__value.warn{color:var(--warn)}.commandMetric__value.bad{color:var(--bad)}
-    .commandMetric__sub{color:var(--muted);font-size:13px}
-    .tableWrap{overflow:auto}
-    .table{width:100%;border-collapse:separate;border-spacing:0;min-width:720px}
-    .table th{color:var(--muted);font-family:var(--font);font-size:13px;text-transform:none;letter-spacing:0;text-align:left;font-weight:600;padding:12px 12px}
-    .table td{padding:15px 12px;vertical-align:middle;font-size:14px}
-    .table tbody tr{box-shadow:inset 0 -1px 0 var(--divider)}
-    .table tbody tr:hover td{background:var(--hover)}
-    .form-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;align-items:end}
-    .form-group{display:flex;flex-direction:column;gap:7px}.form-label{color:var(--text);font-size:14px;font-weight:600}
-    .form-input,.form-select,textarea{width:100%;min-height:38px;border:0;border-radius:4px;background:var(--input);color:var(--text);padding:9px 12px;outline:none;font-size:15px}
-    .form-input:focus,.form-select:focus,textarea:focus{box-shadow:0 0 0 2px color-mix(in srgb,var(--primary) 34%,transparent)}
-    .inspectionChecklist{border:0;margin:20px 0;padding:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px 18px}.inspectionChecklist legend{font-weight:700;margin-bottom:10px}.inspectionChecklist label{display:flex;align-items:center;gap:7px;color:var(--muted);font-size:13px}.inspectionChecklist input{accent-color:var(--primary)}
-    textarea{min-height:78px;resize:vertical}.sectionActions{display:flex;gap:8px;flex-wrap:wrap}.muted{color:var(--muted)}.mono{font-family:var(--mono)}
-    .scheduleList{display:grid;gap:8px}.scheduleItem{display:flex;gap:10px;align-items:center;justify-content:space-between;border:0;border-radius:3px;padding:13px 12px;background:var(--panel2)}.scheduleDate{font-family:var(--mono);color:var(--primary)}
-    .sensorInventory{margin-top:18px}.sensorInventoryHead{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:14px}.sensorInventoryHead h3{margin:0;font:700 17px/1.2 var(--display)}.sensorInventoryHead p{margin:5px 0 0;color:var(--muted);font-size:12px}.sensorGroups{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.sensorGroup{background:var(--panel);border-radius:4px;padding:18px 20px;box-shadow:0 1px 2px rgba(15,23,42,.04),0 8px 24px rgba(15,23,42,.04)}.sensorGroup h4{margin:0 0 10px;font:700 13px/1.2 var(--display);text-transform:uppercase;letter-spacing:0;color:var(--muted)}.sensorReading{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;padding:9px 0;box-shadow:inset 0 -1px 0 var(--divider)}.sensorReading:last-child{box-shadow:none}.sensorReadingName{font-size:13px;font-weight:650}.sensorReadingMeta{margin-top:2px;color:var(--muted);font-size:12px;font-family:var(--mono)}.sensorReadingValue{text-align:right;font-family:var(--mono);font-size:13px;font-weight:700}.sensorReading.unsupported{opacity:.52}.sensorSummary{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.sensorEmpty{grid-column:1/-1;padding:18px 0;color:var(--muted)}
-    .bar{height:8px;background:var(--surface2);border-radius:999px;overflow:hidden}.bar span{display:block;height:100%;background:var(--primary);border-radius:999px}
-    .skeleton{height:48px;border-radius:12px;background:linear-gradient(90deg,var(--panel2),color-mix(in srgb,var(--panel2) 60%,var(--border)),var(--panel2));background-size:200% 100%;animation:shimmer 1.1s linear infinite}@keyframes shimmer{to{background-position:-200% 0}}
-    .inlineError{margin-top:9px;color:var(--muted);font-size:12px}.inlineError strong{color:var(--warn)}
-    .dashboardIntro{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-bottom:16px}.dashboardIntro p{margin:0;color:var(--muted);font-size:13px}.dashboardKpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));background:var(--panel);border-radius:8px;box-shadow:var(--shadow2);margin-bottom:16px}.dashboardKpis .commandMetric{background:transparent;border-radius:0;box-shadow:none}.dashboardKpis .commandMetric+.commandMetric{box-shadow:inset 1px 0 0 var(--divider)}.dashboardGrid{display:grid;grid-template-columns:minmax(0,1fr) 310px;gap:16px;align-items:start}.todayRail{display:grid;gap:16px}.todayPanel{background:var(--panel);border-radius:8px;padding:20px;box-shadow:var(--shadow2)}.todayPanel h3{margin:0;font:700 15px/1.2 var(--display)}.todayPanel>p{margin:5px 0 14px;color:var(--muted);font-size:12px}.readinessRow{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;padding:10px 0;box-shadow:inset 0 -1px 0 var(--divider)}.readinessRow:last-child{box-shadow:none}.readinessRow strong{font-size:12px}.readinessRow span:last-child{font-family:var(--mono);font-size:12px;color:var(--muted)}.evidenceDisclosure{margin-top:16px;background:var(--panel);border-radius:8px;box-shadow:var(--shadow2)}.evidenceDisclosure summary{list-style:none;cursor:pointer;padding:17px 22px;font-weight:750}.evidenceDisclosure summary::-webkit-details-marker{display:none}.evidenceDisclosure summary:after{content:"View";float:right;color:var(--primary);font-size:12px}.evidenceDisclosure[open] summary:after{content:"Hide"}.evidenceDisclosureBody{padding:0 22px 22px}
-    .leafletBox{height:540px;width:100%;border-radius:var(--r-lg);overflow:hidden;background:var(--surface2);box-shadow:var(--shadow2)}
-    .mapShell{position:relative}.mapHud{position:absolute;left:12px;top:12px;z-index:500;background:color-mix(in srgb,var(--panel) 84%,transparent);backdrop-filter:blur(14px);border-radius:12px;padding:10px;box-shadow:var(--shadow2)}
-    .cameraGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.cameraTile{min-height:170px;display:grid;place-items:center;text-align:center;border:0;border-radius:var(--r-lg);background:radial-gradient(circle at 50% 25%,var(--primary-soft),transparent 12rem),linear-gradient(180deg,var(--panel),var(--panel2));box-shadow:inset 0 0 40px rgba(255,255,255,.03),var(--shadow2)}
-    .opsAdvisorDock{position:fixed;right:18px;bottom:18px;z-index:1000;width:360px;max-width:calc(100vw - 36px)}
-    .opsAdvisorDock:not(.open){width:auto}
-    #btnAdvisorToggle{display:block;margin-left:auto}
-    .advisorPanel{display:none;background:var(--panel);border:0;border-radius:4px;box-shadow:var(--shadow);overflow:hidden;margin-bottom:10px}
-    .opsAdvisorDock.open .advisorPanel{display:block}
-    .advisorThread{height:280px;overflow:auto;padding:14px 16px;display:flex;flex-direction:column;gap:16px;scroll-behavior:smooth}.msg{max-width:92%;padding:0;background:transparent;color:var(--text);font-size:13.5px;line-height:1.62}.msg.assistant{align-self:flex-start}.msg.user{align-self:flex-end;background:var(--primary);color:#fff;border-radius:14px 14px 3px 14px;padding:10px 13px;box-shadow:0 6px 18px color-mix(in srgb,var(--primary) 14%,transparent)}.msgRole{margin-bottom:5px;color:var(--muted);font-size:12px;font-family:var(--mono);font-weight:700;letter-spacing:0;text-transform:uppercase}.msg p{margin:0 0 9px}.msg p:last-child{margin-bottom:0}.msg ul{margin:5px 0 0;padding-left:18px}.msg li+li{margin-top:5px}.msg strong{font-weight:800}.msg code{font-family:var(--mono);font-size:.92em;background:var(--input);padding:1px 4px;border-radius:3px}.msg.thinking{color:var(--muted)}
-    .typingBubble{width:64px;height:34px;border-radius:999px;background:var(--panel2);display:flex;align-items:center;justify-content:center;gap:5px;box-shadow:0 5px 16px rgba(15,23,42,.08)}.typingDot{width:6px;height:6px;border-radius:50%;background:var(--muted);animation:advisorTyping 1.05s ease-in-out infinite}.typingDot:nth-child(2){animation-delay:.14s}.typingDot:nth-child(3){animation-delay:.28s}@keyframes advisorTyping{0%,60%,100%{transform:translateY(0);opacity:.45}30%{transform:translateY(-5px);opacity:1}}
-    .advisorActions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.advisorActions .btn,.advisorActions a.btn{display:inline-flex;align-items:center;text-decoration:none;background:var(--input)}.advisorReports{margin-top:22px}.advisorReports h4{margin:0 0 10px;font:700 13px/1.2 var(--display)}.advisorReportRow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px;align-items:center;padding:11px 0;box-shadow:inset 0 -1px 0 var(--divider)}.advisorReportRow:last-child{box-shadow:none}.advisorReportRow strong{display:block;font-size:13px}.advisorReportRow span{color:var(--muted);font-size:12px}
-    .advisorForm{display:flex;gap:8px;padding:12px}
-    .advisorForm input{flex:1}
-    body.advisor-route #btnAdvisorToggle{display:none}
-    .advisorWorkspace{display:grid;grid-template-columns:minmax(0,1fr) 310px;gap:18px;align-items:start}.advisorConversation{background:var(--panel);min-width:0;box-shadow:var(--shadow2)}.advisorConversationHead{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;padding:22px 26px 10px}.advisorConversationHead h3{margin:0;font:700 18px/1.2 var(--display)}.advisorConversationHead p{margin:6px 0 0;color:var(--muted);font-size:12px}.advisorPresence{display:flex;align-items:center;gap:7px;color:var(--good);font-size:12px;font-weight:800;white-space:nowrap}.advisorPresence:before{content:"";width:7px;height:7px;border-radius:50%;background:var(--good);box-shadow:0 0 0 4px color-mix(in srgb,var(--good) 12%,transparent)}.advisorPromptRail{display:flex;gap:7px;overflow:auto;padding:10px 26px 2px;scrollbar-width:thin}.advisorPromptRail .btn{background:var(--panel2);flex:0 0 auto;font-weight:650}.advisorPageThread{height:clamp(430px,55vh,650px);padding:28px 30px 22px}.advisorPageThread .msg{max-width:min(78%,720px);font-size:14.5px;line-height:1.68}.advisorComposer{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:end;margin:0 24px 24px;padding:10px 10px 10px 16px;background:var(--panel2);border-radius:18px}.advisorComposer textarea{min-height:42px;max-height:150px;padding:10px 0;background:transparent;box-shadow:none!important;resize:none}.advisorComposer .btn{height:40px;padding:0 18px;border-radius:12px}.advisorSideRail{display:grid;gap:18px}.advisorSideSection{background:var(--panel);padding:20px 20px 18px;box-shadow:var(--shadow2)}.advisorSideSection h3{margin:0;font:700 14px/1.2 var(--display)}.advisorSideSection>p{margin:6px 0 14px;color:var(--muted);font-size:12px}.advisorDataRow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 0;box-shadow:inset 0 -1px 0 var(--divider);font-size:12px}.advisorDataRow:last-child{box-shadow:none}.advisorDataRow span:last-child{color:var(--muted);font-family:var(--mono);font-size:12px}.advisorDockHeadActions{display:flex;align-items:center;gap:2px}
-    @media (prefers-reduced-motion:reduce){.typingDot{animation:none;opacity:.65}.advisorThread{scroll-behavior:auto}}
-    .srOnly{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}.mobileOnly{display:none}
-    @media (max-width:1180px){.app-header{grid-template-columns:1fr auto}.search{display:none}.headerActions{grid-column:2}.overviewHero,.grid4,.commandStrip,.dashboardKpis{grid-template-columns:repeat(2,minmax(0,1fr))}.dashboardKpis .commandMetric:nth-child(3){box-shadow:inset 0 1px 0 var(--divider)}.dashboardKpis .commandMetric:nth-child(4){box-shadow:inset 1px 1px 0 var(--divider)}.dashboardGrid{grid-template-columns:1fr}.todayRail{grid-template-columns:1fr 1fr}.grid3,.cameraGrid,.sensorGroups{grid-template-columns:1fr 1fr}.inspectionChecklist{grid-template-columns:repeat(2,minmax(0,1fr))}.advisorWorkspace{grid-template-columns:1fr}.advisorSideRail{grid-template-columns:1fr 1fr}.advisorPageThread{height:520px}}
-    @media (max-width:760px){body{overflow:auto}.app{height:auto;min-height:100vh;grid-template-columns:0 minmax(0,1fr)}.sidebar{position:fixed;z-index:60;width:264px;opacity:0;transform:translateX(-18px);pointer-events:none}.app.nav-collapsed .sidebar{display:none}.app:not(.nav-collapsed) .sidebar{display:block;opacity:1;transform:none;pointer-events:auto}.main{grid-column:2;height:auto;padding:0 16px 96px}.app-header{display:flex;flex-wrap:wrap;gap:8px;padding:12px 0 10px}.crumb{width:100%}.crumb p{display:none}.headerActions{width:100%;display:flex;justify-content:space-between;gap:2px}.headerActions .btn{padding:0 10px}.utilityPopover{right:0}.overviewHero,.grid2,.grid3,.grid4,.commandStrip,.dashboardKpis,.form-grid,.cameraGrid,.sensorGroups,.todayRail{grid-template-columns:1fr}.dashboardKpis .commandMetric+.commandMetric,.dashboardKpis .commandMetric:nth-child(3),.dashboardKpis .commandMetric:nth-child(4){box-shadow:inset 0 1px 0 var(--divider)}.dashboardIntro{align-items:flex-start;flex-direction:column}.viewHeader{padding:22px 0 15px}.viewHeader h2{font-size:26px}.viewHeader p{font-size:13px}.priorityTable{min-width:0;table-layout:fixed}.priorityTable th:nth-child(2),.priorityTable td:nth-child(2),.priorityTable th:nth-child(4),.priorityTable td:nth-child(4){display:none}.priorityTable th:nth-child(1){width:27%}.priorityTable th:nth-child(3){width:24%}.priorityTable th:nth-child(5){width:49%}.priorityTable th,.priorityTable td{padding-left:8px;padding-right:8px;overflow-wrap:anywhere}.heroPanel,.planPanel{padding:22px}.inspectionChecklist{grid-template-columns:1fr}.opsAdvisorDock:not(.open){right:16px;top:auto;bottom:16px;transform:none;max-width:calc(100vw - 32px);width:auto}.opsAdvisorDock:not(.open) #btnAdvisorToggle{min-height:42px;padding:10px 16px;border-radius:4px}.opsAdvisorDock.open{right:12px;bottom:12px;top:auto;transform:none;max-width:calc(100vw - 24px)}.mobileOnly{display:inline-flex}.advisorSideRail{grid-template-columns:1fr}.advisorConversationHead{padding:18px 18px 8px}.advisorPromptRail{padding:8px 18px 2px}.advisorPageThread{height:58vh;min-height:390px;padding:22px 18px}.advisorPageThread .msg{max-width:90%}.advisorComposer{margin:0 12px 14px;border-radius:14px}.opsAdvisorDock.open #btnAdvisorToggle{display:none}}
-  </style>
+  <link rel="stylesheet" href="../css/dashboard-link.css?v=link2" />
 </head>
 <body>
   <div class="app" id="app">
@@ -198,8 +26,9 @@
       <button data-route="pairing" data-view="pairing"></button><button data-route="addons" data-view="addons"></button><button data-route="settings" data-view="settings"></button>
     </div>
     <aside class="sidebar" aria-label="Fleet AI navigation">
-      <div class="brand"><div class="logo"><img src="/assets/brand/fleet-ai-mark.svg" alt=""></div><div><h1>Fleet AI</h1><p>Fleet AI workspace</p></div></div>
+      <div class="brand"><div class="logo"><img src="/assets/brand/fleet-ai-mark.svg?v=link1" alt=""></div><div><h1>Fleet AI</h1><p>Fleet AI workspace</p></div></div>
       <nav class="nav" id="sideNav"></nav>
+      <div class="sidebarFoot"><a href="/" target="_blank" rel="noopener">Fleet AI website <i data-lucide="arrow-up-right" aria-hidden="true"></i></a></div>
       <button class="btn ghost mobileOnly" id="btnCloseNav" type="button">Close navigation</button>
     </aside>
     <main class="main">
@@ -208,26 +37,27 @@
           <h2><span id="headerCompanyName">Fleet AI</span><span id="headerViewName" hidden>Overview</span></h2>
           <p id="headerRouteTrail">Fleet operations workspace</p>
         </div>
-        <input class="search" id="dashboardGlobalSearch" aria-label="Filter rows on this page" placeholder="Filter this page..." />
+        <div class="headerVehicle"><label for="workspaceVehicleSelect">Signal vehicle</label><select id="workspaceVehicleSelect" aria-label="Vehicle context"></select></div>
         <div class="headerActions">
           <span class="buildStamp" id="buildStamp">build: pending</span>
           <button class="btn ghost" id="btnToggleNav" type="button">Hide nav</button>
-          <button class="btn" id="btnRefreshView" type="button">Refresh</button>
-          <div class="utilityMenu" id="utilityMenu"><button class="btn utilityMenuButton" id="btnUtilityMenu" type="button" aria-haspopup="true" aria-expanded="false">Menu</button><div class="utilityPopover" id="utilityPopover" hidden><div class="utilityIdentity"><strong id="headerUserName">User</strong><span>Workspace account</span></div><button class="btn" id="btnAddTeamMember" type="button" hidden>Add team member</button><button class="btn" id="btnExportReport" type="button">Export current table</button><button class="btn danger" id="btnLogout" type="button">Log out</button></div></div>
+          <button class="btn iconButton" id="btnRefreshView" type="button" aria-label="Refresh current view" title="Refresh current view"><i data-lucide="refresh-cw" aria-hidden="true"></i></button>
+          <div class="utilityMenu" id="utilityMenu"><button class="btn utilityMenuButton" id="btnUtilityMenu" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Account menu" title="Account menu"><i data-lucide="user-round" aria-hidden="true"></i><span class="btnLabel">Account</span></button><div class="utilityPopover" id="utilityPopover" hidden><div class="utilityIdentity"><strong id="headerUserName">User</strong><span>Workspace account</span></div><button class="btn" id="btnAddTeamMember" type="button" hidden>Add team member</button><button class="btn" id="btnExportReport" type="button">Export current table</button><button class="btn danger" id="btnLogout" type="button">Log out</button></div></div>
         </div>
       </header>
       <div id="workspaceStatus" class="inlineError" role="status" hidden></div>
       <div class="subHeader" id="topTabs" aria-label="Fleet AI dashboard tabs"></div>
-      <div class="viewHeader"><h2 id="viewTitle">Overview</h2><p id="viewSub">Fleet priorities, service work, and live coverage at a glance</p></div>
+      <div class="viewHeader"><div><h2 id="viewTitle">Fleet briefing</h2><p id="viewSub">The vehicles, findings, and service work worth your attention.</p></div><input class="search" id="dashboardGlobalSearch" aria-label="Filter rows on this page" placeholder="Find a record on this page..." /></div>
 
       <section id="view-dashboard" class="section">
+        <div class="briefing"><div><span class="briefingLabel">Maintenance intelligence</span><h3>Vehicle condition</h3><p id="briefingSummary">Review vehicle condition alongside open service work.</p><div class="healthMix" id="fleetHealthMix" aria-hidden="true"></div><div class="healthLegend" id="fleetHealthLegend">Waiting for verified model records</div></div><div class="briefingAdvisor"><img src="/assets/motion/link/frame-048.webp" alt="" /><div><strong>Fleet Advisor</strong><a href="#advisor">Discuss your fleet <span aria-hidden="true">&#8599;</span></a></div></div></div>
         <div class="dashboardKpis" aria-label="Fleet summary">
           <a href="#health-risk" class="commandMetric metricLink"><div class="commandMetric__label">Fleet health</div><div class="commandMetric__value" id="kpiUptime">--</div><div class="commandMetric__sub">Average available score / 100</div></a>
           <a href="#health-risk" class="commandMetric metricLink"><div class="commandMetric__label">Needs review</div><div class="commandMetric__value warn" id="kpiActions">--</div><div class="commandMetric__sub">Vehicles with elevated risk</div></a>
           <a href="#maintenance" class="commandMetric metricLink"><div class="commandMetric__label">Open work orders</div><div class="commandMetric__value" id="kpiAvoided">--</div><div class="commandMetric__sub">Open items in loaded records</div></a>
           <a href="#health-risk" class="commandMetric metricLink"><div class="commandMetric__label">Health coverage</div><div class="commandMetric__value" id="kpiROI">--</div><div class="commandMetric__sub">Vehicles with a health score</div></a>
         </div>
-        <div class="overviewHeading"><div><h3>Maintenance priorities</h3><p>Review the evidence. Decide what needs service.</p></div><div><div class="overviewUpdated" id="overviewUpdated" role="status">Loading fleet records...</div><a class="btn metricLink" href="#advisor">Ask Fleet Advisor</a></div></div>
+        <div class="overviewHeading"><div><h3>Inspection priorities</h3><p>Review the evidence. Decide what needs service.</p></div><div><div class="overviewUpdated" id="overviewUpdated" role="status">Loading fleet records...</div><a class="btn metricLink" href="#advisor">Ask Fleet Advisor</a></div></div>
         <div class="dashboardGrid">
           <div><div class="opsPanel"><div class="opsPanel__head"><div><h3 class="opsPanel__title">Priority queue</h3><div class="opsPanel__meta">Only units that may need an operator decision</div></div><button class="btn" data-route="health-risk">See all risks</button></div><div class="opsPanel__body tableWrap"><table class="table priorityTable"><thead><tr><th>Unit</th><th>System</th><th>Risk</th><th>Window</th><th>Recommended action</th></tr></thead><tbody id="riskQueueBody"><tr><td colspan="5"><div class="skeleton"></div></td></tr></tbody></table></div></div><details class="evidenceDisclosure"><summary>Prediction evidence</summary><div class="evidenceDisclosureBody" id="driftPanel"></div></details></div>
           <aside class="todayRail"><div class="todayPanel"><h3>Service plan</h3><p>Upcoming work from connected maintenance records.</p><div class="scheduleList" id="scheduleList"></div></div><div class="todayPanel"><h3>Data coverage</h3><p>Sources currently available to Fleet AI.</p><div class="readinessRow"><strong>Registered vehicles</strong><span id="readinessVehicles">--</span></div><div class="readinessRow"><strong>Prediction models</strong><span id="readinessModels">--</span></div><div class="readinessRow"><strong>Open exceptions</strong><span id="readinessRisks">--</span></div></div></aside>
@@ -235,18 +65,22 @@
       </section>
 
       <section id="view-telemetry" class="section hide">
-        <div class="commandStrip">
-          <div class="commandMetric"><div class="commandMetric__label">RPM</div><div class="commandMetric__value" id="liveRpm">--</div><div class="commandMetric__sub">Current engine speed</div></div>
+        <div class="sectionActions sensorJump"><button class="btn" id="btnAllSensors" type="button">All sensors <span aria-hidden="true">&#8595;</span></button></div>
+        <div class="instrumentDeck">
+          <div class="commandMetric"><div class="commandMetric__label">Engine speed / RPM</div><div class="commandMetric__value" id="liveRpm">--</div><div class="commandMetric__sub">Current engine speed</div></div>
           <div class="commandMetric"><div class="commandMetric__label">Speed (mph)</div><div class="commandMetric__value" id="liveSpeed">--</div><div class="commandMetric__sub">Current road speed</div></div>
-          <div class="commandMetric"><div class="commandMetric__label">Coolant</div><div class="commandMetric__value" id="liveCoolant">--</div><div class="commandMetric__sub">Thermal signal</div></div>
-          <div class="commandMetric"><div class="commandMetric__label">Battery</div><div class="commandMetric__value" id="liveBattery">--</div><div class="commandMetric__sub">Electrical signal</div></div>
+          <div class="commandMetric"><div class="commandMetric__label">Coolant / &#176;F</div><div class="commandMetric__value" id="liveCoolant">--</div><div class="commandMetric__sub">Engine coolant temperature</div></div>
+          <div class="commandMetric"><div class="commandMetric__label">Battery / V</div><div class="commandMetric__value" id="liveBattery">--</div><div class="commandMetric__sub">Reported control-module voltage</div></div>
+          <div class="commandMetric"><div class="commandMetric__label">Engine power / hp</div><div class="commandMetric__value" id="liveHorsepower">--</div><div class="commandMetric__sub">ECU-derived estimate</div></div>
+          <div class="commandMetric"><div class="commandMetric__label">Torque / lb-ft</div><div class="commandMetric__value" id="liveTorque">--</div><div class="commandMetric__sub">ECU-derived estimate</div></div>
         </div>
-        <div class="card"><div class="cardHead"><div><h3>Live sensor readings</h3><div class="cardMeta"><span id="telemetryStatus" class="pill warn">Waiting</span><span id="telemetryEcuDetail" class="muted">Waiting for tablet diagnostics</span></div></div><div class="form-group"><label class="form-label" for="telemetryVehicleSelect">Vehicle</label><select class="form-select" id="telemetryVehicleSelect"></select></div></div><div class="cardBody tableWrap"><table class="table"><thead><tr><th>Time</th><th>Vehicle</th><th>RPM</th><th>Speed (mph)</th><th>Coolant</th><th>Battery</th><th>Engine Load</th></tr></thead><tbody id="telemetryRows"></tbody></table><div class="inlineError" id="telemetryError"></div></div></div>
-        <div class="sensorInventory"><div class="sensorInventoryHead"><div><h3>Available sensors</h3><p>Every standardized signal advertised by this vehicle, grouped by system.</p></div><div class="sensorSummary" id="sensorSummary"><span class="pill warn">Awaiting capability scan</span></div></div><div class="sensorGroups" id="telemetrySensorGrid"><div class="sensorEmpty">Select a vehicle and wait for its next telemetry frame.</div></div><div class="inlineError" id="sensorInventoryError"></div></div>
+        <div class="chartGrid"><div class="chartPanel"><div class="chartHead"><div><h3>Coolant trace</h3><p id="coolantTraceSummary">No temperature samples yet</p></div><span class="chip">&#176;F</span></div><div class="chartFrame" data-empty="true"><canvas id="coolantChart" role="img" aria-label="Coolant temperature in Fahrenheit over time"></canvas></div><p class="chartFoot">Current-session readings. Missing signals remain gaps.</p></div><div class="chartPanel"><div class="chartHead"><div><h3>Engine output</h3><p id="outputTraceSummary">No output samples yet</p></div><div><label class="srOnly" for="outputMetricSelect">Output chart metric</label><select id="outputMetricSelect"><option value="horsepower">Power / hp</option><option value="torque">Torque / lb-ft</option><option value="rpm">Engine speed / RPM</option><option value="battery_voltage">Battery / V</option></select></div></div><div class="chartFrame" data-empty="true"><canvas id="outputChart" role="img" aria-label="Selected engine output over time"></canvas></div><p class="chartFoot" id="powerEvidence">Requires actual torque, ECU reference torque, and RPM. Not rated horsepower.</p></div></div>
+        <div class="card"><div class="cardHead"><div><h3>Live sensor readings</h3><div class="cardMeta"><span id="telemetryStatus" class="pill warn">Waiting</span><span id="telemetryEcuDetail" class="muted">Waiting for tablet diagnostics</span></div></div><div class="form-group"><label class="form-label" for="telemetryVehicleSelect">Vehicle</label><select class="form-select" id="telemetryVehicleSelect"></select></div></div><div class="cardBody tableWrap"><table class="table"><thead><tr><th>Time</th><th>Vehicle</th><th>RPM</th><th>Speed (mph)</th><th>Coolant (&#176;F)</th><th>Battery</th><th>Engine Load</th></tr></thead><tbody id="telemetryRows"></tbody></table><div class="inlineError" id="telemetryError"></div></div></div>
+<div class="sensorInventory" id="sensorInventory" tabindex="-1"><div class="sensorInventoryHead"><div><h3>Available sensors</h3><p>Signals returned by the diagnostic catalog. Vehicle and adapter support determine which can report.</p></div><div class="sensorSummary" id="sensorSummary"><span class="pill warn">Awaiting capability scan</span></div></div><div class="sensorFilters"><div class="form-group"><label for="sensorSearch">Find a sensor</label><input class="form-input" id="sensorSearch" type="search" placeholder="Name, PID, SPN, or system"></div><div class="form-group"><label for="sensorFilter">Show</label><select class="form-select" id="sensorFilter"><option value="all">All sensors</option><option value="reporting">Reporting now</option><option value="stale">Stale readings</option><option value="unsupported">Not exposed</option></select></div><button class="btn" id="btnRefreshSensors" type="button">Refresh sensors</button></div><p id="sensorResultCount" class="muted" role="status"></p><div class="sensorGroups" id="telemetrySensorGrid"><div class="sensorEmpty">Select a vehicle and wait for its next telemetry frame.</div></div><div class="inlineError" id="sensorInventoryError"></div></div>
       </section>
 
       <section id="view-telemetry-history" class="section hide">
-        <div class="card"><div class="cardHead"><div><h3>Telemetry history</h3><div class="cardMeta">Filter normalized telemetry by metric and range</div></div><button class="btn" id="btnExportTelemetry">Export CSV</button></div><div class="cardBody"><div class="form-grid"><div class="form-group"><label class="form-label" for="historyVehicleSelect">Vehicle</label><select class="form-select" id="historyVehicleSelect"></select></div><div class="form-group"><label class="form-label" for="historyMetricSelect">Metric</label><select class="form-select" id="historyMetricSelect"><option value="rpm">RPM</option><option value="speed">Speed (mph)</option><option value="coolant_temp">Coolant temp</option><option value="battery_voltage">Battery voltage</option><option value="engine_load">Engine load</option><option value="fuel_level">Fuel level</option></select></div><div class="form-group"><label class="form-label" for="historyRangeSelect">Range</label><select class="form-select" id="historyRangeSelect"><option>1h</option><option>6h</option><option selected>24h</option><option>7d</option></select></div><button class="btn primary" id="btnLoadHistory">Load History</button></div><div class="tableWrap" style="margin-top:14px"><table class="table"><thead><tr><th>Time</th><th>Vehicle</th><th>Metric</th><th>Value</th><th>Quality</th></tr></thead><tbody id="historyRows"></tbody></table></div><div class="inlineError" id="historyError"></div></div></div>
+        <div class="card"><div class="cardHead"><div><h3>Telemetry history</h3><div class="cardMeta">Filter normalized telemetry by metric and range</div></div><button class="btn" id="btnExportTelemetry">Export CSV</button></div><div class="cardBody"><div class="form-grid"><div class="form-group"><label class="form-label" for="historyVehicleSelect">Vehicle</label><select class="form-select" id="historyVehicleSelect"></select></div><div class="form-group"><label class="form-label" for="historyMetricSelect">Metric</label><select class="form-select" id="historyMetricSelect"><option value="rpm">RPM</option><option value="speed">Speed (mph)</option><option value="coolant_temp">Coolant (&#176;F)</option><option value="battery_voltage">Battery voltage</option><option value="engine_load">Engine load</option><option value="fuel_level">Fuel level</option></select></div><div class="form-group"><label class="form-label" for="historyRangeSelect">Range</label><select class="form-select" id="historyRangeSelect"><option>1h</option><option>6h</option><option selected>24h</option><option>7d</option></select></div><button class="btn primary" id="btnLoadHistory">Load History</button></div><div class="chartPanel historyChart"><div class="chartHead"><div><h3 id="historyChartTitle">Recorded signal</h3><p id="historyChartSummary">Select a vehicle and time range</p></div></div><div class="chartFrame" data-empty="true"><canvas id="historyChart" role="img" aria-label="Historical sensor readings over time"></canvas></div><p class="chartFoot">Recorded samples only. Gaps longer than five minutes are not joined.</p></div><div class="tableWrap" style="margin-top:14px"><table class="table"><thead><tr><th>Time</th><th>Vehicle</th><th>Metric</th><th>Value</th><th>Quality</th></tr></thead><tbody id="historyRows"></tbody></table></div><div class="inlineError" id="historyError"></div></div></div>
       </section>
 
       <section id="view-fuel-events" class="section hide"></section>
@@ -291,6 +125,9 @@
   </div>
 
   <script src="../assets/vendor/leaflet/leaflet.js"></script>
+  <script src="../assets/vendor/chartjs/chart.umd.min.js"></script>
+  <script src="../assets/vendor/lucide/lucide.min.js"></script>
+  <script src="js/dashboard-display.js?v=link2"></script>
   <script>
   (() => {
     "use strict";
@@ -301,55 +138,49 @@
       mapMarkers:[], cache:{}, advisor:[], advisorBusy:false, advisorRetrieved:null, advisorActions:{}
     };
     const routes = [
-      ["Daily work",[["dashboard","Overview",""],["alerts","Alerts","alertCount"],["telemetry","Live telemetry",""],["advisor","Fleet Advisor",""]]],
-      ["Monitoring",[["telemetry-history","Telemetry history",""],["health-risk","Vehicle health",""],["dtc-history","Fault codes",""],["gps","Live map",""],["cameras","Cameras",""]]],
-      ["Fleet",[["vehicles","Vehicles",""],["drivers","Drivers",""],["driver-scores","Driver scores",""],["safety","Safety coaching",""]]],
-      ["Operations",[["compliance","Hours of service",""],["dispatch","Dispatch",""],["messages","Driver messages",""],["dvir","Inspections",""],["dot-compliance","DOT readiness",""]]],
-      ["Service",[["maintenance","Work orders",""],["maintenance-logs","Service history",""],["parts-inventory","Parts inventory",""],["recalls","Recall tracker",""],["predictive-scheduler","Maintenance review",""]]],
-      ["Costs and reports",[["fuel-events","Fuel activity",""],["cost-analytics","Cost analysis",""],["reports","Reports",""],["compliance-report","Audit export",""]]],
-      ["Workspace",[["pairing","Device pairing",""],["alert-subscriptions","Notifications",""],["webhooks","Integrations",""],["addons","Add-ons",""],["settings","Settings",""]]]
+      ["Today",[["dashboard","Fleet briefing",""],["alerts","Alerts","alertCount"],["telemetry","Signal desk",""],["advisor","Fleet Advisor",""]]],
+      ["Vehicle intelligence",[["telemetry-history","Trend history",""],["health-risk","Condition review",""],["dtc-history","Fault records",""],["gps","Road map",""],["cameras","Video desk",""]]],
+      ["Fleet",[["vehicles","Vehicle list",""],["drivers","Driver roster",""],["driver-scores","Driver performance",""],["safety","Coaching",""]]],
+      ["Drivers and dispatch",[["compliance","Driving hours",""],["dispatch","Delivery board",""],["messages","Driver inbox",""],["dvir","Vehicle inspections",""],["dot-compliance","Readiness review",""]]],
+      ["Maintenance",[["maintenance","Service queue",""],["maintenance-logs","Repair records",""],["parts-inventory","Shop stock",""],["recalls","Recall review",""],["predictive-scheduler","Preventive planning",""]]],
+      ["Costs and reports",[["fuel-events","Fuel ledger",""],["cost-analytics","Operating costs",""],["reports","Report center",""],["compliance-report","Compliance exports",""]]],
+      ["Workspace",[["pairing","Pair a tablet",""],["alert-subscriptions","Alert delivery",""],["webhooks","Event connections",""],["addons","Extensions",""],["settings","Workspace",""]]]
     ];
     const flatRoutes = routes.flatMap(g => g[1]);
-    const routeIcons = {
-      dashboard:"C", alerts:"R", telemetry:"T", "telemetry-history":"S", "health-risk":"H", "dtc-history":"F",
-      vehicles:"V", gps:"M", cameras:"K", drivers:"D", "driver-scores":"S", safety:"C", compliance:"H",
-      dispatch:"L", messages:"M", dvir:"I", "dot-compliance":"D", maintenance:"W", "maintenance-logs":"R",
-      "parts-inventory":"P", recalls:"!", "predictive-scheduler":"P", "fuel-events":"F", "cost-analytics":"$", reports:"R",
-      "compliance-report":"A", advisor:"AI", "alert-subscriptions":"N", webhooks:"API", pairing:"D", addons:"+", settings:"A"
-    };
+    const routeIcons = {"dashboard":"layout-dashboard","alerts":"bell","telemetry":"activity","telemetry-history":"chart-no-axes-combined","health-risk":"heart-pulse","dtc-history":"scan-line","vehicles":"truck","gps":"map","cameras":"video","drivers":"contact","driver-scores":"chart-no-axes-column","safety":"shield-check","compliance":"clock","dispatch":"route","messages":"messages-square","dvir":"clipboard-check","dot-compliance":"clipboard-list","maintenance":"wrench","maintenance-logs":"notebook-tabs","parts-inventory":"package","recalls":"circle-alert","predictive-scheduler":"calendar-clock","fuel-events":"fuel","cost-analytics":"chart-pie","reports":"files","compliance-report":"file-check","advisor":"sparkles","alert-subscriptions":"mail","webhooks":"workflow","pairing":"tablet-smartphone","addons":"blocks","settings":"settings-2"};
     const titles = {
-      dashboard:["Overview","Fleet priorities, service work, and live coverage at a glance"],
-      telemetry:["Live telemetry","Real-time sensor data from active paired units"],
-      "telemetry-history":["Telemetry history","Sensor readings by vehicle and time range"],
-      "fuel-events":["Fuel activity","Refuel events and fuel activity detected from sensor data"],
-      "health-risk":["Vehicle health","Anomaly scoring, signal deviations, and predictive health index"],
-      "dtc-history":["Fault codes","Stored OBD-II and J1939 diagnostic codes from recent snapshots"],
+      dashboard:["Fleet briefing","Fleet priorities, service work, and live coverage at a glance"],
+      telemetry:["Signal desk","Real-time sensor data from active paired units"],
+      "telemetry-history":["Trend history","Sensor readings by vehicle and time range"],
+      "fuel-events":["Fuel ledger","Refuel events and fuel activity detected from sensor data"],
+      "health-risk":["Condition review","Anomaly scoring, signal deviations, and predictive health index"],
+      "dtc-history":["Fault records","Stored OBD-II and J1939 diagnostic codes from recent snapshots"],
       alerts:["Alerts","Vehicle warnings and their current status"],
-      safety:["Safety coaching","Driver behavior flags, severity tracking, and coaching overview"],
-      compliance:["Hours of service","FMCSA release gates, device enrollment, and validation status"],
-      gps:["Live map","Real-time unit positions for operational and incident context"],
-      cameras:["Cameras","Road-facing and driver-facing feeds when units are connected"],
+      safety:["Coaching","Driver behavior flags, severity tracking, and coaching overview"],
+      compliance:["Driving hours","FMCSA release gates, device enrollment, and validation status"],
+      gps:["Road map","Real-time unit positions for operational and incident context"],
+      cameras:["Video desk","Road-facing and driver-facing feeds when units are connected"],
       advisor:["Fleet Advisor","Ask about vehicles, alerts, service work, and fleet records"],
-      reports:["Reports","Exportable fleet summaries and operational snapshots"],
-      maintenance:["Work orders","Open service jobs, scheduled maintenance, and work order tracking"],
-      "maintenance-logs":["Service history","Vehicle service history, repair records, and maintenance log"],
-      vehicles:["Vehicles","Registered fleet units, assigned drivers, and paired devices"],
-      drivers:["Drivers","Active drivers, vehicle assignments, and pairing access"],
-      pairing:["Device pairing","Generate pairing codes and manage connected telematics devices"],
-      addons:["Add-ons","Expansion modules and optional capabilities for your workspace"],
-      settings:["Settings","Workspace controls, access management, and display preferences"],
-      dispatch:["Dispatch","Active load assignments, routes, and delivery tracking"],
-      dvir:["Inspections","DOT-ready pre-trip and post-trip inspection records"],
-      "dot-compliance":["DOT readiness","Regulatory standing, HOS logs, and inspection compliance summary"],
-      "parts-inventory":["Parts inventory","Stock levels, reorder points, and suppliers"],
-      recalls:["Recall tracker","NHTSA open recalls by vehicle and remediation status"],
-      "cost-analytics":["Cost analysis","Per-vehicle cost breakdown - fuel, maintenance, and cost per mile"],
-      "driver-scores":["Driver scores","Driver safety rankings from telemetry - braking, speed, idle"],
-      webhooks:["Integrations","Push fleet events to external endpoints and automation tools"],
-      "alert-subscriptions":["Notifications","Email recipients for critical fleet alerts"],
-      "predictive-scheduler":["Maintenance review","Review model-backed service recommendations before scheduling work"],
-      "compliance-report":["Audit export","Generate DVIR, maintenance, and compliance reports by date range"],
-      messages:["Driver messages","Two-way communication between dispatch and active drivers"]
+      reports:["Report center","Exportable fleet summaries and operational snapshots"],
+      maintenance:["Service queue","Open service jobs, scheduled maintenance, and work order tracking"],
+      "maintenance-logs":["Repair records","Vehicle service history, repair records, and maintenance log"],
+      vehicles:["Vehicle list","Registered fleet units, assigned drivers, and paired devices"],
+      drivers:["Driver roster","Active drivers, vehicle assignments, and pairing access"],
+      pairing:["Pair a tablet","Generate pairing codes and manage connected telematics devices"],
+      addons:["Extensions","Expansion modules and optional capabilities for your workspace"],
+      settings:["Workspace","Workspace controls, access management, and display preferences"],
+      dispatch:["Delivery board","Active load assignments, routes, and delivery tracking"],
+      dvir:["Vehicle inspections","DOT-ready pre-trip and post-trip inspection records"],
+      "dot-compliance":["Readiness review","Regulatory standing, HOS logs, and inspection compliance summary"],
+      "parts-inventory":["Shop stock","Stock levels, reorder points, and suppliers"],
+      recalls:["Recall review","NHTSA open recalls by vehicle and remediation status"],
+      "cost-analytics":["Operating costs","Per-vehicle cost breakdown - fuel, maintenance, and cost per mile"],
+      "driver-scores":["Driver performance","Driver safety rankings from telemetry - braking, speed, idle"],
+      webhooks:["Event connections","Push fleet events to external endpoints and automation tools"],
+      "alert-subscriptions":["Alert delivery","Email recipients for critical fleet alerts"],
+      "predictive-scheduler":["Preventive planning","Review model-backed service recommendations before scheduling work"],
+      "compliance-report":["Compliance exports","Generate DVIR, maintenance, and compliance reports by date range"],
+      messages:["Driver inbox","Two-way communication between dispatch and active drivers"]
     };
     const loaders = {
       "telemetry-history":["loadTelemetryHistory"], "fuel-events":["loadFuelEvents"], "health-risk":["loadHealthRisk"], "dtc-history":["loadDtcHistory"],
@@ -366,9 +197,10 @@
     const unwrap = (json) => Array.isArray(json) ? json : (json?.data ?? json?.items ?? json?.vehicles ?? json?.drivers ?? json ?? []);
     function badge(text,id){ if(!text) return ""; const cls = text === "New" ? "tag new" : "tag"; return `<span class="${cls}"${id ? ` id="${id}"` : ""}>${esc(text === "alertCount" ? "--" : text)}</span>`; }
     function buildNav(){
-      $("sideNav").innerHTML = routes.map(([group,items],index) => { const groupId=`nav-group-${index}`; return `<section class="navGroup${index===0?" open":""}" data-nav-group="${esc(group)}"><button class="navGroupToggle" type="button" aria-expanded="${index===0?"true":"false"}" aria-controls="${groupId}"><span>${esc(group)}</span><span class="navChevron" aria-hidden="true">&gt;</span></button><div class="navGroupItems" id="${groupId}">${items.map(([route,label,tag]) => `<button class="navRoute" type="button" data-view="${route}" data-route="${route}"><span class="navMain"><span class="navIcon">${esc(routeIcons[route] || label[0])}</span><span class="navName">${esc(label)}</span></span>${badge(tag,tag==="alertCount" ? "alertCount" : "")}</button>`).join("")}</div></section>`; }).join("");
+      $("sideNav").innerHTML = routes.map(([group,items],index) => { const groupId=`nav-group-${index}`; return `<section class="navGroup${index===0?" open":""}" data-nav-group="${esc(group)}"><button class="navGroupToggle" type="button" aria-expanded="${index===0?"true":"false"}" aria-controls="${groupId}"><span>${esc(group)}</span><span class="navChevron" aria-hidden="true">&gt;</span></button><div class="navGroupItems" id="${groupId}">${items.map(([route,label,tag]) => `<button class="navRoute" type="button" data-view="${route}" data-route="${route}"><span class="navMain"><i class="navIcon" data-lucide="${esc(routeIcons[route]||"circle")}" aria-hidden="true"></i><span class="navName">${esc(label)}</span></span>${badge(tag,tag==="alertCount" ? "alertCount" : "")}</button>`).join("")}</div></section>`; }).join("");
       $("topTabs").innerHTML = flatRoutes.map(([route,label]) => `<button type="button" class="topTab" data-route="${route}">${label}</button>`).join("");
       document.querySelectorAll("[data-route]").forEach(btn => btn.addEventListener("click", () => setHashRoute(btn.dataset.route)));
+      window.lucide?.createIcons();
       document.querySelectorAll(".navGroupToggle").forEach(toggle=>toggle.addEventListener("click",()=>{const group=toggle.closest(".navGroup");const open=!group.classList.contains("open");if(open)collapseOtherNavGroups(group);setNavGroupOpen(group,open);}));
     }
     function setNavGroupOpen(group,open){group.classList.toggle("open",open);group.querySelector(".navGroupToggle").setAttribute("aria-expanded",String(open));group.querySelector(".navGroupItems").inert=!open;}
@@ -383,6 +215,7 @@
     function renderRoute(route){
       if(!titles[route]) route = "dashboard";
       state.activeRoute = route;
+      document.querySelector(".main").scrollTop=0;
       document.body.classList.toggle("advisor-route",route==="advisor");
       if(route==="advisor")$("opsAdvisorDock")?.classList.remove("open");
       const [title,sub] = titles[route];
@@ -395,6 +228,7 @@
       revealActiveNavGroup(route);
       stopGpsPolling(); if(route !== "messages") stopMsgSse();
       (loaders[route] || []).forEach(fn => safeInvoke(fn));
+      if(route==="telemetry")requestAnimationFrame(renderLiveCharts);
     }
     window.renderRoute = renderRoute;
     async function fetchJson(url, opts={}){
@@ -444,7 +278,7 @@
       fillVehicleSelects(); fillDriverSelects(); renderPairingSelects(); renderFleetTables();
     }
     window.loadFleetManagement = loadFleetManagement;
-    function fillVehicleSelects(){ ["telemetryVehicleSelect","historyVehicleSelect","genericVehicleSelect","pairVehicleSelect"].forEach(id=>{const el=$(id); if(el){const selected=el.value||state.selectedVehicleId;el.innerHTML = state.vehicles.map(v=>`<option value="${esc(v.vehicleId||v.id)}">${esc(v.unitName||v.name||v.vehicleId||v.id)}</option>`).join("");if([...el.options].some(option=>option.value===selected))el.value=selected;}}); }
+    function fillVehicleSelects(){ ["telemetryVehicleSelect","historyVehicleSelect","genericVehicleSelect","pairVehicleSelect","workspaceVehicleSelect"].forEach(id=>{const el=$(id); if(el){const selected=el.value||state.selectedVehicleId;el.innerHTML = state.vehicles.map(v=>`<option value="${esc(v.vehicleId||v.id)}">${esc(v.unitName||v.name||v.vehicleId||v.id)}</option>`).join("");if([...el.options].some(option=>option.value===selected))el.value=selected;}}); }
     function fillDriverSelects(){ ["pairDriverSelect"].forEach(id=>{const el=$(id); if(el){const selected=el.value;el.innerHTML = state.drivers.map(d=>`<option value="${esc(d.driverId||d.id)}">${esc([d.firstName,d.lastName].filter(Boolean).join(" ")||d.name||d.email||d.driverId||d.id)}</option>`).join("");if([...el.options].some(option=>option.value===selected))el.value=selected;}}); }
     function renderPairingSelects(){ fillVehicleSelects(); fillDriverSelects(); }
     window.renderPairingSelects = renderPairingSelects;
@@ -466,9 +300,10 @@
       $("readinessVehicles").textContent=String(state.vehicles.length);
       $("readinessModels").textContent=healthAvailable?String(health.length):"--";
       $("readinessRisks").textContent=$("kpiActions").textContent;
+      renderFleetBriefing(health,healthAvailable);
       const priority=health.filter(h=>(hasNumber(h.healthScore)&&Number(h.healthScore)<75)||["high","critical"].includes(String(h.risk).toLowerCase())).sort((a,b)=>(a.healthScore??100)-(b.healthScore??100));
       $("riskQueueBody").innerHTML = priority.slice(0,8).map(h=>`<tr><td><button type="button" class="unitLink" data-open-unit="${esc(h.vehicleId||'')}">${esc(h.vehicleName||state.vehicles.find(v=>(v.vehicleId||v.id)===h.vehicleId)?.unitName||h.vehicleId||"Unknown unit")}</button></td><td>${esc(h.component||h.subsystem||"Not identified")}</td><td>${riskPill(h.risk||scoreRisk(h.healthScore))}</td><td>${esc(h.failureWindow||h.window||"Not estimated")}</td><td>${esc(h.recommendedAction||h.action||"Review model evidence")}</td></tr>`).join("") || rowsEmpty(5,healthAvailable?"No elevated risks in the available model records.":"Risk data is unavailable. Refresh to try again; fleet health has not been verified.");
-      $("riskQueueBody").querySelectorAll("[data-open-unit]").forEach(button=>button.onclick=()=>{state.selectedVehicleId=button.dataset.openUnit;const select=$("telemetryVehicleSelect");if(select)select.value=state.selectedVehicleId;setHashRoute("telemetry");});
+      $("riskQueueBody").querySelectorAll("[data-open-unit]").forEach(button=>button.onclick=()=>{selectVehicleContext(button.dataset.openUnit);setHashRoute("telemetry");});
       $("overviewUpdated").textContent = healthAvailable ? `Checked ${new Date().toLocaleTimeString([], {hour:"numeric",minute:"2-digit"})}` : "Risk data unavailable";
       const driftSignals = health.flatMap(h=>{
         const factors = h.topFeatures || h.evidence || h.featureContributions || [];
@@ -482,6 +317,65 @@
       $("scheduleList").innerHTML = openWork?.length ? openWork.slice().sort((a,b)=>new Date(a.dueDate||"9999-01-01")-new Date(b.dueDate||"9999-01-01")).slice(0,3).map(r=>`<div class="scheduleItem"><div><strong>${esc(r.vehicleName||r.vehicleId)}</strong><div class="muted">${esc(r.title)}</div><div class="muted">${r.dueDate?esc(formatDateTime(r.dueDate)):"Date not set"}</div></div></div>`).join("") : `<div class="muted">${openWork?"No open work orders.":"Work orders could not be loaded. Try refreshing."}</div>`;
     }
     window.loadDashboard = loadDashboard;
+
+    function renderFleetBriefing(health,available){
+      const scored=health.filter(row=>hasNumber(row.healthScore));
+      const healthy=scored.filter(row=>Number(row.healthScore)>=75).length;
+      const review=scored.length-healthy;
+      const unknown=Math.max(0,state.vehicles.length-scored.length);
+      $("briefingSummary").textContent=available
+        ? `${scored.length} of ${state.vehicles.length} vehicles have a recorded health score.`
+        : "Model records are unavailable. Fleet health has not been verified.";
+      $("fleetHealthMix").innerHTML=available?[[healthy,"var(--good)"],[review,"var(--warn)"],[unknown,"var(--surface2)"]].filter(([count])=>count>0).map(([count,color])=>`<span style="flex:${count};background:${color}"></span>`).join(""):"";
+      $("fleetHealthLegend").innerHTML=available?`<span><b>${healthy}</b> score 75+</span><span><b>${review}</b> score below 75</span><span><b>${unknown}</b> no score</span>`:"Model service unavailable";
+    }
+    function selectVehicleContext(vehicleId){
+      if(String(vehicleId)===String(state.selectedVehicleId))return;
+      state.selectedVehicleId=vehicleId;
+      state.telemetryRows=[];state.liveChartRows=[];state.telemetryLastAt=0;state.sensorLastRefresh=0;
+      clearLiveTelemetryValues();
+      $("telemetryRows").innerHTML=rowsEmpty(7,"Waiting for this vehicle's readings.");
+      $("telemetryStatus").textContent="Waiting for selected vehicle";
+      $("telemetryStatus").className="pill warn";
+      $("telemetryEcuDetail").textContent="";
+      renderSensorInventory({readings:[],counts:{}});
+      ["telemetryVehicleSelect","historyVehicleSelect","workspaceVehicleSelect"].forEach(id=>{if($(id))$(id).value=vehicleId;});
+      renderLiveCharts();
+    }
+    function recordLiveChart(frame,output){
+      const timestamp=telemetryPacketAt(frame);
+      const row={timestamp:new Date(timestamp).toISOString(),
+        coolant_temp:telemetryValue(frame,TELEMETRY_PATHS.coolant,TELEMETRY_SOURCE_KEYS.coolant),
+        rpm:telemetryValue(frame,TELEMETRY_PATHS.rpm,TELEMETRY_SOURCE_KEYS.rpm),
+        battery_voltage:telemetryValue(frame,TELEMETRY_PATHS.battery,TELEMETRY_SOURCE_KEYS.battery),
+        horsepower:output.horsepower,torque:output.torqueLbFt};
+      const rows=state.liveChartRows||(state.liveChartRows=[]);
+      const existing=rows.findIndex(item=>item.timestamp===row.timestamp);
+      if(existing>=0)rows[existing]=row;else rows.push(row);
+      rows.sort((a,b)=>Date.parse(a.timestamp)-Date.parse(b.timestamp));
+      state.liveChartRows=rows.slice(-600);
+      if(state.activeRoute==="telemetry")renderLiveCharts();
+    }
+    function recordChartGap(){
+      const rows=state.liveChartRows||[];
+      if(rows.length&&!rows.at(-1).gap){rows.push({timestamp:new Date().toISOString(),gap:true});state.liveChartRows=rows.slice(-600);}
+      if(state.activeRoute==="telemetry")renderLiveCharts();
+    }
+    function renderLiveCharts(){
+      const rows=state.liveChartRows||[];
+      const metric=$("outputMetricSelect").value;
+      for(const [id,key,summary] of [["coolantChart","coolant_temp","coolantTraceSummary"],["outputChart",metric,"outputTraceSummary"]]){
+        const data=rows.map(row=>({timestamp:row.timestamp,value:row[key]??null}));
+        FleetDisplay.chart($(id),data,key,15000);
+        const valid=data.map(row=>FleetDisplay.metricValue(key,row.value)).filter(value=>value!==null);
+        const definition=FleetDisplay.definitions[key];
+        $(summary).textContent=valid.length
+          ? `${valid.length} readings · ${FleetDisplay.format(Math.min(...valid))}–${FleetDisplay.format(Math.max(...valid))} ${definition.unit}`
+          : "No supported readings in this session";
+        $(id).setAttribute("aria-label",definition.label+" over time in "+definition.unit);
+      }
+    }
+
     function scoreRisk(score){ if(!hasNumber(score))return "Not assessed";score=Number(score); return score<60?"High":score<78?"Medium":"Low"; }
     function riskPill(r){
       const numeric=typeof r==="number"&&Number.isFinite(r);
@@ -500,7 +394,10 @@
     async function loadHealthRisk(){ await loadSimpleTable("health-risk","Vehicle health scores","Lowest scores require first action",["/api/ml/state"],["Vehicle","Score","Charging Profile","Charging Evidence","Flags","Last Seen"],r=>{const flags=r.flags||r.anomalyFlags||[];const charge=r.chargingEvidence||{};const target=Number(charge.nominalTarget);return `<tr><td>${esc(r.vehicleName||r.vehicleId)}</td><td>${riskPill(r.healthScore??"--")}</td><td>${esc(charge.profileLabel||"Adaptive charging")}${Number.isFinite(target)?`<div class="muted">Nominal ${target.toFixed(1)} V</div>`:""}</td><td>${riskPill(charge.status||"Calibrating")}<div class="muted">${esc(charge.explanation||"Collecting engine-running voltage evidence.")}</div></td><td>${esc(Array.isArray(flags)?flags.join(", "):(flags||"No anomaly flags"))}</td><td>${esc(formatDateTime(r.lastSeen||r.updatedAt))}</td></tr>`;},"No health scores are available yet."); }
     async function loadDtcHistory(){ const v=encodeURIComponent(state.selectedVehicleId||""); if(!v){ genericPanel("dtc-history","Diagnostic Codes","Stored OBD-II and J1939 fault codes",`<div class="muted">Select or register a vehicle to review fault codes.</div>`); return; } await loadSimpleTable("dtc-history","Diagnostic Codes","Stored OBD-II and J1939 fault codes",[`/api/vehicles/${v}/dtc-history`,`/api/dtc-history?vehicleId=${v}`],["Code","Description","Severity","First Seen","Last Seen"],r=>`<tr><td class="mono">${esc(r.code)}</td><td>${esc(r.description||r.text||"Diagnostic code captured")}</td><td>${riskPill(r.severity||"Info")}</td><td>${esc(r.firstSeen||r.ts||"--")}</td><td>${esc(r.lastSeen||r.ts||"--")}</td></tr>`,"No DTC records for the selected vehicle."); }
     async function loadAlerts(){ await loadSimpleTable("alerts","Alert Queue","Active conditions and preserved alert history",["/api/ml/alerts"],["Vehicle","Type","Severity","Detected","Evidence","Status"],r=>`<tr><td>${esc(r.vehicleId||r.unit||"--")}</td><td>${esc(r.type||r.title||"Alert")}</td><td>${riskPill(r.severity||r.sev||"Info")}</td><td>${esc(formatDateTime(r.time||r.createdAt))}</td><td>${esc(r.explanation||r.message||r.desc||"No evidence summary was recorded.")}</td><td>${r.resolved?riskPill("Resolved"):r.acknowledged?riskPill("Acknowledged"):riskPill("Active")}<div class="sectionActions">${r.id&&!r.acknowledged&&!r.resolved?`<button class="btn ghost" data-ack="${esc(r.id)}">Acknowledge</button>`:""}${r.id&&!r.resolved?`<button class="btn ghost" data-resolve="${esc(r.id)}">Resolve</button>`:""}</div></td></tr>`,"No fleet alerts have been recorded."); document.querySelectorAll("[data-ack]").forEach(button=>button.onclick=async()=>{button.disabled=true;try{await apiPost(`/api/alerts/${encodeURIComponent(button.dataset.ack)}/ack`,{});await loadAlerts();pollAlertCount();}catch(e){err("alertsError",e.message);button.disabled=false;}}); document.querySelectorAll("[data-resolve]").forEach(button=>button.onclick=async()=>{button.disabled=true;try{await apiPost(`/api/alerts/${encodeURIComponent(button.dataset.resolve)}/resolve`,{});await loadAlerts();pollAlertCount();}catch(e){err("alertsError",e.message);button.disabled=false;}}); }
-    async function loadSafetyEvents(){ genericPanel("safety","Driver Events","Behavior flags and coaching signals",`<div class="grid3"><div class="commandMetric"><div class="commandMetric__label">Events This Week</div><div class="commandMetric__value">0</div><div class="commandMetric__sub">No harsh events recorded</div></div><div class="commandMetric"><div class="commandMetric__label">Top Offender</div><div class="commandMetric__value">--</div><div class="commandMetric__sub">Awaiting driver telemetry</div></div><div class="commandMetric"><div class="commandMetric__label">Coaching Queue</div><div class="commandMetric__value">0</div><div class="commandMetric__sub">No active coaching items</div></div></div>`); }
+    async function loadSafetyEvents(){
+      genericPanel("safety","Coaching events","No connected coaching-event source",`<p class="muted">Event counts and coaching assignments are not available. This does not mean that no safety events occurred.</p><button class="btn primary" id="btnCoachingPerformance" type="button">View driver performance</button>`);
+      $("btnCoachingPerformance").onclick=()=>setHashRoute("driver-scores");
+    }
     async function loadHosCompliance(){
       genericPanel("compliance","ELD Readiness","Fleet AI remains in shadow mode until every FMCSA release gate is complete",`<div class="commandStrip"><div class="commandMetric"><div class="commandMetric__label">Release state</div><div class="commandMetric__value" id="eldReleaseState">Checking</div><div class="commandMetric__sub" id="eldCertificationState">Loading configuration</div></div><div class="commandMetric"><div class="commandMetric__label">Enabled tablets</div><div class="commandMetric__value" id="eldDeviceCount">--</div><div class="commandMetric__sub">Shadow-mode devices</div></div></div><div class="tableWrap"><table class="table"><thead><tr><th>Gate</th><th>Status</th></tr></thead><tbody id="eldReadinessRows"><tr><td colspan="2"><div class="skeleton"></div></td></tr></tbody></table></div><div class="inlineError" id="eldReadinessError"></div><div style="margin-top:28px"><h3>Carrier HOS profile</h3><p class="cardMeta">The carrier must select the rule set that applies to its operation. Fleet AI does not infer interstate status or exceptions from GPS.</p><form id="eldCarrierForm" class="form-grid" ${state.isAdmin?"":"hidden"}><div class="form-group"><label class="form-label" for="eldCarrierName">Legal carrier name</label><input class="form-input" id="eldCarrierName" required></div><div class="form-group"><label class="form-label" for="eldUsdot">USDOT number</label><input class="form-input" id="eldUsdot" inputmode="numeric" maxlength="8" required></div><div class="form-group"><label class="form-label" for="eldTerminalName">Home terminal</label><input class="form-input" id="eldTerminalName" required></div><div class="form-group"><label class="form-label" for="eldTerminalAddress">Terminal address</label><input class="form-input" id="eldTerminalAddress" required></div><div class="form-group"><label class="form-label" for="eldTerminalTimezone">Terminal time zone</label><select class="form-select" id="eldTerminalTimezone"><option>America/Los_Angeles</option><option>America/Denver</option><option>America/Chicago</option><option>America/New_York</option><option>America/Phoenix</option><option>America/Anchorage</option></select></div><div class="form-group"><label class="form-label" for="eldDayStart">24-hour period starts</label><input class="form-input" id="eldDayStart" type="time" value="00:00" required></div><div class="form-group"><label class="form-label" for="eldHosProfile">Property-carrier rule profile</label><select class="form-select" id="eldHosProfile"><option value="FEDERAL_PROPERTY_70_8">Federal interstate 70 hours / 8 days</option><option value="FEDERAL_PROPERTY_60_7">Federal interstate 60 hours / 7 days</option><option value="CA_INTRASTATE_PROPERTY_80_8">California intrastate 80 hours / 8 days</option></select></div><button class="btn primary" type="submit">Save HOS profile</button></form><p class="muted" id="eldCarrierReadOnly" ${state.isAdmin?"hidden":""}>An organization administrator controls the carrier HOS profile.</p><div class="inlineError" id="eldCarrierStatus"></div></div>`);
       try{
@@ -520,14 +417,38 @@
     }
     const KPH_TO_MPH = 0.621371192237334;
     function kphToDisplayMph(value){
-      const numeric=Number(value);
-      return Number.isFinite(numeric)?numeric*KPH_TO_MPH:null;
+      const numeric=FleetDisplay.number(value);
+      return numeric===null?null:numeric*KPH_TO_MPH;
     }
     function historyMetricDisplay(metric,value){
-      const numeric=metric==="speed"?kphToDisplayMph(value):Number(value);
-      return Number.isFinite(numeric)?numeric.toLocaleString(undefined,{maximumFractionDigits:1}):"--";
+      return FleetDisplay.format(FleetDisplay.metricValue(metric,value));
     }
-    async function loadTelemetryHistory(){ const v=encodeURIComponent($("historyVehicleSelect")?.value||state.selectedVehicleId||""); const metric=$("historyMetricSelect")?.value||"rpm"; const range=$("historyRangeSelect")?.value||"24h"; if(!v){ $("historyRows").innerHTML=rowsEmpty(5,"Select or register a vehicle to review telemetry history."); return; } try{ const data=unwrap(await apiGet([`/api/vehicles/${v}/metrics/history?metric=${metric}&range=${range}`,`/api/telemetry/history?vehicleId=${v}&metric=${metric}&range=${range}`])); const metricLabel=metric==="speed"?"speed (mph)":metric; $("historyRows").innerHTML=data.length?data.map(r=>`<tr><td>${esc(r.ts||r.timestamp)}</td><td>${esc(r.vehicleId||v)}</td><td>${esc(metricLabel)}</td><td>${historyMetricDisplay(metric,r.value??r[metric])}</td><td>${esc(r.quality||"normalized")}</td></tr>`).join(""):rowsEmpty(5,"No telemetry history for this filter."); err("historyError",""); }catch(e){ $("historyRows").innerHTML=rowsEmpty(5,"No telemetry history for this filter."); err("historyError",e.message); } }
+    async function loadTelemetryHistory(){
+      const vehicleId=$("historyVehicleSelect")?.value||state.selectedVehicleId||"";
+      const metric=$("historyMetricSelect")?.value||"rpm",range=$("historyRangeSelect")?.value||"24h";
+      const request=(state.historyRequest||0)+1;state.historyRequest=request;
+      const definition=FleetDisplay.definitions[metric];
+      $("historyChartTitle").textContent=definition.label+" / "+definition.unit;
+      $("historyChartSummary").textContent="Loading recorded samples...";
+      FleetDisplay.chart($("historyChart"),[],metric);
+      if(!vehicleId){$("historyRows").innerHTML=rowsEmpty(5,"Select a vehicle to review its history.");$("historyChartSummary").textContent="No vehicle selected";return;}
+      try{
+        const v=encodeURIComponent(vehicleId);
+        const data=unwrap(await apiGet([`/api/vehicles/${v}/metrics/history?metric=${metric}&range=${range}`,`/api/telemetry/history?vehicleId=${v}&metric=${metric}&range=${range}`]));
+        if(request!==state.historyRequest||$("historyVehicleSelect").value!==vehicleId||$("historyMetricSelect").value!==metric||$("historyRangeSelect").value!==range)return;
+        if(!Array.isArray(data))throw new Error("The history response was not a sample list.");
+        const rows=data.map(r=>({...r,value:r.value??r[metric]}));
+        FleetDisplay.chart($("historyChart"),rows,metric);
+        $("historyChartSummary").textContent=`${rows.length.toLocaleString()} returned samples · ${vehicleLabel(vehicleId)} · ${range}`;
+        $("historyRows").innerHTML=rows.length?rows.map(r=>`<tr><td>${esc(formatDateTime(r.ts||r.timestamp))}</td><td>${esc(vehicleLabel(vehicleId))}</td><td>${esc(definition.label+" / "+definition.unit)}</td><td>${historyMetricDisplay(metric,r.value??r[metric])}</td><td>${esc(r.quality||"normalized")}</td></tr>`).join(""):rowsEmpty(5,"No recorded readings for this filter.");
+        err("historyError","");
+      }catch(e){
+        if(request!==state.historyRequest)return;
+        $("historyRows").innerHTML=rowsEmpty(5,"History is unavailable.");
+        $("historyChartSummary").textContent="History could not be loaded";
+        err("historyError",e.message);
+      }
+    }
     window.loadTelemetryHistory = loadTelemetryHistory;
     async function loadGpsMap(){
       const sec=$("view-gps");
@@ -593,7 +514,7 @@
         ["Risk evidence",count(r.alerts,r.predictionRuns,r.diagnosticScans)],
         ["Service records",count(r.maintenanceLogs,r.workOrders)],
         ["Compliance records",count(r.dvirRecords,r.eldEvents,r.eldDiagnostics,r.eldCertifications)]
-      ]:[["Vehicles and drivers","Available"],["Telemetry and drive logs","Available"],["Risk and maintenance","Available"],["Inspections and compliance","Available"]];
+      ]:[["Vehicles and drivers","Not checked"],["Telemetry and drive logs","Not checked"],["Risk and maintenance","Not checked"],["Inspections and compliance","Not checked"]];
       target.innerHTML=rows.map(([label,value])=>`<div class="advisorDataRow"><span>${esc(label)}</span><span>${esc(value)}</span></div>`).join("");
     }
     function bindAdvisorPage(){
@@ -606,7 +527,7 @@
     function renderQuickPrompts(){
       const section=$("view-advisor");if(!section)return;
       const prompts=["What needs my attention today?","Summarize the latest drive","Build a fleet risk report","What maintenance is overdue?","Are there HOS concerns?"];
-      section.innerHTML=`<div class="advisorWorkspace"><div class="advisorConversation"><div class="advisorConversationHead"><div><h3>Fleet Advisor</h3><p id="advisorPageStatus">Checking advisor service...</p></div><div class="advisorPresence">Ready for context</div></div><div class="advisorPromptRail" aria-label="Suggested Fleet Advisor questions">${prompts.map(q=>`<button class="btn ghost" type="button" data-prompt="${esc(q)}">${esc(q)}</button>`).join("")}</div><div class="advisorThread advisorPageThread" id="advisorPageThread" aria-live="polite"></div><form class="advisorComposer" id="advisorPageForm"><label class="srOnly" for="advisorPageInput">Ask Fleet Advisor</label><textarea id="advisorPageInput" aria-label="Ask Fleet Advisor" placeholder="Ask about a vehicle, drive, maintenance risk, compliance, or cost..."></textarea><button class="btn primary" type="submit" data-advisor-send>Send</button></form></div><aside class="advisorSideRail"><section class="advisorSideSection"><h3>Connected fleet records</h3><p>Answers are grounded in records available to this organization.</p><div id="advisorDataSummary"></div></section><section class="advisorSideSection advisorReports"><h3>Recent reports</h3><p>Reports generated through Fleet Advisor remain available here.</p><div id="advisorReportList" class="muted">Loading reports...</div></section></aside></div>`;
+      section.innerHTML=`<div class="advisorWorkspace"><div class="advisorConversation"><div class="advisorConversationHead"><div class="advisorBrand"><img src="/assets/brand/fleet-ai-mark.svg?v=link1" alt="" /><div><h3>Fleet Advisor</h3><p id="advisorPageStatus">Checking advisor service...</p></div></div><div class="advisorPresence">Your fleet. Your records.</div></div><div class="advisorPromptRail" aria-label="Suggested Fleet Advisor questions">${prompts.map(q=>`<button class="btn ghost" type="button" data-prompt="${esc(q)}">${esc(q)}</button>`).join("")}</div><div class="advisorThread advisorPageThread" id="advisorPageThread" aria-live="polite"></div><form class="advisorComposer" id="advisorPageForm"><label class="srOnly" for="advisorPageInput">Ask Fleet Advisor</label><textarea id="advisorPageInput" aria-label="Ask Fleet Advisor" placeholder="Ask about a vehicle, drive, maintenance risk, compliance, or cost..."></textarea><button class="btn primary" type="submit" data-advisor-send>Send</button></form></div><aside class="advisorSideRail"><section class="advisorSideSection"><h3>Connected fleet records</h3><p>Answers are grounded in records available to this organization.</p><div id="advisorDataSummary"></div></section><section class="advisorSideSection advisorReports"><h3>Recent reports</h3><p>Reports generated through Fleet Advisor remain available here.</p><div id="advisorReportList" class="muted">Loading reports...</div></section></aside></div>`;
       renderAdvisorConversation();renderAdvisorDataSummary();bindAdvisorPage();
     }
     async function loadAdvisorArtifacts(){
@@ -751,20 +672,22 @@
     function initReports(){ genericPanel("reports","Fleet Reports","Verified exports are available from connected operational records",`<p class="muted">Use Audit export to generate the currently supported DVIR, maintenance, and HOS-readiness export. Additional report types will appear only when their data sources are connected.</p><button class="btn primary" type="button" data-route="compliance-report">Open Audit export</button>`); document.querySelector("#view-reports [data-route]")?.addEventListener("click",event=>setHashRoute(event.currentTarget.dataset.route)); }
     function loadSettings(){ genericPanel("settings","Workspace Settings","Secure account and organization controls",`<div class="note">Organization profile, roles, password changes, and notification delivery require dedicated server-backed settings before they will be editable here.</div><button class="btn danger" id="settingsLogout" type="button">Sign out of Fleet AI</button>`); $("settingsLogout").onclick=logout; }
     function renderFleetTables(){
-      const addVehicleBtn = `<button class="btn primary" id="btnAddVehicle" style="margin-left:auto">+ Add Vehicle</button>`;
-      const addDriverBtn = `<button class="btn primary" id="btnAddDriver" style="margin-left:auto">+ Add Driver</button>`;
+      const addVehicleBtn = `<button class="btn primary" id="btnAddVehicle" style="margin-left:auto">Add vehicle</button>`;
+      const addDriverBtn = `<button class="btn primary" id="btnAddDriver" style="margin-left:auto">Add driver</button>`;
       const vehicleRows = state.vehicles.map(v=>`<tr><td><strong>${esc(v.unitName||v.vehicleId||v.id)}</strong><div class="muted" style="font-size:12px">${esc(v.vehicleId||"")}</div></td><td>${esc([v.year,v.make,v.model].filter(Boolean).join(" ")||v.type||"--")}</td><td>${esc(v.type||"--")}</td><td>${riskPill(v.deviceId?"Paired":"Unpaired")}</td><td>${esc(v.lastSeen||"--")}</td></tr>`).join("") || rowsEmpty(5,"No vehicles registered. Add your first vehicle above.");
       const driverRows = state.drivers.map(d=>`<tr><td>${esc([d.firstName,d.lastName].filter(Boolean).join(" ")||d.name||d.email)}</td><td>${esc(d.licenseNumber||d.license||"--")}</td><td>${esc(d.assignedVehicle||"--")}</td><td>${riskPill(d.pairingStatus||"Ready")}</td></tr>`).join("") || rowsEmpty(4,"No drivers registered. Add your first driver above.");
-      if($("view-vehicles") && state.activeRoute==="vehicles") genericPanel("vehicles","Vehicle Registry","Fleet units and device status",`<div class="cardHead" style="display:flex;align-items:center;gap:8px;padding:0 0 10px">${addVehicleBtn}</div><div class="inlineStatus" id="vehicleActionStatus" role="status"></div><div class="tableWrap"><table class="table"><thead><tr><th>Unit Name / ID</th><th>Year/Make/Model</th><th>Type</th><th>Device</th><th>Last Seen</th></tr></thead><tbody>${vehicleRows}</tbody></table></div><div id="addVehicleFormWrap" style="display:none;margin-top:14px"></div>`);
-      if($("view-drivers") && state.activeRoute==="drivers") genericPanel("drivers","Driver Roster","Active drivers and assignments",`<div class="cardHead" style="display:flex;align-items:center;gap:8px;padding:0 0 10px">${addDriverBtn}</div><div class="tableWrap"><table class="table"><thead><tr><th>Name</th><th>License</th><th>Vehicle</th><th>Pairing</th></tr></thead><tbody>${driverRows}</tbody></table></div><div id="addDriverFormWrap" style="display:none;margin-top:14px"></div>`);
+      if($("view-vehicles") && state.activeRoute==="vehicles") genericPanel("vehicles","Vehicle Registry","Fleet units and device status",`<div class="cardHead" style="display:flex;align-items:center;gap:8px;padding:0 0 10px">${addVehicleBtn}</div><div class="inlineStatus" id="vehicleActionStatus" role="status"></div><div class="tableWrap"><table class="table"><thead><tr><th>Unit Name / ID</th><th>Year/Make/Model</th><th>Type</th><th>Device</th><th>Last Seen</th></tr></thead><tbody>${vehicleRows}</tbody></table></div><div id="addVehicleFormWrap" class="creationPanel" role="region" aria-label="Add a vehicle" tabindex="-1" style="display:none"></div>`);
+      if($("view-drivers") && state.activeRoute==="drivers") genericPanel("drivers","Driver Roster","Active drivers and assignments",`<div class="cardHead" style="display:flex;align-items:center;gap:8px;padding:0 0 10px">${addDriverBtn}</div><div class="tableWrap"><table class="table"><thead><tr><th>Name</th><th>License</th><th>Vehicle</th><th>Pairing</th></tr></thead><tbody>${driverRows}</tbody></table></div><div id="addDriverFormWrap" class="creationPanel" role="region" aria-label="Add a driver" tabindex="-1" style="display:none"></div>`);
       if($("view-vehicles")) $("btnAddVehicle")?.addEventListener("click", showAddVehicleForm);
       if($("view-drivers")) $("btnAddDriver")?.addEventListener("click", showAddDriverForm);
       if($("view-pairing") && state.activeRoute==="pairing") renderPairing();
     }
     function showAddVehicleForm(){
       const wrap = $("addVehicleFormWrap"); if(!wrap) return;
+      wrap.parentElement.prepend(wrap);
       wrap.style.display = "block";
-      wrap.innerHTML = `<div class="card"><div class="cardHead"><div><h3>Register Vehicle</h3><div class="cardMeta">Add a new unit to your fleet</div></div></div><div class="cardBody"><div class="form-grid"><div class="form-group"><label class="form-label">Unit ID <span class="muted">(unique, e.g. TRUCK-01)</span></label><input class="form-input" id="newVehId" placeholder="TRUCK-01"></div><div class="form-group"><label class="form-label">Unit Name</label><input class="form-input" id="newVehName" placeholder="Peterbilt 389"></div><div class="form-group"><label class="form-label">VIN</label><input class="form-input" id="newVehVin" placeholder="1XPBD49X1XD..." maxlength="17"></div><div class="form-group"><label class="form-label">Type</label><select class="form-select" id="newVehType"><option value="semi-truck">Semi Truck</option><option value="medium-duty">Medium-Duty Truck</option><option value="box-truck">Box Truck</option><option value="van">Van</option><option value="pickup">Pickup</option><option value="passenger-car">Passenger Car</option><option value="trailer">Trailer</option><option value="other">Other</option></select></div><div class="form-group"><label class="form-label">Year</label><input class="form-input" id="newVehYear" type="number" placeholder="2021" min="1980" max="2030"></div><div class="form-group"><label class="form-label">Make</label><input class="form-input" id="newVehMake" placeholder="Peterbilt"></div><div class="form-group"><label class="form-label">Model</label><input class="form-input" id="newVehModel" placeholder="389"></div></div><div style="display:flex;gap:8px;margin-top:12px"><button class="btn primary" id="btnSaveVehicle">Save Vehicle</button><button class="btn" id="btnCancelVehicle">Cancel</button></div><div id="addVehicleError" style="margin-top:8px;color:var(--bad);font-size:12px"></div></div></div>`;
+      wrap.focus();
+      wrap.innerHTML = `<div class="card"><div class="cardHead"><div><h3>Vehicle details</h3><div class="cardMeta">Add a new unit to your fleet</div></div></div><div class="cardBody"><div class="form-grid"><div class="form-group"><label class="form-label">Unit ID <span class="muted">(unique, e.g. TRUCK-01)</span></label><input class="form-input" id="newVehId" placeholder="TRUCK-01"></div><div class="form-group"><label class="form-label">Unit Name</label><input class="form-input" id="newVehName" placeholder="Peterbilt 389"></div><div class="form-group"><label class="form-label">VIN</label><input class="form-input" id="newVehVin" placeholder="1XPBD49X1XD..." maxlength="17"></div><div class="form-group"><label class="form-label">Type</label><select class="form-select" id="newVehType"><option value="semi-truck">Semi Truck</option><option value="medium-duty">Medium-Duty Truck</option><option value="box-truck">Box Truck</option><option value="van">Van</option><option value="pickup">Pickup</option><option value="passenger-car">Passenger Car</option><option value="trailer">Trailer</option><option value="other">Other</option></select></div><div class="form-group"><label class="form-label">Year</label><input class="form-input" id="newVehYear" type="number" placeholder="2021" min="1980" max="2030"></div><div class="form-group"><label class="form-label">Make</label><input class="form-input" id="newVehMake" placeholder="Peterbilt"></div><div class="form-group"><label class="form-label">Model</label><input class="form-input" id="newVehModel" placeholder="389"></div></div><div style="display:flex;gap:8px;margin-top:12px"><button class="btn primary" id="btnSaveVehicle">Save Vehicle</button><button class="btn" id="btnCancelVehicle">Cancel</button></div><div id="addVehicleError" style="margin-top:8px;color:var(--bad);font-size:12px"></div></div></div>`;
       $("btnCancelVehicle").onclick = () => { wrap.style.display="none"; };
       $("btnSaveVehicle").onclick = async () => {
         const vehicleId = $("newVehId").value.trim();
@@ -785,8 +708,10 @@
     }
     function showAddDriverForm(){
       const wrap = $("addDriverFormWrap"); if(!wrap) return;
+      wrap.parentElement.prepend(wrap);
       wrap.style.display = "block";
-      wrap.innerHTML = `<div class="card"><div class="cardHead"><div><h3>Register Driver</h3><div class="cardMeta">Add a driver to your roster</div></div></div><div class="cardBody"><div class="form-grid"><div class="form-group"><label class="form-label">First Name</label><input class="form-input" id="newDrvFirst" placeholder="John"></div><div class="form-group"><label class="form-label">Last Name</label><input class="form-input" id="newDrvLast" placeholder="Smith"></div><div class="form-group"><label class="form-label">Phone</label><input class="form-input" id="newDrvPhone" placeholder="+1 555 0100" type="tel"></div></div><div style="display:flex;gap:8px;margin-top:12px"><button class="btn primary" id="btnSaveDriver">Save Driver</button><button class="btn" id="btnCancelDriver">Cancel</button></div><div id="addDriverError" style="margin-top:8px;color:var(--bad);font-size:12px"></div></div></div>`;
+      wrap.focus();
+      wrap.innerHTML = `<div class="card"><div class="cardHead"><div><h3>Driver details</h3><div class="cardMeta">Add a driver to your roster</div></div></div><div class="cardBody"><div class="form-grid"><div class="form-group"><label class="form-label">First Name</label><input class="form-input" id="newDrvFirst" placeholder="John"></div><div class="form-group"><label class="form-label">Last Name</label><input class="form-input" id="newDrvLast" placeholder="Smith"></div><div class="form-group"><label class="form-label">Phone</label><input class="form-input" id="newDrvPhone" placeholder="+1 555 0100" type="tel"></div></div><div style="display:flex;gap:8px;margin-top:12px"><button class="btn primary" id="btnSaveDriver">Save Driver</button><button class="btn" id="btnCancelDriver">Cancel</button></div><div id="addDriverError" style="margin-top:8px;color:var(--bad);font-size:12px"></div></div></div>`;
       $("btnCancelDriver").onclick = () => { wrap.style.display="none"; };
       $("btnSaveDriver").onclick = async () => {
         const firstName = $("newDrvFirst").value.trim();
@@ -805,15 +730,16 @@
     function renderPairing(){
       const noVehicles = !state.vehicles.length;
       const noDrivers = !state.drivers.length;
-      const warning = (noVehicles || noDrivers) ? `<div class="note" style="box-shadow:inset 3px 0 0 var(--warn);color:var(--text)"><strong>Setup needed:</strong> ${noVehicles?"Register a vehicle on the Fleet Directory tab. ":""}${noDrivers?"Register a driver on the Drivers tab.":""}</div>` : "";
+      const warning = (noVehicles || noDrivers) ? `<div class="note" style="box-shadow:inset 3px 0 0 var(--warn);color:var(--text)"><strong>Setup needed:</strong> ${noVehicles?"Add a vehicle in Vehicle list. ":""}${noDrivers?"Add a driver in Driver roster.":""}</div>` : "";
       const vehicleOptions = `${noVehicles?`<option value="">-- No vehicles registered --</option>`:""}${state.vehicles.map(v=>`<option value="${esc(v.vehicleId||v.id)}">${esc(v.unitName||v.vehicleId||v.id)}</option>`).join("")}`;
       const driverOptions = `${noDrivers?`<option value="">-- No drivers registered --</option>`:""}${state.drivers.map(d=>`<option value="${esc(d.driverId||d.id)}">${esc([d.firstName,d.lastName].filter(Boolean).join(" ")||d.name||d.driverId||d.id)}</option>`).join("")}`;
-      genericPanel("pairing","Device Pairing","Generate a pairing packet, hand it to the driver, and monitor pending or claimed tablets",`
+      genericPanel("pairing","Connect a driver tablet","Choose the vehicle and driver, then create their one-time sign-in details",`
         ${warning}
-        <div class="form-grid">
+        <ol class="pairSteps"><li><b>01</b> Choose vehicle &amp; driver</li><li><b>02</b> Create sign-in details</li><li><b>03</b> Connect on the tablet</li></ol>
+        <div class="pairSetup"><div><div class="form-grid">
           <div class="form-group"><label class="form-label" for="pairVehicleSelect">Vehicle</label><select class="form-select" id="pairVehicleSelect">${vehicleOptions}</select></div>
           <div class="form-group"><label class="form-label" for="pairDriverSelect">Driver</label><select class="form-select" id="pairDriverSelect">${driverOptions}</select></div>
-          <button class="btn primary" id="btnGeneratePairCode" ${(noVehicles||noDrivers)?"disabled":""}>Generate pairing packet</button>
+          <button class="btn primary" id="btnGeneratePairCode" ${(noVehicles||noDrivers)?"disabled":""}>Create pairing code</button>
           <button class="btn" id="btnRefreshPairings">Refresh pairings</button>
         </div>
         <div class="pairingResult" id="pairingResult">
@@ -830,17 +756,23 @@
           </div>
           <div class="muted" style="margin-top:10px">These values are shown once. If they are lost, revoke this claim and generate a new pairing packet.</div>
         </div>
-        <div class="note">Endpoint: <span id="pairingDebugEndpoint">/api/pairing/generate</span> &nbsp;|&nbsp; Status: <span id="pairingDebugStatus">idle</span> &nbsp;|&nbsp; Error: <span id="pairingDebugError">none</span><br><span id="pairingDebugResponse" class="mono"></span></div>
+        </div><figure><img src="/assets/brand/fleetai-connection.webp" width="1000" height="740" alt="" /><figcaption>Fleet AI tablet connection illustration</figcaption></figure></div>
+        <p id="pairingDebugError" class="inlineError" role="status" aria-live="polite" hidden>none</p>
+        <details class="pairingDiagnostics"><summary>Connection details</summary><div class="note">Endpoint: <span id="pairingDebugEndpoint">/api/pairing/generate</span> &nbsp;|&nbsp; Status: <span id="pairingDebugStatus">idle</span><br><span id="pairingDebugResponse" class="mono"></span></div></details>
         <div class="pairingTableBlock">
-          <h4>Pending tablet claims</h4>
+          <h4>Waiting for a tablet</h4>
           <div class="tableWrap"><table class="table"><thead><tr><th>Vehicle</th><th>Driver</th><th>Code</th><th>PIN</th><th>Expires</th><th>Actions</th></tr></thead><tbody id="pendingPairingRows">${rowsEmpty(6,"Loading pending pairings...")}</tbody></table></div>
         </div>
         <div class="pairingTableBlock">
-          <h4>Claimed tablets</h4>
+          <h4>Connected assignments</h4>
           <div class="tableWrap"><table class="table"><thead><tr><th>Vehicle</th><th>Driver</th><th>Tablet</th><th>Status</th><th>Claimed</th><th>Actions</th></tr></thead><tbody id="claimedPairingRows">${rowsEmpty(6,"Loading claimed pairings...")}</tbody></table></div>
         </div>
       `);
       $("btnGeneratePairCode")?.addEventListener("click", generatePairingPacket);
+      state.pairingErrorObserver?.disconnect();
+      const pairingError=$("pairingDebugError");
+      state.pairingErrorObserver=new MutationObserver(()=>{pairingError.hidden=!pairingError.textContent.trim()||pairingError.textContent==="none";});
+      state.pairingErrorObserver.observe(pairingError,{childList:true,characterData:true,subtree:true});
       $("btnRefreshPairings")?.addEventListener("click", loadPairingTables);
       $("btnCopyPairCode")?.addEventListener("click", () => copyText($("pairingCodeValue")?.textContent || "", "pairingDebugStatus"));
       $("btnCopyPairPin")?.addEventListener("click", () => copyText($("pairingPinValue")?.textContent || "", "pairingDebugStatus"));
@@ -912,7 +844,7 @@
       if(btn.dataset.copy){ await copyText(btn.dataset.copy, "pairingDebugStatus"); return; }
       if(btn.dataset.expirePair){
         btn.disabled=true;
-        try{ await apiPost(`/api/pair-code/${encodeURIComponent(btn.dataset.expirePair)}/expire`,{}); $("pairingDebugStatus").textContent="revoked"; await loadPairingTables(); }
+        try{ await apiPost(`/api/pair-code/${encodeURIComponent(btn.dataset.expirePair)}/expire`,{}); $("pairingDebugStatus").textContent="revoked"; $("pairingDebugError").textContent="none"; await loadPairingTables(); }
         catch(e){ $("pairingDebugError").textContent=e.message; }
         finally{ btn.disabled=false; }
       }
@@ -925,13 +857,24 @@
           $("pairingPinValue").textContent=pairingPin(r)||"------";
           $("pairingExpiry").textContent=`Expires: ${formatPairExpiry(r.expiresAt)}`;
           $("pairingDebugStatus").textContent="replacement ready";
+          $("pairingDebugError").textContent="none";
+          $("pairPing").textContent=pairingCode(r)||"Generated";
           $("pairingDebugResponse").textContent="Replacement pairing packet generated.";
           await loadPairingTables();
         }catch(e){ $("pairingDebugError").textContent=e.message; }
         finally{ btn.disabled=false; }
       }
     }
-    async function loadAddonsState(){ genericPanel("addons","Workspace Add-ons","Optional modules for Fleet AI workspaces",`<div class="grid4">${["AI Advisor","Camera Integration","Compliance Module","Advanced Analytics"].map((x,i)=>`<div class="card"><div class="cardBody"><h3>${x}</h3><p class="muted">Expansion capability for connected fleet operations.</p><span class="pill ${i===0?"good":"warn"}">${i===0?"Active":"Available"}</span></div></div>`).join("")}</div>`); }
+    async function loadAddonsState(){
+      genericPanel("addons","Organization extensions","Entitlements recorded for your organization",`<div id="addonEntitlements" role="status"><div class="skeleton"></div></div>`);
+      try{
+        const response=await apiGet("/api/fleet/addons");
+        const enabled=response.enabledAddons;
+        if(!enabled||typeof enabled!=="object"||Array.isArray(enabled))throw new Error("Extension status could not be verified.");
+        const entries=Object.entries(enabled);
+        $("addonEntitlements").innerHTML=entries.length?`<div class="tableWrap"><table class="table"><thead><tr><th>Extension</th><th>Entitlement</th></tr></thead><tbody>${entries.map(([key,value])=>`<tr><td>${esc(key.replace(/([a-z])([A-Z])/g,"$1 $2").replace(/[_-]/g," "))}</td><td>${riskPill(value===true?"Enabled":value===false?"Not enabled":"Unknown")}</td></tr>`).join("")}</tbody></table></div><p class="muted">An enabled entitlement does not confirm that its external provider is connected.</p>`:`<p class="muted">No extension entitlements are recorded for this organization.</p>`;
+      }catch(error){if($("addonEntitlements"))err("addonEntitlements",error.message);}
+    }
     function telemetryStreamConnect(){
       if(!state.orgId)return;
       if(state.telemetrySse) return;
@@ -942,13 +885,14 @@
         state.telemetrySse.addEventListener("link",(e)=>{ try{ updateTelemetryLinkState(JSON.parse(e.data)); }catch(_){} });
         state.telemetrySse.onerror=()=>{const el=$("telemetryStatus");if(el){el.textContent="Stream unavailable";el.className="pill bad";}};
         if(!state.telemetryFreshnessTimer) state.telemetryFreshnessTimer=setInterval(()=>{
+          if(state.activeRoute==="telemetry"&&Date.now()-state.sensorLastRefresh>=10000)loadLiveSensors();
           const el=$("telemetryStatus");
           if(!el||!state.telemetryLastAt) return;
           const age=Date.now()-state.telemetryLastAt;
           if(age>15000){
             el.textContent="Vehicle data offline";
             el.className="pill warn";
-            clearLiveTelemetryValues();
+            clearLiveTelemetryValues();recordChartGap();
           }
         },15000);
       }catch(e){err("telemetryError",e.message);}
@@ -999,7 +943,8 @@
       return mph===null||!Number.isFinite(mph)?"--":mph.toLocaleString(undefined,{maximumFractionDigits:1});
     }
     function clearLiveTelemetryValues(){
-      ["liveRpm","liveSpeed","liveCoolant","liveBattery"].forEach(id=>{const el=$(id);if(el)el.textContent="--";});
+      ["liveRpm","liveSpeed","liveCoolant","liveBattery","liveHorsepower","liveTorque"].forEach(id=>{const el=$(id);if(el)el.textContent="--";});
+      $("powerEvidence").textContent="No fresh ECU data. Power and torque are not inferred from engine load.";
     }
     const TELEMETRY_PATHS = {
       rpm:      ["engine.rpm", "rpm", "engineRpm"],
@@ -1026,15 +971,25 @@
       if(reading.value===null||reading.value===undefined) return reading.supported?"No current value":"Not exposed";
       if(reading.boolean) return Number(reading.value)===1||reading.raw===true?"Active":"Inactive";
       const value=Number(reading.value);
-      const display=Number.isFinite(value)?value.toLocaleString(undefined,{maximumFractionDigits:3}):String(reading.value);
-      return `${display}${reading.unit?` ${reading.unit}`:""}`;
+      const isCelsius=reading.unit==="\u00b0C"||reading.unit==="C";
+      const display=Number.isFinite(value)?(isCelsius?FleetDisplay.fahrenheit(value):value).toLocaleString(undefined,{maximumFractionDigits:isCelsius?1:3}):String(reading.value);
+      const unit=isCelsius?"\u00b0F":reading.unit;
+      return `${display}${unit?` ${unit}`:""}`;
     }
     function renderSensorInventory(payload){
+      state.sensorInventory=payload;
       const readings=Array.isArray(payload?.readings)?payload.readings:[];
       const grid=$("telemetrySensorGrid");
       if(!grid) return;
-      const order=["engine","fuel","electrical","controls","brakes","emissions","vehicle","lifecycle","environment"];
-      const groups=order.map(group=>[group,readings.filter(reading=>reading.group===group)]).filter(([,items])=>items.length);
+      const query=($("sensorSearch")?.value||"").trim().toLowerCase(),filter=$("sensorFilter")?.value||"all";
+      const visible=readings.filter(reading=>{
+        const matches=[reading.label,reading.key,reading.pid,reading.spn,reading.group].join(" ").toLowerCase().includes(query);
+        const unsupported=reading.supported===false||reading.state==="unsupported",stale=reading.stale===true||reading.state==="stale";
+        return matches&&(filter==="all"||filter==="unsupported"&&unsupported||filter==="stale"&&stale||filter==="reporting"&&!unsupported&&!stale&&reading.value!==null&&reading.value!==undefined);
+      });
+      const order=[...new Set(["engine","fuel","electrical","controls","brakes","emissions","vehicle","lifecycle","environment",...visible.map(reading=>reading.group||"other")])];
+      const groups=order.map(group=>[group,visible.filter(reading=>(reading.group||"other")===group)]).filter(([,items])=>items.length);
+      $("sensorResultCount").textContent=readings.length?`${visible.length} of ${readings.length} sensor entries shown`:"No sensor catalog returned for this vehicle yet";
       grid.innerHTML=groups.length?groups.map(([group,items])=>`<div class="sensorGroup"><h4>${esc(SENSOR_GROUP_LABELS[group]||group)}</h4>${items.map(reading=>`<div class="sensorReading ${reading.supported===false?"unsupported":""}"><div><div class="sensorReadingName">${esc(reading.label||reading.key)}</div><div class="sensorReadingMeta">${esc(reading.pid?`PID ${reading.pid}`:reading.spn?`SPN ${reading.spn}`:"Derived signal")}</div></div><div><div class="sensorReadingValue">${esc(formatSensorValue(reading))}</div>${sensorStatePill(reading.state)}</div></div>`).join("")}</div>`).join(""):`<div class="sensorEmpty">No standardized ECU signals have been reported for this vehicle.</div>`;
       const counts=payload?.counts||{};
       if($("sensorSummary")) $("sensorSummary").innerHTML=`<span class="pill good">${num(counts.reporting,0)} reporting</span><span class="pill warn">${num(counts.unsupported,0)} not exposed</span>${counts.stale?`<span class="pill warn">${num(counts.stale)} stale</span>`:""}${counts.watch?`<span class="pill warn">${num(counts.watch)} watch</span>`:""}${counts.critical?`<span class="pill bad">${num(counts.critical)} critical</span>`:""}`;
@@ -1042,16 +997,26 @@
     async function loadLiveSensors(){
       const vehicleId=$("telemetryVehicleSelect")?.value||state.selectedVehicleId;
       if(!vehicleId){ renderSensorInventory({readings:[],counts:{}}); return; }
+      if(state.sensorRequestVehicle===vehicleId)return;
+      state.sensorRequestVehicle=vehicleId;
+      const request=(state.sensorRequest||0)+1;state.sensorRequest=request;
+      state.sensorLastRefresh=Date.now();
       try{
         const data=await apiGet(`/api/diagnostics/sensors?vehicleId=${encodeURIComponent(vehicleId)}`);
+        if(String(vehicleId)!==String(state.selectedVehicleId)||request!==state.sensorRequest)return;
+        if(data.vehicleId&&String(data.vehicleId)!==String(vehicleId))throw new Error("Sensor response did not match the selected vehicle.");
+        if(!Array.isArray(data.readings))throw new Error("The sensor response was not a sensor list.");
         state.sensorLastRefresh=Date.now();
         renderSensorInventory(data);
         err("sensorInventoryError",data?.stale?"No current ECU data. Last known readings are retained in signal history.":"");
-      }catch(e){ err("sensorInventoryError",e.message); }
+      }catch(e){ if(String(vehicleId)===String(state.selectedVehicleId)&&request===state.sensorRequest){renderSensorInventory({readings:[],counts:{}});err("sensorInventoryError",e.message);} }
+      finally{if(request===state.sensorRequest)state.sensorRequestVehicle=null;}
     }
     window.loadLiveSensors=loadLiveSensors;
     function updateTelemetryLinkState(d){
+      if(d?.vehicleId && String(d.vehicleId)!==String(state.selectedVehicleId)) return;
       clearLiveTelemetryValues();
+      recordChartGap();
       const linkEl=$("telemetryStatus");
       const detailEl=$("telemetryEcuDetail");
       const diagnostics=d?.deviceDiagnostics||{};
@@ -1069,14 +1034,20 @@
       if(state.activeRoute==="telemetry"&&Date.now()-state.sensorLastRefresh>5000) loadLiveSensors();
     }
     function addTelemetryRow(d){
+      if(!state.selectedVehicleId || String(d?.vehicleId)!==String(state.selectedVehicleId)) return;
       if(!hasFreshVehicleData(d)){ updateTelemetryLinkState(d); return; }
       state.telemetryRows.unshift(d);
       state.telemetryLastAt=telemetryPacketAt(d);
       state.telemetryRows=state.telemetryRows.slice(0,40);
       $("liveRpm").textContent     = liveTelemetryText(telemetryValue(d, TELEMETRY_PATHS.rpm, TELEMETRY_SOURCE_KEYS.rpm));
       $("liveSpeed").textContent   = liveSpeedText(d);
-      $("liveCoolant").textContent = liveTelemetryText(telemetryValue(d, TELEMETRY_PATHS.coolant, TELEMETRY_SOURCE_KEYS.coolant));
+      $("liveCoolant").textContent = FleetDisplay.format(FleetDisplay.fahrenheit(telemetryValue(d, TELEMETRY_PATHS.coolant, TELEMETRY_SOURCE_KEYS.coolant)));
       $("liveBattery").textContent = liveTelemetryText(telemetryValue(d, TELEMETRY_PATHS.battery, TELEMETRY_SOURCE_KEYS.battery));
+      const output=FleetDisplay.engineOutput(d);
+      $("liveHorsepower").textContent=FleetDisplay.format(output.horsepower);
+      $("liveTorque").textContent=FleetDisplay.format(output.torqueLbFt);
+      $("powerEvidence").textContent=output.reason;
+      recordLiveChart(d,output);
       // Link state: a tablet can be online while its OBD adapter is unplugged.
       // Those look identical without this, so surface it rather than showing a
       // stale reading as if it were live.
@@ -1110,7 +1081,7 @@
         `<tr><td>${esc(x.ts||x.timestamp||"now")}</td><td>${esc(x.vehicleId||"--")}</td>`
         + `<td>${liveTelemetryText(telemetryValue(x, TELEMETRY_PATHS.rpm, TELEMETRY_SOURCE_KEYS.rpm))}</td>`
         + `<td>${liveSpeedText(x)}</td>`
-        + `<td>${liveTelemetryText(telemetryValue(x, TELEMETRY_PATHS.coolant, TELEMETRY_SOURCE_KEYS.coolant))}</td>`
+        + `<td>${FleetDisplay.format(FleetDisplay.fahrenheit(telemetryValue(x, TELEMETRY_PATHS.coolant, TELEMETRY_SOURCE_KEYS.coolant)))}</td>`
         + `<td>${liveTelemetryText(telemetryValue(x, TELEMETRY_PATHS.battery, TELEMETRY_SOURCE_KEYS.battery))}</td>`
         + `<td>${liveTelemetryText(telemetryValue(x, TELEMETRY_PATHS.load, TELEMETRY_SOURCE_KEYS.load))}</td></tr>`
       ).join("");
@@ -1131,7 +1102,13 @@
       $("btnOpenAdvisorPage").onclick=()=>{$("opsAdvisorDock").classList.remove("open");setHashRoute("advisor");};
       $("btnLoadHistory")?.addEventListener("click",loadTelemetryHistory); $("btnExportTelemetry")?.addEventListener("click",()=>exportVisibleTable("telemetry-history"));
       $("dashboardGlobalSearch").addEventListener("input",event=>filterActiveView(event.target.value));
-      $("telemetryVehicleSelect")?.addEventListener("change",event=>{state.selectedVehicleId=event.target.value;loadLiveSensors();});
+      $("telemetryVehicleSelect")?.addEventListener("change",event=>{selectVehicleContext(event.target.value);loadLiveSensors();});
+      $("workspaceVehicleSelect")?.addEventListener("change",event=>{selectVehicleContext(event.target.value);renderRoute(state.activeRoute);});
+      $("outputMetricSelect").addEventListener("change",renderLiveCharts);
+      $("btnAllSensors").onclick=()=>{$("sensorFilter").value="all";$("sensorSearch").value="";renderSensorInventory(state.sensorInventory||{});$("sensorInventory").scrollIntoView({block:"start"});$("sensorSearch").focus({preventScroll:true});};
+      $("sensorSearch").oninput=()=>renderSensorInventory(state.sensorInventory||{});
+      $("sensorFilter").onchange=()=>renderSensorInventory(state.sensorInventory||{});
+      $("btnRefreshSensors").onclick=()=>loadLiveSensors();
       document.addEventListener("click",event=>{if(!event.target.closest("#utilityMenu"))closeUtilityMenu();if(event.target.closest("#utilityPopover .btn"))closeUtilityMenu();const exportButton=event.target.closest("[data-export]");if(exportButton)exportVisibleTable(exportButton.dataset.export);const prompt=event.target.closest("[data-prompt]");if(prompt){if(state.activeRoute!=="advisor")$("opsAdvisorDock").classList.add("open");sendAdvisor(prompt.dataset.prompt);}const advisorAction=event.target.closest("[data-advisor-action]");if(advisorAction)executeAdvisorAction(advisorAction.dataset.advisorAction,advisorAction);const advisorDownload=event.target.closest("[data-advisor-download]");if(advisorDownload){const link=document.createElement("a");link.href=advisorDownload.dataset.advisorDownload;link.download="";document.body.appendChild(link);link.click();link.remove();}});
       document.addEventListener("keydown",event=>{if(event.key==="Escape"){closeUtilityMenu();if(window.matchMedia("(max-width:760px)").matches)setNavCollapsed(true);}});
       $("sideNav").addEventListener("click",event=>{const toggle=event.target.closest(".navGroupToggle");if(toggle){const group=toggle.closest(".navGroup");group.querySelector(".navGroupItems").inert=!group.classList.contains("open");}});

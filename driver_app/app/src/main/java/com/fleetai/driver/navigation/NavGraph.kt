@@ -38,7 +38,7 @@ sealed class MainScreen(val route: String, val label: String) {
     data object Logbook : MainScreen(MainRoute.Logbook, "Logbook")
     data object Inspections : MainScreen(MainRoute.Inspections, "Inspect")
     data object Sensors : MainScreen(MainRoute.Sensors, "Sensors")
-    data object Notifications : MainScreen(MainRoute.Notifications, "Notifications")
+    data object Notifications : MainScreen(MainRoute.Notifications, "Updates")
 }
 
 @Composable

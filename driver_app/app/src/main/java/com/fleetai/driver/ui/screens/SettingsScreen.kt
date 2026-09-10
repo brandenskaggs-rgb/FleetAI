@@ -16,6 +16,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -35,6 +40,28 @@ fun SettingsScreen(contentPadding: PaddingValues) {
     val viewModel: SettingsViewModel = viewModel(factory = AppGraph.viewModelFactory)
     val state by viewModel.state.collectAsState()
     val context = LocalContext.current
+    var accountAction by remember { mutableStateOf<String?>(null) }
+    if (accountAction != null) {
+        AlertDialog(
+            onDismissRequest = { accountAction = null },
+            title = { Text(when (accountAction) {
+                "reset" -> "Remove this pairing?"
+                "demo" -> "Switch to training mode?"
+                else -> "Sign out of this tablet?"
+            }) },
+            text = { Text("You will need help from your fleet manager to connect again. Cancel to keep your current vehicle and sign-in.") },
+            confirmButton = { TextButton(onClick = {
+                val action = accountAction
+                accountAction = null
+                when (action) {
+                    "reset" -> viewModel.resetPairing()
+                    "demo" -> viewModel.setDemoMode(true)
+                    else -> viewModel.logout()
+                }
+            }) { Text("Continue", color = MaterialTheme.colorScheme.error) } },
+            dismissButton = { TextButton(onClick = { accountAction = null }) { Text("Keep connected") } }
+        )
+    }
 
     Column(
         modifier = Modifier
@@ -46,7 +73,7 @@ fun SettingsScreen(contentPadding: PaddingValues) {
         FleetCard(modifier = Modifier.fillMaxWidth()) {
             Text(text = "Settings", style = MaterialTheme.typography.headlineMedium)
             Spacer(modifier = Modifier.height(8.dp))
-            Text(text = "Tenant: ${state.tenantId.ifBlank { "--" }}")
+            Text(text = "Company: ${state.tenantId.ifBlank { "--" }}")
             Text(text = "Driver: ${state.driverName.ifBlank { "--" }}")
             Text(text = "Vehicle: ${state.vehicleId.ifBlank { "--" }}")
         }
@@ -73,7 +100,9 @@ fun SettingsScreen(contentPadding: PaddingValues) {
                     Text(text = if (state.demoMode) "On" else "Off")
                     Switch(
                         checked = state.demoMode,
-                        onCheckedChange = { viewModel.setDemoMode(it) }
+                        onCheckedChange = { enabled ->
+                            if (enabled) accountAction = "demo" else viewModel.setDemoMode(false)
+                        }
                     )
                 }
             }
@@ -81,7 +110,7 @@ fun SettingsScreen(contentPadding: PaddingValues) {
 
         FleetButton(
             text = "Sign out",
-            onClick = { viewModel.logout() },
+            onClick = { accountAction = "logout" },
             modifier = Modifier.fillMaxWidth()
         )
 
@@ -95,7 +124,7 @@ fun SettingsScreen(contentPadding: PaddingValues) {
 
         FleetButton(
             text = "Reset pairing",
-            onClick = { viewModel.resetPairing() },
+            onClick = { accountAction = "reset" },
             modifier = Modifier.fillMaxWidth()
         )
 

@@ -52,7 +52,6 @@ import java.util.Locale
 @Composable
 fun SensorsScreen(contentPadding: PaddingValues, viewModel: SensorViewModel) {
     val status by viewModel.status.collectAsState()
-    val demoMode by viewModel.demoMode.collectAsState()
     val savedDevice by viewModel.savedDevice.collectAsState()
     val readings by viewModel.readings.collectAsState()
     val debug by viewModel.debug.collectAsState()
@@ -64,6 +63,8 @@ fun SensorsScreen(contentPadding: PaddingValues, viewModel: SensorViewModel) {
     val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     val hasBluetooth = viewModel.hasBluetooth()
     val usbAdapters = viewModel.usbAdapters()
+    var showSetup by remember { mutableStateOf(false) }
+    var sensorQuery by remember { mutableStateOf("") }
 
     val requiredPermissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
         listOf(
@@ -134,14 +135,29 @@ fun SensorsScreen(contentPadding: PaddingValues, viewModel: SensorViewModel) {
                     if (locationSharingEnabled) viewModel.setLocationSharingEnabled(false)
                     else showLocationDisclosure = true
                 },
-                demoMode = demoMode,
-                onToggleDemo = { viewModel.toggleDemo(!demoMode) },
                 unitPrefs = unitPrefs,
                 onToggleUnits = { viewModel.toggleUnits(tempF = !unitPrefs.tempF, speedMph = !unitPrefs.speedMph) }
             )
         }
 
         item {
+            androidx.compose.material3.TextField(
+                value = sensorQuery, onValueChange = { sensorQuery = it },
+                label = { Text("Find a sensor") }, singleLine = true, modifier = Modifier.fillMaxWidth()
+            )
+        }
+        item {
+            val visible = readings.filter { it.label.contains(sensorQuery, true) || it.pid.contains(sensorQuery, true) }
+            if (visible.isEmpty()) Text("No matching sensor readings.", modifier = Modifier.padding(16.dp))
+            SensorGrid(readings = visible, isLandscape = isLandscape)
+        }
+        item {
+            TextButton(onClick = { showSetup = !showSetup }) {
+                Text(if (showSetup) "Hide connection setup" else "Connection setup")
+            }
+        }
+        if (showSetup) {
+         item {
             TruckNetworkPanel(
                 adapterCount = usbAdapters.size,
                 busProfile = j1939BusProfile,
@@ -172,7 +188,7 @@ fun SensorsScreen(contentPadding: PaddingValues, viewModel: SensorViewModel) {
             }
         }
 
-        item { SensorGrid(readings = readings, isLandscape = isLandscape) }
+        }
         item { RawDebugPanel(readings = readings, debug = debug) }
     }
 }
@@ -273,15 +289,17 @@ private fun ConnectionBanner(
     onGrantPermissions: () -> Unit,
     locationSharingEnabled: Boolean,
     onLocationSharing: () -> Unit,
-    demoMode: Boolean,
-    onToggleDemo: () -> Unit,
     unitPrefs: SensorViewModel.UnitPrefs,
     onToggleUnits: () -> Unit
 ) {
+    var expanded by remember { mutableStateOf(false) }
     FleetCard(modifier = Modifier.fillMaxWidth()) {
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("Live Telemetry", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+            Text("Vehicle sensors", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
             Text("Status: $status", style = MaterialTheme.typography.bodyMedium)
+            Text("Queued uploads: ${debug.queuedBatches}", style = MaterialTheme.typography.bodyMedium)
+            TextButton(onClick = { expanded = !expanded }) { Text(if (expanded) "Hide connection details" else "Connection details & location") }
+            if (expanded) {
             Text("Saved dongle: ${savedDevice.ifBlank { "--" }}", style = MaterialTheme.typography.bodySmall)
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
                 StatusPill(label = debug.protocol, good = debug.ecuResponding || status.contains("live", true))
@@ -324,11 +342,6 @@ private fun ConnectionBanner(
                     onClick = onGrantPermissions,
                     modifier = Modifier.weight(1f)
                 )
-                FleetButton(
-                    text = if (demoMode) "Demo On" else "Demo Off",
-                    onClick = onToggleDemo,
-                    modifier = Modifier.weight(1f)
-                )
             }
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
                 FleetButton(
@@ -336,6 +349,7 @@ private fun ConnectionBanner(
                     onClick = onToggleUnits,
                     modifier = Modifier.weight(1f)
                 )
+            }
             }
         }
     }
@@ -396,7 +410,7 @@ private fun SensorTile(reading: SensorReading, modifier: Modifier = Modifier) {
             modifier = Modifier.alpha(alpha)
         ) {
             Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                Text(reading.label, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text(reading.label, modifier = Modifier.weight(1f).padding(end = 12.dp), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 StatusPill(
                     label = when (reading.status) {
                         SensorStatus.LIVE -> "Live"

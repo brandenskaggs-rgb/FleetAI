@@ -14,6 +14,18 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material3.IconButton
+import com.fleetai.driver.R
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -50,6 +62,7 @@ import com.fleetai.driver.ui.viewmodel.SessionState
 import com.fleetai.driver.ui.viewmodel.SessionViewModel
 
 @Composable
+@OptIn(ExperimentalLayoutApi::class)
 fun PairDeviceScreen(
     sessionViewModel: SessionViewModel,
     sessionState: SessionState
@@ -60,8 +73,13 @@ fun PairDeviceScreen(
     var deviceLabel by remember { mutableStateOf("Fleet AI Tablet") }
     var statusMessage by remember { mutableStateOf("") }
     var isSubmitting by remember { mutableStateOf(false) }
+    var showPin by remember { mutableStateOf(false) }
+    var showDetails by remember { mutableStateOf(false) }
 
     Surface(color = MaterialTheme.colorScheme.background) {
+      BoxWithConstraints {
+        val wide = maxWidth >= 840.dp
+        val paneWidth = if (wide) minOf(500.dp, (maxWidth - 80.dp) / 2) else minOf(600.dp, maxWidth - 40.dp)
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -72,16 +90,21 @@ fun PairDeviceScreen(
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Column(
+            FlowRow(
                 modifier = Modifier
-                    .widthIn(max = 520.dp)
+                    .widthIn(max = if (wide) 1040.dp else paneWidth)
                     .fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(24.dp)
+                verticalArrangement = Arrangement.spacedBy(24.dp),
+                horizontalArrangement = Arrangement.spacedBy(40.dp),
+                maxItemsInEachRow = if (wide) 2 else 1
             ) {
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    FleetBrandMark(modifier = Modifier.width(150.dp).height(62.dp))
+                Column(modifier = Modifier.width(paneWidth)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                        FleetBrandMark(modifier = Modifier.width(48.dp).height(48.dp))
+                        Text("Fleet AI", style = MaterialTheme.typography.headlineSmall)
+                    }
                     Spacer(modifier = Modifier.height(12.dp))
-                    Text("Connect to your fleet", style = MaterialTheme.typography.headlineLarge)
+                    Text("Connect your tablet", style = MaterialTheme.typography.headlineLarge)
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         "Enter the pairing code and driver PIN issued by your fleet manager.",
@@ -89,10 +112,11 @@ fun PairDeviceScreen(
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.70f)
                     )
                     Spacer(modifier = Modifier.height(14.dp))
-                    Text("Device ${sessionState.deviceId.take(10)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Image(painterResource(R.drawable.fleetai_connection), contentDescription = null,
+                        contentScale = ContentScale.Fit, modifier = Modifier.fillMaxWidth().height(if (wide) 280.dp else 100.dp))
                 }
 
-                FleetCard(modifier = Modifier.fillMaxWidth()) {
+                FleetCard(modifier = Modifier.width(paneWidth)) {
                     TextField(
                         colors = pairingFieldColors(),
                         value = pairingCode,
@@ -100,7 +124,9 @@ fun PairDeviceScreen(
                             pairingCode = raw.filter(Char::isDigit).take(6)
                         },
                         leadingIcon = { Icon(Icons.Default.Pin, contentDescription = null) },
-                        label = { Text("Pairing code") },
+                        label = { Text("1. Pairing code (6 digits)") },
+                        enabled = !isSubmitting,
+                        textStyle = MaterialTheme.typography.headlineSmall,
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         modifier = Modifier.fillMaxWidth()
@@ -111,13 +137,24 @@ fun PairDeviceScreen(
                         value = driverPin,
                         onValueChange = { raw -> driverPin = raw.filter(Char::isDigit).take(6) },
                         leadingIcon = { Icon(Icons.Default.AdminPanelSettings, contentDescription = null) },
-                        label = { Text("Driver PIN") },
+                        label = { Text("2. Driver PIN (6 digits)") },
+                        enabled = !isSubmitting,
+                        textStyle = MaterialTheme.typography.headlineSmall,
                         singleLine = true,
-                        visualTransformation = PasswordVisualTransformation(),
+                        visualTransformation = if (showPin) VisualTransformation.None else PasswordVisualTransformation(),
+                        trailingIcon = { IconButton(onClick = { showPin = !showPin }) {
+                            Icon(if (showPin) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                contentDescription = if (showPin) "Hide PIN" else "Show PIN")
+                        } },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
                         modifier = Modifier.fillMaxWidth()
                     )
                     Spacer(modifier = Modifier.height(12.dp))
+                    TextButton(onClick = { showDetails = !showDetails }, enabled = !isSubmitting) {
+                        Text(if (showDetails) "Hide tablet details" else "Tablet details")
+                    }
+                    if (showDetails) {
+                    Text("Device ${sessionState.deviceId.take(10)}", style = MaterialTheme.typography.bodySmall)
                     TextField(
                         colors = pairingFieldColors(),
                         value = deviceLabel,
@@ -127,6 +164,7 @@ fun PairDeviceScreen(
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
+                    }
                     Spacer(modifier = Modifier.height(16.dp))
                     FleetButton(
                         text = if (isSubmitting) "Pairing..." else "Pair tablet",
@@ -149,8 +187,11 @@ fun PairDeviceScreen(
                         modifier = Modifier.fillMaxWidth()
                     )
                     Spacer(modifier = Modifier.height(12.dp))
-                    Text(statusMessage, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f))
+                    if (statusMessage.isNotBlank()) {
+                        Text(statusMessage, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+                    }
                     Spacer(modifier = Modifier.height(12.dp))
+                    if (showDetails) {
                     if (com.fleetai.driver.BuildConfig.DEBUG) {
                         TextButton(
                             onClick = { context.startActivity(Intent(context, ConnectActivity::class.java)) },
@@ -158,12 +199,6 @@ fun PairDeviceScreen(
                         ) {
                             Text("Server settings")
                         }
-                    }
-                    TextButton(
-                        onClick = { sessionViewModel.logout() },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("Sign out")
                     }
                     TextButton(
                         onClick = { sessionViewModel.startTrainingDemo() },
@@ -176,6 +211,7 @@ fun PairDeviceScreen(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.62f)
                     )
+                    }
                     androidx.compose.material3.TextButton(
                         onClick = {
                             context.startActivity(Intent(Intent.ACTION_VIEW, "https://fleetaiops.com/legal/privacy.html".toUri()))
@@ -187,6 +223,7 @@ fun PairDeviceScreen(
                 }
             }
         }
+      }
     }
 }
 

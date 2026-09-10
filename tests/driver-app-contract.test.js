@@ -193,7 +193,7 @@ console.log("\nOBD polling survives UI lifecycle in one foreground service");
 console.log("\nDriver app branding uses the packaged Fleet AI logo");
 {
   const appRoot = path.join(__dirname, "..", "driver_app", "app", "src", "main");
-  const logo = path.join(appRoot, "res", "drawable-nodpi", "fleet_ai_logo.png");
+  const logo = path.join(appRoot, "res", "drawable", "fleet_ai_link.xml");
   const manifest = fs.readFileSync(path.join(appRoot, "AndroidManifest.xml"), "utf8");
   const adaptiveIcon = fs.readFileSync(path.join(
     appRoot, "res", "mipmap-anydpi-v26", "ic_launcher.xml"
@@ -205,10 +205,10 @@ console.log("\nDriver app branding uses the packaged Fleet AI logo");
   const pairingScreen = fs.readFileSync(path.join(
     appRoot, "java", "com", "fleetai", "driver", "ui", "screens", "PairDeviceScreen.kt"
   ), "utf8");
-  check("logo PNG is packaged", fs.existsSync(logo) && fs.statSync(logo).size > 100_000);
+  check("Link vector logo is packaged", fs.existsSync(logo) && /android:pathData=/.test(fs.readFileSync(logo, "utf8")));
   check("manifest uses an adaptive launcher icon", /android:icon="@mipmap\/ic_launcher"/.test(manifest));
   check("adaptive icon packages the Fleet AI foreground", /@drawable\/ic_launcher_foreground/.test(adaptiveIcon) && fs.existsSync(iconForeground));
-  check("Compose brand component renders the logo resource", /R\.drawable\.fleet_ai_logo/.test(brandComponent));
+  check("Compose brand component renders the Link logo without cropping", /R\.drawable\.fleet_ai_link/.test(brandComponent) && /ContentScale\.Fit/.test(brandComponent));
   check("pairing screen shows the Fleet AI brand mark", /FleetBrandMark/.test(pairingScreen));
 }
 

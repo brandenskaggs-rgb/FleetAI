@@ -13,7 +13,11 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
+import com.fleetai.driver.ui.components.FleetTextField as OutlinedTextField
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.ui.Alignment
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -73,7 +77,7 @@ fun InspectionScreen(
             Text("Vehicle inspection", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.ExtraBold)
             Spacer(modifier = Modifier.height(6.dp))
             Text(
-                "Record pass, defect, or not inspected. Defects should be reviewed before redispatch when safety is affected.",
+                "Mark each item Pass, Defect, or Not applicable. Report safety-related defects before operating.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.68f)
             )
@@ -81,6 +85,7 @@ fun InspectionScreen(
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf("Pre-trip", "Post-trip").forEach { type ->
                     FilterChip(
+                        border = null,
                         selected = inspectionType == type,
                         onClick = { inspectionType = type },
                         label = { Text(type) }
@@ -89,6 +94,7 @@ fun InspectionScreen(
             }
             Spacer(modifier = Modifier.height(12.dp))
             Text("Vehicle ${sessionState.vehicleId.ifBlank { "--" }}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text("${results.size} of ${InspectionItems.size} checks recorded", style = MaterialTheme.typography.bodyLarge)
         }
 
         FleetCard(modifier = Modifier.fillMaxWidth()) {
@@ -103,25 +109,7 @@ fun InspectionScreen(
 
         InspectionItems.forEach { item ->
             FleetCard(modifier = Modifier.fillMaxWidth()) {
-                Text(item, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold)
-                Spacer(modifier = Modifier.height(10.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                    ItemResult.values().forEach { result ->
-                        FilterChip(
-                            selected = results[item] == result,
-                            onClick = { results[item] = result },
-                            label = {
-                                Text(
-                                    when (result) {
-                                        ItemResult.PASS -> "Pass"
-                                        ItemResult.DEFECT -> "Defect"
-                                        ItemResult.NA -> "N/A"
-                                    }
-                                )
-                            }
-                        )
-                    }
-                }
+                InspectionChoiceRow(item, results[item]) { results[item] = it }
             }
         }
 
@@ -175,6 +163,43 @@ fun InspectionScreen(
             )
             Spacer(modifier = Modifier.height(10.dp))
             Text(message, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f))
+        }
+    }
+}
+
+@Composable
+private fun InspectionChoiceRow(item: String, selected: ItemResult?, onSelect: (ItemResult) -> Unit) {
+    val choices: @Composable () -> Unit = {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            ItemResult.entries.forEach { result ->
+                FilterChip(
+                    modifier = Modifier.heightIn(min = 52.dp),
+                    selected = selected == result, onClick = { onSelect(result) }, border = null,
+                    colors = FilterChipDefaults.filterChipColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        selectedContainerColor = MaterialTheme.colorScheme.primary,
+                        selectedLabelColor = MaterialTheme.colorScheme.onPrimary
+                    ),
+                    label = { Text(when (result) {
+                        ItemResult.PASS -> "Pass"
+                        ItemResult.DEFECT -> "Defect"
+                        ItemResult.NA -> "N/A"
+                    }) }
+                )
+            }
+        }
+    }
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        if (maxWidth >= 600.dp) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                Text(item, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                choices()
+            }
+        } else {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(item, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                choices()
+            }
         }
     }
 }

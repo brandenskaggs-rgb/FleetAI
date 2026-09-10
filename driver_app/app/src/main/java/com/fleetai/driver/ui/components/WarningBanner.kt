@@ -19,7 +19,7 @@ fun WarningBanner(message: String, isCritical: Boolean) {
             .fillMaxWidth()
             .padding(vertical = 6.dp),
         color = color.copy(alpha = 0.15f),
-        contentColor = color,
+        contentColor = MaterialTheme.colorScheme.onSurface,
         tonalElevation = 2.dp
     ) {
         Text(
