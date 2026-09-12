@@ -174,6 +174,15 @@ class TelemetrySender(
             key != heartbeatKey && key != "vin" && value != null
         }
         val requestMeta = latestMeta.toMutableMap()
+        val obdDtcs = if (activeProtocol == "OBD2") obd.dtcSnapshot else null
+        if (activeProtocol == "OBD2") {
+            requestMeta["dtcScanStatus"] = when {
+                obdDtcs == null -> "not_read"
+                System.currentTimeMillis() - obdDtcs.capturedAt > 120_000L -> "stale"
+                else -> "read"
+            }
+            obdDtcs?.let { requestMeta["dtcCapturedAt"] = Instant.ofEpochMilli(it.capturedAt).toString() }
+        }
         if (hasFreshMetrics) {
             val now = System.currentTimeMillis()
             requestMeta["metricAgesMs"] = freshMetrics.keys.associateWith { key ->
@@ -189,7 +198,7 @@ class TelemetrySender(
             timestamp = capturedAt.toString(),
             metrics = metrics,
             frames = frames,
-            dtc = TelemetryDtcDto(active = activeDtcs.toList().sorted()),
+            dtc = TelemetryDtcDto(active = if (activeProtocol == "OBD2") obdDtcs?.codes.orEmpty() else activeDtcs.toList().sorted()),
             meta = requestMeta,
             adapter = adapterMetadata,
             obdConnected = latestConnected,

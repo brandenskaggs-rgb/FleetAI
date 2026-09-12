@@ -28,10 +28,11 @@ import com.fleetai.driver.ui.components.FleetCard
 import com.fleetai.driver.ui.viewmodel.StatusViewModel
 
 @Composable
-fun StatusScreen(contentPadding: PaddingValues) {
-    val viewModel: StatusViewModel = viewModel(factory = AppGraph.viewModelFactory)
+fun StatusScreen(contentPadding: PaddingValues, viewModel: StatusViewModel = viewModel(factory = AppGraph.viewModelFactory)) {
     val currentStatus by viewModel.dutyStatus.collectAsState()
     val message by viewModel.message.collectAsState()
+    val saving by viewModel.saving.collectAsState()
+    val eldEnabled by viewModel.eldEnabled.collectAsState()
     var notifyText by remember { mutableStateOf("") }
 
     Column(
@@ -42,16 +43,18 @@ fun StatusScreen(contentPadding: PaddingValues) {
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         FleetCard(modifier = Modifier.fillMaxWidth()) {
-            Text(text = "Duty Status", style = MaterialTheme.typography.headlineMedium)
+            Text(text = if (eldEnabled) "Duty status" else "Pilot activity", style = MaterialTheme.typography.headlineMedium)
             Spacer(modifier = Modifier.height(8.dp))
             DutyStatus.values().forEach { status ->
                 FleetButton(
-                    text = if (status == currentStatus) "Current: ${status.name}" else status.name,
+                    text = (if (status == currentStatus) "Current: " else "") + com.fleetai.driver.data.model.LogbookRules.label(status),
                     onClick = { viewModel.setStatus(status) },
+                    enabled = !saving && !(eldEnabled && status == DutyStatus.DRIVING),
                     modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(modifier = Modifier.height(6.dp))
             }
+            if (message.isNotBlank()) Text(message, style = MaterialTheme.typography.bodyLarge)
         }
 
         FleetCard(modifier = Modifier.fillMaxWidth()) {
@@ -81,10 +84,6 @@ fun StatusScreen(contentPadding: PaddingValues) {
                 onClick = { viewModel.notifyFleet("Lunch started") },
                 modifier = Modifier.fillMaxWidth()
             )
-            if (message.isNotBlank()) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(text = message, style = MaterialTheme.typography.bodyMedium)
-            }
         }
     }
 }

@@ -3652,11 +3652,11 @@ async function runTelemetryPipeline() {
     // interval and the existing Node model remains the reliability fallback.
     for (const vehicleId of vehicles) {
       try {
-        const samples = await sqliteDb.getSamplesForVehicle(vehicleId, { limit: 5000, orgId });
-        if (!samples.length) continue;
         const orgId = vehicleById.get(vehicleId)?.orgId
           || await sqliteDb.getVehicleOrgId(vehicleId, "").catch(() => "")
           || resolveOrgIdForVehicle(data, vehicleId);
+        const samples = await sqliteDb.getSamplesForVehicle(vehicleId, { limit: 5000, orgId });
+        if (!samples.length) continue;
         const vehicleMeta = Object.assign(
           {},
           vehicleById.get(vehicleId) || {},

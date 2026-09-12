@@ -1,6 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
+const { decodeCode, summarize } = require("./telematics/diagnostics/dtcCatalog");
 const { PrismaClient } = require("@prisma/client");
 const { Pool } = require("pg");
 const { PrismaPg } = require("@prisma/adapter-pg");
@@ -67,6 +68,22 @@ async function insertTelemetrySample(sample) {
       raw: sample.raw || {}
     }
   });
+  // The telemetry outbox retries this whole operation. One ECU scan keeps one
+  // identity even when its cached results accompany many sensor uploads.
+  if (sample.orgId && Array.isArray(sample.raw?.activeDTCs)
+      && ["read", "stale"].includes(sample.raw.dtcScanStatus)
+      && Number.isFinite(Date.parse(sample.raw.dtcCapturedAt))) {
+    const codes = sample.raw.activeDTCs.map(decodeCode);
+    const summary = summarize(codes);
+    const id = "DS_TEL_" + crypto.createHash("sha256")
+      .update(JSON.stringify([sample.orgId, sample.vehicleId, sample.raw.dtcCapturedAt, sample.raw.activeDTCs])).digest("hex");
+    await getPrisma().diagnosticScan.createMany({
+      data: [{ id, orgId: sample.orgId, vehicleId: sample.vehicleId, driverId: sample.driverId || null,
+        source: "telemetry", scannedAt: toDate(sample.raw.dtcCapturedAt), codes, summary,
+        severity: summary.severity, driveability: summary.driveability, codeCount: codes.length }],
+      skipDuplicates: true
+    });
+  }
 }
 
 function rowToSample(row) {

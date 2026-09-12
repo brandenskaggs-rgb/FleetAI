@@ -11,24 +11,12 @@ class SyncWorker(
     params: WorkerParameters
 ) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
-        return try {
-            AppGraph.repository.syncPending()
-            repeat(MAX_FLUSH_ROUNDS) {
-                val flush = AppGraph.telemetryOutbox.flush(ApiClient.api, limit = FLUSH_BATCH_SIZE)
-                if (flush.authBlocked) return Result.success()
-                if (flush.failed > 0) return Result.retry()
-                if (flush.remaining == 0) return Result.success()
+        val needsRetry = SyncPass.needsRetry(
+            syncPending = { AppGraph.repository.syncPending() },
+            flushTelemetry = {
+                AppGraph.telemetryOutbox.flush(ApiClient.api, limit = SyncPass.FLUSH_BATCH_SIZE)
             }
-            // Keep the network-constrained work pending until the durable
-            // queue is empty instead of waiting for the next 15-minute cycle.
-            Result.retry()
-        } catch (_: Exception) {
-            Result.retry()
-        }
-    }
-
-    companion object {
-        private const val FLUSH_BATCH_SIZE = 100
-        private const val MAX_FLUSH_ROUNDS = 5
+        )
+        return if (needsRetry) Result.retry() else Result.success()
     }
 }

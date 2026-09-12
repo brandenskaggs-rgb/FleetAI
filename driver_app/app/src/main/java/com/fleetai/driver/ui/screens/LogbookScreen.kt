@@ -1,150 +1,147 @@
 package com.fleetai.driver.ui.screens
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.MaterialTheme
-import com.fleetai.driver.ui.components.FleetTextField as OutlinedTextField
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.fleetai.driver.AppGraph
 import com.fleetai.driver.data.model.DutyStatus
+import com.fleetai.driver.data.model.LogbookRules
 import com.fleetai.driver.ui.components.FleetButton
 import com.fleetai.driver.ui.components.FleetCard
+import com.fleetai.driver.ui.components.FleetTextField
 import com.fleetai.driver.ui.viewmodel.LogbookViewModel
+import java.time.Instant
 import java.time.LocalDate
+import java.time.LocalTime
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun LogbookScreen(contentPadding: PaddingValues) {
-    val viewModel: LogbookViewModel = viewModel(factory = AppGraph.viewModelFactory)
-    val events by viewModel.events.collectAsState()
-    val message by viewModel.message.collectAsState()
-    var showDialog by remember { mutableStateOf(false) }
+fun LogbookScreen(
+    contentPadding: PaddingValues,
+    model: LogbookViewModel = viewModel(factory = AppGraph.viewModelFactory)
+) {
+    val events by model.events.collectAsStateWithLifecycle()
+    val message by model.message.collectAsStateWithLifecycle()
+    val date by model.selectedDate.collectAsStateWithLifecycle()
+    val loading by model.loading.collectAsStateWithLifecycle()
+    val saving by model.saving.collectAsStateWithLifecycle()
+    val offline by model.offline.collectAsStateWithLifecycle()
+    val unreadable by model.unreadable.collectAsStateWithLifecycle()
+    val canCertify by model.canCertify.collectAsStateWithLifecycle()
+    var adding by remember { mutableStateOf(false) }
+    var certifying by remember { mutableStateOf(false) }
+    val zone = ZoneId.systemDefault()
+    val today = LocalDate.now()
 
-    Column(
-        modifier = Modifier
-            .padding(contentPadding)
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        FleetCard(modifier = Modifier.fillMaxWidth()) {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
-                Text(text = "Daily Log", style = MaterialTheme.typography.headlineMedium)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FleetButton(text = "Add Duty Event", onClick = { showDialog = true })
-                    FleetButton(text = "Certify", onClick = { viewModel.certify() })
+    LazyColumn(modifier = Modifier.fillMaxSize().padding(contentPadding),
+        contentPadding = PaddingValues(24.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
+        item {
+            Text("Driver log", style = MaterialTheme.typography.headlineMedium)
+            Text("Duty changes and upload status", style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        item {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = { model.loadLogs(date.minusDays(1)) },
+                    enabled = date > today.minusDays(7) && !saving) {
+                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Previous day")
+                }
+                Column(Modifier.weight(1f).padding(horizontal = 8.dp)) {
+                    Text(date.format(DateTimeFormatter.ofPattern("EEEE, MMM d")), style = MaterialTheme.typography.titleLarge)
+                    Text("Tablet time: ${zone.id}", style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                IconButton(onClick = { model.loadLogs(date.plusDays(1)) }, enabled = date < today && !saving) {
+                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Next day")
                 }
             }
-            Spacer(modifier = Modifier.height(6.dp))
-            Text(text = LocalDate.now().toString(), style = MaterialTheme.typography.bodyMedium)
-            if (message.isNotBlank()) {
-                Spacer(modifier = Modifier.height(6.dp))
-                Text(text = message, style = MaterialTheme.typography.bodySmall)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                FleetButton("Record duty change", { model.clearMessage(); adding = true }, enabled = !saving)
+                TextButton(onClick = { model.loadLogs() }, enabled = !loading && !saving) { Text("Refresh") }
+                TextButton(onClick = { certifying = true }, enabled = canCertify && !loading && !saving) { Text("Review & certify") }
             }
         }
-
-        if (events.isEmpty()) {
-            FleetCard(modifier = Modifier.fillMaxWidth()) {
-                Text(text = "No log entries yet.")
+        item {
+            if (loading) LinearProgressIndicator(Modifier.fillMaxWidth())
+            else Text(if (offline) "Offline / showing entries saved on this tablet only"
+                else "${events.size} entries / ${events.count { it.pendingUpload }} waiting to upload",
+                style = MaterialTheme.typography.bodyLarge,
+                color = if (offline) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
+            if (unreadable > 0) Text("$unreadable records could not be displayed. Contact your fleet manager.",
+                color = MaterialTheme.colorScheme.error)
+            if (!adding && message.isNotBlank()) Text(message, Modifier.padding(top = 8.dp), style = MaterialTheme.typography.bodyLarge)
+        }
+        item {
+            Text("Pilot logging", style = MaterialTheme.typography.titleMedium)
+            Text("Keep using your carrier's registered ELD for legal logs. This view is not a complete roadside inspection display. Confirm the tablet timezone matches your home terminal before entering a time.",
+                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        if (!loading && events.isEmpty()) item {
+            Text(if (offline) "No entries saved locally for this day. This does not mean there was no driving."
+                else "No duty entries returned for this day.", Modifier.padding(vertical = 24.dp),
+                style = MaterialTheme.typography.bodyLarge)
+        }
+        items(events, key = { it.id }) { event ->
+            FleetCard(Modifier.fillMaxWidth()) {
+                FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(LogbookRules.label(event.status), style = MaterialTheme.typography.titleLarge)
+                    Text(readableLogTime(event.startTime, zone), style = MaterialTheme.typography.titleMedium)
+                }
+                if (event.notes.isNotBlank()) Text(event.notes, Modifier.padding(top = 8.dp), style = MaterialTheme.typography.bodyLarge)
+                if (event.pendingUpload) Text("Saved locally / awaiting server confirmation", Modifier.padding(top = 8.dp),
+                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
             }
-        } else {
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                items(events) { event ->
-                    FleetCard(modifier = Modifier.fillMaxWidth()) {
-                        Text(text = "${event.startTime} - ${event.endTime}")
-                        Text(text = "Status: ${event.status.name}")
-                        if (event.notes.isNotBlank()) {
-                            Text(text = "Notes: ${event.notes}")
+        }
+    }
+    if (adding) {
+        var time by remember { mutableStateOf(if (date == today) LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm")) else "") }
+        var notes by remember { mutableStateOf("") }
+        var status by remember { mutableStateOf(DutyStatus.OFF) }
+        AlertDialog(onDismissRequest = { if (!saving) adding = false },
+            title = { Text("Record duty change") },
+            text = {
+                Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("$date / ${zone.id}")
+                    Text("Records when a duty status began. Driving entries cannot be added manually.")
+                    FleetTextField(value = time, onValueChange = { time = it.take(5) }, label = { Text("Time (24-hour, HH:mm)") }, modifier = Modifier.fillMaxWidth())
+                    DutyStatus.values().filterNot { it == DutyStatus.DRIVING }.forEach { option ->
+                        Row(Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                            .selectable(selected = status == option, role = Role.RadioButton, enabled = !saving, onClick = { status = option }),
+                            verticalAlignment = Alignment.CenterVertically) {
+                            RadioButton(selected = status == option, onClick = null)
+                            Text(LogbookRules.label(option), Modifier.padding(start = 12.dp))
                         }
                     }
+                    FleetTextField(value = notes, onValueChange = { notes = it.take(60) }, label = { Text("Reason (4 to 60 characters)") }, modifier = Modifier.fillMaxWidth())
+                    if (message.isNotBlank()) Text(message, color = MaterialTheme.colorScheme.error)
                 }
-            }
-        }
+            },
+            confirmButton = { TextButton(enabled = !saving, onClick = { model.recordDutyChange(status, time, notes) { adding = false } }) { Text(if (saving) "Saving..." else "Save entry") } },
+            dismissButton = { TextButton(enabled = !saving, onClick = { adding = false }) { Text("Cancel") } })
     }
-
-    if (showDialog) {
-        AddLogDialog(
-            onDismiss = { showDialog = false },
-            onSave = { start, end, status, notes ->
-                viewModel.addEntry(status, start, end, notes)
-                showDialog = false
-            }
-        )
-    }
+    if (certifying) AlertDialog(onDismissRequest = { certifying = false }, title = { Text("Certify $date?") },
+        text = { Text("Confirm you reviewed the full day and that your records are complete and accurate. Do not certify a day with missing driving or duty entries.") },
+        confirmButton = { TextButton(onClick = { certifying = false; model.certify() }) { Text("Certify this day") } },
+        dismissButton = { TextButton(onClick = { certifying = false }) { Text("Keep reviewing") } })
 }
 
-@Composable
-private fun AddLogDialog(
-    onDismiss: () -> Unit,
-    onSave: (String, String, DutyStatus, String) -> Unit
-) {
-    var startTime by remember { mutableStateOf("") }
-    var endTime by remember { mutableStateOf("") }
-    var notes by remember { mutableStateOf("") }
-    var status by remember { mutableStateOf(DutyStatus.OFF) }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Add Log Entry") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(
-                    value = startTime,
-                    onValueChange = { startTime = it },
-                    label = { Text("Start time (HH:MM)") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = endTime,
-                    onValueChange = { endTime = it },
-                    label = { Text("End time (HH:MM)") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = notes,
-                    onValueChange = { notes = it },
-                    label = { Text("Notes") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                StatusPicker(selected = status, onSelected = { status = it })
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = { onSave(startTime, endTime, status, notes) }) {
-                Text("Save")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
-        }
-    )
-}
-
-@Composable
-private fun StatusPicker(selected: DutyStatus, onSelected: (DutyStatus) -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(text = "Duty type", style = MaterialTheme.typography.bodyMedium)
-        DutyStatus.values().filterNot { it == DutyStatus.DRIVING }.forEach { status ->
-            TextButton(onClick = { onSelected(status) }) {
-                Text(if (status == selected) "* ${status.name}" else status.name)
-            }
-        }
-    }
-}
+private fun readableLogTime(value: String, zone: ZoneId): String = try {
+    Instant.parse(value).atZone(zone).format(DateTimeFormatter.ofPattern("HH:mm"))
+} catch (_: Exception) { value.ifBlank { "Time unavailable" } }

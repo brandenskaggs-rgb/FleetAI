@@ -1,0 +1,2 @@
+# Local FMCSA test-package loader only; not a Node/Railway runtime requirement.
+cryptography==50.0.1

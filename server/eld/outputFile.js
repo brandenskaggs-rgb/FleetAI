@@ -1,12 +1,13 @@
 "use strict";
 
-const crypto = require("crypto");
+const { signEldOutput } = require("./outputAuthentication");
 const { EVENT_TYPE, RECORD_ORIGIN } = require("./constants");
 const { appendLineDataCheck, fileDataCheck, lineDataCheck } = require("./checksums");
 const {
   cleanField,
   formatCoordinate,
   formatEngineHours,
+  outputDateFromStored,
   formatSequenceId
 } = require("./format");
 
@@ -38,8 +39,8 @@ function lineCollector() {
     title(value) {
       lines.push(value);
     },
-    data(fields) {
-      const base = fields.map((field) => safe(field, 240)).join(",");
+    data(fields, fieldLimits = []) {
+      const base = fields.map((field, index) => safe(field, fieldLimits[index] ?? 240)).join(",");
       const check = lineDataCheck(base);
       checks.push(check);
       lines.push(appendLineDataCheck(base));
@@ -48,26 +49,9 @@ function lineCollector() {
       const fileCheck = fileDataCheck(checks);
       lines.push("End of File:");
       lines.push(fileCheck);
-      return { content: `${lines.join("\r\n")}\r\n`, fileDataCheck: fileCheck };
+      return { content: `${lines.join("\r")}\r`, fileDataCheck: fileCheck };
     }
   };
-}
-
-function authenticationValue({ config, driver, events, privateKeyPem }) {
-  if (!privateKeyPem) {
-    const error = new Error("FMCSA ELD authentication private key is not configured");
-    error.code = "ELD_AUTHENTICATION_KEY_MISSING";
-    error.statusCode = 503;
-    throw error;
-  }
-  const payload = [
-    config.eldRegistrationId,
-    config.eldIdentifier,
-    config.usdotNumber,
-    driver.eldUsername,
-    ...events.map((event) => `${event.sequenceEpoch}:${event.sequenceId}:${event.eventDataCheck}`)
-  ].join("|");
-  return crypto.sign("sha256", Buffer.from(payload, "ascii"), privateKeyPem).toString("base64");
 }
 
 function coordinate(event) {
@@ -93,17 +77,11 @@ function buildEldOutputFile(input) {
   }
   const ordered = [...events].sort((a, b) => new Date(b.occurredAt) - new Date(a.occurredAt));
   const current = ordered[0] || {};
-  const authentication = authenticationValue({
-    config,
-    driver,
-    events: ordered,
-    privateKeyPem: input.privateKeyPem
-  });
   const output = lineCollector();
   const timezoneHours = String(Math.abs(Math.round((current.timezoneOffsetMinutes || 0) / 60))).padStart(2, "0");
   const dayStartHours = String(Math.floor((config.dayStartMinutes || 0) / 60)).padStart(2, "0");
   const dayStartMinutes = String((config.dayStartMinutes || 0) % 60).padStart(2, "0");
-  const currentDate = current.eventDate || "";
+  const currentDate = outputDateFromStored(current.eventDate);
   const currentTime = current.eventTime || "";
 
   output.title("ELD File Header Segment:");
@@ -126,7 +104,8 @@ function buildEldOutputFile(input) {
     current.totalVehicleMiles ?? "",
     formatEngineHours(current.totalEngineHours)
   ]);
-  output.data([config.eldRegistrationId, config.eldIdentifier, authentication, outputFileComment]);
+  output.data([config.eldRegistrationId, config.eldIdentifier, "", outputFileComment],
+    [240, 240, 0, 60]);
 
   output.title("User List:");
   output.data([1, "D", driver.lastName, driver.firstName]);
@@ -143,7 +122,7 @@ function buildEldOutputFile(input) {
       event.recordOrigin,
       event.eventType,
       event.eventCode,
-      event.eventDate,
+      outputDateFromStored(event.eventDate),
       event.eventTime,
       event.accumulatedVehicleMiles ?? "",
       formatEngineHours(event.elapsedEngineHours),
@@ -162,7 +141,7 @@ function buildEldOutputFile(input) {
     formatSequenceId(event.sequenceId),
     event.eldUsername,
     event.annotation,
-    event.eventDate,
+    outputDateFromStored(event.eventDate),
     event.eventTime,
     event.locationDescription
   ]));
@@ -171,9 +150,9 @@ function buildEldOutputFile(input) {
   ordered.filter((event) => event.eventType === EVENT_TYPE.CERTIFICATION).forEach((event) => output.data([
     formatSequenceId(event.sequenceId),
     event.eventCode,
-    event.eventDate,
+    outputDateFromStored(event.eventDate),
     event.eventTime,
-    event.metadata?.certifiedRecordDate || "",
+    outputDateFromStored(event.metadata?.certifiedRecordDate),
     1
   ]));
 
@@ -182,7 +161,7 @@ function buildEldOutputFile(input) {
     formatSequenceId(event.sequenceId),
     event.eventCode,
     event.malfunctionDiagnosticCode,
-    event.eventDate,
+    outputDateFromStored(event.eventDate),
     event.eventTime,
     event.totalVehicleMiles ?? "",
     formatEngineHours(event.totalEngineHours),
@@ -194,7 +173,7 @@ function buildEldOutputFile(input) {
     formatSequenceId(event.sequenceId),
     event.eventCode,
     event.eldUsername,
-    event.eventDate,
+    outputDateFromStored(event.eventDate),
     event.eventTime,
     event.totalVehicleMiles ?? "",
     formatEngineHours(event.totalEngineHours)
@@ -204,7 +183,7 @@ function buildEldOutputFile(input) {
   ordered.filter((event) => event.eventType === EVENT_TYPE.ENGINE_POWER).forEach((event) => output.data([
     formatSequenceId(event.sequenceId),
     event.eventCode,
-    event.eventDate,
+    outputDateFromStored(event.eventDate),
     event.eventTime,
     event.totalVehicleMiles ?? "",
     formatEngineHours(event.totalEngineHours),
@@ -223,7 +202,7 @@ function buildEldOutputFile(input) {
     event.recordOrigin,
     event.eventType,
     event.eventCode,
-    event.eventDate,
+    outputDateFromStored(event.eventDate),
     event.eventTime,
     event.accumulatedVehicleMiles ?? "",
     formatEngineHours(event.elapsedEngineHours),
@@ -235,16 +214,14 @@ function buildEldOutputFile(input) {
     event.eventDataCheck
   ]));
 
-  const result = output.finish();
+  const result = signEldOutput(output.finish().content, input.privateKeyPem);
   return {
     ...result,
-    filename: buildOutputFilename(driver, createdAt, input.filenameSuffix),
-    authenticationValue: authentication
+    filename: buildOutputFilename(driver, createdAt, input.filenameSuffix)
   };
 }
 
 module.exports = {
   buildOutputFilename,
-  buildEldOutputFile,
-  authenticationValue
+  buildEldOutputFile
 };

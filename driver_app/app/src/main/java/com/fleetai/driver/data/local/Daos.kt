@@ -7,6 +7,9 @@ import androidx.room.Query
 
 @Dao
 interface HosDao {
+    @Query("SELECT * FROM hos_events WHERE tenantId = :tenantId AND driverId = :driverId AND vehicleId = :vehicleId ORDER BY startTime DESC LIMIT 1")
+    suspend fun latestEvent(tenantId: String, driverId: String, vehicleId: String): HosEventEntity?
+
     @Query("SELECT * FROM hos_events WHERE tenantId = :tenantId AND driverId = :driverId AND eventDate = :date ORDER BY startTime DESC")
     suspend fun getEventsByDate(tenantId: String, driverId: String, date: String): List<HosEventEntity>
 

@@ -220,12 +220,13 @@ console.log("\nTelemetry backlog preserves live delivery");
   const application = fs.readFileSync(path.join(appRoot, "FleetAIDriverApplication.kt"), "utf8");
   const outbox = fs.readFileSync(path.join(appRoot, "telemetry", "TelemetryOutbox.kt"), "utf8");
   const syncWorker = fs.readFileSync(path.join(appRoot, "data", "sync", "SyncWorker.kt"), "utf8");
+  const syncPass = fs.readFileSync(path.join(appRoot, "data", "sync", "SyncPass.kt"), "utf8");
   check("telemetry queue is stored in the persistent Room database", /telemetry_outbox/.test(database) && /TelemetryOutboxEntity/.test(database));
   check("background sync waits for network connectivity", /setRequiredNetworkType\(NetworkType\.CONNECTED\)/.test(application));
   check("outbox can select newest eligible batches", /pendingNewest/.test(dao) && /ORDER BY createdAtEpochMs DESC/.test(dao));
   check("outbox still drains oldest historical batches", /pendingOldest/.test(dao) && /ORDER BY createdAtEpochMs ASC/.test(dao));
   check("flush sends live-priority batches before history", /val items = newest \+ oldest/.test(outbox));
-  check("reconnect worker retries until the durable queue drains", /flush\.failed > 0/.test(syncWorker) && /flush\.remaining == 0/.test(syncWorker) && /Result\.retry\(\)/.test(syncWorker));
+  check("reconnect worker retries until the durable queue drains", /SyncPass\.needsRetry/.test(syncWorker) && /flush\.failed > 0/.test(syncPass) && /flush\.remaining == 0/.test(syncPass) && /if \(needsRetry\) Result\.retry\(\)/.test(syncWorker));
   check("queued telemetry is tenant and vehicle scoped", /tenantId = tenantId/.test(outbox) && /vehicleId = vehicleId/.test(outbox));
   check("unscoped legacy telemetry cannot upload after re-pairing", /deleteUnscoped/.test(dao) && /dao\.deleteUnscoped/.test(outbox));
 }

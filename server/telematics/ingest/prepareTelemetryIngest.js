@@ -91,6 +91,11 @@ function sanitizeTelemetryMeta(meta) {
     throw new TelemetryPayloadError("meta must be an object");
   }
   const output = {};
+  if (["not_read", "read", "stale"].includes(meta.dtcScanStatus)) {
+    output.dtcScanStatus = meta.dtcScanStatus;
+    const capturedAt = Date.parse(boundedText(meta.dtcCapturedAt, 40));
+    if (Number.isFinite(capturedAt)) output.dtcCapturedAt = new Date(capturedAt).toISOString();
+  }
   if (Array.isArray(meta.supportedPids)) {
     output.supportedPids = [...new Set(meta.supportedPids
       .map((value) => boundedText(value, 4).toUpperCase())

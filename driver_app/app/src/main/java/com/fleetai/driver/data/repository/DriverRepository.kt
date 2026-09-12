@@ -7,6 +7,7 @@ import com.fleetai.driver.data.model.DvirRecord
 import com.fleetai.driver.data.model.DutyStatus
 import com.fleetai.driver.data.model.EldDeviceStatus
 import com.fleetai.driver.data.model.HosEvent
+import com.fleetai.driver.data.model.LogbookSnapshot
 import com.fleetai.driver.data.model.HosClockStatus
 import com.fleetai.driver.data.model.NotificationItem
 import com.fleetai.driver.data.model.ThemeMode
@@ -20,6 +21,7 @@ interface DriverRepository {
 
     suspend fun addHosEvent(event: HosEvent)
     suspend fun getHosEvents(date: String): List<HosEvent>
+    suspend fun getLogbook(date: String): LogbookSnapshot
     suspend fun submitInspection(record: DvirRecord): Boolean
 
     suspend fun addNotification(notification: NotificationItem)

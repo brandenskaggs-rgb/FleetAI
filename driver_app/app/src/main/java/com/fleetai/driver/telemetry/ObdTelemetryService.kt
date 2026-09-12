@@ -176,6 +176,7 @@ class ObdTelemetryService : Service() {
         val latestValues = mutableMapOf<String, Double>()
         val updatedAt = mutableMapOf<String, Long>()
         val lastPolledAt = mutableMapOf<String, Long>()
+        var lastDtcPollAt = 0L
         if (plan.isEmpty() && extendedPlan.isEmpty()) {
             ObdRuntime.publish(ObdRuntimeSnapshot(standardPlan = plan, extendedPlan = extendedPlan))
             ObdRuntime.update(ObdRuntime.State.WAITING_FOR_ECU, "ECU connected - no supported live PIDs advertised")
@@ -220,6 +221,13 @@ class ObdTelemetryService : Service() {
                     latestValues[reading.key] = reading.value
                     updatedAt[reading.key] = System.currentTimeMillis()
                 }
+            }
+            // One serialized read-only request per minute, after live sensor reads.
+            if (successfulReads > 0 && now - lastDtcPollAt >= 60_000L) {
+                lastDtcPollAt = now
+                try { obd.readDtcs() }
+                catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
+                catch (_: Exception) { /* Keep last successful evidence; never invent a clean scan. */ }
             }
             expireStale(plan, extendedPlan, latestValues, updatedAt, now)
             val boostSourceAt = maxOf(updatedAt["mapKpa"] ?: 0L, updatedAt["barometricPressureKpa"] ?: 0L)

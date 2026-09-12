@@ -20,7 +20,7 @@ function fixture() {
       if (id === "@prisma/client") return { PrismaClient: function () { return prisma; } };
       if (id === "pg") return { Pool: function () {} };
       if (id === "@prisma/adapter-pg") return { PrismaPg: function () {} };
-      return require(id);
+      return require("node:module").createRequire(filename)(id);
     }, Buffer, console
   }, { filename });
   return { db: module.exports, calls };
@@ -69,4 +69,47 @@ test("Node saves cannot overwrite Python-owned learning with a stale read", asyn
     assert.equal(Object.hasOwn(saved, key), false);
   }
   assert.equal(input.welford.rpm.count, 1);
+});
+
+test("Scheduled prediction resolves each organization before reading its samples", async () => {
+  const source = fs.readFileSync(path.resolve(__dirname, "../server.js"), "utf8");
+  const start = source.indexOf("async function runTelemetryPipeline() {");
+  const end = source.indexOf("let telemetryPipelineRunning = false;", start);
+  assert.ok(start >= 0 && end > start);
+  const reads = [], predictions = [], saves = [], audits = [], errors = [];
+  const vehicles = [{ vehicleId: "car-a", orgId: "org-a" }, { vehicleId: "car-b", orgId: "org-b" }];
+  const context = {
+    ALERTS_ENABLED: true, telemetryPipelineRunning: false,
+    readData: async () => ({}), writeData: async () => {},
+    discoverVehicleContext: async () => ({ vehicleById: new Map(vehicles.map(v => [v.vehicleId, v])), vehicleIds: vehicles.map(v => v.vehicleId) }),
+    getTelemetryRecordsForVehicle: () => [],
+    sqliteDb: {
+      getSamplesForVehicle: async (vehicleId, options) => {
+        assert.equal(options.orgId, vehicles.find(v => v.vehicleId === vehicleId).orgId);
+        reads.push(vehicleId);
+        return [{ ts: "2026-09-11T12:00:00Z", metrics: { rpm: 700 }, raw: { activeDTCs: ["P0133"] } }];
+      },
+      getVehicleCapabilities: async () => ({}),
+      upsertModelState: async p => saves.push(p),
+      insertMlPredictionRun: async p => { audits.push(p); return "run"; },
+      insertMlFeatureSnapshot: async () => {},
+      resolveInactiveMlAlerts: async () => {}
+    },
+    telemetryPredictionCoordinator: { predict: async input => {
+      predictions.push(input);
+      return { attempted: true, prediction: { vehicleId: input.vehicleId, orgId: input.orgId, healthScore: 80, features: { rpm: 700 } } };
+    } },
+    ml: { generateAlertsFromState: () => [] },
+    console: { log: () => {}, warn: (...args) => errors.push(args.join(" ")) }
+  };
+  vm.createContext(context);
+  vm.runInContext(source.slice(start, end), context);
+  await context.runTelemetryPipeline();
+  assert.deepEqual(errors, []);
+  assert.deepEqual(reads, ["car-a", "car-b"]);
+  assert.deepEqual(predictions.map(p => p.orgId), ["org-a", "org-b"]);
+  assert.equal(predictions[0].dtcCodes[0], "P0133");
+  assert.deepEqual(saves.map(p => p.orgId), ["org-a", "org-b"]);
+  assert.deepEqual(audits.map(p => p.orgId), ["org-a", "org-b"]);
+  assert.equal(context.telemetryPipelineRunning, false);
 });

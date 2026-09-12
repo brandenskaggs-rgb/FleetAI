@@ -36,7 +36,14 @@ data class HosEvent(
     val notes: String,
     val startTime: String,
     val endTime: String,
-    val eventDate: String
+    val eventDate: String,
+    val pendingUpload: Boolean = false
+)
+
+data class LogbookSnapshot(
+    val events: List<HosEvent>,
+    val offline: Boolean,
+    val unreadableRecords: Int = 0
 )
 
 data class NotificationItem(
@@ -119,7 +126,8 @@ data class EldDeviceStatus(
     val dutyStatus: DutyStatus,
     val vehicleMoving: Boolean,
     val lastTelemetryAt: String,
-    val activeDiagnosticCount: Int
+    val activeDiagnosticCount: Int,
+    val pendingDutyUpload: Boolean = false
 )
 
 enum class SensorStatus { LIVE, STALE, UNSUPPORTED }

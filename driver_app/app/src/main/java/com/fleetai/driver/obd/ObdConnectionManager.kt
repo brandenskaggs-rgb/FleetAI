@@ -55,6 +55,9 @@ class ObdConnectionManager(private val context: Context) {
     @Volatile private var activeTransport = Transport.NONE
     private val commandMutex = Mutex()
     @Volatile private var diagnostics = ObdDiagnostics()
+    data class DtcSnapshot(val codes: List<String>, val capturedAt: Long)
+    @Volatile var dtcSnapshot: DtcSnapshot? = null
+        private set
     @Volatile private var supportedPids: Set<String> = emptySet()
     @Volatile private var lastEcuResponseAt = 0L
 
@@ -206,6 +209,7 @@ class ObdConnectionManager(private val context: Context) {
 
     @SuppressLint("MissingPermission")
     suspend fun connect(device: BluetoothDevice): Boolean {
+        dtcSnapshot = null
         if (!hasBluetoothConnectPermission()) return false
         disconnect()
         return when (device.type) {
@@ -277,7 +281,11 @@ class ObdConnectionManager(private val context: Context) {
     fun supportedPidsSnapshot(): Set<String> = supportedPids
 
     suspend fun readDtcs(): List<String> = withContext(Dispatchers.IO) {
-        ObdParser.parseDtcs(sendCommand("03") ?: return@withContext emptyList())
+        val raw = sendCommand("03") ?: throw IllegalStateException("No DTC response from adapter")
+        val can = diagnostics.detectedProtocol.contains("CAN", ignoreCase = true)
+        val codes = ObdDtcParser.parse(raw, can) ?: throw IllegalStateException("DTC scan incomplete; no valid response")
+        dtcSnapshot = DtcSnapshot(codes, System.currentTimeMillis())
+        codes
     }
 
     suspend fun readVin(): String? = withContext(Dispatchers.IO) {

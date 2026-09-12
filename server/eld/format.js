@@ -9,13 +9,20 @@ function cleanField(value, maxLength = 60) {
 }
 
 function decimal(value, digits, fallback = "") {
-  const number = Number(value);
-  return Number.isFinite(number) ? number.toFixed(digits) : fallback;
+  const number = finiteNumeric(value);
+  return number !== null ? number.toFixed(digits) : fallback;
 }
 
 function integer(value, fallback = "") {
+  const number = finiteNumeric(value);
+  return number !== null ? String(Math.max(0, Math.round(number))) : fallback;
+}
+
+function finiteNumeric(value) {
+  if (typeof value !== "number" && typeof value !== "string") return null;
+  if (typeof value === "string" && !value.trim()) return null;
   const number = Number(value);
-  return Number.isFinite(number) ? String(Math.max(0, Math.round(number))) : fallback;
+  return Number.isFinite(number) ? number : null;
 }
 
 function eventLocalParts(occurredAt, timezoneOffsetMinutes) {
@@ -33,13 +40,27 @@ function eventLocalParts(occurredAt, timezoneOffsetMinutes) {
 }
 
 function formatCoordinate(value, reducedPrecision = false, missingCode = "X") {
-  const number = Number(value);
-  if (!Number.isFinite(number)) return missingCode;
+  const number = finiteNumeric(value);
+  if (number === null) return missingCode;
   return number.toFixed(reducedPrecision ? 1 : 2);
 }
 
 function formatEngineHours(value) {
   return decimal(value, 1);
+}
+
+function outputDateFromStored(value) {
+  if (value === null || value === undefined || value === "") return "";
+  // Stored events/certifications use YYMMDD. FMCSA exports require MMDDYY.
+  if (!/^\d{6}$/.test(value)) throw new TypeError("Invalid stored ELD date");
+  const year = Number(value.slice(0, 2)) + 2000;
+  const month = Number(value.slice(2, 4));
+  const day = Number(value.slice(4, 6));
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) {
+    throw new TypeError("Invalid stored ELD date");
+  }
+  return value.slice(2) + value.slice(0, 2);
 }
 
 function formatSequenceId(value) {
@@ -53,5 +74,6 @@ module.exports = {
   eventLocalParts,
   formatCoordinate,
   formatEngineHours,
+  outputDateFromStored,
   formatSequenceId
 };

@@ -82,16 +82,16 @@ fun HomeScreen(
                 "Duty" to state.dutyStatus.name.replace("_", " "),
                 "ELD" to
                     when {
-                        !state.eldEnabled -> "Not enabled"
+                        !state.eldEnabled -> "Pilot activity"
                         state.productionAuthorized -> "Recording"
                         else -> "Pilot only"
                     },
-                "Motion" to if (state.vehicleMoving) "Moving" else "Stopped",
-                "Fault codes" to state.activeDiagnosticCount.toString()
+                "Motion" to if (state.lastTelemetryAt.isBlank()) "Unknown" else if (state.vehicleMoving) "Moving" else "Stopped",
+                "ELD diagnostics" to state.activeDiagnosticCount.toString()
             ))
             if (state.lastTelemetryAt.isNotBlank()) {
                 Spacer(modifier = Modifier.height(10.dp))
-                Text("Last engine sync: ${state.lastTelemetryAt}", style = MaterialTheme.typography.bodySmall)
+                Text("Last ELD update: ${state.lastTelemetryAt}", style = MaterialTheme.typography.bodySmall)
             }
         }
 
@@ -101,7 +101,7 @@ fun HomeScreen(
             ToolButton("Settings", Icons.Default.Settings, onOpenSettings, Modifier.weight(1f))
         }
 
-        FleetCard(modifier = Modifier.fillMaxWidth()) {
+        if (state.eldEnabled) FleetCard(modifier = Modifier.fillMaxWidth()) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -148,13 +148,13 @@ fun HomeScreen(
             Spacer(modifier = Modifier.height(10.dp))
             ChecklistLine("Complete pre-trip inspection before driving when required.")
             ChecklistLine("Review unresolved defects from the last DVIR before operating.")
-            ChecklistLine("Confirm ELD recording is active before relying on Fleet AI for legal logs.")
+            ChecklistLine(if (state.eldEnabled) "Confirm ELD recording is active before relying on Fleet AI for legal logs." else "Pilot activity is for testing, not legal ELD logs.")
         }
 
         if (state.statusMessage.isNotBlank()) {
             WarningBanner(
                 message = state.statusMessage,
-                isCritical = !state.eldEnabled || !state.productionAuthorized || state.activeDiagnosticCount > 0
+                isCritical = state.eldEnabled && (!state.productionAuthorized || state.activeDiagnosticCount > 0)
             )
         }
 
@@ -167,9 +167,10 @@ fun HomeScreen(
         }
 
         FleetCard(modifier = Modifier.fillMaxWidth()) {
-            Text("Duty actions", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
+            Text(if (state.eldEnabled) "Duty actions" else "Pilot activity", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
             Text(
-                "Driving status is automatic at 5 mph and cannot be started manually.",
+                if (state.eldEnabled) "Driving status is automatic at 5 mph and cannot be started manually."
+                else "Record driving or a break for your pilot. These entries are not legal hours-of-service records.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.64f)
             )
@@ -197,12 +198,14 @@ fun HomeScreen(
                     modifier = Modifier.weight(1f)
                 )
                 FleetButton(
-                    text = "Refresh ELD",
-                    onClick = { viewModel.refresh() },
+                    text = "Take a break",
+                    onClick = { viewModel.takeBreak() },
                     enabled = !state.actionInProgress,
                     modifier = Modifier.weight(1f)
                 )
             }
+            if (!state.eldEnabled) FleetButton("Start driving activity", { viewModel.setDutyStatus(DutyStatus.DRIVING) },
+                enabled = !state.actionInProgress, modifier = Modifier.fillMaxWidth())
         }
 
         ToolButton("Open route", Icons.Default.Route, onOpenRoute, Modifier.fillMaxWidth())

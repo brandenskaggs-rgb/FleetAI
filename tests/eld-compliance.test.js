@@ -11,6 +11,8 @@ const {
   fileDataCheck
 } = require("../server/eld/checksums");
 const { buildOutputFilename, buildEldOutputFile } = require("../server/eld/outputFile");
+const { AUTHENTICATION_SCHEME, verifyEldOutput } = require("../server/eld/outputAuthentication");
+const { decimal, integer, formatEngineHours, formatCoordinate, outputDateFromStored } = require("../server/eld/format");
 const { normalizeDutyCode, extractTelemetry, normalizeCoordinates } = require("../server/eld/eldService");
 const { DUTY_CODE, VEHICLE_MOVING_KPH } = require("../server/eld/constants");
 
@@ -62,6 +64,19 @@ check("ELD output filename follows the 25-character standard", () => {
   assert.strictEqual(value.length, 25);
 });
 
+check("export date conversion preserves internal dates and event check sums", () => {
+  assert.equal(outputDateFromStored("260911"), "091126");
+  assert.equal(outputDateFromStored("240229"), "022924");
+  assert.equal(outputDateFromStored("261231"), "123126");
+  assert.equal(outputDateFromStored(undefined), "");
+  for (const value of ["230229", "261301", "260000", "invalid"]) {
+    assert.throws(() => outputDateFromStored(value), /Invalid stored ELD date/);
+  }
+  const event = { eventType: 1, eventCode: 4, eventDate: "260911", eventTime: "120000" };
+  assert.equal(eventDataCheck(event), eventDataCheck({ ...event, eventDate: outputDateFromStored(event.eventDate) }));
+  assert.equal(event.eventDate, "260911");
+});
+
 check("duty aliases never invent a status", () => {
   assert.strictEqual(normalizeDutyCode("OFF"), DUTY_CODE.OFF_DUTY);
   assert.strictEqual(normalizeDutyCode("SB"), DUTY_CODE.SLEEPER);
@@ -101,6 +116,22 @@ check("personal-conveyance coordinates use reduced precision", () => {
     latitudeCode: "",
     longitudeCode: ""
   });
+});
+
+check("ELD numeric formatting preserves missingness and real zero readings", () => {
+  for (const value of [null, undefined, "", "  ", false, true, [], {}, NaN, Infinity, "bad"]) {
+    assert.strictEqual(decimal(value, 1), "");
+    assert.strictEqual(integer(value), "");
+    assert.strictEqual(formatEngineHours(value), "");
+    assert.strictEqual(formatCoordinate(value), "X");
+  }
+  for (const value of [0, "0"]) {
+    assert.strictEqual(formatEngineHours(value), "0.0");
+    assert.strictEqual(formatCoordinate(value), "0.00");
+    assert.strictEqual(integer(value), "0");
+  }
+  assert.strictEqual(decimal(" 12.34 ", 1), "12.3");
+  assert.strictEqual(formatCoordinate(-87.6298, true), "-87.6");
 });
 
 check("output generator emits all mandatory segment names and a valid final check", () => {
@@ -171,8 +202,48 @@ check("output generator emits all mandatory segment names and a valid final chec
     "Unidentified Driver Profile Records:",
     "End of File:"
   ].forEach((segment) => assert.ok(result.content.includes(segment), segment));
-  assert.match(result.content, /End of File:\r\n[0-9A-F]{4}\r\n$/);
+  assert.match(result.content, /End of File:\r[0-9A-F]{4}\r$/);
+  assert.equal(result.content.includes("\n"), false);
+  assert.equal(result.content.split("\r")[6].split(",")[0], "081826");
+  assert.equal(event.eventDate, "260818");
   assert.strictEqual(result.fileDataCheck.length, 4);
+});
+
+check("authentication signatures survive export and verify at both RSA key sizes", () => {
+  for (const modulusLength of [2048, 3072]) {
+    const { privateKey, publicKey } = crypto.generateKeyPairSync("rsa", { modulusLength });
+    const publicKeyPem = publicKey.export({ type: "spki", format: "pem" });
+    const config = { eldIdentifier: "FLT001", eldRegistrationId: "TEST", usdotNumber: "1234567",
+      carrierName: "Synthetic Test", multidayBasis: "US_70_8" };
+    const driver = { eldUsername: "synthetic", licenseNum: "TEST123", licenseState: "MO",
+      firstName: "Test", lastName: "Driver" };
+    const result = buildEldOutputFile({ config, driver, vehicle: { unitName: "TEST", vin: "" },
+      events: [], outputFileComment: "A".repeat(80),
+      privateKeyPem: privateKey.export({ type: "pkcs8", format: "pem" }) });
+    const lines = result.content.trimEnd().split("\r");
+    const identity = lines[7].split(",");
+    const signature = identity[2];
+    assert.match(signature, /^[0-9A-F]+$/);
+    assert.strictEqual(signature.length, 2 + modulusLength / 4, "version prefix plus complete signature");
+    assert.ok(signature.startsWith("F1"));
+    assert.strictEqual(result.authenticationScheme, AUTHENTICATION_SCHEME);
+    // Independent reconstruction uses the file alone, not model inputs or database state.
+    const canonical = lines.slice(0, -1);
+    canonical[7] = [identity[0], identity[1], "", identity[3]].join(",");
+    const payload = Buffer.from(`FLEETAI-ELD-RSA-SHA256-V1\r${canonical.join("\r")}\r`, "ascii");
+    assert.ok(crypto.verify("sha256", payload, publicKey, Buffer.from(signature.slice(2), "hex")));
+    assert.ok(verifyEldOutput(result.content, publicKeyPem));
+    assert.deepStrictEqual(lines[6].split(",").slice(2, 6), ["X", "X", "", ""],
+      "empty history cannot fabricate coordinates or engine hours");
+    assert.strictEqual(identity[3].length, 60, "output-file comment is at most 60 characters");
+    assert.strictEqual(identity[4], lineDataCheck(identity.slice(0, -1).join(",")));
+    const dataLines = lines.slice(0, -2).filter(line => !line.endsWith(":"));
+    const checks = dataLines.map(line => line.split(",").pop());
+    assert.strictEqual(lines.at(-1), fileDataCheck(checks), "signature change must be covered by checksums");
+    const corrupted = Buffer.from(signature.slice(2), "hex");
+    corrupted[0] ^= 1;
+    assert.strictEqual(crypto.verify("sha256", payload, publicKey, corrupted), false);
+  }
 });
 
 if (process.exitCode) process.exit(process.exitCode);

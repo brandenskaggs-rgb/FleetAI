@@ -177,26 +177,7 @@ object ObdParser {
     }
 
     fun parseDtcs(response: String): List<String> {
-        val hex = response.replace(" ", "").replace("\r", "").replace(">", "")
-        if (!hex.startsWith("43")) return emptyList()
-        val data = hex.drop(2)
-        val codes = mutableListOf<String>()
-        var i = 0
-        while (i + 4 <= data.length) {
-            val a = data.substring(i, i + 2).toIntOrNull(16) ?: break
-            val b = data.substring(i + 2, i + 4).toIntOrNull(16) ?: break
-            if (a == 0 && b == 0) break
-            val type = when (a shr 6) {
-                0 -> "P"
-                1 -> "C"
-                2 -> "B"
-                else -> "U"
-            }
-            val code = ((a and 0x3F) shl 8) + b
-            codes.add(type + code.toString().padStart(4, '0'))
-            i += 4
-        }
-        return codes
+        return ObdDtcParser.parse(response, can = false).orEmpty()
     }
 
     fun parseSupportedPids(response: String): Set<String> {

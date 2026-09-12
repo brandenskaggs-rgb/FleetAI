@@ -57,7 +57,7 @@ class HomeViewModel(
     fun endShift() = updateStatus(DutyStatus.OFF, "End shift")
 
     fun setDutyStatus(status: DutyStatus) {
-        if (status == DutyStatus.DRIVING) {
+        if (status == DutyStatus.DRIVING && _uiState.value.eldEnabled) {
             _uiState.value = _uiState.value.copy(
                 statusMessage = "Driving is recorded automatically when vehicle speed reaches 5 mph."
             )
@@ -76,9 +76,10 @@ class HomeViewModel(
             }
             val hos = if (status.enabled) runCatching { repository.getEldHosStatus() }.getOrNull() else null
             val message = when {
+                !status.enabled && status.pendingDutyUpload -> "Pilot activity saved on this tablet; waiting to upload. Not a legal ELD log."
+                !status.enabled -> "Pilot activity / sensor monitoring. No carrier ELD setup required. Activity entries are not legal ELD logs."
                 !status.carrierConfigured -> "Carrier ELD setup is incomplete. Contact fleet administration."
                 !status.driverConfigured -> "Driver ELD profile is incomplete. Contact fleet administration."
-                !status.enabled -> "ELD recording is not enabled for this tablet. Do not use it as the legal log."
                 !status.productionAuthorized -> "Shadow mode is active. Keep the carrier's registered ELD in service."
                 status.activeDiagnosticCount > 0 -> "ELD is recording with ${status.activeDiagnosticCount} active diagnostic event(s)."
                 status.vehicleMoving -> "Vehicle motion detected. Driving time is being recorded automatically."
@@ -102,12 +103,12 @@ class HomeViewModel(
                 drivingProhibitedReasons = hos?.drivingProhibitedReasons.orEmpty(),
                 hosViolations = hos?.violations.orEmpty(),
                 statusMessage = message,
-                actionInProgress = false
+                actionInProgress = _uiState.value.actionInProgress
             )
         } catch (_: Exception) {
             _uiState.value = _uiState.value.copy(
-                statusMessage = "ELD status is unavailable. Keep the current legal ELD in service.",
-                actionInProgress = false
+                statusMessage = "Unable to refresh activity status. Check the connection; previous status is shown.",
+                actionInProgress = _uiState.value.actionInProgress
             )
         }
     }
@@ -124,6 +125,8 @@ class HomeViewModel(
                     actionInProgress = false,
                     statusMessage = "Duty status was not saved. Check the connection and ELD configuration."
                 )
+            } finally {
+                _uiState.value = _uiState.value.copy(actionInProgress = false)
             }
         }
     }

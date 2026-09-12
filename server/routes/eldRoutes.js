@@ -4,6 +4,7 @@ const db = require("../db");
 const { attachDevice, requireDevice } = require("../middleware/deviceAuth");
 const { LOGIN_CODE } = require("../eld/constants");
 const { buildEldOutputFile } = require("../eld/outputFile");
+const { getCycleWindowStart } = require("../eld/hosCalculator");
 
 function pemFromEnv(value) {
   return String(value || "").replace(/\\n/g, "\n").trim();
@@ -93,6 +94,7 @@ function registerEldRoutes(app, deps) {
   app.post("/api/eld/devices/:deviceId/enable", requireOperatorAdmin, async (req, res, next) => {
     try {
       const orgId = operatorOrgId(req);
+      if (!orgId) return res.status(403).json({ ok: false, error: "ORG_SCOPE_REQUIRED" });
       const pairing = await db.getPrisma().pairing.findFirst({
         where: {
           orgId,
@@ -221,11 +223,16 @@ function registerEldRoutes(app, deps) {
   app.post("/api/eld/output-file", requireDevice, async (req, res, next) => {
     try {
       const context = await eldService.getDeviceContext(req.device);
+      if (!context.config?.homeTerminalTimeZone) {
+        return res.status(409).json({ ok: false, error: "ELD_CARRIER_CONFIG_REQUIRED" });
+      }
+      const now = new Date();
       const events = await eldService.listRecords(req.device, {
-        from: req.body?.from || Date.now() - 8 * 24 * 60 * 60 * 1000,
-        to: req.body?.to || new Date(),
+        from: req.body?.from ?? getCycleWindowStart(now, 8,
+          context.config.homeTerminalTimeZone, context.config.dayStartMinutes),
+        to: req.body?.to ?? now,
         limit: 5000
-      });
+      }, { requireComplete: true });
       const result = buildEldOutputFile({
         config: context.config,
         driver: context.driver,
@@ -249,6 +256,8 @@ function registerEldRoutes(app, deps) {
       });
       res.json({
         ok: true,
+        status: "GENERATED_NOT_SENT",
+        sentToFmcsa: false,
         transferAttemptId: attempt.id,
         filename: result.filename,
         fileDataCheck: result.fileDataCheck,

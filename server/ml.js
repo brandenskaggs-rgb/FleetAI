@@ -648,6 +648,18 @@ function buildTelemetrySample(normalized, extra = {}) {
   delete raw.vin;
   delete raw.VIN;
   const timestamp = normalized.timestamp || new Date().toISOString();
+  const meta = extra.meta || normalized.meta || {};
+  const dtcCapturedAt = Date.parse(meta.dtcCapturedAt);
+  const reportedCodes = Array.isArray(normalized.dtc?.active)
+    ? normalized.dtc.active.map(item => typeof item === "string" ? item : item?.code) : null;
+  if (["read", "stale"].includes(meta.dtcScanStatus) && Number.isFinite(dtcCapturedAt)
+      && dtcCapturedAt <= Date.parse(timestamp) + 5000 && reportedCodes
+      && reportedCodes.length <= 255
+      && reportedCodes.every(code => typeof code === "string" && /^[PCBU][0-3][0-9A-F]{3}$/i.test(code))) {
+    raw.activeDTCs = [...new Set(reportedCodes.map(code => code.toUpperCase()))].sort();
+    raw.dtcCapturedAt = new Date(dtcCapturedAt).toISOString();
+    raw.dtcScanStatus = meta.dtcScanStatus;
+  }
   const fingerprint = crypto
     .createHash("sha256")
     .update(JSON.stringify([normalized.vehicleId || null, timestamp, metrics, raw]))
@@ -655,7 +667,6 @@ function buildTelemetrySample(normalized, extra = {}) {
     .slice(0, 24);
   // Keep tablet position evidence in the durable sample, not just the optional
   // JSON mirror. Do not copy arbitrary adapter metadata into every row.
-  const meta = extra.meta || normalized.meta || {};
   if (Number.isFinite(meta.latitude) && Number.isFinite(meta.longitude) && Number.isFinite(meta.locationCapturedAt)) {
     raw.location = Object.fromEntries([
       "latitude", "longitude", "locationCapturedAt", "locationAccuracyMeters",

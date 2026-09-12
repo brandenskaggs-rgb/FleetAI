@@ -639,19 +639,52 @@ function createEldService(prisma) {
     });
   }
 
-  async function listRecords(device, query = {}) {
-    const from = asDate(query.from || Date.now() - 8 * 24 * 60 * 60 * 1000);
-    const to = asDate(query.to || new Date());
-    const driverId = query.driverId || device.driverId || null;
-    return prisma.eldEvent.findMany({
+  async function listRecords(device, query = {}, { requireComplete = false } = {}) {
+    function reject(code, statusCode) {
+      const error = new Error(code);
+      error.code = code;
+      error.statusCode = statusCode;
+      throw error;
+    }
+    // Device records are personal. Fleet-wide access belongs to the operator
+    // audit route, never to an unassigned cab or a caller-supplied driver ID.
+    if (typeof device?.orgId !== "string" || !device.orgId.trim()
+        || typeof device?.driverId !== "string" || !device.driverId.trim()) {
+      reject("ELD_DRIVER_SCOPE_REQUIRED", 403);
+    }
+    if (query.driverId !== undefined && query.driverId !== device.driverId) {
+      reject("ELD_DRIVER_SCOPE_MISMATCH", 403);
+    }
+    function boundary(value, fallback) {
+      const input = value === undefined ? fallback : value;
+      if (!(input instanceof Date) && typeof input !== "string" && typeof input !== "number") {
+        reject("ELD_RECORD_RANGE_INVALID", 400);
+      }
+      const date = new Date(input);
+      if (!Number.isFinite(date.getTime())) reject("ELD_RECORD_RANGE_INVALID", 400);
+      return date;
+    }
+    const now = Date.now();
+    const from = boundary(query.from, now - 8 * 24 * 60 * 60 * 1000);
+    const to = boundary(query.to, now);
+    if (from > to) reject("ELD_RECORD_RANGE_INVALID", 400);
+    const limit = query.limit === undefined ? 1000 : Number(query.limit);
+    if (!["undefined", "number", "string"].includes(typeof query.limit)
+        || !Number.isSafeInteger(limit) || limit < 1) reject("ELD_RECORD_LIMIT_INVALID", 400);
+    const cap = requireComplete ? 5000 : Math.min(5000, limit);
+    const events = await prisma.eldEvent.findMany({
       where: {
         orgId: device.orgId,
-        ...(driverId ? { driverId } : {}),
+        driverId: device.driverId,
         occurredAt: { gte: from, lte: to }
       },
-      orderBy: [{ occurredAt: "desc" }, { sequenceEpoch: "desc" }, { sequenceId: "desc" }],
-      take: Math.min(5000, Math.max(1, Number(query.limit) || 1000))
+      orderBy: [{ occurredAt: "desc" }, { sequenceEpoch: "desc" }, { sequenceId: "desc" }, { id: "desc" }],
+      take: requireComplete ? cap + 1 : cap
     });
+    // A signed, silently truncated export is worse than an explicit error.
+    // Fetch the sentinel in the same query, avoiding a count/read race.
+    if (requireComplete && events.length > cap) reject("ELD_OUTPUT_RECORD_LIMIT_EXCEEDED", 422);
+    return events;
   }
 
   async function setDiagnostic(device, kind, code, detected, detail = {}, occurredAt = new Date()) {

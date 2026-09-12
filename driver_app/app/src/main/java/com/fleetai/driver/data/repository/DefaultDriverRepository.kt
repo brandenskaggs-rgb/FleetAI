@@ -16,6 +16,8 @@ import com.fleetai.driver.data.model.DvirRecord
 import com.fleetai.driver.data.model.DutyStatus
 import com.fleetai.driver.data.model.EldDeviceStatus
 import com.fleetai.driver.data.model.HosEvent
+import com.fleetai.driver.data.model.LogbookRules
+import com.fleetai.driver.data.model.LogbookSnapshot
 import com.fleetai.driver.data.model.HosClockStatus
 import com.fleetai.driver.data.model.NotificationItem
 import com.fleetai.driver.data.model.ThemeMode
@@ -28,6 +30,7 @@ import com.fleetai.driver.network.EldCertificationRequest
 import com.fleetai.driver.network.MockApiService
 import com.fleetai.driver.network.SelectVehicleRequest
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.CancellationException
 import retrofit2.HttpException
 import java.time.Instant
 import java.util.UUID
@@ -41,13 +44,6 @@ private fun dutyStatusApiValue(value: String): String = when (value.trim().upper
     "YARD_MOVE" -> "YARD_MOVE"
     "PERSONAL_CONVEYANCE" -> "PERSONAL_CONVEYANCE"
     else -> value.trim().uppercase()
-}
-
-private fun dutyStatusFromApi(value: String): DutyStatus = when (value.trim().uppercase()) {
-    "ON", "ON_DUTY" -> DutyStatus.ON
-    "DRIVING" -> DutyStatus.DRIVING
-    "SLEEPER" -> DutyStatus.SLEEPER
-    else -> DutyStatus.OFF
 }
 
 class DefaultDriverRepository(
@@ -188,7 +184,7 @@ class DefaultDriverRepository(
         )
         hosDao.insertEvent(entity)
         try {
-            api.postHosLog(
+            val response = api.postHosLog(
                 DriverLogRequest(
                     clientEventId = event.id,
                     date = event.eventDate,
@@ -198,45 +194,61 @@ class DefaultDriverRepository(
                     notes = event.notes
                 )
             )
+            check(response.success) { "Log upload was not acknowledged" }
             hosDao.markSynced(event.id)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
         } catch (_: Exception) {
+            // The durable row remains pending; the log screen must show it.
         }
     }
 
-    override suspend fun getHosEvents(date: String): List<HosEvent> {
+    override suspend fun getHosEvents(date: String): List<HosEvent> = getLogbook(date).events
+
+    override suspend fun getLogbook(date: String): LogbookSnapshot {
         val tenantId = preferences.tenantId.first()
         val vehicleId = preferences.vehicleId.first()
         val driverId = preferences.driverId.first()
-        val localEvents = hosDao.getEventsByDate(tenantId, driverId, date).map {
+        check(tenantId.isNotBlank() && driverId.isNotBlank()) { "Driver login required" }
+        var unreadable = 0
+        val localEvents = hosDao.getEventsByDate(tenantId, driverId, date).mapNotNull {
+            val status = LogbookRules.dutyStatus(it.status)
+            if (status == null) { unreadable++; return@mapNotNull null }
             HosEvent(
                 id = it.id,
                 tenantId = it.tenantId,
                 vehicleId = it.vehicleId,
                 driverId = it.driverId,
-                status = DutyStatus.valueOf(it.status),
+                status = status,
                 notes = it.notes,
                 startTime = it.startTime,
                 endTime = it.endTime,
-                eventDate = it.eventDate
+                eventDate = it.eventDate,
+                pendingUpload = !it.synced
             )
         }
-        if (preferences.demoMode.first()) return localEvents
+        if (preferences.demoMode.first()) return LogbookSnapshot(localEvents, offline = true, unreadable)
         return try {
-            api.getHosLogs(date).events.map { event ->
+            val remoteEvents = api.getHosLogs(date).events.filter { it.recordStatus == 1 }.mapNotNull { event ->
+                val status = LogbookRules.dutyStatus(event.status)
+                if (status == null) { unreadable++; return@mapNotNull null }
                 HosEvent(
                     id = event.id.ifBlank { "remote-${event.timestamp}-${event.status}" },
                     tenantId = tenantId,
                     vehicleId = vehicleId,
                     driverId = driverId,
-                    status = dutyStatusFromApi(event.status),
+                    status = status,
                     notes = event.notes,
                     startTime = event.timestamp,
                     endTime = event.timestamp,
                     eventDate = date
                 )
             }
+            LogbookSnapshot(LogbookRules.visibleEvents(remoteEvents, localEvents, offline = false), false, unreadable)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
         } catch (_: Exception) {
-            localEvents
+            LogbookSnapshot(LogbookRules.visibleEvents(emptyList(), localEvents, offline = true), true, unreadable)
         }
     }
 
@@ -326,11 +338,32 @@ class DefaultDriverRepository(
 
     override suspend fun getEldDeviceStatus(): EldDeviceStatus {
         val response = api.getEldDeviceStatus()
-        val dutyStatus = when (response.state?.currentDutyCode) {
+        check(response.ok) { "ELD status not confirmed" }
+        var pendingDutyUpload = false
+        var dutyStatus = when (response.state?.currentDutyCode) {
             2 -> DutyStatus.SLEEPER
             3 -> DutyStatus.DRIVING
             4 -> DutyStatus.ON
             else -> DutyStatus.OFF
+        }
+        // Disabled ELD has no authoritative duty state. Read the separate pilot activity history.
+        if (!response.enabled) {
+            val tenantId = preferences.tenantId.first()
+            val driverId = preferences.driverId.first()
+            val vehicleId = preferences.vehicleId.first()
+            check(tenantId.isNotBlank() && driverId.isNotBlank() && vehicleId.isNotBlank())
+            val local = hosDao.latestEvent(tenantId, driverId, vehicleId)
+            val remote = api.getHosLogs("").events
+                .filter { it.recordStatus == 1 && LogbookRules.dutyStatus(it.status) != null }
+                .maxByOrNull { runCatching { Instant.parse(it.timestamp) }.getOrDefault(Instant.MIN) }
+            val localAt = runCatching { Instant.parse(local?.startTime) }.getOrDefault(Instant.MIN)
+            val remoteAt = runCatching { Instant.parse(remote?.timestamp) }.getOrDefault(Instant.MIN)
+            if (local != null && localAt >= remoteAt) {
+                dutyStatus = LogbookRules.dutyStatus(local.status) ?: dutyStatus
+                pendingDutyUpload = !local.synced
+            } else {
+                dutyStatus = remote?.let { LogbookRules.dutyStatus(it.status) } ?: dutyStatus
+            }
         }
         return EldDeviceStatus(
             enabled = response.enabled,
@@ -339,9 +372,10 @@ class DefaultDriverRepository(
             carrierConfigured = response.carrierConfigured,
             driverConfigured = response.driverConfigured,
             dutyStatus = dutyStatus,
-            vehicleMoving = response.state?.vehicleMoving == true,
+            vehicleMoving = response.enabled && response.state?.vehicleMoving == true,
             lastTelemetryAt = response.state?.lastTelemetryAt.orEmpty(),
-            activeDiagnosticCount = response.activeDiagnostics.size
+            activeDiagnosticCount = response.activeDiagnostics.size,
+            pendingDutyUpload = pendingDutyUpload
         )
     }
 
@@ -369,7 +403,9 @@ class DefaultDriverRepository(
     }
 
     override suspend fun certifyEldRecords(recordDate: String) {
-        api.certifyEldRecords(EldCertificationRequest(recordDate = recordDate))
+        check(api.certifyEldRecords(EldCertificationRequest(recordDate = recordDate)).success) {
+            "Certification was not acknowledged"
+        }
     }
 
     override suspend fun updateDutyStatus(status: DutyStatus, notes: String) {
@@ -390,7 +426,7 @@ class DefaultDriverRepository(
                 notes = notes,
                 startTime = timestamp,
                 endTime = timestamp,
-                eventDate = timestamp.substringBefore('T')
+                eventDate = java.time.LocalDate.now().toString()
             )
         )
     }
@@ -446,7 +482,7 @@ class DefaultDriverRepository(
         val pendingEvents = hosDao.getPendingEvents(tenantId, vehicleId, driverId)
         for (event in pendingEvents) {
             try {
-                api.postHosLog(
+                val response = api.postHosLog(
                     DriverLogRequest(
                         clientEventId = event.id,
                         date = event.eventDate,
@@ -456,7 +492,10 @@ class DefaultDriverRepository(
                         notes = event.notes
                     )
                 )
+                check(response.success) { "Log upload was not acknowledged" }
                 hosDao.markSynced(event.id)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
             } catch (_: Exception) {
                 hadFailure = true
             }
