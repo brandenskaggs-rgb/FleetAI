@@ -6,7 +6,7 @@ This checklist covers the Android app in `driver_app`. It is an engineering and 
 
 - App name: Fleet AI Driver
 - Application ID: `com.fleetai.driver`
-- Current release: `1.10.1` (`versionCode 13`)
+- Current release: `1.10.4` (`versionCode 16`)
 - Minimum Android: API 26 (Android 8)
 - Target Android: API 36 (Android 16)
 - Production API: `https://fleetaiops.com`
@@ -79,9 +79,36 @@ has been made by this preparation pass.
 - Signed bundle SHA-256: `7DC80AA542E5E9E01C0CEFA5F9C3C038545D033857C2483BF76AB48A67D30C56`.
 
 Publication remains gated on reviewer access, accurate completed declarations, store assets,
-foreground-service/location demonstration evidence, deployed privacy contact changes, and the
+foreground-service/location demonstration evidence, and the
 physical-device acceptance checks below. Unit tests and a successful build do not imply Google
 approval or on-truck validation. Do not submit for review without notifying the account owner.
+
+### Verified preparation results (September 13, 2026)
+
+- Play Console shows the Sentinel X Inc. organization account verified; Fleet AI Driver remains Draft.
+- Saved privacy policy, no advertising ID, non-government, no financial features, and no health
+  features declarations. Vehicle health is not a human-health feature. Nothing was sent for review.
+- Data safety is an incomplete saved draft, not a completed or certified declaration. Selected
+  approximate/precise location, name, user IDs, diagnostics, app interactions, other user-generated
+  content, and device IDs. Verify all categories and per-category handling before submission,
+  including any server-side sharing, optionality and retention. Do not infer "no sharing" merely
+  because the app has no advertising SDK.
+- The public privacy policy and owner-approved support address were verified on the live website.
+- `testDebugUnitTest`: 64 tests passed; `testReleaseUnitTest`: 64 tests passed.
+- `lintRelease`: zero errors, one unused legacy-logo warning. All four Play contract tests passed.
+- `verifyPlayRelease` passed with the existing protected upload key. No new key was generated.
+- Bundletool validation passed and bundle configuration reports `PAGE_ALIGNMENT_16K`.
+- Signed release: `1.10.4` / `16`; preserved at `output/android/Fleet-AI-Driver-1.10.4-play.aab`.
+- SHA-256: `FB07CA512F2636197501E533DB6E05CEE6C3F9FDB0B51A3453607A667BED2D1E`.
+- This pass changed release documentation only, not tablet behavior or existing pilot pairing/data.
+- With owner approval, created `Fleet AI - Google Play Review` and its separate customer login.
+  Temporary login succeeded and correctly requires a first-login password change. The owner must
+  complete that change. No credentials are stored in this document or source control.
+- The review organization currently has no vehicles or telemetry. Fictional driver/vehicle setup,
+  repeatable pairing instructions and cross-tenant access verification remain pending. Existing
+  customer organizations were not edited. Do not share review access with Google until verified.
+- Content ratings are pending IARC terms approval. Target audience is blocked by Sign in details.
+  App bundle upload, store assets, permission demonstration video and physical release testing remain.
 
 ## Play Console declarations
 
@@ -91,7 +118,7 @@ The pairing flow normally requires an expiring dispatch code. That is NOT suffic
 access. The existing training mode can demonstrate local screens as follows:
 
 1. Open Fleet AI Driver.
-2. Tap **View training demo** below the pairing form.
+2. Tap **Tablet details**, then **View training demo**.
 3. The demo uses local sample data and cannot access a customer fleet.
 4. Open Sensors to view sample telemetry and Settings to view legal links.
 
@@ -99,6 +126,15 @@ Do not give Google a real customer pairing code or driver PIN. Do not assume the
 every restricted production feature or satisfies Google's access requirement. Before review, provide
 an isolated reviewer fleet with an approved durable/repeatable access process, or obtain confirmation
 of acceptable hardware/demo review instructions. No production authentication bypass is added here.
+
+The proposed repeatable review process uses existing authentication: an isolated review organization,
+fictional driver and vehicle, and a reviewer-only customer account allowed to generate fresh pairing
+codes for that organization. Reviewers can generate a new code on each installation, then pair using
+the fictional driver's PIN. Test this entire flow before entering instructions into Play Console.
+Do not extend production pairing-code lifetimes, reuse a pilot's vehicle/driver, or add an authentication
+bypass. No real VIN, fleet DOT number, contact information or customer telemetry belongs in this fleet.
+Hardware-dependent tests still require a supported adapter and vehicle; a reviewer account cannot
+create live sensor data or establish ELD certification. Keep training samples clearly identified.
 
 ### Data safety
 
@@ -167,7 +203,7 @@ Prepare these separately in Play Console:
 
 Suggested short description:
 
-> Pair a fleet tablet, capture vehicle telemetry, complete logs, and share live status.
+> Vehicle telemetry, driver logs, inspections, and live fleet status.
 
 Avoid claims that Fleet AI guarantees failures, replaces a mechanic, or is certified by Google, DOT, FMCSA, or an OEM.
 

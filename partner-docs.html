@@ -79,8 +79,10 @@
       </div>
 
       <h3>How it works</h3>
-      <p>Your platform sends telemetry samples to <code>POST /api/partner/predict</code>. Fleet AI runs your data through the available Node and Python prediction stages and returns a risk probability, diagnosis, and recommended action with processing time dependent on model availability and request size. You surface that result inside your product.</p>
-      <p>For fleets of any size, use <code>POST /api/partner/predict/batch</code> to score up to 200 vehicles in a single call. Register a webhook to receive push events when a vehicle's risk crosses a threshold so you don't need to poll.</p>
+      <p>Your platform sends telemetry samples to <code>POST /api/partner/predict</code>. Fleet AI returns a risk assessment and maintenance guidance for use inside your product. Response time depends on service availability and request size. The API does not provide access to model files or another customer's records.</p>
+      <p>Use <code>POST /api/partner/predict/batch</code> for up to 50 vehicles and 20,000 submitted samples per call, within the 256 KB request-body limit. At most 1,000 samples per vehicle are processed. Register a webhook to receive risk notifications.</p>
+      <p>Keep your API key on your server, never in browser code, a mobile app, URLs, or source control. Access is assigned by Fleet AI; knowing an endpoint URL does not grant access. Keys assigned to the same organization share that organization's partner data. Use separate organizations for unrelated customers.</p>
+      <p>Browser widgets use one-time tickets from <code>POST /api/partner/stream-ticket</code>. Your backend must authenticate the user and authorize the requested vehicle before obtaining a ticket. Send <code>{"vehicleId":"truck-2701"}</code> to restrict the ticket to that vehicle; omitting it grants organization-wide stream access. Tickets expire after 60 seconds and are consumed once. Open streams recheck key access every 25 seconds, fail closed if it cannot be verified within the 35-second authorization lease, and reconnect with a fresh ticket after 15 minutes. Each key is limited to 20 outstanding tickets and five simultaneous streams per server process.</p>
     </div>
 
     <!-- QUICKSTART -->
@@ -230,7 +232,7 @@
           <tr><td><span class="param-name">advisoryText</span></td><td><span class="param-type">string</span></td><td class="param-desc">Human-readable explanation ready to display in your UI.</td></tr>
           <tr><td><span class="param-name">diagnosis</span></td><td><span class="param-type">object</span></td><td class="param-desc"><code>primarySubsystem</code>, <code>rootCause</code>, <code>confidence</code>. May be null when data is thin.</td></tr>
           <tr><td><span class="param-name">activeFaults</span></td><td><span class="param-type">object|null</span></td><td class="param-desc">DTC analysis: <code>codes</code>, <code>riskScore</code>, <code>systemsAffected</code>, <code>topCodes</code>. Null if no DTCs sent.</td></tr>
-          <tr><td><span class="param-name">stageSystem</span></td><td><span class="param-type">object|null</span></td><td class="param-desc">Two-stage confirmation. <code>confirmed: true</code> means a second independent model agreed. High confidence signal.</td></tr>
+          <tr><td><span class="param-name">stageSystem</span></td><td><span class="param-type">object|null</span></td><td class="param-desc">Additional model assessment when available. <code>confirmed: true</code> is a model result, not a confirmed mechanical failure or proof of field accuracy.</td></tr>
           <tr><td><span class="param-name">sensorRisks</span></td><td><span class="param-type">object</span></td><td class="param-desc">Per-metric risk scores from the EWMA baseline model. Useful for drilling into which sensor drove the prediction.</td></tr>
           <tr><td><span class="param-name">modelInfo</span></td><td><span class="param-type">object</span></td><td class="param-desc"><code>predictionSource</code>, <code>latencyMs</code>, <code>sampleCount</code>, <code>mlServiceAvailable</code>.</td></tr>
         </tbody>
@@ -240,7 +242,7 @@
     <!-- POST /predict/batch -->
     <div id="predict-batch" class="doc-section">
       <h2>POST /api/partner/predict/batch</h2>
-      <p>Score up to 200 vehicles in a single request. Processed in parallel internally. Use this for nightly fleet sweeps or on-demand fleet-wide health checks.</p>
+      <p>Score up to 50 vehicles in a single request, subject to the 20,000-sample and 256 KB body limits. Use this for fleet sweeps or on-demand health checks.</p>
 
       <div class="code-block">
         <div class="code-block__label">Request</div>
@@ -373,7 +375,7 @@
     <!-- GET /vehicles/:vehicleId/rul -->
     <div id="rul" class="doc-section">
       <h2>GET /api/partner/vehicles/:vehicleId/rul</h2>
-      <p>Remaining Useful Life estimate. Uses linear regression over the last 14 days of risk history to compute a degradation rate and project how many days until the vehicle reaches the service threshold. Requires at least 3 prior prediction data points.</p>
+      <p>Advisory service-timing estimate based on recent risk history. Requires at least 3 prior prediction data points. This is not a validated time-to-failure forecast; its displayed range is not a statistically validated confidence interval. Arrange qualified inspection when a concern is raised.</p>
 
       <div class="code-block">
         <div class="code-block__label">Response</div>

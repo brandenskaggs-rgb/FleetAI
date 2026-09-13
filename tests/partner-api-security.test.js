@@ -1,6 +1,7 @@
 const assert = require("assert");
 const fs = require("fs");
 const path = require("path");
+const db = require("../server/db");
 const { requireApiKey, issueStreamTicket } = require("../server/middleware/apiKeyAuth");
 
 function response() {
@@ -30,6 +31,9 @@ async function runMiddleware(req) {
   assert.strictEqual(queryKey.res.statusCode, 401);
 
   const identity = { id: "KEY_A", orgId: "ORG_A", partner: "Partner A", tier: "partner_ml" };
+  const originalGetPrisma = db.getPrisma;
+  let enabled = true;
+  db.getPrisma = () => ({ apiKey: { findUnique: async () => ({ ...identity, partnerName: identity.partner, enabled }) } });
   const issued = issueStreamTicket(identity);
   const first = await runMiddleware({
     method: "GET",
@@ -47,6 +51,17 @@ async function runMiddleware(req) {
   });
   assert.strictEqual(replay.passed, false);
   assert.strictEqual(replay.res.statusCode, 403);
+
+  const revokedTicket = issueStreamTicket(identity);
+  enabled = false;
+  const revoked = await runMiddleware({ method: "GET", path: "/api/partner/stream", query: { streamTicket: revokedTicket.ticket }, headers: {} });
+  assert.strictEqual(revoked.passed, false, "revoking an API key must invalidate issued tickets");
+  assert.strictEqual(revoked.res.statusCode, 403);
+  enabled = true;
+  const scopedTicket = issueStreamTicket(identity, "TRUCK_A");
+  const wrongVehicle = await runMiddleware({ method: "GET", path: "/api/partner/stream", query: { streamTicket: scopedTicket.ticket, vehicleId: "TRUCK_B" }, headers: {} });
+  assert.strictEqual(wrongVehicle.passed, false, "a vehicle-specific ticket must not grant another vehicle or fleet access");
+  db.getPrisma = originalGetPrisma;
 
   const source = fs.readFileSync(path.join(__dirname, "..", "server", "routes", "partnerRoutes.js"), "utf8");
   assert.match(source, /function partnerScope/);

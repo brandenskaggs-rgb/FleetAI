@@ -1,7 +1,20 @@
 const crypto = require("crypto");
-const { getPrisma } = require("../db");
+const db = require("../db");
 const streamTickets = new Map();
 const STREAM_TICKET_TTL_MS = 60_000;
+const MAX_STREAM_TICKETS = 5000;
+const MAX_TICKETS_PER_KEY = 20;
+
+function keyIdentity(record) {
+  return { id: record.id, orgId: record.orgId, partner: record.partnerName, tier: record.tier };
+}
+
+async function activeApiKeyIdentity(identity) {
+  if (!identity?.id) return null;
+  const record = await db.getPrisma().apiKey.findUnique({ where: { id: identity.id } });
+  if (!record?.enabled || record.orgId !== identity.orgId || record.tier !== identity.tier) return null;
+  return keyIdentity(record);
+}
 
 // Hash a raw API key for storage (SHA-256, hex).
 function hashApiKey(raw) {
@@ -31,8 +44,17 @@ async function requireApiKey(req, res, next) {
     if (!entry || entry.expiresAt <= Date.now()) {
       return res.status(403).json({ success: false, error: { code: "STREAM_TICKET_INVALID", message: "Stream ticket is invalid or expired." } });
     }
-    req.apiKey = entry.apiKey;
-    return next();
+    if (entry.vehicleId !== null && entry.vehicleId !== String(req.query?.vehicleId || "")) {
+      return res.status(403).json({ success: false, error: { code: "STREAM_TICKET_SCOPE", message: "Stream ticket does not grant access to this vehicle." } });
+    }
+    try {
+      const identity = await activeApiKeyIdentity(entry.apiKey);
+      if (!identity) return res.status(403).json({ success: false, error: { code: "API_KEY_INVALID", message: "Invalid or revoked API key." } });
+      req.apiKey = identity;
+      return next();
+    } catch (_) {
+      return res.status(503).json({ success: false, error: { code: "AUTH_UNAVAILABLE", message: "API key validation temporarily unavailable." } });
+    }
   }
   const raw = req.headers["x-api-key"] || "";
   if (!raw) {
@@ -42,9 +64,12 @@ async function requireApiKey(req, res, next) {
       timestamp: new Date().toISOString()
     });
   }
+  if (typeof raw !== "string" || raw.length > 256) {
+    return res.status(403).json({ success: false, error: { code: "API_KEY_INVALID", message: "Invalid or revoked API key." } });
+  }
   try {
     const keyHash = hashApiKey(raw);
-    const prisma = getPrisma();
+    const prisma = db.getPrisma();
     const record = await prisma.apiKey.findUnique({ where: { keyHash } });
     if (!record || !record.enabled) {
       return res.status(403).json({
@@ -55,12 +80,7 @@ async function requireApiKey(req, res, next) {
     }
     // Update last used timestamp (fire and forget)
     prisma.apiKey.update({ where: { id: record.id }, data: { lastUsedAt: new Date() } }).catch(() => {});
-    req.apiKey = {
-      id: record.id,
-      orgId: record.orgId,
-      partner: record.partnerName,
-      tier: record.tier
-    };
+    req.apiKey = keyIdentity(record);
     return next();
   } catch (err) {
     console.error("[API-KEY] lookup failed:", err.message);
@@ -72,15 +92,18 @@ async function requireApiKey(req, res, next) {
   }
 }
 
-function issueStreamTicket(apiKey) {
-  const raw = `fst_${crypto.randomBytes(32).toString("hex")}`;
-  const expiresAt = Date.now() + STREAM_TICKET_TTL_MS;
-  streamTickets.set(hashApiKey(raw), { apiKey: { ...apiKey }, expiresAt });
-  if (streamTickets.size > 5000) {
-    const now = Date.now();
-    for (const [key, value] of streamTickets) if (value.expiresAt <= now) streamTickets.delete(key);
+function issueStreamTicket(apiKey, vehicleId = null) {
+  const now = Date.now();
+  let owned = 0;
+  for (const [key, value] of streamTickets) {
+    if (value.expiresAt <= now) streamTickets.delete(key);
+    else if (value.apiKey.id === apiKey.id) owned++;
   }
+  if (streamTickets.size >= MAX_STREAM_TICKETS || owned >= MAX_TICKETS_PER_KEY) return null;
+  const raw = `fst_${crypto.randomBytes(32).toString("hex")}`;
+  const expiresAt = now + STREAM_TICKET_TTL_MS;
+  streamTickets.set(hashApiKey(raw), { apiKey: { ...apiKey }, vehicleId, expiresAt });
   return { ticket: raw, expiresAt: new Date(expiresAt).toISOString() };
 }
 
-module.exports = { requireApiKey, generateApiKey, hashApiKey, issueStreamTicket };
+module.exports = { requireApiKey, generateApiKey, hashApiKey, issueStreamTicket, activeApiKeyIdentity };

@@ -11,7 +11,8 @@
  */
 
 const crypto = require("crypto");
-const { requireApiKey, issueStreamTicket } = require("../middleware/apiKeyAuth");
+const { requireApiKey, issueStreamTicket, activeApiKeyIdentity } = require("../middleware/apiKeyAuth");
+const { createPartnerStreamSession } = require("../services/partnerStreamSession");
 const { createRateLimiter } = require("../middleware/rateLimiter");
 const { getPrisma } = require("../db");
 const { normalizePredictionLabel } = require("../lib/mlMerge");
@@ -21,6 +22,7 @@ const { validateOutboundHttpsUrl } = require("../lib/outboundUrlPolicy");
 
 // Tier required for partner ML access — set when creating key via /api/admin/api-keys
 const PARTNER_ML_TIER = "partner_ml";
+const partnerAuthLimiter = createRateLimiter({ windowMs: 60_000, max: 180, keyPrefix: "partner-auth" });
 const partnerRequestLimiter = createRateLimiter({
   windowMs: 60_000,
   max: 120,
@@ -58,6 +60,15 @@ function registerPartnerRoutes(app, deps) {
   const partnerLiveData = new Map();
   // SSE subscribers: "partner:vehicleId" or "partner:*" -> Set of res objects
   const partnerSseClients = new Map();
+  const streamCounts = new Map();
+  let streamCount = 0;
+
+  function storeLiveSnapshot(key, snapshot) {
+    // This is a convenience cache, not the durable prediction history.
+    partnerLiveData.delete(key);
+    partnerLiveData.set(key, snapshot);
+    while (partnerLiveData.size > 5000) partnerLiveData.delete(partnerLiveData.keys().next().value);
+  }
 
   function partnerScope(req) {
     const owner = req.apiKey.orgId ? `org:${req.apiKey.orgId}` : `key:${req.apiKey.id}`;
@@ -87,17 +98,20 @@ function registerPartnerRoutes(app, deps) {
 
   // ── Auth guard: key must exist AND be partner_ml tier ─────────────────────
   function requirePartnerKey(req, res, next) {
-    requireApiKey(req, res, () => {
-      if (req.apiKey.tier !== PARTNER_ML_TIER) {
-        return res.status(403).json({
-          success: false,
-          error: {
-            code: "INSUFFICIENT_TIER",
-            message: `This endpoint requires a partner_ml API key. Contact Fleet AI to upgrade your access tier.`
-          }
-        });
-      }
-      partnerRequestLimiter(req, res, next);
+    return partnerAuthLimiter(req, res, (error) => {
+      if (error) return next(error);
+      return requireApiKey(req, res, () => {
+        if (req.apiKey.tier !== PARTNER_ML_TIER) {
+          return res.status(403).json({
+            success: false,
+            error: {
+              code: "INSUFFICIENT_TIER",
+              message: "This endpoint requires a partner_ml API key. Contact Fleet AI to upgrade your access tier."
+            }
+          });
+        }
+        return partnerRequestLimiter(req, res, next);
+      });
     });
   }
 
@@ -131,11 +145,13 @@ function registerPartnerRoutes(app, deps) {
 
   // ── Sample normalization (accepts flexible input formats from partners) ────
   function toNumber(v) {
+    if (v == null || typeof v === "boolean" || (typeof v !== "number" && typeof v !== "string") || (typeof v === "string" && !v.trim())) return null;
     const n = Number(v);
     return Number.isFinite(n) ? n : null;
   }
 
   function normalizeSample(s, vehicleId) {
+    if (!s || typeof s !== "object" || Array.isArray(s)) return { vehicleId, metrics: {}, raw: {} };
     const metrics = {};
     const raw = (s.metrics && typeof s.metrics === "object") ? s.metrics : s;
     const metricMap = {
@@ -274,7 +290,7 @@ function registerPartnerRoutes(app, deps) {
         dtcCodes
       });
     } catch (err) {
-      mlError = err.message || "ml_service_unavailable";
+      mlError = "ml_service_unavailable";
     }
 
     const latencyMs = Date.now() - t0;
@@ -336,7 +352,7 @@ function registerPartnerRoutes(app, deps) {
 
     // Store latest snapshot for live endpoint + SSE
     const liveSnapshot = { ...response, receivedAt: nowIso() };
-    partnerLiveData.set(`${scope.owner}:${vehicleId}`, liveSnapshot);
+    storeLiveSnapshot(`${scope.owner}:${vehicleId}`, liveSnapshot);
     _pushToSse(scope.owner, vehicleId, liveSnapshot);
 
     // Fire webhooks async (non-blocking)
@@ -347,7 +363,7 @@ function registerPartnerRoutes(app, deps) {
 
   // ── POST /api/partner/predict/batch ───────────────────────────────────────
   /**
-   * Score up to 200 vehicles in one call. Processes in parallel batches of 20.
+   * Score up to 50 vehicles in one call. Processes in parallel batches of 5.
    * Body: { vehicles: [{ vehicleId, samples, dtcCodes?, vehicleMeta? }, ...] }
    */
   app.post("/api/partner/predict/batch", requirePartnerKey, partnerBatchLimiter, async (req, res) => {
@@ -374,6 +390,7 @@ function registerPartnerRoutes(app, deps) {
     for (let i = 0; i < vehicles.length; i += CONCURRENCY) {
       const chunk = vehicles.slice(i, i + CONCURRENCY);
       const chunkResults = await Promise.all(chunk.map(async (v) => {
+        if (!v || typeof v !== "object" || Array.isArray(v)) return { success: false, error: "invalid_vehicle" };
         const vehicleId = sanitizeString(v.vehicleId || "", 120);
         if (!vehicleId) return { vehicleId: v.vehicleId || "unknown", success: false, error: "missing_vehicle_id" };
 
@@ -499,7 +516,7 @@ function registerPartnerRoutes(app, deps) {
         vehicles: trimmed,
       });
     } catch (err) {
-      return res.status(500).json({ success: false, error: err.message });
+      return res.status(500).json({ success: false, error: "partner_request_failed" });
     }
   });
 
@@ -510,6 +527,10 @@ function registerPartnerRoutes(app, deps) {
     const partner = req.apiKey.partner;
     const apiKeyId = req.apiKey.id;
     const { url, events, threshold, secret } = req.body || {};
+
+    if (secret != null && (typeof secret !== "string" || secret.length < 32 || secret.length > 200)) {
+      return res.status(400).json({ success: false, error: { code: "INVALID_WEBHOOK_SECRET", message: "Use a 32-200 character secret or omit it to generate one." } });
+    }
 
     if (!url || typeof url !== "string") {
       return res.status(400).json({ success: false, error: { code: "MISSING_URL", message: "url is required." } });
@@ -552,7 +573,7 @@ function registerPartnerRoutes(app, deps) {
         note: "Save the secret — it will not be shown again. Use it to verify X-FleetAI-Signature headers on incoming payloads.",
       });
     } catch (err) {
-      return res.status(500).json({ success: false, error: err.message });
+      return res.status(500).json({ success: false, error: "partner_request_failed" });
     }
   });
 
@@ -568,7 +589,7 @@ function registerPartnerRoutes(app, deps) {
       });
       return res.json({ success: true, count: hooks.length, webhooks: hooks });
     } catch (err) {
-      return res.status(500).json({ success: false, error: err.message });
+      return res.status(500).json({ success: false, error: "partner_request_failed" });
     }
   });
 
@@ -583,7 +604,7 @@ function registerPartnerRoutes(app, deps) {
       await prisma.partnerWebhook.delete({ where: { id } });
       return res.json({ success: true, deleted: id });
     } catch (err) {
-      return res.status(500).json({ success: false, error: err.message });
+      return res.status(500).json({ success: false, error: "partner_request_failed" });
     }
   });
 
@@ -636,7 +657,7 @@ function registerPartnerRoutes(app, deps) {
         note: "Vehicle baseline will recalibrate over the next 50 telemetry observations.",
       });
     } catch (err) {
-      return res.status(500).json({ success: false, error: err.message });
+      return res.status(500).json({ success: false, error: "partner_request_failed" });
     }
   });
 
@@ -697,7 +718,7 @@ function registerPartnerRoutes(app, deps) {
         history: points,
       });
     } catch (err) {
-      return res.status(500).json({ success: false, error: err.message });
+      return res.status(500).json({ success: false, error: "partner_request_failed" });
     }
   });
 
@@ -802,7 +823,7 @@ function registerPartnerRoutes(app, deps) {
         dataPoints:     n,
       });
     } catch (err) {
-      return res.status(500).json({ success: false, error: err.message });
+      return res.status(500).json({ success: false, error: "partner_request_failed" });
     }
   });
 
@@ -875,7 +896,13 @@ function registerPartnerRoutes(app, deps) {
     const scope = partnerScope(req);
     try {
       const status = await pythonMlClient.status(scope.vehicleId(vehicleId), scope.orgId);
-      return res.json({ success: true, vehicleId, status });
+      // Keep the partner contract separate from private model/debug metadata.
+      return res.json({ success: true, vehicleId, status: {
+        mlServiceAvailable: true,
+        modelLoaded: typeof status?.modelLoaded === "boolean" ? status.modelLoaded : null,
+        sampleCount: status?.telemetry?.dbSampleCount ?? status?.sampleCount ?? null,
+        baselineEstablished: status?.welford?.ready ?? status?.baselineEstablished ?? false
+      } });
     } catch (_) {
       return res.json({
         success: true,
@@ -923,7 +950,13 @@ function registerPartnerRoutes(app, deps) {
    *   es.onmessage = (e) => renderDashboard(JSON.parse(e.data));
    */
   app.post("/api/partner/stream-ticket", requirePartnerKey, (req, res) => {
-    return res.json({ success: true, ...issueStreamTicket(req.apiKey) });
+    const vehicleId = req.body?.vehicleId == null ? null : sanitizeString(req.body.vehicleId, 120);
+    if (vehicleId !== null && (!vehicleId || vehicleId === "*")) {
+      return res.status(400).json({ success: false, error: "invalid_vehicle_id" });
+    }
+    const ticket = issueStreamTicket(req.apiKey, vehicleId);
+    if (!ticket) return res.status(429).json({ success: false, error: "stream_ticket_limit" });
+    return res.json({ success: true, ...ticket });
   });
 
   app.get("/api/partner/stream", requirePartnerKey, (req, res) => {
@@ -931,44 +964,50 @@ function registerPartnerRoutes(app, deps) {
     const scope = partnerScope(req);
     const vehicleId = sanitizeString(req.query.vehicleId || "", 120) || "*";
 
+    const keyId = req.apiKey.id;
+    if ((streamCounts.get(keyId) || 0) >= 5 || streamCount >= 500) {
+      return res.status(429).json({ success: false, error: "stream_connection_limit" });
+    }
+    streamCounts.set(keyId, (streamCounts.get(keyId) || 0) + 1);
+    streamCount++;
+
     res.setHeader("Content-Type", "text/event-stream");
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
     res.setHeader("X-Accel-Buffering", "no");
     res.flushHeaders();
 
+    const subKey = `${scope.owner}:${vehicleId}`;
+    const session = createPartnerStreamSession({
+      req, res, identity: req.apiKey, authorize: activeApiKeyIdentity,
+      onClose() {
+        const count = (streamCounts.get(keyId) || 1) - 1;
+        if (count) streamCounts.set(keyId, count);
+        else streamCounts.delete(keyId);
+        streamCount--;
+        const subs = partnerSseClients.get(subKey);
+        if (subs) {
+          subs.delete(session);
+          if (!subs.size) partnerSseClients.delete(subKey);
+        }
+      }
+    });
+    if (!partnerSseClients.has(subKey)) partnerSseClients.set(subKey, new Set());
+    partnerSseClients.get(subKey).add(session);
+
     // Initial connection confirmation
-    res.write(`event: connected\ndata: ${JSON.stringify({ partner, vehicleId, ts: nowIso() })}\n\n`);
+    session.write(`event: connected\ndata: ${JSON.stringify({ partner, vehicleId, ts: nowIso() })}\n\n`);
 
     // Send current snapshot immediately if available
     if (vehicleId !== "*") {
       const snap = partnerLiveData.get(`${scope.owner}:${vehicleId}`);
-      if (snap) res.write(`event: snapshot\ndata: ${JSON.stringify(snap)}\n\n`);
+      if (snap) session.write(`event: snapshot\ndata: ${JSON.stringify(snap)}\n\n`);
     } else {
       // Send all current snapshots for this partner
       for (const [key, snap] of partnerLiveData.entries()) {
-        if (key.startsWith(`${scope.owner}:`)) res.write(`event: snapshot\ndata: ${JSON.stringify(snap)}\n\n`);
+        if (key.startsWith(`${scope.owner}:`)) session.write(`event: snapshot\ndata: ${JSON.stringify(snap)}\n\n`);
       }
     }
-
-    // Register subscriber
-    const subKey = `${scope.owner}:${vehicleId}`;
-    if (!partnerSseClients.has(subKey)) partnerSseClients.set(subKey, new Set());
-    partnerSseClients.get(subKey).add(res);
-
-    // Heartbeat every 25s to keep connection alive through proxies
-    const heartbeat = setInterval(() => {
-      try { res.write(`: heartbeat\n\n`); } catch (_) {}
-    }, 25000);
-
-    req.on("close", () => {
-      clearInterval(heartbeat);
-      const subs = partnerSseClients.get(subKey);
-      if (subs) {
-        subs.delete(res);
-        if (!subs.size) partnerSseClients.delete(subKey);
-      }
-    });
   });
 
   // ── GET /api/partner/usage ────────────────────────────────────────────────
@@ -1013,7 +1052,7 @@ function registerPartnerRoutes(app, deps) {
 
       return res.json({ success: true, periodDays: days, data: summary });
     } catch (err) {
-      return res.status(500).json({ success: false, error: err.message });
+      return res.status(500).json({ success: false, error: "partner_request_failed" });
     }
   });
 }

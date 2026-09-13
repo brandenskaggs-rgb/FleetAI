@@ -19,6 +19,12 @@
   const RUL_ENDPOINT = script?.dataset?.rulEndpoint || "";
   let initialTicketConsumed = false;
 
+  function escapeHtml(value) {
+    return String(value ?? "").replace(/[&<>"']/g, (character) => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+    })[character]);
+  }
+
   const RISK_LABELS = {
     failure_imminent: { label: "Failure Imminent", color: "#e53e3e" },
     maintenance_soon: { label: "Maintenance Soon", color: "#d97706" },
@@ -91,7 +97,7 @@
       turboBoostKpa: "Turbo Boost", vibration: "Vibration"
     };
     const entries = Object.entries(sensorRisks || {})
-      .filter(([k]) => SENSOR_LABELS[k])
+      .filter(([k, v]) => Object.hasOwn(SENSOR_LABELS, k) && typeof v === "number" && Number.isFinite(v))
       .sort(([,a],[,b]) => b - a)
       .slice(0, 6);
     if (!entries.length) return "";
@@ -110,8 +116,8 @@
   }
 
   function renderDiagnosis(diagnosis) {
-    if (!diagnosis?.components?.length) return "";
-    const top = diagnosis.components.slice(0, 3);
+    if (!Array.isArray(diagnosis?.components)) return "";
+    const top = diagnosis.components.filter((c) => c && typeof c === "object").slice(0, 3);
     return `
       <div class="fai-section-title">Component Diagnosis</div>
       ${top.map(c => {
@@ -120,12 +126,12 @@
         return `
           <div class="fai-component">
             <div class="fai-component-header">
-              <div class="fai-component-name">${c.component || c.part || "Unknown"}</div>
+              <div class="fai-component-name">${escapeHtml(c.component || c.part || "Unknown")}</div>
               <div class="fai-component-confidence" style="background:${color}">${conf}%</div>
             </div>
-            <div class="fai-component-evidence">${(c.evidence || []).slice(0,2).join(" ")}</div>
-            ${c.mechanic_action ? `<div class="fai-component-action">→ ${c.mechanic_action}</div>` : ""}
-            ${c.estimated_cost ? `<div class="fai-component-cost">Est. part cost: ${c.estimated_cost}</div>` : ""}
+            <div class="fai-component-evidence">${escapeHtml(Array.isArray(c.evidence) ? c.evidence.slice(0,2).join(" ") : "")}</div>
+            ${c.mechanic_action ? `<div class="fai-component-action">→ ${escapeHtml(c.mechanic_action)}</div>` : ""}
+            ${c.estimated_cost ? `<div class="fai-component-cost">Est. part cost: ${escapeHtml(c.estimated_cost)}</div>` : ""}
           </div>
         `;
       }).join("")}
@@ -134,28 +140,30 @@
 
   function renderRUL(rul) {
     if (!rul?.available) return "";
-    const color = URGENCY_COLOR[rul.urgency] || "#6b7280";
+    const color = Object.hasOwn(URGENCY_COLOR, rul.urgency) ? URGENCY_COLOR[rul.urgency] : "#6b7280";
     const days = rul.estimatedDaysToService;
     return `
       <div class="fai-section-title">Breakdown Timeline</div>
       <div class="fai-rul">
         <div style="color:${color}">
-          <div class="fai-rul-days">${days != null ? days : "—"}</div>
+          <div class="fai-rul-days">${escapeHtml(days != null ? days : "—")}</div>
           <div class="fai-rul-label">${days != null ? "days to service" : "stable"}</div>
         </div>
         <div>
-          <div class="fai-rul-rec">${rul.recommendation || ""}</div>
-          ${rul.subsystem ? `<div style="font-size:11px;color:#64748b;margin-top:4px">System: ${rul.subsystem}</div>` : ""}
+          <div class="fai-rul-rec">${escapeHtml(rul.recommendation || "")}</div>
+          ${rul.subsystem ? `<div style="font-size:11px;color:#64748b;margin-top:4px">System: ${escapeHtml(rul.subsystem)}</div>` : ""}
         </div>
       </div>
     `;
   }
 
   function render(container, data, rul) {
-    const prob = data.riskProbability;
+    const prob = typeof data.riskProbability === "number" && Number.isFinite(data.riskProbability)
+      ? Math.max(0, Math.min(1, data.riskProbability)) : null;
     const pctVal = pct(prob);
     const color = riskColor(prob);
-    const label = RISK_LABELS[data.prediction] || { label: data.prediction || "Unknown", color: "#6b7280" };
+    const label = Object.hasOwn(RISK_LABELS, data.prediction) ? RISK_LABELS[data.prediction]
+      : { label: data.prediction || "Unknown", color: "#6b7280" };
     const circumference = 2 * Math.PI * 32;
     const dash = circumference - (prob ?? 0) * circumference;
 
@@ -165,9 +173,9 @@
         <div class="fai-header">
           <div>
             <div class="fai-logo">⚡ FLEET AI</div>
-            <div class="fai-vehicle">${data.vehicleId || "Vehicle"}</div>
+            <div class="fai-vehicle">${escapeHtml(data.vehicleId || "Vehicle")}</div>
           </div>
-          <span class="fai-badge" style="background:${label.color}">${label.label}</span>
+          <span class="fai-badge" style="background:${label.color}">${escapeHtml(label.label)}</span>
         </div>
 
         <div class="fai-score-row">
@@ -183,7 +191,7 @@
               <span class="fai-score-label">risk</span>
             </div>
           </div>
-          <div class="fai-advisory">${data.advisoryText || "No advisory available."}</div>
+          <div class="fai-advisory">${escapeHtml(data.advisoryText || "No advisory available.")}</div>
         </div>
 
         ${renderSensors(data.sensorRisks)}
@@ -210,7 +218,7 @@
     } catch (_) { return null; }
   }
 
-  async function getStreamTicket() {
+  async function getStreamTicket(vehicleId) {
     if (!initialTicketConsumed && INITIAL_STREAM_TICKET) {
       initialTicketConsumed = true;
       return INITIAL_STREAM_TICKET;
@@ -219,7 +227,8 @@
     const response = await fetch(TICKET_ENDPOINT, {
       method: "POST",
       credentials: "include",
-      headers: { "Accept": "application/json" }
+      headers: { "Accept": "application/json", "Content-Type": "application/json" },
+      body: JSON.stringify({ vehicleId })
     });
     if (!response.ok) throw new Error("Stream ticket request failed");
     const payload = await response.json();
@@ -236,7 +245,7 @@
 
     let ticket = "";
     try {
-      ticket = await getStreamTicket();
+      ticket = await getStreamTicket(vehicleId);
     } catch (_) {}
     if (!ticket) {
       container.innerHTML = `<style>${buildCSS()}</style><div class="fai-connecting">Secure stream ticket required.</div>`;

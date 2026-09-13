@@ -8,7 +8,7 @@
 
 const crypto = require("crypto");
 const https = require("https");
-const { getPrisma } = require("../db");
+const db = require("../db");
 const { validateOutboundHttpsUrl, pinnedLookup } = require("../lib/outboundUrlPolicy");
 
 const MAX_RETRIES = 3;
@@ -83,6 +83,8 @@ async function deliverOne(url, payload, secret) {
 async function deliver(webhook, payload) {
   let delay = 1000;
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    // Revocation stops new deliveries and queued retries, not only API calls.
+    if (!await canDeliver(webhook.apiKeyId)) return;
     const result = await deliverOne(webhook.url, payload, webhook.secret);
     if (result.ok) return;
     if (attempt < MAX_RETRIES) {
@@ -90,6 +92,14 @@ async function deliver(webhook, payload) {
       delay *= 2;
     }
   }
+}
+
+async function canDeliver(apiKeyId) {
+  if (!apiKeyId) return false;
+  try {
+    const key = await db.getPrisma().apiKey.findUnique({ where: { id: apiKeyId } });
+    return Boolean(key?.enabled && key.tier === "partner_ml");
+  } catch (_) { return false; }
 }
 
 /**
@@ -103,7 +113,8 @@ async function deliver(webhook, payload) {
  */
 async function fireWebhooks(partner, apiKeyId, event, payload, riskProbability) {
   try {
-    const prisma = getPrisma();
+    if (!await canDeliver(apiKeyId)) return;
+    const prisma = db.getPrisma();
     const hooks = await prisma.partnerWebhook.findMany({
       where: { apiKeyId, active: true },
     });
