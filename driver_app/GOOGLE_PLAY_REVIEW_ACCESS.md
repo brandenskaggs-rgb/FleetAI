@@ -80,3 +80,12 @@ Do not install the upload-key-signed release over the debug-signed pilot tablet 
   saved in Play Console. Complete authenticated reviewer access before making that declaration.
 - No bundle was uploaded, no review or rollout was submitted, and no current pilot tablet or production
   fleet account was changed. No database migration or Railway configuration change is required.
+
+### Subsequent upload on September 14, 2026
+
+After the owner requested commit, push and publication work, source commit `bede511` was pushed.
+Google accepted the same signed 1.10.5 (17) artifact listed above and the internal-testing draft was
+saved. The previous version 13 was removed from this draft but remains in the artifact library.
+No rollout or review was submitted. Demo-only access instructions remain unsaved because they do
+not truthfully establish full access. The separate reviewer pairing workflow still needs validation.
+See `PLAY_STORE_RELEASE.md` for the current warnings and publication gates.
