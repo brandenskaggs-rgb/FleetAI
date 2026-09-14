@@ -39,7 +39,7 @@ class SessionViewModel(
                 preferences.vehicleId,
                 preferences.deviceId,
                 preferences.themeMode,
-                preferences.demoMode
+                preferences.trainingSession
             ) { values ->
                 val token = values[0] as String
                 val tenantId = values[1] as String
@@ -155,16 +155,10 @@ class SessionViewModel(
 
     fun startTrainingDemo() {
         viewModelScope.launch {
-            val deviceId = preferences.ensureDeviceId()
-            preferences.setDemoMode(true)
-            preferences.saveClaimedSession(
-                tenantId = "DEMO",
-                driverId = "DEMO_DRIVER",
-                driverName = "Training Driver",
-                vehicleId = "DEMO_VEHICLE",
-                assignmentId = "DEMO_ASSIGNMENT",
-                token = "demo_${UUID.randomUUID()}_$deviceId"
-            )
+            // Never replace a real paired session with sample credentials.
+            if (runCatching { preferences.startTrainingSession() }.isSuccess) {
+                stopTelemetryServices()
+            }
         }
     }
 

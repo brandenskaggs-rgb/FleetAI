@@ -127,7 +127,8 @@ data class EldDeviceStatus(
     val vehicleMoving: Boolean,
     val lastTelemetryAt: String,
     val activeDiagnosticCount: Int,
-    val pendingDutyUpload: Boolean = false
+    val pendingDutyUpload: Boolean = false,
+    val trainingDemo: Boolean = false
 )
 
 enum class SensorStatus { LIVE, STALE, UNSUPPORTED }

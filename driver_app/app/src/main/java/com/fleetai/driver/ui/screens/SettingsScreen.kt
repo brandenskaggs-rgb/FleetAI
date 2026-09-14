@@ -49,7 +49,8 @@ fun SettingsScreen(contentPadding: PaddingValues) {
                 "demo" -> "Switch to training mode?"
                 else -> "Sign out of this tablet?"
             }) },
-            text = { Text("You will need help from your fleet manager to connect again. Cancel to keep your current vehicle and sign-in.") },
+            text = { Text(if (state.demoMode) "Return to tablet setup. No real fleet account is connected."
+                else "You will need help from your fleet manager to connect again. Cancel to keep your current vehicle and sign-in.") },
             confirmButton = { TextButton(onClick = {
                 val action = accountAction
                 accountAction = null
@@ -109,7 +110,7 @@ fun SettingsScreen(contentPadding: PaddingValues) {
         }
 
         FleetButton(
-            text = "Sign out",
+            text = if (state.demoMode) "Exit training demo" else "Sign out",
             onClick = { accountAction = "logout" },
             modifier = Modifier.fillMaxWidth()
         )

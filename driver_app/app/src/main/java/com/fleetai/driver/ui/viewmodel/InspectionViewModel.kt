@@ -54,7 +54,9 @@ class InspectionViewModel(
                         inspectedAt = Instant.now().toString()
                     )
                 )
-                _message.value = if (synced) {
+                _message.value = if (preferences.trainingSession.first()) {
+                    "Training inspection saved locally. Nothing was sent to a fleet."
+                } else if (synced) {
                     "Inspection submitted to Fleet AI."
                 } else {
                     "Inspection saved on this tablet and will upload when service returns."

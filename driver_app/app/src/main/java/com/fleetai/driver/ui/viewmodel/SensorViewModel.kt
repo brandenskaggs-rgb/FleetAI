@@ -97,11 +97,11 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
 
     init {
         viewModelScope.launch {
-            _demoMode.value = preferences.demoMode.first()
+            _demoMode.value = preferences.trainingSession.first()
             _savedDevice.value = preferences.obdDeviceAddress.first()
             _j1939BusProfile.value = preferences.j1939BusProfile.first()
             _j1939ConnectorProfile.value = preferences.j1939ConnectorProfile.first()
-            _locationSharingEnabled.value = preferences.locationSharingEnabled.first()
+            _locationSharingEnabled.value = !_demoMode.value && preferences.locationSharingEnabled.first()
             if (_demoMode.value) {
                 _status.value = "Demo mode"
                 startDemo()
@@ -122,6 +122,7 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
         }
         obdRuntimeJob = viewModelScope.launch {
             ObdRuntime.status.collect { runtimeStatus ->
+                if (preferences.trainingSession.first()) return@collect
                 if (J1939Runtime.state.value == J1939Runtime.State.STOPPED) {
                     _status.value = if (ObdRuntime.state.value == ObdRuntime.State.STOPPED && _savedDevice.value.isBlank()) {
                         "Not connected"
@@ -133,6 +134,7 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
         }
         obdSnapshotJob = viewModelScope.launch {
             ObdRuntime.snapshot.collect { snapshot ->
+                if (preferences.trainingSession.first()) return@collect
                 if (J1939Runtime.state.value == J1939Runtime.State.STOPPED &&
                     (snapshot.standardPlan.isNotEmpty() || snapshot.extendedPlan.isNotEmpty())) {
                     _readings.value = buildObdReadings(snapshot)
@@ -141,6 +143,7 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
         }
         j1939RuntimeJob = viewModelScope.launch {
             J1939Runtime.state.collect { runtimeState ->
+                if (preferences.trainingSession.first()) return@collect
                 if (runtimeState != J1939Runtime.State.STOPPED) {
                     _status.value = J1939Runtime.status.value
                     _debug.value = _debug.value.copy(protocol = "J1939")
@@ -149,6 +152,7 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
         }
         j1939MetricsJob = viewModelScope.launch {
             J1939Runtime.metrics.collect { metrics ->
+                if (preferences.trainingSession.first()) return@collect
                 if (metrics.isNotEmpty()) {
                     val timestamp = J1939Runtime.lastFrameAt.value
                     _readings.value = buildJ1939Readings(metrics, timestamp)
@@ -165,6 +169,7 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
     fun usbAdapters() = usbJ1939.attachedAdapters()
 
     fun connectUsbJ1939() {
+        if (_demoMode.value) { _status.value = "Training demo: vehicle hardware is disabled."; return }
         com.fleetai.driver.AppGraph.appContext.startService(
             ObdTelemetryService.stopIntent(com.fleetai.driver.AppGraph.appContext)
         )
@@ -218,6 +223,10 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
 
     fun connect(device: BluetoothDevice) {
         viewModelScope.launch {
+            if (preferences.trainingSession.first()) {
+                _status.value = "Training demo: vehicle hardware is disabled."
+                return@launch
+            }
             try {
                 com.fleetai.driver.AppGraph.appContext.startService(
                     J1939TelemetryService.stopIntent(com.fleetai.driver.AppGraph.appContext)
@@ -445,6 +454,7 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
     }
 
     fun setLocationSharingEnabled(enabled: Boolean) {
+        if (_demoMode.value) { _status.value = "Training demo: location is not collected."; return }
         _locationSharingEnabled.value = enabled
         viewModelScope.launch { preferences.setLocationSharingEnabled(enabled) }
     }
@@ -474,12 +484,12 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
         pollJob = viewModelScope.launch {
             while (isActive) {
                 _readings.value = listOf(
-                    SensorReading("0105", "Coolant Temp", demoValue(78.0, 96.0), "F", SensorStatus.LIVE, Trend.FLAT, null, null, System.currentTimeMillis()),
+                    demoTemperature("0105", "Coolant Temp", 78.0, 96.0),
                     SensorReading("010C", "RPM", demoValue(900.0, 2100.0), "rpm", SensorStatus.LIVE, Trend.FLAT, null, null, System.currentTimeMillis()),
-                    SensorReading("010D", "Speed", demoValue(0.0, 100.0), "mph", SensorStatus.LIVE, Trend.FLAT, null, null, System.currentTimeMillis()),
+                    SensorReading("010D", "Speed", demoValue(0.0, if (_unitPrefs.value.speedMph) 62.0 else 100.0), if (_unitPrefs.value.speedMph) "mph" else "km/h", SensorStatus.LIVE, Trend.FLAT, null, null, System.currentTimeMillis()),
                     SensorReading("0142", "Voltage", demoValue(12.4, 14.2), "V", SensorStatus.LIVE, Trend.FLAT, null, null, System.currentTimeMillis()),
-                    SensorReading("010F", "Intake Temp", demoValue(20.0, 45.0), "F", SensorStatus.LIVE, Trend.FLAT, null, null, System.currentTimeMillis()),
-                    SensorReading("015C", "Oil Temp", demoValue(70.0, 105.0), "F", SensorStatus.LIVE, Trend.FLAT, null, null, System.currentTimeMillis())
+                    demoTemperature("010F", "Intake Temp", 20.0, 45.0),
+                    demoTemperature("015C", "Oil Temp", 70.0, 105.0)
                 )
                 delay(2000)
             }
@@ -575,6 +585,14 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
             smoothed = smoothed,
             lastUpdated = ts
         )
+    }
+
+    private fun demoTemperature(pid: String, label: String, minC: Double, maxC: Double): SensorReading {
+        val fahrenheit = _unitPrefs.value.tempF
+        val min = if (fahrenheit) minC * 1.8 + 32 else minC
+        val max = if (fahrenheit) maxC * 1.8 + 32 else maxC
+        return SensorReading(pid, label, demoValue(min, max), if (fahrenheit) "F" else "C",
+            SensorStatus.LIVE, Trend.FLAT, null, null, System.currentTimeMillis())
     }
 
     private fun startLocationTracking() {

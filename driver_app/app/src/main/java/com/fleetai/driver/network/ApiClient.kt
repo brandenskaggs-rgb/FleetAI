@@ -50,6 +50,10 @@ object ApiClient {
 
     private val httpClient = OkHttpClient.Builder()
         .addInterceptor { chain ->
+            // Training data never leaves the device, including requests from background workers.
+            if (preferences?.let { runBlocking { it.trainingSession.first() } } == true) {
+                throw java.io.IOException("Training demo is local only. Pair a fleet account for online features.")
+            }
             val request = chain.request()
             val ctx = appContext
             val baseUrl = ctx?.let { resolveBaseUrl(it) }

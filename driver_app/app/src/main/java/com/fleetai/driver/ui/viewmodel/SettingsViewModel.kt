@@ -8,6 +8,7 @@ import com.fleetai.driver.data.repository.DriverRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 class SettingsViewModel(
@@ -24,7 +25,7 @@ class SettingsViewModel(
                 preferences.driverName,
                 preferences.vehicleId,
                 preferences.themeMode,
-                preferences.demoMode
+                preferences.trainingSession
             ) { tenantId, driverName, vehicleId, themeMode, demoMode ->
                 SettingsState(
                     tenantId = tenantId,
@@ -45,6 +46,10 @@ class SettingsViewModel(
 
     fun setDemoMode(enabled: Boolean) {
         viewModelScope.launch {
+            if (!enabled && preferences.trainingSession.first()) {
+                preferences.exitTrainingSession()
+                return@launch
+            }
             if (enabled) {
                 preferences.clearSession()
                 preferences.clearPairing()
@@ -55,12 +60,20 @@ class SettingsViewModel(
 
     fun logout() {
         viewModelScope.launch {
+            if (preferences.trainingSession.first()) {
+                preferences.exitTrainingSession()
+                return@launch
+            }
             preferences.clearSession()
         }
     }
 
     fun resetPairing() {
         viewModelScope.launch {
+            if (preferences.trainingSession.first()) {
+                preferences.exitTrainingSession()
+                return@launch
+            }
             preferences.clearPairing()
         }
     }

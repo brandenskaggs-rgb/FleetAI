@@ -48,6 +48,34 @@ class AppPreferences(context: Context) {
         }
     }
     val demoMode: Flow<Boolean> = context.appDataStore.data.map { it[demoModeKey] ?: false }
+    // Fail closed for old demo sessions even if the display toggle was turned off.
+    val trainingSession: Flow<Boolean> = context.appDataStore.data.map {
+        it[demoModeKey] == true || tokenCipher.decrypt(it[tokenKey]).startsWith("demo_")
+    }
+
+    suspend fun startTrainingSession() {
+        context.appDataStore.edit { prefs ->
+            val token = tokenCipher.decrypt(prefs[tokenKey])
+            check(token.isBlank() || token.startsWith("demo_")) { "Sign out before entering training demo." }
+            prefs[demoModeKey] = true
+            prefs[tenantIdKey] = "DEMO"
+            prefs[driverIdKey] = "DEMO_DRIVER"
+            prefs[driverNameKey] = "Training Driver"
+            prefs[vehicleIdKey] = "DEMO_VEHICLE"
+            prefs[assignmentIdKey] = "DEMO_ASSIGNMENT"
+            prefs[tokenKey] = tokenCipher.encrypt("demo_${UUID.randomUUID()}")
+        }
+    }
+
+    suspend fun exitTrainingSession() {
+        context.appDataStore.edit { prefs ->
+            if (tokenCipher.decrypt(prefs[tokenKey]).startsWith("demo_")) {
+                listOf(tenantIdKey, driverIdKey, tokenKey, driverNameKey, vehicleIdKey, assignmentIdKey)
+                    .forEach { prefs.remove(it) }
+            }
+            prefs[demoModeKey] = false
+        }
+    }
     val obdDeviceAddress: Flow<String> = context.appDataStore.data.map { it[obdAddressKey] ?: "" }
     val j1939BusProfile: Flow<J1939BusProfile> = context.appDataStore.data.map {
         J1939BusProfile.fromStored(it[j1939BusProfileKey])

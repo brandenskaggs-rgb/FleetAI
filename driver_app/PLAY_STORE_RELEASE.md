@@ -6,7 +6,7 @@ This checklist covers the Android app in `driver_app`. It is an engineering and 
 
 - App name: Fleet AI Driver
 - Application ID: `com.fleetai.driver`
-- Current release: `1.10.4` (`versionCode 16`)
+- Current release: `1.10.5` (`versionCode 17`)
 - Minimum Android: API 26 (Android 8)
 - Target Android: API 36 (Android 16)
 - Production API: `https://fleetaiops.com`
@@ -111,6 +111,12 @@ approval or on-truck validation. Do not submit for review without notifying the 
   App bundle upload, store assets, permission demonstration video and physical release testing remain.
 
 ## Play Console declarations
+
+The 1.10.5 training-demo fixes and repeatable review instructions are documented in
+`GOOGLE_PLAY_REVIEW_ACCESS.md`. Historical build evidence above refers to its stated version,
+not automatically to the new build. Do not upload the older 1.10.4 bundle for these demo fixes.
+The September 14 verification section records the successful 1.10.5 unit/instrumentation runs,
+signed artifact hash and remaining reviewer-access blocker. This bundle remains local, not uploaded.
 
 ### App access
 

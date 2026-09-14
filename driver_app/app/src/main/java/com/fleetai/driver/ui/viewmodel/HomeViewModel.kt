@@ -76,6 +76,7 @@ class HomeViewModel(
             }
             val hos = if (status.enabled) runCatching { repository.getEldHosStatus() }.getOrNull() else null
             val message = when {
+                status.trainingDemo -> "Training demo. Activity stays on this device; no fleet upload or legal ELD recording."
                 !status.enabled && status.pendingDutyUpload -> "Pilot activity saved on this tablet; waiting to upload. Not a legal ELD log."
                 !status.enabled -> "Pilot activity / sensor monitoring. No carrier ELD setup required. Activity entries are not legal ELD logs."
                 !status.carrierConfigured -> "Carrier ELD setup is incomplete. Contact fleet administration."

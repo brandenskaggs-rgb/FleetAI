@@ -38,3 +38,29 @@ test('privacy requests use the account-owner-confirmed mailbox', () => {
   assert.ok(!/mailto:(support|legal)@fleetai\.com/.test(privacy));
   assert.ok(privacy.includes('Bluetooth OBD-II and USB'));
 });
+
+test('training sessions are blocked before the shared HTTP client sends requests', () => {
+  const client = read('driver_app/app/src/main/java/com/fleetai/driver/network/ApiClient.kt');
+  assert.ok(client.indexOf('it.trainingSession.first()') < client.indexOf('chain.proceed('));
+  assert.match(client, /throw java\.io\.IOException\("Training demo is local only/);
+  const prefs = read('driver_app/app/src/main/java/com/fleetai/driver/data/local/AppPreferences.kt');
+  assert.match(prefs, /check\(token\.isBlank\(\) \|\| token\.startsWith\("demo_"\)\)/);
+});
+
+test('training screen, local-only banner and exit remain available in release source', () => {
+  const root = 'driver_app/app/src/main/java/com/fleetai/driver/';
+  assert.ok(read(root + 'ui/screens/PairDeviceScreen.kt').includes('View training demo'));
+  assert.ok(read(root + 'FleetAIDriverApp.kt').includes('Sample data stays on this device'));
+  assert.ok(read(root + 'ui/screens/SettingsScreen.kt').includes('Exit training demo'));
+  assert.ok(read(root + 'ui/viewmodel/SettingsViewModel.kt').includes('preferences.exitTrainingSession()'));
+  assert.ok(read(root + 'ui/screens/SensorsScreen.kt').includes('showSetup && !trainingDemo'));
+});
+
+test('training workflow has release instrumentation coverage, not just source checks', () => {
+  const testSource = read('driver_app/app/src/androidTest/java/com/fleetai/driver/TrainingDemoReleaseTest.kt');
+  for (const behavior of ['repo.updateDutyStatus', 'repo.submitInspection', 'repo.syncPending',
+    'ApiClient.api.getEldDeviceStatus()', 'prefs.exitTrainingSession()', 'assertEquals(0, apiCalls)',
+    'repo.certifyEldRecords', 'prefs.startTrainingSession()']) {
+    assert.ok(testSource.includes(behavior), behavior);
+  }
+});

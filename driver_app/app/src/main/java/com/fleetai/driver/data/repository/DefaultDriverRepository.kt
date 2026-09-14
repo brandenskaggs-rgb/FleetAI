@@ -56,7 +56,8 @@ class DefaultDriverRepository(
     private val dvirDao: DvirDao
 ) : DriverRepository {
     override suspend fun login(companyCode: String, driverPin: String): DriverSession {
-        val useMock = preferences.demoMode.first()
+        val useMock = preferences.trainingSession.first()
+        check(!useMock) { "Exit training demo before signing in to a fleet." }
         val response = if (useMock) {
             mockApi.loginDriver(companyCode, driverPin)
         } else {
@@ -80,7 +81,8 @@ class DefaultDriverRepository(
     }
 
     override suspend fun claimPairing(pairingCode: String, driverPin: String, deviceId: String, deviceLabel: String) {
-        val useMock = preferences.demoMode.first()
+        val useMock = preferences.trainingSession.first()
+        check(!useMock) { "Exit training demo before pairing with a fleet." }
         val response = if (useMock) {
             mockApi.claimPairing(pairingCode, driverPin, deviceId, deviceLabel)
         } else {
@@ -135,7 +137,7 @@ class DefaultDriverRepository(
     }
 
     override suspend fun getVehicles(tenantId: String): List<Vehicle> {
-        val useMock = preferences.demoMode.first()
+        val useMock = preferences.trainingSession.first()
         val vehicles = if (useMock) {
             mockApi.getVehicles(tenantId).vehicles
         } else {
@@ -157,7 +159,7 @@ class DefaultDriverRepository(
     }
 
     override suspend fun bindVehicle(vehicleId: String): Boolean {
-        val useMock = preferences.demoMode.first()
+        val useMock = preferences.trainingSession.first()
         return try {
             if (!useMock) {
                 api.selectVehicle(SelectVehicleRequest(vehicleId))
@@ -170,6 +172,8 @@ class DefaultDriverRepository(
     }
 
     override suspend fun addHosEvent(event: HosEvent) {
+        val training = preferences.trainingSession.first()
+        if (training) requireTrainingScope(event.tenantId, event.driverId, event.vehicleId)
         val entity = HosEventEntity(
             id = event.id,
             tenantId = event.tenantId,
@@ -180,9 +184,10 @@ class DefaultDriverRepository(
             startTime = event.startTime,
             endTime = event.endTime,
             eventDate = event.eventDate,
-            synced = false
+            synced = training
         )
         hosDao.insertEvent(entity)
+        if (training) return
         try {
             val response = api.postHosLog(
                 DriverLogRequest(
@@ -227,7 +232,7 @@ class DefaultDriverRepository(
                 pendingUpload = !it.synced
             )
         }
-        if (preferences.demoMode.first()) return LogbookSnapshot(localEvents, offline = true, unreadable)
+        if (preferences.trainingSession.first()) return LogbookSnapshot(localEvents, offline = true, unreadable)
         return try {
             val remoteEvents = api.getHosLogs(date).events.filter { it.recordStatus == 1 }.mapNotNull { event ->
                 val status = LogbookRules.dutyStatus(event.status)
@@ -253,6 +258,8 @@ class DefaultDriverRepository(
     }
 
     override suspend fun submitInspection(record: DvirRecord): Boolean {
+        val training = preferences.trainingSession.first()
+        if (training) requireTrainingScope(record.tenantId, record.driverId, record.vehicleId)
         val entity = DvirEntity(
             id = record.id,
             tenantId = record.tenantId,
@@ -264,9 +271,10 @@ class DefaultDriverRepository(
             defects = record.defects,
             signature = record.signature,
             inspectedAt = record.inspectedAt,
-            synced = false
+            synced = training
         )
         dvirDao.insert(entity)
+        if (training) return true
         return try {
             api.submitDvir(entity.toRequest())
             dvirDao.markSynced(entity.id, entity.tenantId)
@@ -277,6 +285,8 @@ class DefaultDriverRepository(
     }
 
     override suspend fun addNotification(notification: NotificationItem) {
+        val training = preferences.trainingSession.first()
+        if (training) requireTrainingScope(notification.tenantId, notification.driverId, notification.vehicleId)
         val entity = NotificationEntity(
             id = notification.id,
             tenantId = notification.tenantId,
@@ -287,9 +297,10 @@ class DefaultDriverRepository(
             severity = notification.severity,
             timestamp = notification.timestamp,
             read = notification.read,
-            synced = false
+            synced = training
         )
         notificationDao.insertNotification(entity)
+        if (training) return
         try {
             api.postAlert(
                 AlertRequest(
@@ -337,6 +348,16 @@ class DefaultDriverRepository(
     }
 
     override suspend fun getEldDeviceStatus(): EldDeviceStatus {
+        if (preferences.trainingSession.first()) {
+            val local = hosDao.latestEvent("DEMO", "DEMO_DRIVER", "DEMO_VEHICLE")
+            return EldDeviceStatus(
+                enabled = false, productionAuthorized = false, driverLoggedIn = true,
+                carrierConfigured = false, driverConfigured = false,
+                dutyStatus = local?.let { LogbookRules.dutyStatus(it.status) } ?: DutyStatus.OFF,
+                vehicleMoving = false, lastTelemetryAt = "", activeDiagnosticCount = 0,
+                trainingDemo = true
+            )
+        }
         val response = api.getEldDeviceStatus()
         check(response.ok) { "ELD status not confirmed" }
         var pendingDutyUpload = false
@@ -380,6 +401,7 @@ class DefaultDriverRepository(
     }
 
     override suspend fun getEldHosStatus(): HosClockStatus {
+        check(!preferences.trainingSession.first()) { "Training demo does not calculate legal driving availability." }
         val response = api.getEldHosStatus()
         return HosClockStatus(
             ruleLabel = response.ruleLabel,
@@ -395,14 +417,17 @@ class DefaultDriverRepository(
     }
 
     override suspend fun recordEldLogin() {
+        if (preferences.trainingSession.first()) return
         api.recordEldLogin()
     }
 
     override suspend fun recordEldLogout() {
+        if (preferences.trainingSession.first()) return
         api.recordEldLogout()
     }
 
     override suspend fun certifyEldRecords(recordDate: String) {
+        check(!preferences.trainingSession.first()) { "Training records cannot be certified as legal ELD records." }
         check(api.certifyEldRecords(EldCertificationRequest(recordDate = recordDate)).success) {
             "Certification was not acknowledged"
         }
@@ -454,7 +479,7 @@ class DefaultDriverRepository(
     }
 
     override suspend fun getDiagnosticCodes(): List<DtcCode> {
-        val useMock = preferences.demoMode.first()
+        val useMock = preferences.trainingSession.first()
         val response = if (useMock) {
             mockApi.getDiagnosticCodes().dtcs
         } else {
@@ -473,6 +498,7 @@ class DefaultDriverRepository(
     }
 
     override suspend fun syncPending() {
+        if (preferences.trainingSession.first()) return
         var hadFailure = false
         val tenantId = preferences.tenantId.first()
         val vehicleId = preferences.vehicleId.first()
@@ -532,6 +558,12 @@ class DefaultDriverRepository(
 
         if (hadFailure) {
             throw IllegalStateException("sync_pending_failed")
+        }
+    }
+
+    private fun requireTrainingScope(tenantId: String, driverId: String, vehicleId: String) {
+        check(tenantId == "DEMO" && driverId == "DEMO_DRIVER" && vehicleId == "DEMO_VEHICLE") {
+            "Training records must use the sample driver and vehicle."
         }
     }
 

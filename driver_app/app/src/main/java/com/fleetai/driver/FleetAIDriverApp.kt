@@ -121,6 +121,13 @@ private fun MainScaffold(sessionState: SessionState) {
         }
         Scaffold(
             modifier = Modifier.weight(1f).fillMaxSize(),
+            topBar = {
+                if (sessionState.demoMode) {
+                    Text("Training demo / Sample data stays on this device. Not a legal ELD log.",
+                        modifier = Modifier.fillMaxWidth().padding(16.dp),
+                        style = MaterialTheme.typography.bodyMedium)
+                }
+            },
             bottomBar = {
               if (!wide) {
                 NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {

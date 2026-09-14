@@ -59,6 +59,7 @@ fun SensorsScreen(contentPadding: PaddingValues, viewModel: SensorViewModel) {
     val j1939BusProfile by viewModel.j1939BusProfile.collectAsState()
     val j1939ConnectorProfile by viewModel.j1939ConnectorProfile.collectAsState()
     val locationSharingEnabled by viewModel.locationSharingEnabled.collectAsState()
+    val trainingDemo by viewModel.demoMode.collectAsState()
     val context = LocalContext.current
     val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     val hasBluetooth = viewModel.hasBluetooth()
@@ -124,6 +125,13 @@ fun SensorsScreen(contentPadding: PaddingValues, viewModel: SensorViewModel) {
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item {
+            if (trainingDemo) {
+                Text("Training demo / Sample sensors", style = MaterialTheme.typography.titleLarge)
+                Text("Generated on this device. No vehicle connection, location collection or fleet upload.")
+                TextButton(onClick = { viewModel.toggleUnits(tempF = !unitPrefs.tempF, speedMph = !unitPrefs.speedMph) }) {
+                    Text(if (unitPrefs.tempF) "Use Celsius / km/h" else "Use Fahrenheit / mph")
+                }
+            } else {
             ConnectionBanner(
                 status = status,
                 savedDevice = savedDevice,
@@ -138,6 +146,7 @@ fun SensorsScreen(contentPadding: PaddingValues, viewModel: SensorViewModel) {
                 unitPrefs = unitPrefs,
                 onToggleUnits = { viewModel.toggleUnits(tempF = !unitPrefs.tempF, speedMph = !unitPrefs.speedMph) }
             )
+            }
         }
 
         item {
@@ -152,11 +161,11 @@ fun SensorsScreen(contentPadding: PaddingValues, viewModel: SensorViewModel) {
             SensorGrid(readings = visible, isLandscape = isLandscape)
         }
         item {
-            TextButton(onClick = { showSetup = !showSetup }) {
+            if (!trainingDemo) TextButton(onClick = { showSetup = !showSetup }) {
                 Text(if (showSetup) "Hide connection setup" else "Connection setup")
             }
         }
-        if (showSetup) {
+        if (showSetup && !trainingDemo) {
          item {
             TruckNetworkPanel(
                 adapterCount = usbAdapters.size,
@@ -189,7 +198,7 @@ fun SensorsScreen(contentPadding: PaddingValues, viewModel: SensorViewModel) {
         }
 
         }
-        item { RawDebugPanel(readings = readings, debug = debug) }
+        if (!trainingDemo) item { RawDebugPanel(readings = readings, debug = debug) }
     }
 }
 
