@@ -2,6 +2,43 @@
 
 Prepared for version 1.10.5 (17). This is not a statement of Play approval or ELD certification.
 
+## Current status (September 14, 2026)
+
+The isolated reviewer workspace now contains the fictional vehicle `PLAY-REVIEW-01` and
+driver `Google Play Reviewer`. No real fleet VIN, driver or telemetry was used. The owner entered
+the reviewer password directly into Google Play's private sign-in form; that declaration is saved.
+The historical preparation notes below describe earlier gates, not the current access status.
+
+- A real API pairing claim succeeded. The authenticated driver profile matched the reviewer
+  organization; the vehicle list contained only the fictional review vehicle. HOS and DTC reads
+  succeeded. The device status correctly reported no production ELD authorization.
+- `ReviewerPairingReleaseTest` passed on the signed release in an isolated API 35 emulator:
+  real pairing-screen entry, authenticated profile, expected organization and vehicle, persisted
+  token, and session restoration after activity recreation. It did not exercise process death,
+  physical vehicle hardware, background collection, or cross-tenant adversarial access.
+- Both temporary test assignments were revoked through the review workspace afterward. No
+  existing pilot account or tablet session was changed. The review driver and vehicle remain
+  available so a reviewer can generate a fresh code for each installation.
+- `PlayListingScreenshotsTest` passed at phone and tablet sizes. Uploaded screenshots were also
+  inspected visually. One wide Home capture caught an earlier compositor frame and was rejected;
+  a test pass alone is not approval of every captured image. Only verified images were uploaded.
+- No production app source, schema, API, signing key or version changed in this preparation pass.
+
+Current private access instructions describe website login, Workspace > Pair a tablet, selecting
+the review driver and vehicle, generating fresh codes, and the offline training route. They also
+explain that live sensors require a compatible adapter. Credentials and one-time codes must never
+be copied into this document or the listing.
+
+### Repeating the live acceptance test
+
+The test is skipped unless instrumentation argument `reviewerLiveTest=true` is explicitly supplied.
+It requires `reviewOrgId`, `reviewPairingCode` and `reviewDriverPin` arguments obtained for the
+isolated reviewer workspace. Supply them only to a clean, unpaired emulator running the signed
+release. Never target a pilot tablet. The test clears its matching local reviewer session after
+execution; revoke that test's server assignment separately in the reviewer dashboard. Do not
+record credentials in committed scripts or build logs. Scope assertions confirm the expected
+assignment, not a comprehensive tenant-isolation security audit.
+
 ## Offline training walkthrough
 
 1. Open Fleet AI Driver on a clean Android install.

@@ -2,6 +2,55 @@
 
 This checklist covers the Android app in `driver_app`. It is an engineering and Play submission guide, not legal advice or a guarantee of approval. Google Play and transportation regulators make the final determinations.
 
+## Current publishing status (September 14, 2026)
+
+Version 1.10.5 (17) is uploaded. It is **not published or submitted for review**. Older dated
+preparation notes below are retained as history and are superseded by this section.
+
+- Saved isolated reviewer sign-in details after a real API claim and signed Android release UI
+  pairing test passed. Activity recreation restored the reviewer session. Test assignments were
+  revoked without changing pilot accounts. See `GOOGLE_PLAY_REVIEW_ACCESS.md` for boundaries.
+- IARC rating, adult target audience (18+), and the nine-category data-safety declaration are saved.
+  Data safety includes names, user IDs, approximate/precise location, in-app messages, diagnostics,
+  app interactions, other user-generated content and device IDs. Current transfers were reviewed
+  using Google's service-provider/user-initiated exemptions, not inferred from absence of sales.
+  The owner confirmed there are currently no sales or buyer transfers; future practices require
+  a fresh policy and disclosure assessment before implementation.
+- Default listing is marked **Ready to send for review** with an app icon, feature graphic,
+  three phone screenshots, two 7-inch screenshots and two 10-inch screenshots. All app screenshots
+  use visibly labeled local training data. The AI-assisted brand icon and feature graphic were
+  individually declared under Google's AI asset labeling form; screenshots were not AI-edited.
+- Production draft contains the existing signed bundle 17 (1.10.5) and pilot-scoped release notes.
+  The owner selected United States and Canada; both are saved as targeted countries. Distribution
+  availability does not establish US or Canadian ELD certification.
+- Production validation identified the remaining foreground-service declaration. The manifest
+  declares `connectedDevice` and `location`. The form requires video links for both selected
+  uses. Choices were prepared, but the form cannot be saved without that evidence. No fabricated
+  link or simulated hardware demonstration was submitted.
+- Google also reports non-blocking warnings for absent deobfuscation mapping and native debug
+  symbols. Physical adapter/background/offline/ECU-off acceptance remains separate from emulator
+  testing. Internal-testing testers and rollout have not been configured.
+- No production application code or Railway configuration changed. No migration is required.
+
+### Next evidence required
+
+Record the shipped app on a stationary test vehicle with compatible hardware. Use an isolated
+review/test account and exclude personal messages, credentials, real driver names and identifying
+vehicle/location details from the recording. Do not uninstall or clear a currently paired pilot
+tablet to obtain a release-signed install; use a separate test device if signatures differ.
+
+1. Show the user initiating the vehicle connection and supported live readings.
+2. Show the foreground notification while another app is open, then its Stop action.
+3. Show the separate location disclosure, consent, Android permission prompt and active status.
+4. Show location being disabled and collection stopped. Demonstrate denial separately as a
+   functional check. Do not pass off training-mode readings as live connection evidence.
+5. Review the recording for sensitive data before sharing an accessible link with Google Play.
+   One recording can contain both flows; enter the appropriate evidence link in each field.
+
+The Google form URL ends in `app-content/foreground-services`. After evidence is ready, save
+that declaration, re-run production validation, and review Publishing overview before submission.
+Google acceptance and transportation certification must remain separate claims.
+
 ## Release identity
 
 - App name: Fleet AI Driver
