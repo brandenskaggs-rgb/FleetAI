@@ -76,7 +76,9 @@ function reportSections(type, context, vehicleId = null) {
     requestedVehicleId: vehicleId,
     riskOverviewScope: "organization",
     recordCounts: context.recordCounts,
-    riskOverview: context.riskOverview
+    riskOverview: context.riskOverview,
+    learningEvidenceScope: "organization",
+    learning: context.learning || null
   };
   if (type === "drive") return { ...common, driveLogs: scoped(context.driveLogs), vehicleHealth: scoped(context.vehicleHealth), alerts: scoped(context.alerts) };
   if (type === "maintenance") return { ...common, maintenance: scoped(context.maintenance), workOrders: scoped(context.workOrders), inspections: { dvir: scoped(context.inspections?.dvir), diagnosticScans: scoped(context.inspections?.diagnosticScans) }, vehicleHealth: scoped(context.vehicleHealth) };

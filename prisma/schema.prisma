@@ -497,11 +497,26 @@ model FeedbackLog {
   signalAgreement Decimal? @db.Decimal(6, 4)
   features        Json     @default("{}")
   reviewedBy      String?
+  sourceReference String?
+  outcomeEvidence Json     @default("{}")
   createdAt       DateTime @default(now())
 
+  @@unique([orgId, sourceReference])
+  @@index([orgId, createdAt])
   @@index([vehicleId])
   @@index([outcome])
   @@index([createdAt])
+}
+
+model MlLearningRun {
+  id        String   @id
+  orgId     String
+  status    String
+  summary   Json     @default("{}")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([orgId, createdAt])
 }
 
 model PatternSignature {

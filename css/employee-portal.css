@@ -124,6 +124,13 @@ h1, h2, h3 { font-family: var(--font-display); font-weight: 600; line-height: 1.
 .detailValue { margin-top: 6px; font-size: 15px; overflow-wrap: anywhere; }
 .detailActions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding-top: 5px; }
 .tableWrap { width: 100%; min-width: 0; overflow: auto; scrollbar-width: thin; }
+.learningStatus { display: grid; gap: 18px; min-width: 0; max-width: 100%; }
+.learningStatus dl { margin: 0; }
+.learningStatus dt { color: var(--muted); font-size: 13px; }
+.learningStatus dd { margin: 6px 0 0; font-size: 18px; font-weight: 600; overflow-wrap: anywhere; }
+.learningStatus p { margin: 0; overflow-wrap: anywhere; }
+.learningStatus .dataTable { min-width: 0; table-layout: fixed; }
+.learningStatus .dataTable th { white-space: normal; overflow-wrap: anywhere; }
 .dataTable { width: 100%; min-width: 690px; border-spacing: 0; border-collapse: collapse; font-size: 14px; }
 .dataTable th { padding: 12px 14px 16px; color: var(--muted); font-size: 12px; font-weight: 600; text-align: left; white-space: nowrap; }
 .dataTable td { padding: 16px 14px; color: var(--text-soft); line-height: 1.5; vertical-align: middle; overflow-wrap: anywhere; }

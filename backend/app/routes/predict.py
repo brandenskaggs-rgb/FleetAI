@@ -534,6 +534,18 @@ async def _predict_scoped(req: PredictRequest) -> dict:
     except Exception as exc:
         logger.debug(f"[predict] persist error for {vehicle_id}: {exc}")
 
+    from ..ml.controlled_learning import training_window, component_evidence
+    import os
+    prior_evidence = pretrained_evidence(current_metrics, window_stats, req.vehicleMeta, flat)
+    learning_window = training_window(analysis_samples)
+    # Preserve evidence of invalid readings excluded from the clean feature window.
+    learning_window["invalidReadings"] += training_window(db_samples + request_samples)["invalidReadings"]
+    learned_components = {"status": "disabled", "results": []}
+    if os.environ.get("FLEETAI_COMPONENT_EVIDENCE", "").lower() == "true":
+        try:
+            learned_components = await asyncio.to_thread(component_evidence, org_id, prior_evidence["inputFeatures"])
+        except Exception:
+            learned_components = {"status": "unavailable", "results": [], "reason": "artifact_or_schema_validation_failed"}
     elapsed_ms = round((time.monotonic() - t0) * 1000, 1)
 
     return json_safe({
@@ -560,7 +572,9 @@ async def _predict_scoped(req: PredictRequest) -> dict:
         },
         "lineage": json_safe({
             "version": 1, "featureSchema": manifest(), "physicsVersion": PHYSICS_VERSION,
-            "pretrained": pretrained_evidence(current_metrics, window_stats, req.vehicleMeta, flat),
+            "pretrained": prior_evidence,
+            "trainingWindow": learning_window,
+            "learnedComponents": learned_components,
             "stage1": {"riskProbability": stage1_score, "components": result.get("components"), "weights": result.get("weights")},
             "stage2": {"result": stage_system, "artifact": get_stage2_meta(org_id)},
             "stage3": (stage_system or {}).get("stage3"),

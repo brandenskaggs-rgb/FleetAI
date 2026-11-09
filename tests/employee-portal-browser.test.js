@@ -55,6 +55,7 @@ async function api(req, res, url) {
   if (p === "/api/employees") return json({data:method==="POST"?{...payload,tempPassword:testPassword}:[{email:"reviewer@example.test",role:"SUPER_ADMIN",isActive:true,createdAt:"2026-09-01T12:00:00Z"}]});
   if (p === "/api/health") return json({ok:true,version:"test fixture",time:"2026-09-10T15:00:00Z"});
   if (p === "/api/diagnostics") return json({modules:{advisor:true,billing:false,pairing:true},routes:[{method:"GET",path:"/api/health",available:true}]});
+  if (p === "/api/ml/learning") return json({ok:true,telemetryRecords:120,predictionRecords:4,reviewedOutcomes:2,runs:[]});
   if (p === "/api/admin/api-keys") return json({data:[{id:"QA-KEY",partnerName:"Test integration",tier:"partner_ml",orgId:"QA-NORTH",enabled:true}]});
   unexpected.push(`${method} ${p}`);
   return json({error:"No test fixture for this operation"},404);
@@ -95,6 +96,11 @@ const server = http.createServer(async (req,res) => {
         await page.click(`#employeeNav [data-route="${route}"]`);
         await page.waitForFunction(route=>document.querySelector(`#employeeNav [data-route="${route}"]`)?.getAttribute('aria-current')==='page',route);
         await page.waitForLoadState('networkidle');
+        if (route === 'system-health') {
+          await page.selectOption('#learningOrgSelect', 'QA-NORTH');
+          await page.waitForFunction(()=>document.querySelector('#learningStatus')?.textContent.includes('120'));
+          if ([1440,390].includes(width)) await page.screenshot({path:path.join(output,`learning-${width}.png`),fullPage:true});
+        }
         await page.evaluate(()=>document.fonts.ready);
         assert.equal(await page.locator(`#employeeNav [data-route="${route}"]`).getAttribute('aria-current'),'page');
         assert.ok(await page.locator('#portalView').innerText(),route);

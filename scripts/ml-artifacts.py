@@ -9,7 +9,7 @@ from backend.app.ml.artifact_registry import configured_registry
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=["list", "promote", "rollback"])
+    parser.add_argument("action", choices=["list", "inspect", "promote", "rollback"])
     parser.add_argument("--id")
     parser.add_argument("--slot")
     parser.add_argument("--scope", default="global_synthetic")
@@ -20,6 +20,8 @@ def main():
         parser.error("Set FLEETAI_ML_ARTIFACT_DIR to the persistent registry directory")
     if args.action == "list":
         print(json.dumps(registry.inventory(), indent=2))
+    elif args.action == "inspect":
+        print(json.dumps(registry.overview(args.scope), indent=2))
     elif args.action == "promote":
         if not args.id or not args.reason:
             parser.error("Promotion requires --id and --reason")

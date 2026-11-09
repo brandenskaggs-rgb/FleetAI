@@ -218,6 +218,7 @@ async function buildFleetAdvisorContext({ db, orgId, query, selectedVehicleId, l
       dataQuality: state.dataQuality,
       topContributors: Array.isArray(state.topContributors) ? state.topContributors.slice(0, 5) : [],
       chargingEvidence: state.chargingEvidence || null,
+      learnedComponents: state.lineage?.python?.evidence?.learnedComponents || null,
       updatedAt: state.updatedAt
     })),
     alerts: alerts.map((alert) => ({
@@ -249,6 +250,7 @@ async function buildFleetAdvisorContext({ db, orgId, query, selectedVehicleId, l
     reports: aiReports.map((report) => ({ evidenceRef: `report:${report.id}`, id: report.id, vehicleId: report.vehicleId, narrative: String(report.narrative || "").slice(0, 1200), modelUsed: report.modelUsed, createdAt: iso(report.createdAt) })),
     predictions: predictionRuns.map((run) => ({ evidenceRef: `prediction:${run.id}`, id: run.id, vehicleId: run.vehicleId, source: run.source, modelVersion: run.modelVersion, confidence: finiteNumber(run.confidence), riskProbability: finiteNumber(run.riskProbability), healthScore: finiteNumber(run.healthScore), createdAt: iso(run.createdAt) }))
   };
+  context.learning = await require("./learningEvidence").learningSummary(prisma, orgId);
   context.riskOverview = buildRiskOverview({ alerts, modelStates, workOrders, dvirRecords, eldDiagnostics, diagnosticScans: scans });
   return context;
 }

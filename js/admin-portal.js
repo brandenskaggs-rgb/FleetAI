@@ -903,6 +903,14 @@ function viewTemplateExtended() {
             <div class="emptyState" id="diagRoutesEmpty">No diagnostics available.</div>
           </div>
         </div>
+        <div class="panelCard">
+          <div class="panelHeader"><h3>Model learning</h3><span class="panelMeta">Verified outcomes and candidate review</span></div>
+          <div class="panelBody">
+            <div class="fieldGroup"><label for="learningOrgSelect">Company</label>
+            <select id="learningOrgSelect"><option value="">Select a company</option></select></div>
+            <div id="learningStatus" class="learningStatus" role="status" aria-live="polite"></div>
+          </div>
+        </div>
       </section>
     `,
     "audit-log": `
@@ -2253,6 +2261,7 @@ function bindView(route) {
     loadOrgs();
   } else if (route === "system-health") {
     loadSystemHealth();
+    loadLearningCompanies();
   } else if (route === "audit-log") {
     loadAudit();
   } else if (route === "users") {
@@ -2268,6 +2277,37 @@ function bindView(route) {
 }
 
 // ── Partner API Keys ─────────────────────────────────────────────────────────
+
+async function loadLearningCompanies() {
+  const data = await apiJson("/api/orgs");
+  const select = $("learningOrgSelect");
+  if (!select || !data) return;
+  select.innerHTML = '<option value="">Select a company</option>' + (data.data || []).map(org =>
+    `<option value="${h(org.orgId || org.id)}">${h(org.name || org.orgId || org.id)}</option>`).join("");
+  select.addEventListener("change", async () => {
+    const orgId = select.value;
+    const target = $("learningStatus");
+    target.textContent = orgId ? "Loading learning records..." : "";
+    if (!orgId) return;
+    const data = await apiJson(`/api/ml/learning?orgId=${encodeURIComponent(orgId)}`);
+    if (!target.isConnected || select.value !== orgId) return;
+    if (!data?.ok) { target.textContent = "Learning records are unavailable."; return; }
+    const latest = data.runs?.[0];
+    const summary = latest?.summary || {};
+    const candidates = summary.registry?.artifacts || [];
+    target.innerHTML = `<dl class="detailGrid">
+      <div><dt>Telemetry records</dt><dd>${h(data.telemetryRecords)}</dd></div>
+      <div><dt>Prediction records</dt><dd>${h(data.predictionRecords)}</dd></div>
+      <div><dt>Reviewed outcomes</dt><dd>${h(data.reviewedOutcomes)}</dd></div>
+      <div><dt>Confirmed outcomes</dt><dd>${h(data.confirmedOutcomes ?? 0)}</dd></div>
+      <div><dt>Eligible examples</dt><dd>${h(summary.dataset?.examples ?? "Not built")}</dd></div>
+      <div><dt>Last job</dt><dd>${h(latest?.status || "Not run")}</dd></div>
+    </dl><p class="muted">${h(summary.error || "Manual promotion required. Status reflects the last learning worker run.")}</p>
+    ${summary.datasetVersion ? `<details><summary>Dataset evidence</summary><dl><dt>Version</dt><dd>${h(summary.datasetVersion)}</dd></dl><ul>${Object.entries(summary.dataset?.excluded || {}).map(([reason,count]) => `<li>${h(reason.replaceAll("_", " "))}: ${h(count)}</li>`).join("") || '<li>No excluded outcomes recorded.</li>'}</ul></details>` : ""}
+    <div class="tableWrap"><table class="dataTable"><thead><tr><th>Model role</th><th>Status</th><th>Evaluation</th></tr></thead><tbody>${candidates.map(row =>
+      `<tr><td>${h(row.slot)}</td><td>${h(row.status)}</td><td>${h(row.evaluation?.gates?.passed === true ? "Gates passed" : row.evaluation?.gates?.failed?.join(", ") || "Review required")}</td></tr>`).join("") || '<tr><td colspan="3">No candidate or active component models recorded.</td></tr>'}</tbody></table></div>`;
+  });
+}
 
 function bindApiKeys() {
   const createBtn = $("apiKeyCreateBtn");

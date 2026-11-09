@@ -212,11 +212,11 @@ def test_registry_candidate_promotion_rollback_and_durable_lease(tmp_path):
     assert registry.load_active("fixture") is None
     with pytest.raises(ValueError):
         registry.promote(first, "reviewed")
-    report = {"partition": "untouched_test", "evidenceSource": "synthetic_fixture", "metrics": metrics([0,1],[.2,.8])}
+    report = {"partition": "untouched_test", "evidenceSource": "synthetic_fixture", "metrics": metrics([0,1]*30,[.2,.8]*30)}
     registry.evaluate(first, report)
     registry.promote(first, "fixture evaluation reviewed")
     second = registry.candidate("fixture", {}, metadata)
-    registry.evaluate(second, report)
+    registry.evaluate(second, {**report, "baselineArtifactId": first, "baselineMetrics": report["metrics"]})
     registry.promote(second, "fixture replacement")
     registry.promote(first, "fixture rollback")
     assert Registry(tmp_path).load_active("fixture")["artifactId"] == first
@@ -298,6 +298,11 @@ def test_dtc_remains_independent_evidence():
 @pytest.mark.parametrize("stage1,stage2,expected2,expected3", [(.1,.5,0,0),(.8,.1,1,0),(.8,.5,1,1),(.8,.9,1,0)])
 def test_pipeline_gates_lineage_and_idempotent_learning(monkeypatch, stage1, stage2, expected2, expected3):
     from backend.app.routes import predict as module
+    from backend.app.ml import controlled_learning
+    monkeypatch.setenv("FLEETAI_COMPONENT_EVIDENCE", "true")
+    def unavailable_component(*args):
+        raise ValueError("fixture corrupt component artifact")
+    monkeypatch.setattr(controlled_learning, "component_evidence", unavailable_component)
     module._welford_state.clear()
     module._welford_last_event_ts.clear()
     module._if_cache.clear()
@@ -327,6 +332,7 @@ def test_pipeline_gates_lineage_and_idempotent_learning(monkeypatch, stage1, sta
     asyncio.run(module.predict(request))
     assert module._welford_state[("fixture-org","fixture")]["rpm"]["count"] == before
     assert result["lineage"]["stage1"]["riskProbability"] == stage1
+    assert result["lineage"]["learnedComponents"]["status"] == "unavailable"
     json.dumps(result, allow_nan=False)
 
 

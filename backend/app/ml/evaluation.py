@@ -64,6 +64,7 @@ def metrics(labels, probabilities, threshold=.5, source="unknown", lead_times=No
         "roc_auc": float(roc_auc_score(y, prob)) if both else None,
         "pr_auc": float(average_precision_score(y, prob)) if both else None,
         "false_positive_rate": float(fp/(fp+tn)) if fp+tn else None,
+        "false_negative_rate": float(fn/(fn+tp)) if fn+tp else None,
         "confusion_matrix": dict(tn=int(tn), fp=int(fp), fn=int(fn), tp=int(tp)),
         "brier_score": float(brier_score_loss(y, prob)), "ece_10_bins": float(ece),
         "log_loss": float(log_loss(y, prob, labels=[0,1])),
@@ -93,3 +94,42 @@ def fit_calibration(labels, probabilities, source, model_version):
     meta.update(status="calibrated", method="isotonic", scope="synthetic_only" if source.startswith("synthetic") else "heldout_labeled_data")
     meta["dataFingerprint"] = hashlib.sha256(np.column_stack([y,p]).tobytes()).hexdigest()
     return calibration, meta
+
+
+DEFAULT_PROMOTION_GATES = {"min_rows": 30, "min_positives": 5, "min_negatives": 5,
+    "min_precision": .5, "min_recall": .6, "max_false_positive_rate": .2,
+    "max_brier_score": .3, "max_recall_regression": .02, "max_brier_regression": .02}
+
+
+def promotion_gates(candidate, baseline=None, policy=None):
+    """Fail closed on missing evidence; these are engineering defaults, not field claims."""
+    gates = {**DEFAULT_PROMOTION_GATES, **(policy or {})}
+    if set(gates) != set(DEFAULT_PROMOTION_GATES):
+        raise ValueError("Unknown promotion gate")
+    for name, value in gates.items():
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not np.isfinite(value) or value < 0:
+            raise ValueError("Invalid promotion gate")
+        if not name.startswith("min_rows") and name not in ("min_positives", "min_negatives") and value > 1:
+            raise ValueError("Probability gates must be between zero and one")
+    failed = []
+    cm = candidate.get("confusion_matrix") or {}
+    counts = {"rows": candidate.get("rows"),
+              "positives": cm.get("tp", 0) + cm.get("fn", 0),
+              "negatives": cm.get("tn", 0) + cm.get("fp", 0)}
+    checks = {**counts, "precision": candidate.get("precision"), "recall": candidate.get("recall"),
+              "false_positive_rate": candidate.get("false_positive_rate"), "brier_score": candidate.get("brier_score")}
+    for key, value in checks.items():
+        lower = "min_" + key
+        upper = "max_" + key
+        if value is None or not np.isfinite(value):
+            failed.append(key + "_missing")
+        elif (lower in gates and value < gates[lower]) or (upper in gates and value > gates[upper]):
+            failed.append(key)
+    if baseline is not None:
+        for key, maximum, direction in [("recall", "max_recall_regression", -1), ("brier_score", "max_brier_regression", 1)]:
+            before, after = baseline.get(key), candidate.get(key)
+            if before is None or after is None or not np.isfinite(before) or not np.isfinite(after):
+                failed.append(key + "_comparison_missing")
+            elif direction * (after - before) > gates[maximum]:
+                failed.append(key + "_regression")
+    return {"passed": not failed, "failed": failed, "policy": gates}

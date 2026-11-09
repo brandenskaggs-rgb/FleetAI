@@ -40,6 +40,12 @@ class Registry:
                 CREATE TABLE IF NOT EXISTS jobs (
                   name TEXT PRIMARY KEY, due REAL NOT NULL, lease_until REAL NOT NULL DEFAULT 0,
                   token TEXT, last_result TEXT);
+                CREATE TABLE IF NOT EXISTS learning_datasets (
+                  id TEXT PRIMARY KEY, scope TEXT NOT NULL, created REAL NOT NULL,
+                  manifest TEXT NOT NULL, examples TEXT NOT NULL);
+                CREATE TABLE IF NOT EXISTS evaluation_examples (
+                  scope TEXT NOT NULL, slot TEXT NOT NULL, example_id TEXT NOT NULL,
+                  candidate_id TEXT NOT NULL, PRIMARY KEY(scope,slot,example_id));
             ''')
 
     @contextmanager
@@ -104,6 +110,11 @@ class Registry:
             row = db.execute("SELECT * FROM artifacts WHERE id=?", (identifier,)).fetchone()
             if not row or row["status"] not in ("evaluated", "retired", "active"):
                 raise ValueError("Candidate must be evaluated before promotion")
+            report = json.loads(row["evaluation"] or "{}")
+            from .evaluation import promotion_gates
+            gates = promotion_gates(report.get("metrics", {}), report.get("baselineMetrics"), report.get("gatePolicy"))
+            if row["status"] == "evaluated" and not gates["passed"]:
+                raise ValueError("Promotion gates failed: " + ",".join(gates["failed"]))
             if hashlib.sha256(row["blob"]).hexdigest() != row["sha256"]:
                 raise ValueError("Artifact digest mismatch")
             if row["slot"] in ("pretrained", "stage2"):
@@ -111,6 +122,14 @@ class Registry:
                 bundle = joblib.load(io.BytesIO(row["blob"]))
                 validate_bundle_schema(bundle, STAGE2_FEATURES if row["slot"] == "stage2" else PRETRAINED_FEATURES)
             previous = db.execute("SELECT id FROM active WHERE slot=? AND scope=?", (row["slot"],row["scope"])).fetchone()
+            if previous and previous["id"] == identifier:
+                raise ValueError("Artifact is already active")
+            if row["status"] == "evaluated" and previous:
+                if report.get("baselineArtifactId") != previous["id"] or not report.get("baselineMetrics"):
+                    raise ValueError("Re-evaluation against the current active artifact is required")
+            if row["slot"].startswith("component:"):
+                from .feature_contract import validate_bundle_schema
+                validate_bundle_schema(joblib.load(io.BytesIO(row["blob"])))
             if previous:
                 db.execute("UPDATE artifacts SET status='retired' WHERE id=?", (previous["id"],))
             db.execute("INSERT OR REPLACE INTO active VALUES(?,?,?)", (row["slot"],row["scope"],identifier))
@@ -137,6 +156,44 @@ class Registry:
     def inventory(self):
         with self.connect() as db:
             return [dict(row) for row in db.execute("SELECT id,slot,scope,created,sha256,status FROM artifacts ORDER BY created DESC")]
+
+    def save_dataset(self, identifier, scope, metadata, examples):
+        if not scope.startswith("tenant:") or scope == "tenant:":
+            raise ValueError("Real datasets require an explicit tenant scope")
+        body = json.dumps(json_safe(examples), sort_keys=True, allow_nan=False)
+        record = json.dumps(json_safe(metadata), sort_keys=True, allow_nan=False)
+        with self.connect() as db:
+            existing = db.execute("SELECT * FROM learning_datasets WHERE id=?", (identifier,)).fetchone()
+            if existing and (existing["scope"] != scope or existing["examples"] != body or existing["manifest"] != record):
+                raise ValueError("Immutable dataset collision")
+            db.execute("INSERT OR IGNORE INTO learning_datasets VALUES(?,?,?,?,?)", (identifier,scope,time.time(),record,body))
+
+    def dataset(self, identifier, scope):
+        with self.connect() as db:
+            row = db.execute("SELECT * FROM learning_datasets WHERE id=? AND scope=?", (identifier,scope)).fetchone()
+        if row is None:
+            raise ValueError("Dataset not found in requested tenant")
+        return json.loads(row["manifest"]), json.loads(row["examples"])
+
+    def reserve_test(self, scope, slot, identifier, examples):
+        # Burn the holdout before reading results, even if training later fails.
+        with self.connect() as db:
+            try:
+                db.executemany("INSERT INTO evaluation_examples VALUES(?,?,?,?)", [(scope,slot,str(e),identifier) for e in examples])
+            except sqlite3.IntegrityError as exc:
+                raise ValueError("Test outcomes already evaluated; collect a new untouched holdout") from exc
+
+    def overview(self, scope):
+        with self.connect() as db:
+            artifacts = [dict(r) for r in db.execute("SELECT id,slot,status,created,metadata,evaluation FROM artifacts WHERE scope=? ORDER BY created DESC LIMIT 30", (scope,))]
+            datasets = [dict(r) for r in db.execute("SELECT id,created,manifest FROM learning_datasets WHERE scope=? ORDER BY created DESC LIMIT 30", (scope,))]
+            history = [dict(r) for r in db.execute("SELECT at,slot,previous_id,next_id,reason FROM promotions WHERE scope=? ORDER BY seq DESC LIMIT 30", (scope,))]
+        for row in artifacts:
+            row["metadata"] = json.loads(row["metadata"])
+            row["evaluation"] = json.loads(row["evaluation"]) if row["evaluation"] else None
+        for row in datasets:
+            row["manifest"] = json.loads(row["manifest"])
+        return {"artifacts": artifacts, "datasets": datasets, "promotionHistory": history}
 
     def claim(self, name, now=None, lease_seconds=3600):
         now = time.time() if now is None else now
