@@ -9,6 +9,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.IBinder
+import android.os.SystemClock
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import com.fleetai.driver.AppGraph
@@ -86,6 +87,9 @@ class ObdTelemetryService : Service() {
     private var requestedAddress = ""
     private var locationEnabled = false
     private val stopping = AtomicBoolean(false)
+    private data class Focus(val requestId: String, val keys: Set<String>, val untilElapsed: Long)
+    @Volatile private var focus: Focus? = null
+    private var watchJob: Job? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -161,7 +165,11 @@ class ObdTelemetryService : Service() {
             val extendedProfile = runCatching { extendedCatalog.match(vin) }.getOrNull()
             sender.updateExtendedProfile(extendedProfile)
             val extendedPlan = extendedProfile?.sensors.orEmpty()
+            val advertisedPlan = plan.filter { it.command in supported }
+            watchJob = scope.launch { watchRequests(vehicleId, advertisedPlan, extendedPlan) }
             val disconnected = pollConnectedAdapter(plan, extendedPlan)
+            watchJob?.cancel()
+            focus = null
             sender.stop()
             sender.updateSnapshot(emptyMap(), obdConnected = false)
             if (disconnected) runCatching { obd.disconnect() }
@@ -184,18 +192,20 @@ class ObdTelemetryService : Service() {
         }
         while (scope.isActive && !stopping.get() && obd.isConnected()) {
             val now = System.currentTimeMillis()
+            val currentFocus = focus?.takeIf { SystemClock.elapsedRealtime() < it.untilElapsed }
+            sender.updateSensorWatch(currentFocus?.requestId)
             val due = plan
                 .filter { now - (lastPolledAt[it.command] ?: 0L) >= it.minIntervalMs }
                 .sortedByDescending {
-                    val overdue = (now - (lastPolledAt[it.command] ?: 0L)).toDouble() / it.minIntervalMs
-                    overdue + (2 - it.priority) * 0.5
+                    SensorWatchPolicy.priorityScore(now, lastPolledAt[it.command] ?: 0L, it.minIntervalMs,
+                        it.priority, currentFocus?.keys?.contains(it.key) == true)
                 }
                 .take(if (extendedPlan.isEmpty()) 6 else 5)
             val extendedDue = extendedPlan
                 .filter { now - (lastPolledAt[it.command] ?: 0L) >= it.minIntervalMs }
                 .sortedByDescending {
                     val overdue = (now - (lastPolledAt[it.command] ?: 0L)).toDouble() / it.minIntervalMs
-                    overdue + (3 - it.priority) * 0.5
+                    overdue + (3 - it.priority) * 0.5 + if (currentFocus?.keys?.contains(it.key) == true) 1.0 else 0.0
                 }
                 .take(1)
             if (due.isEmpty() && extendedDue.isEmpty()) {
@@ -250,10 +260,36 @@ class ObdTelemetryService : Service() {
                 "Adapter connected - waiting for ECU data"
             }
             ObdRuntime.update(if (live) ObdRuntime.State.LIVE else ObdRuntime.State.WAITING_FOR_ECU, status)
-            updateNotification(status)
+            updateNotification(if (currentFocus != null) "$status - focused sensor watch" else status)
             delay(100L)
         }
         return !obd.isConnected()
+    }
+
+    private suspend fun watchRequests(vehicleId: String, plan: List<PidSpec>, extended: List<ExtendedPidDefinition>) {
+        while (scope.isActive && !stopping.get() && obd.isConnected()) {
+            try {
+                val response = com.fleetai.driver.network.ApiClient.api.getSensorWatch()
+                val request = response.watch
+                val remaining = request?.let {
+                    java.time.Instant.parse(it.expiresAt).toEpochMilli() - java.time.Instant.parse(response.serverTime).toEpochMilli()
+                } ?: 0L
+                if (request == null || request.vehicleId != vehicleId || remaining <= 0 || request.status in setOf("stopped", "expired")) {
+                    focus = null
+                } else {
+                    val keys = SensorWatchPolicy.supportedKeys(request.requestedKeys, plan, extended.map { it.key })
+                    // Refresh lease every 30 seconds; offline/revoked requests stop locally within 60 seconds.
+                    focus = Focus(request.requestId, keys.toSet(), SystemClock.elapsedRealtime() + remaining.coerceAtMost(60_000L))
+                    com.fleetai.driver.network.ApiClient.api.acknowledgeSensorWatch(
+                        com.fleetai.driver.network.SensorWatchAck(request.requestId, keys))
+                }
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                focus = null // Old servers/offline state must never interrupt ordinary telemetry.
+            }
+            delay(30_000L)
+        }
     }
 
     private suspend fun readPidMetrics(command: String): ReadResult {
@@ -353,6 +389,7 @@ class ObdTelemetryService : Service() {
         sender.updateSnapshot(emptyMap(), obdConnected = false)
         locationTracker.stop()
         managerJob?.cancel()
+        watchJob?.cancel()
         locationJob?.cancel()
         runCatching { kotlinx.coroutines.runBlocking { obd.disconnect() } }
         scope.cancel()

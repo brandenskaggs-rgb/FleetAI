@@ -348,6 +348,14 @@ async function invoke(app, body) {
   });
   await assert.rejects(() => invoke(failingApp, Object.assign({}, payload, { batchId: "failed-batch" })), /postgres unavailable/);
 
+  const transmissionOnly = await invoke(productionApp, {
+    batchId: "transmission-only", protocol: "OBD2", timestamp: "2026-08-14T12:00:01.000Z",
+    obdConnected: true, metrics: { transmissionTempC: 85 },
+    meta: { metricAgesMs: { transmissionTempC: 100 } }
+  });
+  assert.strictEqual(transmissionOnly.statusCode, 200);
+  assert.strictEqual(productionStores, 2, "a transmission-only reading must be stored as vehicle data, not discarded as a heartbeat");
+
   console.log("Telemetry route tests passed");
 })().catch((error) => {
   console.error(error);

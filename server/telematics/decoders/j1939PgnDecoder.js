@@ -17,6 +17,8 @@ function toNumber(value) {
 function decodeSpnValue(spn, rawValue) {
   const entry = spnMap[String(spn)];
   if (!entry || rawValue == null) return null;
+  // SAE J1939-71: SPN 177 is a two-byte temperature; reserved/error/NA is not a reading.
+  if (Number(spn) === 177 && (!Number.isInteger(rawValue) || rawValue < 0 || rawValue > 0xFAFF)) return null;
   if (entry.metric === "regenActive") {
     return { [entry.metric]: Boolean(rawValue) };
   }

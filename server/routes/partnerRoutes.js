@@ -160,6 +160,7 @@ function registerPartnerRoutes(app, deps) {
       vehicleSpeed:           ["vehicleSpeed", "speed", "speedKph", "vehicle_speed"],
       coolantTemp:            ["coolantTemp", "coolant_temp", "coolantTempC", "engine_temp"],
       oilTemp:                ["oilTemp", "oil_temp", "oilTempC"],
+      transmissionTemp:       ["transmissionTempC", "transmissionTemp", "transmission_temp"],
       batteryVoltage:         ["batteryVoltage", "battery_voltage", "batteryVoltageV"],
       engineLoad:             ["engineLoad", "engineLoadPct", "engine_load"],
       engineTorque:           ["engineTorque", "torquePct", "torque"],

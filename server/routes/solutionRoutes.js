@@ -4,6 +4,8 @@ const { completeChat, getAiProviderStatus } = require("../services/aiProviderSer
 const { buildAdvisorMessages } = require("../services/advisorConversation");
 const { buildFleetAdvisorContext } = require("../services/advisorContextService");
 const { buildReportArtifact, planAdvisorActions, renderReportHtml, renderReportText } = require("../services/advisorAgentService");
+const { saveWatch, WATCH_GROUPS } = require("../services/sensorWatchService");
+const { isLiveDiagnosticRequest, runLiveDiagnostic } = require("../services/liveDiagnosticService");
 
 function finiteInRange(value, min, max) {
   if (value === null || value === undefined || typeof value === "boolean" || String(value).trim() === "") return null;
@@ -703,24 +705,57 @@ function registerSolutionRoutes(app, deps) {
   });
 
   // ── AI ADVISOR CHAT ────────────────────────────────────────────────────────
+  async function liveDiagnosticReply(req, res, orgId, vehicleId, message) {
+    const report = await runLiveDiagnostic({ prisma: db.getPrisma(), orgId, vehicleId, telemetryLatest });
+    if (!report) return res.status(404).json({ ok: false, error: "vehicle_not_found" });
+    const artifact = await db.getPrisma().advisorArtifact.create({ data: {
+      orgId, userId: req.customer?.userId || req.employee?.userId || req.employee?.id || null,
+      type: "live_diagnostic", title: `${report.vehicleName} - received sensor diagnostic analysis`, request: message,
+      content: { summary: report.summary, scope: { vehicleId }, sources: report }
+    } });
+    return res.json({ ok: true, reply: report.summary, source: "fleetai_received_telemetry", model: null, diagnostic: report,
+      artifacts: [{ id: artifact.id, type: artifact.type, title: artifact.title, createdAt: artifact.createdAt,
+        downloadUrl: `/api/advisor/artifacts/${encodeURIComponent(artifact.id)}/download` }], proposedActions: [] });
+  }
+
+  app.post("/api/diagnostics/live-analysis", requireEmployeeOrCustomerApi, async (req, res, next) => {
+    try {
+      const orgId = resolveRequestOrgId(req, {});
+      const vehicleId = sanitizeString(req.body?.vehicleId || "", 80);
+      if (!orgId || !vehicleId) return res.status(400).json({ ok: false, error: "organization_and_vehicle_required" });
+      return await liveDiagnosticReply(req, res, orgId, vehicleId, sanitizeString(req.body?.message || "Run a live diagnostic scan", 2000));
+    } catch (error) { next(error); }
+  });
+
   app.get("/api/advisor/status", requireEmployeeOrCustomerApi, (req, res) => {
     res.json({ ok: true, ...getAiProviderStatus() });
   });
 
   app.post("/api/advisor/message", requireEmployeeOrCustomerApi, async (req, res, next) => {
     try {
-      const status = getAiProviderStatus();
-      if (!status.available) {
-        const reason = status.enabled ? `${status.provider} is not configured` : "AI features are disabled";
-        return res.status(503).json({ ok: false, error: "advisor_unavailable", message: reason });
-      }
-
       const message = sanitizeString(req.body.message || req.body.query || req.body.content || "", 2000);
       if (!message) return res.status(400).json({ error: "message required" });
 
       const data = await ensureCollections(await readData(), req);
       const orgId = resolveRequestOrgId(req, data);
       if (!orgId) return res.status(400).json({ error: "orgId required" });
+
+      // Run the read-only action before the language model; no invented tool success.
+      if (isLiveDiagnosticRequest(message)) {
+        const assets = data.vehicles.filter(vehicle => vehicle.orgId === orgId);
+        const selected = sanitizeString(req.body.vehicleId || "", 80);
+        const matches = assets.filter(vehicle => [vehicle.vehicleId, vehicle.unitName].filter(Boolean)
+          .some(value => message.toLowerCase().includes(String(value).toLowerCase())));
+        const vehicleId = selected || (matches.length === 1 ? matches[0].vehicleId : assets.length === 1 ? assets[0].vehicleId : null);
+        if (!vehicleId) return res.json({ ok: true, reply: "Which vehicle should I check? Select a vehicle or include its exact unit name.", source: "fleetai_received_telemetry", artifacts: [], proposedActions: [] });
+        return await liveDiagnosticReply(req, res, orgId, vehicleId, message);
+      }
+
+      const status = getAiProviderStatus();
+      if (!status.available) {
+        const reason = status.enabled ? `${status.provider} is not configured` : "AI features are disabled";
+        return res.status(503).json({ ok: false, error: "advisor_unavailable", message: reason });
+      }
 
       const context = await buildFleetAdvisorContext({
         db,
@@ -814,7 +849,8 @@ function registerSolutionRoutes(app, deps) {
   app.post("/api/advisor/actions/execute", requireEmployeeOrCustomerApi, async (req, res, next) => {
     try {
       if (req.body?.confirmed !== true) return res.status(400).json({ ok: false, error: "confirmation_required" });
-      if (sanitizeString(req.body?.action || "", 80) !== "create_work_order") {
+      const action = sanitizeString(req.body?.action || "", 80);
+      if (!["create_work_order", "start_sensor_watch", "stop_sensor_watch"].includes(action)) {
         return res.status(400).json({ ok: false, error: "unsupported_advisor_action" });
       }
       const role = String(req.customer?.role || req.employee?.role || "").toUpperCase();
@@ -826,6 +862,23 @@ function registerSolutionRoutes(app, deps) {
       const vehicleId = sanitizeString(payload.vehicleId || "", 80);
       const vehicle = await db.getPrisma().vehicle.findFirst({ where: { vehicleId, orgId }, select: { vehicleId: true, unitName: true } });
       if (!vehicle) return res.status(404).json({ ok: false, error: "vehicle_not_found" });
+      if (action === "start_sensor_watch" || action === "stop_sensor_watch") {
+        if (!["CUSTOMER_ADMIN", "ORG_ADMIN", "SUPER_ADMIN", "ADMIN", "EMPLOYEE", "SUPPORT"].includes(role)) {
+          return res.status(403).json({ ok: false, error: "insufficient_role" });
+        }
+        if (action === "stop_sensor_watch") {
+          await db.getPrisma().sensorWatch.updateMany({ where: { orgId, vehicleId }, data: { stoppedAt: new Date() } });
+          return res.json({ ok: true, message: "Focused monitoring cancelled. The tablet will return to its normal schedule at its next connection check (normally within 30 seconds)." });
+        }
+        const groups = payload.groups;
+        const durationMinutes = payload.durationMinutes ?? 30;
+        if (!Array.isArray(groups) || !groups.length || groups.some(group => !Object.hasOwn(WATCH_GROUPS, group)) || !Number.isInteger(durationMinutes) || durationMinutes < 5 || durationMinutes > 60) {
+          return res.status(400).json({ ok: false, error: "invalid_watch_settings" });
+        }
+        const watch = await saveWatch(db.getPrisma(), { orgId, vehicleId, groups, durationMinutes,
+          reason: sanitizeString(payload.reason || "Requested focused monitoring", 500), userId: req.customer?.userId || req.employee?.userId || req.employee?.id });
+        return res.json({ ok: true, data: watch, message: `Requested a ${durationMinutes}-minute sensor watch for ${vehicle.unitName || vehicleId}. Waiting for the updated OBD tablet to apply it. Transmission and ABS data are available only when the vehicle profile supports them.` });
+      }
       const title = sanitizeString(payload.title || "Advisor maintenance follow-up", 180);
       const description = sanitizeString(payload.description || "", 1000) || null;
       const requestedPriority = sanitizeString(payload.priority || "normal", 20).toLowerCase();

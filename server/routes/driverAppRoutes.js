@@ -20,6 +20,9 @@
 
 const db = require("../db");
 const { requireDevice, attachDevice } = require("../middleware/deviceAuth");
+const { getWatch, acknowledgeWatch } = require("../services/sensorWatchService");
+const { driverRelease } = require("../services/driverRelease");
+const path = require("node:path");
 
 function registerDriverAppRoutes(app, deps) {
   const {
@@ -32,6 +35,40 @@ function registerDriverAppRoutes(app, deps) {
     makeId = db.makeId,
     addAudit = null
   } = deps;
+
+  // Public release metadata only; contains no fleet data or credentials.
+  app.get("/api/driver/releases/latest", (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    res.json({ release: driverRelease(req.query.channel) });
+  });
+  app.get("/downloads/driver/:filename", (req, res, next) => {
+    const release = driverRelease("pilot-debug");
+    const directory = process.env.FLEETAI_DRIVER_RELEASE_DIR;
+    const filename = req.params.filename;
+    if (!release || !directory || !path.isAbsolute(directory) ||
+        !/^[a-zA-Z0-9._-]+\.apk$/.test(filename) || new URL(release.url).pathname !== `/downloads/driver/${filename}`) {
+      return res.status(404).send("Not found");
+    }
+    res.setHeader("Cache-Control", "no-store");
+    res.download(path.join(directory, filename), filename, error => {
+      if (error && !res.headersSent) {
+        if (error.code === "ENOENT") res.status(404).send("Release file unavailable");
+        else next(error);
+      }
+    });
+  });
+
+  app.get("/api/driver/sensor-watch", requireDevice, async (req, res, next) => {
+    try {
+      res.json({ serverTime: new Date().toISOString(), watch: await getWatch(db.getPrisma(), req.device.orgId, req.device.vehicleId) });
+    } catch (error) { next(error); }
+  });
+  app.post("/api/driver/sensor-watch/ack", requireDevice, async (req, res, next) => {
+    try {
+      const result = await acknowledgeWatch(db.getPrisma(), req.device, req.body || {});
+      res.status(result.count ? 200 : 409).json({ success: result.count > 0 });
+    } catch (error) { next(error); }
+  });
 
   // ── GET /api/drivers/me ────────────────────────────────────────────────────
   // DriverProfileResponse(tenantId, driverId, driverName) — all non-null.

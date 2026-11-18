@@ -2,6 +2,8 @@ const REPORT_ACTION_WORDS = /\b(create|generate|build|prepare|export|make|produc
 const REPORT_NOUNS = /\b(report|brief|summary|risk assessment|drive log|trip log)\b/i;
 const WORK_ORDER_WORDS = /\b(create|open|schedule|add|start)\b.*\bwork order\b|\bwork order\b.*\b(create|open|schedule|add|start)\b/i;
 
+const { watchProposal } = require("./sensorWatchService");
+
 function reportTypeFor(message) {
   const text = String(message || "").toLowerCase();
   if (/\b(hos|eld|dot|compliance|violation)\b/.test(text)) return "compliance";
@@ -38,6 +40,8 @@ function resolveVehicleFromQuestion(message, context) {
 function planAdvisorActions(message, context) {
   const text = String(message || "").trim();
   const actions = [];
+  const watch = watchProposal(text, resolveVehicleFromQuestion(text, context));
+  if (watch) actions.push(watch);
   if (REPORT_ACTION_WORDS.test(text) && REPORT_NOUNS.test(text)) {
     const type = reportTypeFor(text);
     actions.push({

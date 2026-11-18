@@ -14,7 +14,7 @@
   "3697":{ "metric": "regenActive",             "scale": 1,         "offset": 0,    "unit": "bool" },
 
   "102": { "metric": "boostPressureKpa",        "scale": 0.5,       "offset": 0,    "unit": "kPa"  },
-  "127": { "metric": "transmissionTempC",        "scale": 1,         "offset": -40,  "unit": "C"    },
+  "177": { "metric": "transmissionTempC",        "scale": 0.03125,   "offset": -273, "unit": "C"    },
   "94":  { "metric": "fuelDeliveryPressureKpa",  "scale": 4,         "offset": 0,    "unit": "kPa"  },
   "91":  { "metric": "acceleratorPedalPosPct",   "scale": 0.4,       "offset": 0,    "unit": "%"    },
   "512": { "metric": "driverDemandTorquePct",    "scale": 1,         "offset": -125, "unit": "%"    },

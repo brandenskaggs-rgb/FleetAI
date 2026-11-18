@@ -6,6 +6,15 @@ import retrofit2.http.POST
 import retrofit2.http.Query
 
 interface ApiService {
+    @GET("api/driver/releases/latest")
+    suspend fun getDriverRelease(@Query("channel") channel: String): com.fleetai.driver.updates.DriverReleaseResponse
+
+    @GET("api/driver/sensor-watch")
+    suspend fun getSensorWatch(): SensorWatchResponse
+
+    @POST("api/driver/sensor-watch/ack")
+    suspend fun acknowledgeSensorWatch(@Body request: SensorWatchAck): BasicResponse
+
     @POST("api/auth/driverLogin")
     suspend fun loginDriver(@Body request: LoginRequest): LoginResponse
 

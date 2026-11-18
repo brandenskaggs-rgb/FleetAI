@@ -12,8 +12,14 @@ import com.fleetai.driver.data.model.ThemeMode
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.fleetai.driver.ui.theme.FleetAITheme
 import com.fleetai.driver.ui.viewmodel.SessionViewModel
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
+    override fun onResume() {
+        super.onResume()
+        lifecycleScope.launch { com.fleetai.driver.updates.DriverUpdates.check() }
+    }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -29,6 +35,7 @@ class MainActivity : ComponentActivity() {
             }
             FleetAITheme(themeMode = sessionState.themeMode) {
                 FleetAIDriverApp(sessionViewModel = sessionViewModel, sessionState = sessionState)
+                com.fleetai.driver.updates.DriverUpdateNotice()
             }
         }
     }

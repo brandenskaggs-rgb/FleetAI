@@ -19,6 +19,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+import com.fleetai.driver.updates.DriverUpdates
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.TextButton
 import androidx.compose.ui.Modifier
@@ -40,6 +43,9 @@ fun SettingsScreen(contentPadding: PaddingValues) {
     val viewModel: SettingsViewModel = viewModel(factory = AppGraph.viewModelFactory)
     val state by viewModel.state.collectAsState()
     val context = LocalContext.current
+    val updateState by DriverUpdates.state.collectAsState()
+    val updateScope = rememberCoroutineScope()
+    var updateOpenError by remember { mutableStateOf(false) }
     var accountAction by remember { mutableStateOf<String?>(null) }
     if (accountAction != null) {
         AlertDialog(
@@ -121,6 +127,22 @@ fun SettingsScreen(contentPadding: PaddingValues) {
                 onClick = { context.startActivity(Intent(context, ConnectActivity::class.java)) },
                 modifier = Modifier.fillMaxWidth()
             )
+        }
+
+        FleetCard(modifier = Modifier.fillMaxWidth()) {
+            Text("App updates", style = MaterialTheme.typography.titleLarge)
+            Text("Installed: ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
+            Text(updateState.message)
+            FleetButton(text = if (updateState.checking) "Checking..." else "Check for updates", onClick = {
+                if (!updateState.checking) updateScope.launch { DriverUpdates.check(force = true) }
+            }, modifier = Modifier.fillMaxWidth())
+            updateState.release?.let { release ->
+                FleetButton(text = "I'm parked - open update", onClick = {
+                    updateOpenError = runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, release.url.toUri())) }.isFailure
+                }, modifier = Modifier.fillMaxWidth())
+            }
+            if (updateOpenError) Text("Could not open the update link. Contact Fleet AI support.")
+            Text("Keep the app installed. Updating with the same signing key preserves your pairing.")
         }
 
         FleetButton(

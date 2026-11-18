@@ -535,10 +535,13 @@ function confidenceFrom(samplesCount, coverage, observation = {}) {
 }
 
 const METRIC_SOURCE_KEYS = {
+  ...Object.fromEntries(["transmissionInputSpeedRpm", "transmissionOutputSpeedRpm", "transmissionGear", "torqueConverterSlipRpm", "transmissionPressureKpa", "wheelSpeedFlKph", "wheelSpeedFrKph", "wheelSpeedRlKph", "wheelSpeedRrKph", "absActive", "tractionControlBrakeActive", "serviceBrakeActive"].map(key => [key, [key]])),
   rpm: ["rpm"],
   vehicleSpeed: ["speedKph", "speedMph"],
   coolantTemp: ["coolantTempC", "coolantTempF"],
   oilTemp: ["oilTempC", "oilTempF"],
+  transmissionTemp: ["transmissionTempC", "transmissionTempF"],
+  transmissionTempC: ["transmissionTempC", "transmissionTempF"],
   batteryVoltage: ["batteryVoltageV", "batteryVoltage"],
   engineLoad: ["engineLoadPct", "engine_load"],
   engineTorque: ["torquePct", "actualTorquePct"],
@@ -596,11 +599,16 @@ function buildTelemetrySample(normalized, extra = {}) {
   const emissions = normalized.emissions || {};
   const controls = normalized.controls || {};
   const brakes = normalized.brakes || {};
+  const transmission = normalized.transmission || {};
   const metrics = removeStaleMetrics({
+    ...Object.fromEntries(["transmissionInputSpeedRpm", "transmissionOutputSpeedRpm", "transmissionGear", "torqueConverterSlipRpm", "transmissionPressureKpa"].map(key => [key, transmission[key] ?? null])),
+    ...Object.fromEntries(["wheelSpeedFlKph", "wheelSpeedFrKph", "wheelSpeedRlKph", "wheelSpeedRrKph", "absActive", "tractionControlBrakeActive", "serviceBrakeActive"].map(key => [key, brakes[key] ?? null])),
     rpm: engine.rpm ?? null,
     vehicleSpeed: vehicle.speedKph ?? null,
     coolantTemp: engine.coolantTempC ?? null,
     oilTemp: engine.oilTempC ?? null,
+    transmissionTemp: transmission.transmissionTempC ?? null,
+    transmissionTempC: transmission.transmissionTempC ?? null,
     batteryVoltage: electrical.batteryVoltageV ?? null,
     engineLoad: engine.engineLoadPct ?? null,
     engineTorque: engine.torquePct ?? null,
@@ -649,6 +657,9 @@ function buildTelemetrySample(normalized, extra = {}) {
   delete raw.VIN;
   const timestamp = normalized.timestamp || new Date().toISOString();
   const meta = extra.meta || normalized.meta || {};
+  if (typeof meta.sensorWatchRequestId === "string" && /^[a-f0-9-]{36}$/i.test(meta.sensorWatchRequestId)) {
+    raw.sensorWatchRequestId = meta.sensorWatchRequestId;
+  }
   const dtcCapturedAt = Date.parse(meta.dtcCapturedAt);
   const reportedCodes = Array.isArray(normalized.dtc?.active)
     ? normalized.dtc.active.map(item => typeof item === "string" ? item : item?.code) : null;

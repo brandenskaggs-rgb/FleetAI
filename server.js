@@ -2754,6 +2754,7 @@ function buildSnapshotFromNormalized(normalized, extra) {
   const emissions = normalized.emissions || {};
   const controls = normalized.controls || {};
   const brakes = normalized.brakes || {};
+  const transmission = normalized.transmission || {};
   const fuel = normalized.fuel || {};
   const dtcActive = Array.isArray(normalized.dtc?.active) ? normalized.dtc.active : [];
   const dtcCodes = dtcActive.map((d) => d.code).filter(Boolean);
@@ -2769,7 +2770,8 @@ function buildSnapshotFromNormalized(normalized, extra) {
     dtcCodes,
     rawPids: extra.rawPids || {},
     derivedMetrics: extra.derivedMetrics || {},
-    normalizedMetrics: { engine, vehicle, electrical, environment, emissions, controls, brakes, fuel },
+    normalizedMetrics: { engine, vehicle, electrical, environment, emissions, controls, brakes, fuel, transmission },
+    transmissionTempC: transmission.transmissionTempC ?? null,
     coolantTemp: engine.coolantTempC ?? null,
     batteryVoltage: electrical.batteryVoltageV ?? null,
     engineLoad: engine.engineLoadPct ?? null,

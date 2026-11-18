@@ -114,6 +114,11 @@ class TelemetrySender(
         if (vin.isNullOrBlank()) latestMeta.remove("vin") else latestMeta["vin"] = vin
     }
 
+    fun updateSensorWatch(requestId: String?) {
+        if (requestId == null) latestMeta.remove("sensorWatchRequestId")
+        else latestMeta["sensorWatchRequestId"] = requestId
+    }
+
     fun updateLocation(location: DeviceLocation?) {
         if (location == null) {
             latestMeta.remove("latitude")

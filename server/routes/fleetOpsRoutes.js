@@ -8,7 +8,7 @@ const { appendFrames } = require("../telematics/storage/telemetryStore");
 const LIVE_TELEMETRY_MAX_AGE_MS = 60_000;
 const LIVE_TELEMETRY_FUTURE_TOLERANCE_MS = 30_000;
 const MAX_RETAINED_METRIC_AGE_MS = 8 * 24 * 60 * 60 * 1000;
-const NORMALIZED_METRIC_GROUPS = ["engine", "electrical", "vehicle", "emissions", "environment", "controls", "brakes", "fuel"];
+const NORMALIZED_METRIC_GROUPS = ["engine", "electrical", "vehicle", "emissions", "environment", "controls", "brakes", "fuel", "transmission"];
 
 function normalizedReadingCount(normalized) {
   return NORMALIZED_METRIC_GROUPS

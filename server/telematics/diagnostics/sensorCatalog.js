@@ -13,6 +13,19 @@
  */
 
 const SENSORS = [
+  // OEM-specific identifiers cannot be inferred from the generic OBD capability bitmap.
+  ...[
+    ["transmissionTempC", "Transmission fluid temperature", "°C"],
+    ["transmissionInputSpeedRpm", "Transmission input speed", "rpm"],
+    ["transmissionOutputSpeedRpm", "Transmission output speed", "rpm"],
+    ["transmissionGear", "Reported transmission gear", ""],
+    ["torqueConverterSlipRpm", "Torque converter slip", "rpm"],
+    ["transmissionPressureKpa", "Transmission pressure", "kPa"]
+  ].map(([key, label, unit]) => ({ key, label, unit, path: `transmission.${key}`, group: "transmission", spn: key === "transmissionTempC" ? 177 : null, pid: null, normal: null, precision: 1, informational: true })),
+  ...[
+    ["wheelSpeedFlKph", "Front-left wheel speed"], ["wheelSpeedFrKph", "Front-right wheel speed"],
+    ["wheelSpeedRlKph", "Rear-left wheel speed"], ["wheelSpeedRrKph", "Rear-right wheel speed"]
+  ].map(([key, label]) => ({ key, label, unit: "km/h", path: `brakes.${key}`, group: "brakes", spn: null, pid: null, normal: null, precision: 1, informational: true })),
   // ── Engine ────────────────────────────────────────────────────────────────
   { key: "rpm",              path: "engine.rpm",              label: "Engine speed",            unit: "rpm",  spn: 190,  pid: "010C", group: "engine",
     normal: [600, 2100],   redline: 2500,  precision: 0 },
@@ -119,6 +132,7 @@ const SENSORS = [
 ];
 
 const GROUPS = [
+  { key: "transmission", label: "Transmission (vehicle-specific access)" },
   { key: "engine",     label: "Engine" },
   { key: "fuel",       label: "Fuel" },
   { key: "electrical", label: "Electrical" },
@@ -143,6 +157,8 @@ function readPath(obj, dotted) {
  */
 function classify(sensor, value) {
   if (value == null || Number.isNaN(Number(value))) return "unknown";
+  // A readable OEM signal is not evidence of healthy operation without validated limits.
+  if (sensor.informational) return "unknown";
   if (sensor.boolean) return "nominal";
   const v = Number(value);
   if (sensor.critical != null) {
@@ -173,11 +189,10 @@ function buildSensorView(normalized, supported = {}) {
     const ageMs = Number(metricAgesMs[s.key]);
     const stale = Number.isFinite(ageMs) && ageMs > 30_000;
     const present = value !== undefined && value !== null && !stale;
-    // If the ECU published a capability list, trust it; otherwise infer from
-    // whether a value actually arrived.
-    const isSupported = declaresSupport
+    // Enhanced signals may arrive without an equivalent generic capability bit.
+    const isSupported = present || (declaresSupport
       ? (s.spn != null && supportedSpns.has(s.spn)) || (s.pid && supportedPids.has(String(s.pid).toLowerCase()))
-      : present;
+      : false);
     return {
       key: s.key,
       label: s.label,

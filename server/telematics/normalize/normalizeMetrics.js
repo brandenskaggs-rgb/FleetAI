@@ -29,7 +29,10 @@ const READING_KEYS = [
   "milRunTimeMin", "timeSinceClearMin",
   "evapSystemVaporPressurePa", "absoluteEvapVaporPressureKpa", "evapSystemVaporPressureWidePa",
   "ethanolFuelPct", "hybridBatteryRemainingPct", "odometerKm",
-  "brakePedalPositionPct", "serviceBrakeActive", "absActive", "tractionControlBrakeActive"
+  "brakePedalPositionPct", "serviceBrakeActive", "absActive", "tractionControlBrakeActive",
+  "transmissionTempC", "transmissionTempF", "transmissionInputSpeedRpm", "transmissionOutputSpeedRpm",
+  "transmissionGear", "torqueConverterSlipRpm", "transmissionPressureKpa",
+  "wheelSpeedFlKph", "wheelSpeedFrKph", "wheelSpeedRlKph", "wheelSpeedRrKph"
 ];
 
 function hasAnyReading(obj) {
@@ -168,6 +171,15 @@ function normalizeMetrics(input) {
     absActive: metrics.absActive ?? null,
     tractionControlBrakeActive: metrics.tractionControlBrakeActive ?? null
   };
+  for (const key of ["wheelSpeedFlKph", "wheelSpeedFrKph", "wheelSpeedRlKph", "wheelSpeedRrKph"]) brakes[key] = metrics[key] ?? null;
+  const transmission = {
+    transmissionTempC: metrics.transmissionTempC ?? (metrics.transmissionTempF != null ? fToC(metrics.transmissionTempF) : null),
+    transmissionInputSpeedRpm: metrics.transmissionInputSpeedRpm ?? null,
+    transmissionOutputSpeedRpm: metrics.transmissionOutputSpeedRpm ?? null,
+    transmissionGear: metrics.transmissionGear ?? null,
+    torqueConverterSlipRpm: metrics.torqueConverterSlipRpm ?? null,
+    transmissionPressureKpa: metrics.transmissionPressureKpa ?? null
+  };
 
   const fuel = {
     ethanolFuelPct: metrics.ethanolFuelPct ?? null
@@ -193,6 +205,7 @@ function normalizeMetrics(input) {
     environment,
     controls,
     brakes,
+    transmission,
     fuel,
     dtc: {
       active: active.map(toObj),

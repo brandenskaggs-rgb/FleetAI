@@ -251,6 +251,34 @@ async function buildFleetAdvisorContext({ db, orgId, query, selectedVehicleId, l
     predictions: predictionRuns.map((run) => ({ evidenceRef: `prediction:${run.id}`, id: run.id, vehicleId: run.vehicleId, source: run.source, modelVersion: run.modelVersion, confidence: finiteNumber(run.confidence), riskProbability: finiteNumber(run.riskProbability), healthScore: finiteNumber(run.healthScore), createdAt: iso(run.createdAt) }))
   };
   context.learning = await require("./learningEvidence").learningSummary(prisma, orgId);
+  context.sensorWatches = prisma.sensorWatch ? (await prisma.sensorWatch.findMany({
+    where: { orgId, ...(scopedSelectedVehicleId ? { vehicleId: scopedSelectedVehicleId } : {}) },
+    orderBy: { updatedAt: "desc" }, take: 10
+  })).map(row => require("./sensorWatchService").describeWatch(row, now.getTime())) : [];
+  // Preserve sample recording times. These are not guaranteed ECU acquisition timestamps.
+  const watchKeys = [...new Set(Object.values(require("./sensorWatchService").WATCH_GROUPS).flat())];
+  const aliases = { speedKph: "vehicleSpeed", engineLoadPct: "engineLoad", throttlePosPct: "throttlePos", ignitionTimingAdvanceDeg: "ignitionTiming",
+    shortTermFuelTrimBank1Pct: "stft1", shortTermFuelTrimBank2Pct: "stft2", fuelRailGaugePressureKpa: "fuelRailPressureGauge", fuelRailAbsolutePressureKpa: "fuelRailPressureAbsolute", brakePedalPositionPct: "brakePedalPosition" };
+  const latest = new Map();
+  for (const sample of samples) {
+    if (!allowedVehicleIds.has(sample.vehicleId)) continue;
+    for (const key of watchKeys) {
+      const id = `${sample.vehicleId}:${key}`;
+      const value = finiteNumber(sample.metrics?.[key] ?? sample.metrics?.[aliases[key]]);
+      if (value === null || latest.has(id)) continue;
+      const ageMs = now.getTime() - new Date(sample.ts).getTime();
+      latest.set(id, { vehicleId: sample.vehicleId, signal: key, value, recordedAt: iso(sample.ts), stale: !Number.isFinite(ageMs) || ageMs < -5000 || ageMs > 30_000 });
+    }
+  }
+  context.focusedSensorEvidence = [...latest.values()].slice(0, 120);
+  context.liveDiagnosticReports = typeof prisma.advisorArtifact?.findMany === "function" ? (await prisma.advisorArtifact.findMany({
+    where: { orgId, type: "live_diagnostic" }, orderBy: { createdAt: "desc" }, take: 5,
+    select: { id: true, createdAt: true, content: true }
+  })).filter(row => allowedVehicleIds.has(row.content?.scope?.vehicleId)
+    && (!scopedSelectedVehicleId || row.content.scope.vehicleId === scopedSelectedVehicleId))
+    .map(row => ({ id: row.id, createdAt: row.createdAt, vehicleId: row.content.scope.vehicleId,
+      summary: row.content.summary, counts: row.content.sources?.counts, transmission: row.content.sources?.transmission,
+      brakes: row.content.sources?.brakes, faultCodes: row.content.sources?.faultCodes, limitations: row.content.sources?.limitations })) : [];
   context.riskOverview = buildRiskOverview({ alerts, modelStates, workOrders, dvirRecords, eldDiagnostics, diagnosticScans: scans });
   return context;
 }

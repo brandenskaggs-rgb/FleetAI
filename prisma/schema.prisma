@@ -1035,6 +1035,25 @@ model EldDiagnostic {
   @@index([orgId, detectedAt])
 }
 
+model SensorWatch {
+  id             String    @id @default(cuid())
+  orgId          String
+  vehicleId      String
+  requestId      String
+  groups         Json
+  reason         String
+  requestedBy    String?
+  expiresAt      DateTime
+  stoppedAt      DateTime?
+  acknowledgedAt DateTime?
+  supportedKeys  Json      @default("[]")
+  deviceId       String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@unique([orgId, vehicleId])
+}
+
 model EldTransferAttempt {
   id                String    @id @default(cuid())
   orgId             String
