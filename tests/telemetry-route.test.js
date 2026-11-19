@@ -356,6 +356,21 @@ async function invoke(app, body) {
   assert.strictEqual(transmissionOnly.statusCode, 200);
   assert.strictEqual(productionStores, 2, "a transmission-only reading must be stored as vehicle data, not discarded as a heartbeat");
 
+  const previousPersist = db.persistTelemetryDiagnostics;
+  let diagnosticsStored = 0;
+  db.persistTelemetryDiagnostics = async sample => {
+    assert.equal(sample.orgId, 'ORG_A'); assert.equal(sample.vehicleId, 'TRUCK_1');
+    assert.equal(sample.raw.obdFaultRead.status, 'inconsistent'); diagnosticsStored++;
+  };
+  try {
+    const diagnosticOnly = await invoke(productionApp, {
+      batchId: 'diagnostic-only', protocol: 'OBD2', timestamp: '2026-08-14T12:00:02.000Z', metrics: {},
+      meta: { obdFaultRead: { capturedAt: '2026-08-14T12:00:02.000Z', confirmed: [], pending: null, permanent: null, milOn: true, reportedCodeCount: 1 } }
+    });
+    assert.equal(diagnosticOnly.statusCode, 200);
+    assert.equal(diagnosticsStored, 1);
+    assert.equal(productionStores, 2, 'diagnostics without sensor readings cannot create training samples');
+  } finally { db.persistTelemetryDiagnostics = previousPersist; }
   console.log("Telemetry route tests passed");
 })().catch((error) => {
   console.error(error);

@@ -83,6 +83,17 @@ test("fault evidence uses acquisition time, preserves stale warnings and never i
   assert.equal(report.faultCodes.status, "not_read");
 });
 
+test("latest partial read supersedes earlier empty read and reports the lamp disagreement", async () => {
+  const fault = { capturedAt: now.toISOString(), confirmed: [], pending: null, permanent: ["P0420"], milOn: true, reportedCodeCount: 1 };
+  const report = await runLiveDiagnostic(fixture({ rows: [sample({}, 0, { obdFaultRead: fault }),
+    sample({}, 10000, { activeDTCs: [], dtcCapturedAt: new Date(now - 10000).toISOString(), dtcScanStatus: "read" })] }));
+  assert.equal(report.faultCodes.completeness, "inconsistent");
+  assert.equal(report.faultCodes.milOn, true);
+  assert.equal(report.faultCodes.codes[0].codeStatus, "permanent");
+  assert.match(report.summary, /disagree/); assert.match(report.summary, /P0420 \(permanent\)/);
+  assert.doesNotMatch(report.summary, /no codes|No action needed/);
+});
+
 test("Advisor executes read-only scan without LLM credentials and saves tenant-scoped evidence", async t => {
   const f = fixture();
   t.mock.method(db, "getPrisma", () => f.prisma);

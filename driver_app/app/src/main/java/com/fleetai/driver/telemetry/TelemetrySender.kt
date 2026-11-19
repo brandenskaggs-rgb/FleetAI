@@ -183,10 +183,12 @@ class TelemetrySender(
         if (activeProtocol == "OBD2") {
             requestMeta["dtcScanStatus"] = when {
                 obdDtcs == null -> "not_read"
+                obdDtcs.confirmed == null || obdDtcs.inconsistent -> "partial"
                 System.currentTimeMillis() - obdDtcs.capturedAt > 120_000L -> "stale"
                 else -> "read"
             }
             obdDtcs?.let { requestMeta["dtcCapturedAt"] = Instant.ofEpochMilli(it.capturedAt).toString() }
+            obdDtcs?.let { requestMeta["obdFaultRead"] = it.metadata() }
         }
         if (hasFreshMetrics) {
             val now = System.currentTimeMillis()

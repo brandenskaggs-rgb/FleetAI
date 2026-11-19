@@ -655,15 +655,19 @@ function buildTelemetrySample(normalized, extra = {}) {
   delete raw.heartbeatMs;
   delete raw.vin;
   delete raw.VIN;
+  for (const key of ["activeDTCs", "dtcCapturedAt", "dtcScanStatus", "obdFaultRead"]) delete raw[key];
   const timestamp = normalized.timestamp || new Date().toISOString();
   const meta = extra.meta || normalized.meta || {};
   if (typeof meta.sensorWatchRequestId === "string" && /^[a-f0-9-]{36}$/i.test(meta.sensorWatchRequestId)) {
     raw.sensorWatchRequestId = meta.sensorWatchRequestId;
   }
   const dtcCapturedAt = Date.parse(meta.dtcCapturedAt);
-  const reportedCodes = Array.isArray(normalized.dtc?.active)
+  const faultRead = require("./telematics/diagnostics/obdFaultRead").sanitizeObdFaultRead(meta.obdFaultRead);
+  if (faultRead && Date.parse(faultRead.capturedAt) <= Date.parse(timestamp) + 5000) raw.obdFaultRead = faultRead;
+  const reportedCodes = faultRead ? faultRead.confirmed : Array.isArray(normalized.dtc?.active)
     ? normalized.dtc.active.map(item => typeof item === "string" ? item : item?.code) : null;
-  if (["read", "stale"].includes(meta.dtcScanStatus) && Number.isFinite(dtcCapturedAt)
+  if ((!faultRead || (raw.obdFaultRead && faultRead.confirmed !== null && faultRead.status !== "inconsistent"))
+      && ["read", "stale"].includes(meta.dtcScanStatus) && Number.isFinite(dtcCapturedAt)
       && dtcCapturedAt <= Date.parse(timestamp) + 5000 && reportedCodes
       && reportedCodes.length <= 255
       && reportedCodes.every(code => typeof code === "string" && /^[PCBU][0-3][0-9A-F]{3}$/i.test(code))) {

@@ -99,7 +99,27 @@ async function checkNewWorkspace(page, fixture, output) {
   await page.click('#btnAddDriver');await page.fill('#newDrvFirst','Taylor');await page.fill('#newDrvLast','Test');await page.fill('#newDrvPhone','5550102');
   await page.click('#btnSaveDriver');await page.waitForFunction(()=>document.querySelector('#view-drivers').textContent.includes('Taylor'));
   assert.equal(fixture.drivers.length,2);
+  fixture.controls.advisorReport=true;
   await page.evaluate(()=>window.renderRoute('advisor'));await page.waitForTimeout(200);
+  await page.waitForSelector('a[href="/api/advisor/artifacts/TEST-PDF/download?inline=1"]');
+  assert.equal(await page.locator('a[href="/api/advisor/artifacts/TEST-PDF/download?inline=1"]').first().getAttribute('target'),'_blank');
+  await page.evaluate(()=>window.renderRoute('dtc-history'));
+  await page.waitForFunction(()=>document.querySelector('#dtcReadStatus')?.textContent.includes('disagree'));
+  assert.match(await page.textContent('#dtcReadStatus'),/Check-engine command: ON/);
+  assert.match(await page.textContent('#dtc-historyRows'),/does not rule out/);
+  await page.evaluate(()=>window.renderRoute('advisor'));await page.waitForTimeout(200);
+  await page.fill('#advisorPageInput','Generate a PDF for Unit 214');
+  await page.locator('#advisorPageForm [data-advisor-send]').click();
+  await page.waitForSelector('#advisorPageThread a[href$="?inline=1"]');
+  assert.equal(await page.locator('#advisorThread a[href$="?inline=1"]').count(),1,'dock and full-page conversation both include the PDF');
+  await page.evaluate(()=>window.renderRoute('vehicles'));
+  await page.evaluate(()=>window.renderRoute('advisor'));
+  await page.waitForSelector('#advisorPageThread a[href$="?inline=1"]');
+  for(const width of [375,1024,1440]){
+    await page.setViewportSize({width,height:960});
+    assert.ok(await page.evaluate(()=>document.querySelector('.main').scrollWidth-document.querySelector('.main').clientWidth)<=1,'report attachment must fit');
+    await page.screenshot({path:path.join(output,`advisor-pdf-${width}.png`),fullPage:true});
+  }
   await page.screenshot({path:path.join(output,'advisor-1440.png'),fullPage:true});
   await page.evaluate(()=>window.renderRoute('safety'));
   assert.match(await page.textContent('#view-safety'),/not available/);

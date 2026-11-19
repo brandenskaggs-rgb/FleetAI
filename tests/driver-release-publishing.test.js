@@ -62,10 +62,11 @@ test("public release/download routes serve only the advertised APK without touch
   const metadataResponse = await fetch(origin + "/api/driver/releases/latest?channel=pilot-debug");
   assert.equal(metadataResponse.headers.get("cache-control"), "no-store");
   const { release } = await metadataResponse.json();
-  assert.equal(release.versionCode, 19);
+  const manifest = JSON.parse(fs.readFileSync(path.join(__dirname, "../releases/driver/pilot.json"), "utf8"));
+  assert.equal(release.versionCode, manifest.versionCode);
   const apk = await fetch(origin + new URL(release.url).pathname);
   assert.equal(apk.status, 200);
-  assert.match(apk.headers.get("content-disposition"), /fleetai-19\.apk/);
+  assert.ok(apk.headers.get("content-disposition").includes(manifest.filename));
   const bytes = Buffer.from(await apk.arrayBuffer());
   assert.equal(bytes.length, release.sizeBytes);
   assert.equal(crypto.createHash("sha256").update(bytes).digest("hex"), release.sha256);

@@ -22,6 +22,7 @@ const db = require("../db");
 const { decodeCode, summarize, driverGuidance } = require("../telematics/diagnostics/dtcCatalog");
 const { buildSensorView, SENSORS, GROUPS } = require("../telematics/diagnostics/sensorCatalog");
 const { requireOperatorOrDevice: buildOperatorOrDevice, requireDevice } = require("../middleware/deviceAuth");
+const { diagnosticReadStatus } = require("../telematics/diagnostics/obdFaultRead");
 
 // Severity → the shape the rest of the platform already speaks.
 const ALERT_SEVERITY = { critical: "critical", warning: "warning", info: "info", unknown: "warning" };
@@ -125,7 +126,10 @@ function registerDiagnosticsRoutes(app, deps) {
       if (!scope) return;
       const { vehicleId, orgId } = scope;
 
-      const rawCodes = Array.isArray(req.body?.codes) ? req.body.codes : [];
+      if (!Array.isArray(req.body?.codes)) {
+        return res.status(400).json({ ok: false, error: "CODES_REQUIRED", message: "An explicit code-read result is required. Missing data is not a clean scan." });
+      }
+      const rawCodes = req.body.codes;
       if (rawCodes.length > 200) {
         return res.status(400).json({ ok: false, error: "TOO_MANY_CODES", message: "A scan may report at most 200 codes." });
       }
@@ -255,18 +259,19 @@ function registerDiagnosticsRoutes(app, deps) {
     try {
       const scope = await authorizeVehicle(req, res);
       if (!scope) return;
-      const scans = await db.listDiagnosticScans(scope.vehicleId, { limit: 100 });
+      const scans = await db.listDiagnosticScans(scope.vehicleId, { limit: 100, orgId: scope.orgId });
       const rows = scans.flatMap((scan) => (scan.codes || []).map((code) => ({
         scanId: scan.id,
         vehicleId: scope.vehicleId,
         code: code.code || "",
+        codeStatus: code.codeStatus || "recorded",
         description: code.parameter || code.description || "",
         severity: code.severity || scan.severity || "unknown",
         firstSeen: scan.scannedAt,
         lastSeen: scan.scannedAt,
         source: scan.source
       })));
-      res.json({ ok: true, data: rows });
+      res.json({ ok: true, data: rows, diagnosticStatus: diagnosticReadStatus(scans[0]) });
     } catch (err) {
       next(err);
     }

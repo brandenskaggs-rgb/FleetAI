@@ -1,5 +1,5 @@
-const REPORT_ACTION_WORDS = /\b(create|generate|build|prepare|export|make|produce|write|give me|pull)\b/i;
-const REPORT_NOUNS = /\b(report|brief|summary|risk assessment|drive log|trip log)\b/i;
+const REPORT_ACTION_WORDS = /\b(create|generate|build|prepare|export|make|produce|write|give me|pull|download|send me)\b/i;
+const REPORT_NOUNS = /\b(report|pdf|brief|summary|risk assessment|drive log|trip log)\b/i;
 const WORK_ORDER_WORDS = /\b(create|open|schedule|add|start)\b.*\bwork order\b|\bwork order\b.*\b(create|open|schedule|add|start)\b/i;
 
 const { watchProposal } = require("./sensorWatchService");
@@ -27,14 +27,14 @@ function reportTitle(type, organizationName) {
 }
 
 function resolveVehicleFromQuestion(message, context) {
-  if (context.selectedVehicleId) return context.selectedVehicleId;
   const text = String(message || "").toLowerCase();
-  const match = (context.assets || []).find((vehicle) =>
+  if (/\b(entire fleet|whole fleet|all vehicles|all trucks|all cars)\b/.test(text)) return null;
+  const matches = (context.assets || []).filter((vehicle) =>
     [vehicle.vehicleId, vehicle.unitName]
       .filter(Boolean)
-      .some((value) => text.includes(String(value).toLowerCase()))
+      .some((value) => new RegExp(`(^|[^a-z0-9])${String(value).toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}($|[^a-z0-9])`).test(text))
   );
-  return match?.vehicleId || null;
+  return matches.length === 1 ? matches[0].vehicleId : matches.length > 1 ? null : context.selectedVehicleId || null;
 }
 
 function planAdvisorActions(message, context) {
@@ -42,7 +42,7 @@ function planAdvisorActions(message, context) {
   const actions = [];
   const watch = watchProposal(text, resolveVehicleFromQuestion(text, context));
   if (watch) actions.push(watch);
-  if (REPORT_ACTION_WORDS.test(text) && REPORT_NOUNS.test(text)) {
+  if (REPORT_ACTION_WORDS.test(text) && REPORT_NOUNS.test(text) && !/\b(don't|do not|never|cancel)\b/i.test(text)) {
     const type = reportTypeFor(text);
     actions.push({
       action: "generate_report",
@@ -72,24 +72,29 @@ function planAdvisorActions(message, context) {
 }
 
 function reportSections(type, context, vehicleId = null) {
-  const scoped = (records) => (vehicleId ? (records || []).filter((record) => !record?.vehicleId || record.vehicleId === vehicleId) : (records || []));
+  const scoped = (records) => (vehicleId ? (records || []).filter((record) => record?.vehicleId === vehicleId) : (records || []));
+  const inspections = { dvir: scoped(context.inspections?.dvir), diagnosticScans: scoped(context.inspections?.diagnosticScans) };
+  const compliance = { dutyEvents: scoped(context.compliance?.dutyEvents), diagnostics: scoped(context.compliance?.diagnostics),
+    recentCertifications: vehicleId ? [] : context.compliance?.recentCertifications || [] };
   const common = {
     generatedAt: context.generatedAt,
     lookbackDays: context.lookbackDays,
     organization: context.organization,
     requestedVehicleId: vehicleId,
-    riskOverviewScope: "organization",
+    assets: scoped(context.assets),
+    predictions: scoped(context.predictions),
+    riskOverviewScope: context.riskOverviewScope || "organization",
     recordCounts: context.recordCounts,
     riskOverview: context.riskOverview,
     learningEvidenceScope: "organization",
-    learning: context.learning || null
+    learning: context.learning ? { ...context.learning, recentOutcomes: scoped(context.learning.recentOutcomes) } : null
   };
   if (type === "drive") return { ...common, driveLogs: scoped(context.driveLogs), vehicleHealth: scoped(context.vehicleHealth), alerts: scoped(context.alerts) };
   if (type === "maintenance") return { ...common, maintenance: scoped(context.maintenance), workOrders: scoped(context.workOrders), inspections: { dvir: scoped(context.inspections?.dvir), diagnosticScans: scoped(context.inspections?.diagnosticScans) }, vehicleHealth: scoped(context.vehicleHealth) };
-  if (type === "compliance") return { ...common, compliance: context.compliance, inspections: context.inspections, drivers: context.drivers };
+  if (type === "compliance") return { ...common, compliance, inspections, drivers: vehicleId ? [] : context.drivers };
   if (type === "cost") return { ...common, fuel: scoped(context.fuel), maintenance: scoped(context.maintenance), assets: scoped(context.assets) };
   if (type === "risk") return { ...common, vehicleHealth: scoped(context.vehicleHealth), alerts: scoped(context.alerts), driveLogs: scoped(context.driveLogs), inspections: { dvir: scoped(context.inspections?.dvir), diagnosticScans: scoped(context.inspections?.diagnosticScans) }, workOrders: scoped(context.workOrders) };
-  return { ...common, assets: context.assets, drivers: context.drivers, vehicleHealth: context.vehicleHealth, alerts: context.alerts, driveLogs: context.driveLogs, maintenance: context.maintenance, compliance: context.compliance };
+  return { ...common, drivers: vehicleId ? [] : context.drivers, vehicleHealth: scoped(context.vehicleHealth), alerts: scoped(context.alerts), driveLogs: scoped(context.driveLogs), maintenance: scoped(context.maintenance), workOrders: scoped(context.workOrders), inspections, compliance, fuel: scoped(context.fuel) };
 }
 
 function buildReportArtifact({ action, context, reply, request, userId }) {

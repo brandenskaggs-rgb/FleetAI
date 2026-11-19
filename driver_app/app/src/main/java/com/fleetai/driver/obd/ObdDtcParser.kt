@@ -1,8 +1,9 @@
 package com.fleetai.driver.obd
 
-/** Mode 03, ELM headers-off output. null means unreadable, not a clean scan. */
+/** Read-only modes 03/07/0A, ELM headers-off output. null is not an empty scan. */
 object ObdDtcParser {
-    fun parse(response: String, can: Boolean): List<String>? {
+    fun parse(response: String, can: Boolean, mode: String = "03"): List<String>? {
+        val prefix = when (mode) { "03" -> "43"; "07" -> "47"; "0A" -> "4A"; else -> return null }
         val packets = mutableListOf<String>()
         var multi = ""
         var nextLine = 0
@@ -18,7 +19,7 @@ object ObdDtcParser {
         }
         for (raw in response.uppercase().replace(">", "").split(Regex("[\\r\\n]+"))) {
             val line = raw.trim().replace(" ", "").replace("\t", "")
-            if (line.isEmpty() || line == "03" || line == "SEARCHING..." || line == "BUSINIT:OK") continue
+            if (line.isEmpty() || line == mode || line == "SEARCHING..." || line == "BUSINIT:OK") continue
             if (line.matches(Regex("[0-9A-F]{3}"))) {
                 if (!finish()) return null
                 expectedLength = line.toInt(16)
@@ -32,18 +33,20 @@ object ObdDtcParser {
                 multi += numbered.groupValues[2]
             } else {
                 if (!finish()) return null
-                if (!line.matches(Regex("43[0-9A-F]*"))) return null
+                if (!line.matches(Regex("${prefix}[0-9A-F]*"))) return null
                 packets.add(line)
             }
         }
         if (!finish() || packets.isEmpty()) return null
         val codes = mutableSetOf<String>()
         for (packet in packets) {
-            if (!packet.startsWith("43") || packet.length % 2 != 0) return null
+            if (!packet.startsWith(prefix) || packet.length % 2 != 0) return null
             var data = packet.drop(2).chunked(2).map { it.toInt(16) }
             if (can) {
                 val count = data.firstOrNull() ?: return null
                 if (data.size < 1 + count * 2) return null
+                // A zero count with nonzero payload is ambiguous, not proof of no faults.
+                if (count == 0 && data.drop(1).any { it != 0 }) return null
                 data = data.drop(1).take(count * 2)
             }
             if (data.isEmpty() && !can || data.size % 2 != 0) return null
@@ -55,5 +58,20 @@ object ObdDtcParser {
             }
         }
         return codes.sorted()
+    }
+
+    data class MonitorStatus(val milOn: Boolean, val maxStoredCodeCount: Int)
+
+    fun parseMonitorStatus(response: String): MonitorStatus? {
+        val values = mutableListOf<Int>()
+        for (raw in response.uppercase().replace(">", "").split(Regex("[\\r\\n]+"))) {
+            val line = raw.filterNot { it.isWhitespace() }
+            if (line.isEmpty() || line == "0101" || line == "SEARCHING..." || line == "BUSINIT:OK") continue
+            if (!line.matches(Regex("4101[0-9A-F]{8}"))) return null
+            values.add(line.substring(4, 6).toInt(16))
+        }
+        if (values.isEmpty()) return null
+        // Headers are off: duplicate ECU replies cannot safely be summed.
+        return MonitorStatus(values.any { it and 128 != 0 }, values.maxOf { it and 127 })
     }
 }

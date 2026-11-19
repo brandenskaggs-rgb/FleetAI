@@ -25,6 +25,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -180,11 +182,13 @@ class ObdTelemetryService : Service() {
     private suspend fun pollConnectedAdapter(
         plan: List<PidSpec>,
         extendedPlan: List<ExtendedPidDefinition>
-    ): Boolean {
+    ): Boolean = coroutineScope {
         val latestValues = mutableMapOf<String, Double>()
         val updatedAt = mutableMapOf<String, Long>()
         val lastPolledAt = mutableMapOf<String, Long>()
         var lastDtcPollAt = 0L
+        var diagnosticJob: Job? = null
+        try {
         if (plan.isEmpty() && extendedPlan.isEmpty()) {
             ObdRuntime.publish(ObdRuntimeSnapshot(standardPlan = plan, extendedPlan = extendedPlan))
             ObdRuntime.update(ObdRuntime.State.WAITING_FOR_ECU, "ECU connected - no supported live PIDs advertised")
@@ -232,12 +236,14 @@ class ObdTelemetryService : Service() {
                     updatedAt[reading.key] = System.currentTimeMillis()
                 }
             }
-            // One serialized read-only request per minute, after live sensor reads.
-            if (successfulReads > 0 && now - lastDtcPollAt >= 60_000L) {
+            // Share the adapter command mutex without blocking publication of sensor batches.
+            if (successfulReads > 0 && diagnosticJob?.isActive != true && now - lastDtcPollAt >= 60_000L) {
                 lastDtcPollAt = now
-                try { obd.readDtcs() }
-                catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
-                catch (_: Exception) { /* Keep last successful evidence; never invent a clean scan. */ }
+                diagnosticJob = launch {
+                    try { obd.readDtcs() }
+                    catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
+                    catch (_: Exception) { /* Unreadable results remain incomplete, never clean. */ }
+                }
             }
             expireStale(plan, extendedPlan, latestValues, updatedAt, now)
             val boostSourceAt = maxOf(updatedAt["mapKpa"] ?: 0L, updatedAt["barometricPressureKpa"] ?: 0L)
@@ -263,7 +269,8 @@ class ObdTelemetryService : Service() {
             updateNotification(if (currentFocus != null) "$status - focused sensor watch" else status)
             delay(100L)
         }
-        return !obd.isConnected()
+        !obd.isConnected()
+        } finally { diagnosticJob?.cancelAndJoin() }
     }
 
     private suspend fun watchRequests(vehicleId: String, plan: List<PidSpec>, extended: List<ExtendedPidDefinition>) {

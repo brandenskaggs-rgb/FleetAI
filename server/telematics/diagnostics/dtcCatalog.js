@@ -283,13 +283,16 @@ function driverGuidance(summary) {
       detail: "The engine may derate. Continue to the nearest safe service location rather than starting a new leg."
     };
   }
+  if (["partial", "inconsistent"].includes(summary.obdFaultRead?.status)) {
+    return { headline: "Incomplete diagnostic read", detail: "Some results are missing or disagree with check-engine status. Warning lights and symptoms still need inspection. TPMS and ABS coverage is not verified." };
+  }
   if (summary.severity === "warning") {
     return {
       headline: "Report at end of shift",
       detail: "Faults were recorded that need attention but do not require stopping. Note them on your DVIR."
     };
   }
-  return { headline: "No action needed", detail: "No active faults were found on this scan." };
+  return { headline: "No actionable codes in this read", detail: "This is not proof that the vehicle is fault-free or safe to drive. Warning lights and symptoms still need inspection; module coverage may be incomplete." };
 }
 
 module.exports = {

@@ -128,12 +128,12 @@ function sanitizeLegacyRecords(records, orgId, limit, mapper) {
     .map(mapper);
 }
 
-async function buildFleetAdvisorContext({ db, orgId, query, selectedVehicleId, legacyData = {}, now = new Date() }) {
+async function buildFleetAdvisorContext({ db, orgId, query, selectedVehicleId, scopeToVehicle = false, legacyData = {}, now = new Date() }) {
   if (typeof orgId !== "string" || !orgId.trim()) throw new Error("Advisor context requires an organization");
   const prisma = db.getPrisma();
   const lookback = new Date(now.getTime() - DEFAULT_LOOKBACK_DAYS * 86_400_000);
   const selectedId = String(selectedVehicleId || "").trim();
-  const vehicleWhere = { orgId };
+  const vehicleWhere = { orgId, ...(scopeToVehicle && selectedId ? { vehicleId: selectedId } : {}) };
   const sampleWhere = { orgId, vehicle: { orgId }, ts: { gte: lookback } };
   if (selectedId) sampleWhere.vehicleId = selectedId;
 
@@ -141,17 +141,17 @@ async function buildFleetAdvisorContext({ db, orgId, query, selectedVehicleId, l
     prisma.org.findUnique({ where: { id: orgId }, select: { id: true, name: true, status: true } }),
     prisma.vehicle.findMany({ where: vehicleWhere, orderBy: { unitName: "asc" }, take: 100 }),
     prisma.driver.findMany({ where: { orgId }, orderBy: { updatedAt: "desc" }, take: 100 }),
-    prisma.alert.findMany({ where: { orgId }, orderBy: { createdAt: "desc" }, take: 50 }),
-    prisma.modelState.findMany({ where: { orgId }, orderBy: { updatedAt: "desc" }, take: 100 }),
+    prisma.alert.findMany({ where: vehicleWhere, orderBy: { createdAt: "desc" }, take: 50 }),
+    prisma.modelState.findMany({ where: vehicleWhere, orderBy: { updatedAt: "desc" }, take: 100 }),
     prisma.telemetrySample.findMany({ where: sampleWhere, orderBy: { ts: "desc" }, take: 2500, select: { vehicleId: true, ts: true, metrics: true } }),
-    prisma.maintenanceLog.findMany({ where: { orgId }, orderBy: { performedAt: "desc" }, take: 50 }),
-    prisma.workOrder.findMany({ where: { orgId }, orderBy: { updatedAt: "desc" }, take: 50 }),
-    prisma.diagnosticScan.findMany({ where: { orgId }, orderBy: { scannedAt: "desc" }, take: 30 }),
-    prisma.fuelEvent.findMany({ where: { orgId }, orderBy: { createdAt: "desc" }, take: 40 }),
-    prisma.aiReport.findMany({ where: { orgId }, orderBy: { createdAt: "desc" }, take: 12 }),
-    prisma.mlPredictionRun.findMany({ where: { orgId }, orderBy: { createdAt: "desc" }, take: 30 }),
-    prisma.eldEvent.findMany({ where: { orgId }, orderBy: { occurredAt: "desc" }, take: 100 }),
-    prisma.eldDiagnostic.findMany({ where: { orgId }, orderBy: { detectedAt: "desc" }, take: 30 }),
+    prisma.maintenanceLog.findMany({ where: vehicleWhere, orderBy: { performedAt: "desc" }, take: 50 }),
+    prisma.workOrder.findMany({ where: vehicleWhere, orderBy: { updatedAt: "desc" }, take: 50 }),
+    prisma.diagnosticScan.findMany({ where: vehicleWhere, orderBy: { scannedAt: "desc" }, take: 30 }),
+    prisma.fuelEvent.findMany({ where: vehicleWhere, orderBy: { createdAt: "desc" }, take: 40 }),
+    prisma.aiReport.findMany({ where: vehicleWhere, orderBy: { createdAt: "desc" }, take: 12 }),
+    prisma.mlPredictionRun.findMany({ where: vehicleWhere, orderBy: { createdAt: "desc" }, take: 30 }),
+    prisma.eldEvent.findMany({ where: vehicleWhere, orderBy: { occurredAt: "desc" }, take: 100 }),
+    prisma.eldDiagnostic.findMany({ where: vehicleWhere, orderBy: { detectedAt: "desc" }, take: 30 }),
     prisma.eldRecordCertification.findMany({ where: { orgId }, orderBy: { certifiedAt: "desc" }, take: 30 })
   ]);
 
@@ -187,6 +187,7 @@ async function buildFleetAdvisorContext({ db, orgId, query, selectedVehicleId, l
     question: String(query || "").slice(0, 2000),
     organization: org,
     selectedVehicleId: scopedSelectedVehicleId,
+    riskOverviewScope: scopeToVehicle && selectedId ? "vehicle" : "organization",
     recordCounts: {
       vehicles: vehicles.length,
       drivers: drivers.length,
@@ -238,7 +239,7 @@ async function buildFleetAdvisorContext({ db, orgId, query, selectedVehicleId, l
     workOrders: workOrders.map((order) => ({ evidenceRef: `work-order:${order.id}`, id: order.id, vehicleId: order.vehicleId, title: order.title, description: order.description, status: order.status, priority: order.priority, dueDate: iso(order.dueDate), updatedAt: iso(order.updatedAt) })),
     inspections: {
       dvir: dvirRecords,
-      diagnosticScans: scans.map((scan) => ({ evidenceRef: `diagnostic-scan:${scan.id}`, id: scan.id, vehicleId: scan.vehicleId, driverId: scan.driverId, severity: scan.severity, driveability: scan.driveability, codeCount: scan.codeCount, codes: scan.codes, scannedAt: iso(scan.scannedAt) }))
+      diagnosticScans: scans.map((scan) => ({ evidenceRef: `diagnostic-scan:${scan.id}`, id: scan.id, vehicleId: scan.vehicleId, driverId: scan.driverId, severity: scan.severity, driveability: scan.driveability, codeCount: scan.codeCount, codes: scan.codes, diagnosticStatus: require("../telematics/diagnostics/obdFaultRead").diagnosticReadStatus(scan, now.getTime()), scannedAt: iso(scan.scannedAt) }))
     },
     compliance: {
       dutyEvents: eldEvents.map((event) => ({ evidenceRef: `eld-event:${event.id}`, id: event.id, vehicleId: event.vehicleId, driverId: event.driverId, dutyStatus: dutyLabel(event.eventType, event.eventCode), eventType: event.eventType, eventCode: event.eventCode, occurredAt: iso(event.occurredAt), annotation: event.annotation, malfunctionIndicator: event.malfunctionIndicator, diagnosticIndicator: event.diagnosticIndicator })),

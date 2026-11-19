@@ -7,7 +7,7 @@
   <link rel="icon" href="/assets/brand/fleet-ai-mark.svg?v=link1" type="image/svg+xml" />
   <link rel="stylesheet" href="../assets/vendor/leaflet/leaflet.css" />
   <link rel="stylesheet" href="../css/fonts.css?v=20260908" />
-  <link rel="stylesheet" href="../css/dashboard-link.css?v=link2" />
+  <link rel="stylesheet" href="../css/dashboard-link.css?v=link3" />
 </head>
 <body>
   <div class="app" id="app">
@@ -392,7 +392,20 @@
     }
     async function loadFuelEvents(){ if(!state.selectedVehicleId){ genericPanel("fuel-events","Fuel Activity","Detected and manual refuel records",`<div class="muted">Select or register a vehicle to review fuel events.</div>`); return; } await loadSimpleTable("fuel-events","Fuel Activity","Detected and manual refuel records",["/api/fuel/events?vehicleId="+encodeURIComponent(state.selectedVehicleId),"/api/fuel-events?vehicleId="+encodeURIComponent(state.selectedVehicleId)],["Date","Vehicle","Gallons","Cost","Location"],r=>`<tr><td>${esc((r.date||r.createdAt||"").slice(0,10))}</td><td>${esc(r.vehicleName||r.vehicleId||"--")}</td><td>${num(r.gallons||r.volume)}</td><td>$${num(r.cost||r.totalCost,"0")}</td><td>${esc(r.location||"Yard")}</td></tr>`,"No fuel events have been recorded."); }
     async function loadHealthRisk(){ await loadSimpleTable("health-risk","Vehicle health scores","Lowest scores require first action",["/api/ml/state"],["Vehicle","Score","Charging Profile","Charging Evidence","Flags","Last Seen"],r=>{const flags=r.flags||r.anomalyFlags||[];const charge=r.chargingEvidence||{};const target=Number(charge.nominalTarget);return `<tr><td>${esc(r.vehicleName||r.vehicleId)}</td><td>${riskPill(r.healthScore??"--")}</td><td>${esc(charge.profileLabel||"Adaptive charging")}${Number.isFinite(target)?`<div class="muted">Nominal ${target.toFixed(1)} V</div>`:""}</td><td>${riskPill(charge.status||"Calibrating")}<div class="muted">${esc(charge.explanation||"Collecting engine-running voltage evidence.")}</div></td><td>${esc(Array.isArray(flags)?flags.join(", "):(flags||"No anomaly flags"))}</td><td>${esc(formatDateTime(r.lastSeen||r.updatedAt))}</td></tr>`;},"No health scores are available yet."); }
-    async function loadDtcHistory(){ const v=encodeURIComponent(state.selectedVehicleId||""); if(!v){ genericPanel("dtc-history","Diagnostic Codes","Stored OBD-II and J1939 fault codes",`<div class="muted">Select or register a vehicle to review fault codes.</div>`); return; } await loadSimpleTable("dtc-history","Diagnostic Codes","Stored OBD-II and J1939 fault codes",[`/api/vehicles/${v}/dtc-history`,`/api/dtc-history?vehicleId=${v}`],["Code","Description","Severity","First Seen","Last Seen"],r=>`<tr><td class="mono">${esc(r.code)}</td><td>${esc(r.description||r.text||"Diagnostic code captured")}</td><td>${riskPill(r.severity||"Info")}</td><td>${esc(r.firstSeen||r.ts||"--")}</td><td>${esc(r.lastSeen||r.ts||"--")}</td></tr>`,"No DTC records for the selected vehicle."); }
+    async function loadDtcHistory(){
+      const vehicleId=state.selectedVehicleId||"",v=encodeURIComponent(vehicleId);
+      if(!v){genericPanel("dtc-history","Diagnostic Codes","Recorded fault-code evidence",`<div class="muted">Select or register a vehicle to review fault codes.</div>`);return;}
+      genericPanel("dtc-history","Diagnostic Codes","Warning lights still need investigation, even when no codes appear.",`<div id="dtcReadStatus" role="status" class="cardMeta">Loading diagnostic evidence...</div><div class="sectionActions"><button class="btn ghost" data-export="dtc-history">Export CSV</button></div><div class="tableWrap"><table class="table"><thead><tr><th>Code</th><th>Status</th><th>Description</th><th>Severity</th><th>Read at</th></tr></thead><tbody id="dtc-historyRows"><tr><td colspan="5"><div class="skeleton"></div></td></tr></tbody></table></div><div id="dtc-historyError" class="inlineError"></div>`);
+      try{
+        const result=await apiGet([`/api/vehicles/${v}/dtc-history`,`/api/dtc-history?vehicleId=${v}`]);
+        if(state.selectedVehicleId!==vehicleId)return;
+        const status=result.diagnosticStatus||{};
+        const lamp=status.milOn===true?"Check-engine command: ON":status.milOn===false?"Check-engine command: OFF at last read":"Check-engine command: not read";
+        $("dtcReadStatus").textContent=`${status.message||"No verified scan-completeness information is available."} ${lamp}. Read: ${formatDateTime(status.capturedAt)} (${status.freshness||"unknown age"}; ${status.completeness||"unknown coverage"}). ${status.coverage||"TPMS and ABS module coverage is not verified."}`;
+        const rows=unwrap(result);
+        $("dtc-historyRows").innerHTML=rows.length?rows.map(r=>`<tr><td class="mono">${esc(r.code)}</td><td>${esc(r.codeStatus||"Recorded")}</td><td>${esc(r.description||"Diagnostic code captured")}</td><td>${riskPill(r.severity||"Unknown")}</td><td>${esc(formatDateTime(r.lastSeen||r.firstSeen))}</td></tr>`).join(""):rowsEmpty(5,"No code records were retrieved. This does not rule out a fault, a warning light, or an unread module.");
+      }catch(e){if(state.selectedVehicleId!==vehicleId)return;$("dtcReadStatus").textContent="Fault-code evidence could not be loaded. No clean scan has been established.";$("dtc-historyRows").innerHTML=rowsEmpty(5,"Diagnostic read unavailable.");err("dtc-historyError",e.message);}
+    }
     async function loadAlerts(){ await loadSimpleTable("alerts","Alert Queue","Active conditions and preserved alert history",["/api/ml/alerts"],["Vehicle","Type","Severity","Detected","Evidence","Status"],r=>`<tr><td>${esc(r.vehicleId||r.unit||"--")}</td><td>${esc(r.type||r.title||"Alert")}</td><td>${riskPill(r.severity||r.sev||"Info")}</td><td>${esc(formatDateTime(r.time||r.createdAt))}</td><td>${esc(r.explanation||r.message||r.desc||"No evidence summary was recorded.")}</td><td>${r.resolved?riskPill("Resolved"):r.acknowledged?riskPill("Acknowledged"):riskPill("Active")}<div class="sectionActions">${r.id&&!r.acknowledged&&!r.resolved?`<button class="btn ghost" data-ack="${esc(r.id)}">Acknowledge</button>`:""}${r.id&&!r.resolved?`<button class="btn ghost" data-resolve="${esc(r.id)}">Resolve</button>`:""}</div></td></tr>`,"No fleet alerts have been recorded."); document.querySelectorAll("[data-ack]").forEach(button=>button.onclick=async()=>{button.disabled=true;try{await apiPost(`/api/alerts/${encodeURIComponent(button.dataset.ack)}/ack`,{});await loadAlerts();pollAlertCount();}catch(e){err("alertsError",e.message);button.disabled=false;}}); document.querySelectorAll("[data-resolve]").forEach(button=>button.onclick=async()=>{button.disabled=true;try{await apiPost(`/api/alerts/${encodeURIComponent(button.dataset.resolve)}/resolve`,{});await loadAlerts();pollAlertCount();}catch(e){err("alertsError",e.message);button.disabled=false;}}); }
     async function loadSafetyEvents(){
       genericPanel("safety","Coaching events","No connected coaching-event source",`<p class="muted">Event counts and coaching assignments are not available. This does not mean that no safety events occurred.</p><button class="btn primary" id="btnCoachingPerformance" type="button">View driver performance</button>`);
@@ -500,7 +513,7 @@
     function renderAdvisorConversation(){
       const thread=$("advisorPageThread");if(!thread)return;
       thread.innerHTML=state.advisor.length
-        ? state.advisor.map(message=>advisorMessageMarkup(message.role,message.content)).join("")
+        ? state.advisor.map(message=>advisorMessageMarkup(message.role,message.content,(message.artifacts||[]).map(advisorPdfAttachment).join(""))).join("")
         : advisorMessageMarkup("assistant","I’m ready. Ask me about a vehicle, a recent drive, maintenance risk, inspections, compliance, or operating cost. I’ll use the latest records available to this workspace.");
       thread.scrollTop=thread.scrollHeight;
     }
@@ -535,7 +548,7 @@
       try{
         const response=await apiGet("/api/advisor/artifacts");
         const reports=Array.isArray(response?.data)?response.data:[];
-        list.innerHTML=reports.length?reports.slice(0,8).map(report=>`<div class="advisorReportRow"><div><strong>${esc(report.title)}</strong><span>${esc(report.type)} report · ${esc(report.createdAt?new Date(report.createdAt).toLocaleString():"")}</span></div><button class="btn" type="button" data-advisor-download="${esc(report.downloadUrl)}">Download</button></div>`).join(""):`<span>No advisor reports have been generated yet.</span>`;
+        list.innerHTML=reports.length?reports.slice(0,8).map(report=>advisorPdfAttachment(report)).join(""):`<span>No advisor reports have been generated yet.</span>`;
       }catch(error){list.textContent=`Reports couldn't be loaded: ${error.message}`;}
     }
     async function aiAdvisorCheckStatus(){ try{ const s=await apiGet("/api/advisor/status"); const label=s.available?`Connected to ${s.provider} · ${s.model}`:(s.enabled?`${s.provider} API key is not configured`:"AI features are disabled"); [$("advisorDockStatus"),$("advisorPageStatus")].filter(Boolean).forEach(el=>el.textContent=label); }catch(_){[$("advisorDockStatus"),$("advisorPageStatus")].filter(Boolean).forEach(el=>el.textContent="Advisor service status unavailable");} await loadAdvisorArtifacts(); }
@@ -563,9 +576,14 @@
       const proposed=Array.isArray(result?.proposedActions)?result.proposedActions:[];
       state.advisorActions=state.advisorActions||{};
       proposed.forEach(action=>{state.advisorActions[action.id]=action;});
-      const links=artifacts.map(artifact=>`<button class="btn" type="button" data-advisor-download="${esc(artifact.downloadUrl)}">${esc(`Download ${artifact.type} report`)}</button>`);
+      const links=artifacts.map(advisorPdfAttachment);
       const buttons=proposed.map(action=>`<button class="btn primary" type="button" data-advisor-action="${esc(action.id)}">${esc(action.label||"Confirm action")}</button>`);
       return links.length||buttons.length?`<div class="advisorActions">${links.join("")}${buttons.join("")}</div>`:"";
+    }
+    function advisorPdfAttachment(report){
+      const url=String(report.downloadUrl||"");
+      if(!/^\/api\/advisor\/artifacts\/[a-zA-Z0-9_%.-]+\/download$/.test(url))return "";
+      return `<div class="advisorReportRow"><div class="advisorReportTitle"><strong>${esc(report.title||"Fleet AI report")}</strong><span>PDF · ${esc(report.createdAt?formatDateTime(report.createdAt):"Saved evidence snapshot")}</span></div><div class="sectionActions"><a class="btn" href="/api/advisor/artifacts/${esc(url.split('/')[4])}/download?inline=1" target="_blank" rel="noopener">Open PDF</a><button class="btn ghost" type="button" data-advisor-download="${esc(url)}">Download PDF</button></div></div>`;
     }
     async function executeAdvisorAction(actionId,button){
       const action=state.advisorActions?.[actionId];
@@ -586,7 +604,7 @@
     }
     async function sendAdvisor(query){
       if(state.advisorBusy)return;
-      const history=state.advisor.slice(-8);
+      const history=state.advisor.slice(-8).map(({role,content})=>({role,content}));
       state.advisor.push({role:"user",content:query});
       appendAdvisorMessage("user",query);
       const loadingId=`advisor-${Date.now()}`;
@@ -598,7 +616,7 @@
         if(remaining>0)await new Promise(resolve=>setTimeout(resolve,remaining));
         clearAdvisorTyping(loadingId);
         const reply=r.reply||r.data?.reply||"I couldn't generate a useful answer from the current fleet record.";
-        state.advisor.push({role:"assistant",content:reply});
+        state.advisor.push({role:"assistant",content:reply,artifacts:r.artifacts||[]});
         state.advisor=state.advisor.slice(-10);
         state.advisorRetrieved=r.retrieved||r.data?.retrieved||null;
         appendAdvisorMessage("assistant",reply,advisorResultActions(r));

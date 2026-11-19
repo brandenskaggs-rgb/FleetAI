@@ -1,5 +1,6 @@
 const { detectAdapter } = require("../protocolRegistry");
 const { normalizeMetrics } = require("../normalize/normalizeMetrics");
+const { sanitizeObdFaultRead } = require("../diagnostics/obdFaultRead");
 
 const MAX_FRAMES_PER_BATCH = 512;
 const MAX_CAN_ID = 0x1fffffff;
@@ -91,7 +92,9 @@ function sanitizeTelemetryMeta(meta) {
     throw new TelemetryPayloadError("meta must be an object");
   }
   const output = {};
-  if (["not_read", "read", "stale"].includes(meta.dtcScanStatus)) {
+  const faultRead = sanitizeObdFaultRead(meta.obdFaultRead);
+  if (faultRead) output.obdFaultRead = faultRead;
+  if (["not_read", "read", "stale", "partial"].includes(meta.dtcScanStatus)) {
     output.dtcScanStatus = meta.dtcScanStatus;
     const capturedAt = Date.parse(boundedText(meta.dtcCapturedAt, 40));
     if (Number.isFinite(capturedAt)) output.dtcCapturedAt = new Date(capturedAt).toISOString();

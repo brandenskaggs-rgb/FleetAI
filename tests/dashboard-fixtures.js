@@ -11,7 +11,7 @@ function createFixtures(options={}) {
     {vehicleId:'UNIT-308',healthScore:91,risk:'Low',subsystem:'Electrical',recommendedAction:'Continue monitoring',updatedAt:now}
   ];
   const records={'/api/dvir':[],'/api/dispatch/jobs':[],'/api/parts':[]};
-  const controls={pairConflict:false},requests=[];
+  const controls={pairConflict:false,advisorReport:false},requests=[];
   const sensorReadings=require('../server/telematics/diagnostics/sensorCatalog').SENSORS.map(sensor=>({...sensor,value:null,supported:false,state:'unsupported'}));
   Object.assign(sensorReadings.find(sensor=>sensor.key==='coolantTempC'),{value:80,supported:true,state:'normal'});
   Object.assign(sensorReadings.find(sensor=>sensor.key==='rpm'),{supported:true,state:'stale',stale:true,lastKnownValue:720,ageMs:45000});
@@ -46,6 +46,9 @@ function createFixtures(options={}) {
     if(key==='/api/settings')return reply({companyName:'Design preview / Sample data'});
     if(key==='/api/fleet/addons')return reply({ok:true,enabledAddons:{aiAdvisor:false,cameraIntegration:false}});
     if(key==='/api/advisor/status')return reply({available:false,enabled:false});
+    if(key==='/api/advisor/artifacts')return reply({data:controls.advisorReport?[{id:'TEST-PDF',title:'Unit 214 evidence report',type:'fleet',createdAt:now,downloadUrl:'/api/advisor/artifacts/TEST-PDF/download'}]:[]});
+    if(key==='/api/advisor/query' || key==='/api/advisor/message')return reply({reply:'Your PDF is ready.',artifacts:[{id:'TEST-PDF',title:'Unit 214 evidence report',type:'fleet',createdAt:now,downloadUrl:'/api/advisor/artifacts/TEST-PDF/download'}]});
+    if(key.endsWith('/dtc-history'))return reply({data:[],diagnosticStatus:{freshness:'recent',completeness:'inconsistent',milOn:true,capturedAt:now,coverage:'Generic engine/emissions only. TPMS and ABS not covered.',message:'Check-engine status and returned codes disagree. Do not treat this as a clean scan.'}});
     if(key==='/api/diagnostics/sensors')return reply({vehicleId:parsed.searchParams.get('vehicleId'),counts:{reporting:sensorReadings.filter(r=>r.value!==null).length,stale:1,unsupported:sensorReadings.filter(r=>r.supported===false).length},readings:sensorReadings});
     if(key.endsWith('/metrics/history'))return reply({data:Array.from({length:24},(_,i)=>({ts:new Date(Date.now()-(24-i)*60000).toISOString(),value:parsed.searchParams.get('metric')==='coolant_temp'?80+i*.2:1100+i*10,quality:'sample data'}))});
     if(records[key]){

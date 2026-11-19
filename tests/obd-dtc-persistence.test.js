@@ -6,6 +6,7 @@ const vm = require('node:vm');
 const { createRequire } = require('node:module');
 const { buildTelemetrySample } = require('../server/ml');
 const { prepareTelemetryIngest, sanitizeTelemetryMeta } = require('../server/telematics/ingest/prepareTelemetryIngest');
+const { sanitizeObdFaultRead, diagnosticReadStatus } = require('../server/telematics/diagnostics/obdFaultRead');
 
 const capture = '2026-09-11T12:00:00.000Z';
 function sample(codes, status = 'read') {
@@ -86,4 +87,43 @@ test('old uploads without a confirmed scan do not manufacture clean diagnostic r
   await db.insertTelemetrySample(sample([]));
   assert.equal(scans.size, 1);
   assert.equal([...scans.values()][0].codeCount, 0);
+});
+
+test('partial reads, MIL disagreement and permanent codes survive ingest without becoming active-code clearance', async () => {
+  const input = { capturedAt: capture, confirmed: [], pending: ['P0300'], permanent: ['P0420'], milOn: true, reportedCodeCount: 1 };
+  const prepared = prepareTelemetryIngest({ protocol: 'OBD2', metrics: { rpm: 700 }, dtc: { active: [] },
+    meta: { dtcScanStatus: 'read', dtcCapturedAt: capture, obdFaultRead: input } }, {
+    timestamp: capture, nowEpochMs: Date.parse(capture), orgId: 'org-a', vehicleId: 'car-a' });
+  const result = buildTelemetrySample(prepared.normalized, { meta: prepared.decoded.meta });
+  assert.equal(result.raw.obdFaultRead.status, 'inconsistent');
+  assert.equal(Object.hasOwn(result.raw, 'activeDTCs'), false);
+  const { db, scans } = database();
+  await db.insertTelemetrySample(result);
+  await db.insertTelemetrySample(result);
+  assert.equal(scans.size, 1);
+  const scan = [...scans.values()][0];
+  assert.deepEqual(Array.from(scan.codes, code => [code.code, code.codeStatus]), [['P0300', 'pending'], ['P0420', 'permanent']]);
+  assert.equal(scan.summary.obdFaultRead.milOn, true);
+  const status = diagnosticReadStatus(scan, Date.parse(capture) + 1000);
+  assert.equal(status.completeness, 'inconsistent');
+  assert.equal(status.freshness, 'recent');
+  assert.match(status.message, /disagree/);
+  assert.equal(diagnosticReadStatus(scan, Date.parse(capture) + 500000).freshness, 'historical');
+});
+
+test('malformed and missing diagnostic modes stay unknown, not zero codes', () => {
+  assert.equal(sanitizeObdFaultRead({ capturedAt: 'bad' }), null);
+  const partial = sanitizeObdFaultRead({ capturedAt: capture, confirmed: ['bad'], pending: [], milOn: 'false', reportedCodeCount: -1 });
+  assert.equal(partial.status, 'partial'); assert.equal(partial.confirmed, null); assert.equal(partial.permanent, null);
+  assert.equal(partial.milOn, null); assert.equal(partial.reportedCodeCount, null);
+  assert.equal(diagnosticReadStatus(null).completeness, 'not_read');
+});
+
+test('diagnostic-only persistence never creates a telemetry sample or loses repeated scans', async () => {
+  const { db, rows, scans } = database();
+  const evidence = sample(['P0300']);
+  await db.persistTelemetryDiagnostics(evidence);
+  await db.persistTelemetryDiagnostics(evidence);
+  assert.equal(rows.length, 0);
+  assert.equal(scans.size, 1);
 });

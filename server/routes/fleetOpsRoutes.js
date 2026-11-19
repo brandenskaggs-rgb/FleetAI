@@ -533,6 +533,10 @@ function registerFleetOpsRoutes(app, deps) {
         }
         if (useTelemetryJsonMirror) await writeData(data);
         rememberTelemetryReceipt(batchId, receiptDeviceId);
+      } else if (prepared.decoded.meta?.obdFaultRead || ["read", "stale"].includes(prepared.decoded.meta?.dtcScanStatus)) {
+        // A diagnostic-only upload must not create a fake sensor sample or train ML.
+        const evidence = require("../ml").buildTelemetrySample(prepared.normalized, { meta: prepared.decoded.meta, driverId: snapshot.driverId });
+        await db.persistTelemetryDiagnostics(evidence);
       }
       if (promoteLiveSnapshot) {
         telemetryLatest.set(vehicleId, snapshot);

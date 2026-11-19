@@ -4,6 +4,7 @@ const { completeChat, getAiProviderStatus } = require("../services/aiProviderSer
 const { buildAdvisorMessages } = require("../services/advisorConversation");
 const { buildFleetAdvisorContext } = require("../services/advisorContextService");
 const { buildReportArtifact, planAdvisorActions, renderReportHtml, renderReportText } = require("../services/advisorAgentService");
+const { sealReportPdf, getReportPdf } = require("../services/advisorReportPdf");
 const { saveWatch, WATCH_GROUPS } = require("../services/sensorWatchService");
 const { runLiveDiagnostic } = require("../services/liveDiagnosticService");
 const { diagnosticIntent, diagnosticStatusReply, guardDiagnosticClaims } = require("../services/advisorDiagnosticStatus");
@@ -709,11 +710,11 @@ function registerSolutionRoutes(app, deps) {
   async function liveDiagnosticReply(req, res, orgId, vehicleId, message) {
     const report = await runLiveDiagnostic({ prisma: db.getPrisma(), orgId, vehicleId, telemetryLatest });
     if (!report) return res.status(404).json({ ok: false, error: "vehicle_not_found" });
-    const artifact = await db.getPrisma().advisorArtifact.create({ data: {
+    const artifact = await db.getPrisma().advisorArtifact.create({ data: await sealReportPdf({
       orgId, userId: req.customer?.userId || req.employee?.userId || req.employee?.id || null,
       type: "live_diagnostic", title: `${report.vehicleName} - received sensor diagnostic analysis`, request: message,
       content: { summary: report.summary, scope: { vehicleId }, sources: report }
-    } });
+    }) });
     return res.json({ ok: true, reply: report.summary, source: "fleetai_received_telemetry", model: null, diagnostic: report, scanStatus: "completed",
       artifacts: [{ id: artifact.id, type: artifact.type, title: artifact.title, createdAt: artifact.createdAt,
         downloadUrl: `/api/advisor/artifacts/${encodeURIComponent(artifact.id)}/download` }], proposedActions: [] });
@@ -757,6 +758,30 @@ function registerSolutionRoutes(app, deps) {
         return await liveDiagnosticReply(req, res, orgId, vehicleId, message);
       }
 
+      const reportPlan = planAdvisorActions(message, {
+        organization: { name: "Fleet" }, selectedVehicleId: sanitizeString(req.body.vehicleId || "", 80),
+        assets: data.vehicles.filter(vehicle => vehicle.orgId === orgId)
+      }).find(action => action.action === "generate_report");
+      if (reportPlan) {
+        if (reportPlan.vehicleId && !await db.getPrisma().vehicle.findFirst({ where: { orgId, vehicleId: reportPlan.vehicleId } })) {
+          return res.status(404).json({ ok: false, error: "vehicle_not_found" });
+        }
+        const context = await buildFleetAdvisorContext({ db, orgId, query: message, selectedVehicleId: reportPlan.vehicleId, scopeToVehicle: true, legacyData: data });
+        const action = planAdvisorActions(message, context).find(item => item.action === "generate_report");
+        const unit = context.assets.find(vehicle => vehicle.vehicleId === action.vehicleId);
+        action.title = `${unit?.unitName || context.organization.name} - ${action.reportType} report`;
+        const scope = action.vehicleId ? (unit?.unitName || action.vehicleId) : context.organization.name;
+        const summary = `Recorded evidence for ${scope}, prepared ${context.generatedAt}. This report uses a fixed Fleet AI template with dated health evidence, fault records, activity and maintenance information where available. Missing data is not a clean bill of health. Telemetry is limited to a ${context.lookbackDays}-day lookback and retrieval limits; other sections contain the latest retrieved records.`;
+        const artifact = await db.getPrisma().advisorArtifact.create({ data: await sealReportPdf(buildReportArtifact({
+          action, context, reply: summary, request: message,
+          userId: req.customer?.userId || req.employee?.userId || req.employee?.id || null
+        })) });
+        return res.json({ ok: true, reply: `Your PDF for ${scope} is ready. Open it below or download a copy. It contains a saved snapshot, so it won't change when new readings arrive.`,
+          source: "fleetai_report_template", model: null, retrieved: context.recordCounts, proposedActions: [],
+          artifacts: [{ id: artifact.id, type: artifact.type, title: artifact.title, createdAt: artifact.createdAt,
+            downloadUrl: `/api/advisor/artifacts/${encodeURIComponent(artifact.id)}/download` }] });
+      }
+
       const status = getAiProviderStatus();
       if (!status.available) {
         const reason = status.enabled ? `${status.provider} is not configured` : "AI features are disabled";
@@ -784,13 +809,13 @@ function registerSolutionRoutes(app, deps) {
         const artifacts = [];
         for (const action of plannedActions.filter((item) => item.action === "generate_report" && item.mode === "automatic")) {
           const artifact = await db.getPrisma().advisorArtifact.create({
-            data: buildReportArtifact({
+            data: await sealReportPdf(buildReportArtifact({
               action,
               context,
               reply: groundedReply,
               request: message,
               userId: req.customer?.userId || req.employee?.userId || req.employee?.id || null
-            })
+            }))
           });
           artifacts.push({
             id: artifact.id,
@@ -845,11 +870,14 @@ function registerSolutionRoutes(app, deps) {
       if (!orgId) return res.status(400).json({ error: "orgId required" });
       const artifact = await db.getPrisma().advisorArtifact.findFirst({ where: { id: req.params.id, orgId } });
       if (!artifact) return res.status(404).json({ ok: false, error: "report_not_found" });
-      const textFormat = String(req.query.format || "").toLowerCase() === "txt";
-      const filename = `${artifact.type || "fleet"}-report-${artifact.id.slice(-8)}.${textFormat ? "txt" : "html"}`.replace(/[^a-zA-Z0-9._-]/g, "-");
-      res.setHeader("Content-Type", textFormat ? "text/plain; charset=utf-8" : "text/html; charset=utf-8");
-      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
-      res.send(textFormat ? renderReportText(artifact) : renderReportHtml(artifact));
+      const format = ["txt", "html"].includes(req.query.format) ? req.query.format : "pdf";
+      const body = format === "pdf" ? await getReportPdf(artifact) : format === "txt" ? renderReportText(artifact) : renderReportHtml(artifact);
+      const filename = `${artifact.type || "fleet"}-report-${artifact.id.slice(-8)}.${format}`.replace(/[^a-zA-Z0-9._-]/g, "-");
+      res.setHeader("Content-Type", { pdf: "application/pdf", txt: "text/plain; charset=utf-8", html: "text/html; charset=utf-8" }[format]);
+      res.setHeader("Cache-Control", "private, no-store");
+      res.setHeader("X-Content-Type-Options", "nosniff");
+      res.setHeader("Content-Disposition", `${format === "pdf" && req.query.inline === "1" ? "inline" : "attachment"}; filename="${filename}"`);
+      res.send(body);
     } catch (err) { next(err); }
   });
 

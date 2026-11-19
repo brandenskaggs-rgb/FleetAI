@@ -55,8 +55,8 @@ class ObdConnectionManager(private val context: Context) {
     @Volatile private var activeTransport = Transport.NONE
     private val commandMutex = Mutex()
     @Volatile private var diagnostics = ObdDiagnostics()
-    data class DtcSnapshot(val codes: List<String>, val capturedAt: Long)
-    @Volatile var dtcSnapshot: DtcSnapshot? = null
+    private val dtcMutex = Mutex()
+    @Volatile var dtcSnapshot: ObdFaultRead? = null
         private set
     @Volatile private var supportedPids: Set<String> = emptySet()
     @Volatile private var lastEcuResponseAt = 0L
@@ -281,11 +281,23 @@ class ObdConnectionManager(private val context: Context) {
     fun supportedPidsSnapshot(): Set<String> = supportedPids
 
     suspend fun readDtcs(): List<String> = withContext(Dispatchers.IO) {
-        val raw = sendCommand("03") ?: throw IllegalStateException("No DTC response from adapter")
+      dtcMutex.withLock {
         val can = diagnostics.detectedProtocol.contains("CAN", ignoreCase = true)
-        val codes = ObdDtcParser.parse(raw, can) ?: throw IllegalStateException("DTC scan incomplete; no valid response")
-        dtcSnapshot = DtcSnapshot(codes, System.currentTimeMillis())
-        codes
+        suspend fun read(command: String): String? = try { delay(120L); sendCommand(command) }
+            catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
+            catch (_: Exception) { null }
+        val monitor = read("0101")?.let { ObdDtcParser.parseMonitorStatus(it) }
+        val confirmed = read("03")?.let { ObdDtcParser.parse(it, can, "03") }
+        val pending = read("07")?.let { ObdDtcParser.parse(it, can, "07") }
+        val permanent = read("0A")?.let { ObdDtcParser.parse(it, can, "0A") }
+        val snapshot = ObdFaultRead(System.currentTimeMillis(), confirmed, pending, permanent, monitor)
+        if (!isConnected()) throw IllegalStateException("Adapter disconnected during diagnostic read")
+        dtcSnapshot = snapshot
+        if (confirmed == null && pending == null && permanent == null && monitor == null) {
+            throw IllegalStateException("DTC scan incomplete; no valid response")
+        }
+        snapshot.allCodes
+      }
     }
 
     suspend fun readVin(): String? = withContext(Dispatchers.IO) {

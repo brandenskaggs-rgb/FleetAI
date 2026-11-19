@@ -2,6 +2,7 @@ const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
 const { decodeCode, summarize } = require("./telematics/diagnostics/dtcCatalog");
+const { sanitizeObdFaultRead, faultReadCodes } = require("./telematics/diagnostics/obdFaultRead");
 const { PrismaClient } = require("@prisma/client");
 const { Pool } = require("pg");
 const { PrismaPg } = require("@prisma/adapter-pg");
@@ -68,18 +69,24 @@ async function insertTelemetrySample(sample) {
       raw: sample.raw || {}
     }
   });
+  await persistTelemetryDiagnostics(sample);
+}
+
+async function persistTelemetryDiagnostics(sample) {
   // The telemetry outbox retries this whole operation. One ECU scan keeps one
   // identity even when its cached results accompany many sensor uploads.
-  if (sample.orgId && Array.isArray(sample.raw?.activeDTCs)
+  const faultRead = sanitizeObdFaultRead(sample.raw?.obdFaultRead);
+  if (sample.orgId && (faultRead || (Array.isArray(sample.raw?.activeDTCs)
       && ["read", "stale"].includes(sample.raw.dtcScanStatus)
-      && Number.isFinite(Date.parse(sample.raw.dtcCapturedAt))) {
-    const codes = sample.raw.activeDTCs.map(decodeCode);
-    const summary = summarize(codes);
+      && Number.isFinite(Date.parse(sample.raw.dtcCapturedAt))))) {
+    const codes = faultRead ? faultReadCodes(faultRead).map(item => ({ ...decodeCode(item.code), codeStatus: item.codeStatus })) : sample.raw.activeDTCs.map(decodeCode);
+    const summary = { ...summarize(codes.filter(code => code.codeStatus !== "permanent")), ...(faultRead ? { obdFaultRead: faultRead } : {}) };
+    const capturedAt = faultRead?.capturedAt || sample.raw.dtcCapturedAt;
     const id = "DS_TEL_" + crypto.createHash("sha256")
-      .update(JSON.stringify([sample.orgId, sample.vehicleId, sample.raw.dtcCapturedAt, sample.raw.activeDTCs])).digest("hex");
+      .update(JSON.stringify([sample.orgId, sample.vehicleId, capturedAt, faultRead || sample.raw.activeDTCs])).digest("hex");
     await getPrisma().diagnosticScan.createMany({
       data: [{ id, orgId: sample.orgId, vehicleId: sample.vehicleId, driverId: sample.driverId || null,
-        source: "telemetry", scannedAt: toDate(sample.raw.dtcCapturedAt), codes, summary,
+        source: "telemetry", scannedAt: toDate(capturedAt), codes, summary,
         severity: summary.severity, driveability: summary.driveability, codeCount: codes.length }],
       skipDuplicates: true
     });
@@ -1301,9 +1308,9 @@ function rowToDiagnosticScan(row) {
   };
 }
 
-async function listDiagnosticScans(vehicleId, { limit = 20 } = {}) {
+async function listDiagnosticScans(vehicleId, { limit = 20, orgId } = {}) {
   const rows = await getPrisma().diagnosticScan.findMany({
-    where: { vehicleId },
+    where: { vehicleId, ...(orgId ? { orgId } : {}) },
     orderBy: { scannedAt: "desc" },
     take: limit
   });
@@ -1384,6 +1391,7 @@ async function listEventsForVehicle(vehicleId, { type = null, limit = 100 } = {}
 }
 
 module.exports = {
+  persistTelemetryDiagnostics,
   getPrisma,
   makeId,
   insertEvent,

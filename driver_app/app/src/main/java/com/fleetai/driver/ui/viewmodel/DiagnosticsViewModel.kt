@@ -55,17 +55,28 @@ class DiagnosticsViewModel(
         viewModelScope.launch {
             try {
                 _message.value = "Scanning..."
-                val codes = if (obd.isConnected()) {
-                    obd.readDtcs().map { DtcCode(it, "OBD reported code", "medium") }
+                val connected = obd.isConnected()
+                val codes = if (connected) {
+                    obd.readDtcs().map { code ->
+                        val read = obd.dtcSnapshot
+                        val kinds = listOfNotNull(
+                            "Confirmed".takeIf { read?.confirmed?.contains(code) == true },
+                            "Pending".takeIf { read?.pending?.contains(code) == true },
+                            "Permanent (may remain after repair)".takeIf { read?.permanent?.contains(code) == true })
+                        DtcCode(code, kinds.joinToString(" / "), "unknown")
+                    }
                 } else {
                     repository.getDiagnosticCodes()
                 }
                 _dtcs.value = codes
-                _message.value = if (codes.isEmpty()) {
-                    "No codes returned. This is not a mechanical inspection."
-                } else {
-                    "Fault codes returned."
-                }
+                val read = obd.dtcSnapshot
+                _message.value = when {
+                    !connected -> "Adapter disconnected. Showing saved records, not a new scan."
+                    read?.inconsistent == true -> "Check-engine status and returned codes disagree. This scan is incomplete; have the warning light investigated."
+                    read?.status == "partial" -> "Partial engine/emissions read. Some requests had no valid response. Missing results do not mean no faults."
+                    codes.isEmpty() -> "No generic engine/emissions codes returned in this read. This is not a mechanical inspection."
+                    else -> "Engine/emissions codes returned."
+                } + " TPMS and ABS modules are not covered by this read."
             } catch (cancelled: kotlinx.coroutines.CancellationException) {
                 throw cancelled
             } catch (_: Exception) {

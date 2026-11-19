@@ -1,6 +1,7 @@
 const { SENSORS, readPath } = require("../telematics/diagnostics/sensorCatalog");
 const { decodeCode } = require("../telematics/diagnostics/dtcCatalog");
 const { sensorTtlMs, sensorAgeMs } = require("../telematics/diagnostics/sensorFreshness");
+const { sanitizeObdFaultRead, faultReadCodes, COVERAGE } = require("../telematics/diagnostics/obdFaultRead");
 
 const SAMPLE_KEYS = {
   speedKph: "vehicleSpeed", coolantTempC: "coolantTemp", oilTempC: "oilTemp", batteryVoltageV: "batteryVoltage",
@@ -80,9 +81,16 @@ async function runLiveDiagnostic({ prisma, orgId, vehicleId, telemetryLatest = n
   if (meta && Array.isArray(snapshot?.metrics?.dtc?.active) && ["read", "stale"].includes(meta.dtcScanStatus) && Number.isFinite(time(meta.dtcCapturedAt))) {
     dtcCandidates.push({ raw: { activeDTCs: snapshot.metrics.dtc.active.map(c => typeof c === "string" ? c : c.code), dtcCapturedAt: meta.dtcCapturedAt, dtcScanStatus: meta.dtcScanStatus } });
   }
-  const dtc = dtcCandidates.filter(r => time(r.raw.dtcCapturedAt) <= nowMs + 5000).sort((a, b) => time(b.raw.dtcCapturedAt) - time(a.raw.dtcCapturedAt))[0]?.raw;
+  for (const raw of [...rows.map(row => row.raw), meta]) {
+    const read = sanitizeObdFaultRead(raw?.obdFaultRead);
+    if (read) dtcCandidates.push({ raw: { obdFaultRead: read, dtcCapturedAt: read.capturedAt, dtcScanStatus: "read" } });
+  }
+  const dtc = dtcCandidates.filter(r => time(r.raw.dtcCapturedAt) <= nowMs + 5000).sort((a, b) => time(b.raw.dtcCapturedAt) - time(a.raw.dtcCapturedAt) || Number(!!b.raw.obdFaultRead) - Number(!!a.raw.obdFaultRead))[0]?.raw;
+  const faultRead = dtc?.obdFaultRead;
   const faultCodes = { status: !dtc ? "not_read" : dtc.dtcScanStatus === "read" && nowMs - time(dtc.dtcCapturedAt) <= 60_000 ? "recent_report" : "historical",
-    capturedAt: iso(dtc?.dtcCapturedAt), codes: (dtc?.activeDTCs || []).slice(0, 200).map(decodeCode) };
+    capturedAt: iso(dtc?.dtcCapturedAt), completeness: faultRead?.status || "legacy_read", milOn: faultRead?.milOn ?? null,
+    coverage: faultRead ? COVERAGE : "Only uploaded codes are available; TPMS/ABS module coverage is not verified.",
+    codes: faultRead ? faultReadCodes(faultRead).slice(0, 200).map(item => ({ ...decodeCode(item.code), codeStatus: item.codeStatus })) : (dtc?.activeDTCs || []).slice(0, 200).map(decodeCode) };
   const counts = Object.fromEntries(["fresh", "recent_record", "stale", "unreported"].map(state => [state, readings.filter(r => r.state === state).length]));
   const transmission = coverage(readings, "transmission");
   const brakes = coverage(readings, "brakes");
@@ -96,12 +104,16 @@ async function runLiveDiagnostic({ prisma, orgId, vehicleId, telemetryLatest = n
       "Recent records carry upload sample times, not verified live connection or exact ECU acquisition times.",
       "Synthetic model validation is not proven field accuracy. Existing ML results are dated evidence, not a new prediction.",
       "This is a point-in-time report, not a newly started continuous monitoring session. A jerking vehicle needs inspection; this report cannot establish safety to drive."] };
-  const currentCodes = faultCodes.status === "recent_report" ? faultCodes.codes : [];
-  const details = currentCodes.slice(0, 5).map(code => `${code.code}: ${code.parameter || "reported fault"}`).join("; ");
+  const currentCodes = faultCodes.status === "recent_report" ? faultCodes.codes.filter(code => code.codeStatus !== "permanent") : [];
+  const details = faultCodes.codes.slice(0, 5).map(code => `${code.code}${code.codeStatus ? ` (${code.codeStatus})` : ""}: ${code.parameter || "reported fault"}`).join("; ");
   report.summary = [
     counts.fresh ? `I checked the latest received data for ${report.vehicleName}. ${counts.fresh} sensor readings have fresh timing evidence.` : `I checked the available records for ${report.vehicleName}, but I cannot verify fresh live sensor readings right now.`,
     `${counts.recent_record} readings are from recent stored samples, ${counts.stale} are stale, and ${counts.unreported} catalog signals have no reading in this window.`,
-    faultCodes.status === "not_read" ? "I don't have a verified fault-code read. That does not mean there are no faults." : faultCodes.status === "historical" ? `The fault-code read is historical (${faultCodes.capturedAt}); it is not a new scan.` : details ? `The latest reported codes are ${details}.` : `The last code read (${faultCodes.capturedAt}) reported no codes. That does not rule out a mechanical problem.`,
+    faultCodes.status === "not_read" ? "I don't have a verified fault-code read. That does not mean there are no faults." : faultCodes.status === "historical" ? `The fault-code read is historical (${faultCodes.capturedAt}); it is not a new scan.` : details ? `The latest reported codes are ${details}.` : `No code entries were received at ${faultCodes.capturedAt}. This does not establish a complete or clean scan.`,
+    faultCodes.completeness === "inconsistent" ? "The check-engine status and code read disagree. The read is incomplete, not a clean scan."
+      : faultCodes.completeness === "partial" ? "Some fault-code or monitor requests had no valid response. The read is partial."
+        : "Only the reported diagnostic coverage is available, not a complete all-module scan.",
+    faultCodes.milOn === true ? "The ECU reported the check-engine lamp commanded on at the recorded read time. Have the warning investigated." : faultCodes.coverage,
     transmission.fresh.length ? `${transmission.fresh.length} transmission readings are fresh; the report lists their values and the missing signals.` : "There are no verified fresh transmission readings, so I cannot confirm transmission slip or rule out a transmission problem.",
     brakes.fresh.some(k => k.startsWith("wheelSpeed")) ? "Wheel-speed coverage is listed in the report; partial coverage cannot rule out an ABS or traction problem." : "I cannot verify fresh individual wheel-speed readings for ABS/traction analysis.",
     currentCodes.some(c => c.driveability === "stop") ? "The code catalog flags a stop-driving fault. Stay parked and arrange inspection." : "This does not establish that the vehicle is safe to drive; jerking or suspected braking faults need inspection.",

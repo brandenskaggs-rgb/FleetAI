@@ -346,12 +346,13 @@ function registerDriverAppRoutes(app, deps) {
   app.get("/api/vehicle/dtcs", attachDevice, async (req, res, next) => {
     if (!req.device) return next();
     try {
-      const scans = await db.listDiagnosticScans(req.device.vehicleId, { limit: 1 });
+      const scans = await db.listDiagnosticScans(req.device.vehicleId, { limit: 1, orgId: req.device.orgId });
       const codes = (scans[0] && scans[0].codes) || [];
       res.json({
+        diagnosticStatus: require("../telematics/diagnostics/obdFaultRead").diagnosticReadStatus(scans[0]),
         dtcs: codes.map((c) => ({
           code: c.code || "",
-          description: c.parameter || "",
+          description: `${c.codeStatus ? c.codeStatus + ": " : ""}${c.parameter || ""}`,
           severity: c.severity || "unknown"
         }))
       });

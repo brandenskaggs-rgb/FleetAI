@@ -119,8 +119,11 @@ function main() {
     const inlineJs = collectInlineJs(html);
     const fnNames = collectFunctionNames(jsBundle + "\n" + inlineJs);
 
-    const hrefs = [...html.matchAll(/href=["']([^"']+)["']/gi)].map((m) => m[1]);
-    const srcs = [...html.matchAll(/src=["']([^"']+)["']/gi)].map((m) => m[1]);
+    // Runtime template strings are exercised by browser tests, not filesystem lookups.
+    // Keep script tags so static src attributes are still audited.
+    const markup = html.replace(/(<script\b[^>]*>)[\s\S]*?(<\/script>)/gi, "$1$2");
+    const hrefs = [...markup.matchAll(/href=["']([^"']+)["']/gi)].map((m) => m[1]);
+    const srcs = [...markup.matchAll(/src=["']([^"']+)["']/gi)].map((m) => m[1]);
     const links = hrefs.concat(srcs);
 
     links.forEach((link) => {

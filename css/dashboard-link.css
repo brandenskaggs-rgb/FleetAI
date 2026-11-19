@@ -63,3 +63,4 @@ h1,h2,h3,h4{font-family:var(--display);font-weight:600;line-height:1.2}p{line-he
 .sensorReadingValue{max-width:160px;white-space:pre-line;overflow-wrap:anywhere}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 @media print{body,.main{overflow:visible;height:auto}.app{display:block;height:auto}.sidebar,.app-header,.viewHeader,.opsAdvisorDock,.btn{display:none!important}.main{padding:0}.tableWrap{overflow:visible}.table{min-width:0}.section.hide{display:none!important}}
+.advisorReportRow{flex-wrap:wrap;min-width:0;width:100%}.advisorReportTitle{min-width:0;overflow-wrap:anywhere;flex:1 1 160px}.advisorReportRow .sectionActions{display:flex;gap:6px;flex-wrap:wrap;margin:0}.advisorReportRow .btn{white-space:normal}.advisorThread .advisorReportRow{background:var(--panel2);padding:14px;border-radius:4px}
