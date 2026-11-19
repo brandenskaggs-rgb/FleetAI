@@ -2,13 +2,16 @@ package com.fleetai.driver.ui.screens
 
 import android.annotation.SuppressLint
 import android.Manifest
-import android.content.res.Configuration
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -16,10 +19,12 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -31,11 +36,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import com.fleetai.driver.data.model.SensorReading
 import com.fleetai.driver.data.model.SensorStatus
@@ -61,7 +70,6 @@ fun SensorsScreen(contentPadding: PaddingValues, viewModel: SensorViewModel) {
     val locationSharingEnabled by viewModel.locationSharingEnabled.collectAsState()
     val trainingDemo by viewModel.demoMode.collectAsState()
     val context = LocalContext.current
-    val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     val hasBluetooth = viewModel.hasBluetooth()
     val usbAdapters = viewModel.usbAdapters()
     var showSetup by remember { mutableStateOf(false) }
@@ -126,10 +134,13 @@ fun SensorsScreen(contentPadding: PaddingValues, viewModel: SensorViewModel) {
     ) {
         item {
             if (trainingDemo) {
-                Text("Training demo / Sample sensors", style = MaterialTheme.typography.titleLarge)
-                Text("Generated on this device. No vehicle connection, location collection or fleet upload.")
-                TextButton(onClick = { viewModel.toggleUnits(tempF = !unitPrefs.tempF, speedMph = !unitPrefs.speedMph) }) {
-                    Text(if (unitPrefs.tempF) "Use Celsius / km/h" else "Use Fahrenheit / mph")
+                FleetCard(modifier = Modifier.fillMaxWidth()) {
+                    Text("Training demo / Sample sensors", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                    Text("Generated on this device. No vehicle connection, location collection or fleet upload.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    TextButton(onClick = { viewModel.toggleUnits(tempF = !unitPrefs.tempF, speedMph = !unitPrefs.speedMph) }) {
+                        Text(if (unitPrefs.tempF) "Use Celsius / km/h" else "Use Fahrenheit / mph")
+                    }
                 }
             } else {
             ConnectionBanner(
@@ -150,15 +161,31 @@ fun SensorsScreen(contentPadding: PaddingValues, viewModel: SensorViewModel) {
         }
 
         item {
-            androidx.compose.material3.TextField(
+            OutlinedTextField(
                 value = sensorQuery, onValueChange = { sensorQuery = it },
                 label = { Text("Find a sensor") }, singleLine = true, modifier = Modifier.fillMaxWidth()
             )
         }
         item {
             val visible = readings.filter { it.label.contains(sensorQuery, true) || it.pid.contains(sensorQuery, true) }
+            val featured = if (sensorQuery.isBlank()) {
+                featuredSensorCodes.mapNotNull { ids -> visible.firstOrNull { it.pid.uppercase(Locale.ROOT) in ids } }
+            } else emptyList()
+            val remaining = visible.filterNot { it in featured }
+
             if (visible.isEmpty()) Text("No matching sensor readings.", modifier = Modifier.padding(16.dp))
-            SensorGrid(readings = visible, isLandscape = isLandscape)
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                if (featured.isNotEmpty()) {
+                    Text("Instrument cluster", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+                    FeaturedSensorCluster(featured, trainingDemo)
+                }
+                if (remaining.isNotEmpty()) {
+                    if (featured.isNotEmpty()) {
+                        Text("More readings", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    SensorGrid(readings = remaining, trainingDemo = trainingDemo)
+                }
+            }
         }
         item {
             if (!trainingDemo) TextButton(onClick = { showSetup = !showSetup }) {
@@ -305,20 +332,16 @@ private fun ConnectionBanner(
     FleetCard(modifier = Modifier.fillMaxWidth()) {
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text("Vehicle sensors", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-            Text("Status: $status", style = MaterialTheme.typography.bodyMedium)
-            Text("Queued uploads: ${debug.queuedBatches}", style = MaterialTheme.typography.bodyMedium)
+            Text(status, style = MaterialTheme.typography.titleSmall)
+            Text("Uploads pending: ${debug.queuedBatches}  •  Last upload: ${debug.lastSendAt.toTime()}",
+                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             TextButton(onClick = { expanded = !expanded }) { Text(if (expanded) "Hide connection details" else "Connection details & location") }
             if (expanded) {
             Text("Saved dongle: ${savedDevice.ifBlank { "--" }}", style = MaterialTheme.typography.bodySmall)
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
-                StatusPill(label = debug.protocol, good = debug.ecuResponding || status.contains("live", true))
-                StatusPill(label = "Vehicle bus", good = debug.lastObdReadAt > 0 && System.currentTimeMillis() - debug.lastObdReadAt < 3000)
-                StatusPill(label = "Live", good = debug.lastSendAt > 0 && System.currentTimeMillis() - debug.lastSendAt < 3000)
-            }
-            Text(
-                "Last upload: ${debug.lastSendAt.toTime()} | PIDs: ${debug.supportedPidCount} | CAN frames: ${debug.rawFrameCount} | Queued: ${debug.queuedBatches}",
-                style = MaterialTheme.typography.bodySmall
-            )
+            Text("Vehicle source: ${debug.protocol}  •  Last vehicle read: ${debug.lastObdReadAt.toTime()}",
+                style = MaterialTheme.typography.bodySmall)
+            Text("PIDs: ${debug.supportedPidCount}  •  CAN frames: ${debug.rawFrameCount}",
+                style = MaterialTheme.typography.bodySmall)
             if (debug.protocol == "OBD2") {
                 Text(
                     "Adapter: ${debug.adapterIdentity.ifBlank { "not identified" }} | Voltage: ${debug.adapterVoltage.ifBlank { "--" }}",
@@ -365,9 +388,12 @@ private fun ConnectionBanner(
 }
 
 @Composable
-private fun StatusPill(label: String, good: Boolean) {
-    val bg = if (good) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.errorContainer
-    val fg = if (good) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onErrorContainer
+private fun StatusPill(label: String, live: Boolean, caution: Boolean) {
+    val (bg, fg) = when {
+        live -> MaterialTheme.colorScheme.primaryContainer to MaterialTheme.colorScheme.onPrimaryContainer
+        caution -> MaterialTheme.colorScheme.errorContainer to MaterialTheme.colorScheme.onErrorContainer
+        else -> MaterialTheme.colorScheme.surfaceVariant to MaterialTheme.colorScheme.onSurfaceVariant
+    }
     Box(
         modifier = Modifier
             .background(bg, shape = MaterialTheme.shapes.small)
@@ -377,20 +403,130 @@ private fun StatusPill(label: String, good: Boolean) {
     }
 }
 
+// Equivalent identifiers are grouped for presentation only. No readings are synthesized.
+private val featuredSensorCodes = listOf(
+    setOf("010C", "SPN 190"),
+    setOf("0105", "SPN 110"),
+    setOf("0142", "SPN 168")
+)
+
 @Composable
-private fun SensorGrid(readings: List<SensorReading>, isLandscape: Boolean) {
-    val columns = if (isLandscape) 2 else 1
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        readings.chunked(columns).forEach { rowReadings ->
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                rowReadings.forEach { reading ->
-                    SensorTile(reading, Modifier.weight(1f))
+private fun FeaturedSensorCluster(readings: List<SensorReading>, trainingDemo: Boolean) {
+    val rpm = readings.firstOrNull { it.pid.uppercase(Locale.ROOT) in featuredSensorCodes.first() }
+    val companions = readings.filterNot { it == rpm }
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        if (maxWidth >= 740.dp && rpm != null && companions.isNotEmpty()) {
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+                FeaturedInstrument(rpm, trainingDemo, hero = true, modifier = Modifier.weight(1.55f))
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    companions.forEach { FeaturedInstrument(it, trainingDemo, hero = false) }
                 }
-                repeat(columns - rowReadings.size) {
-                    Spacer(modifier = Modifier.weight(1f))
+            }
+        } else {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                rpm?.let { FeaturedInstrument(it, trainingDemo, hero = true) }
+                companions.forEach { FeaturedInstrument(it, trainingDemo, hero = false) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun FeaturedInstrument(
+    reading: SensorReading,
+    trainingDemo: Boolean,
+    hero: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val colors = MaterialTheme.colorScheme
+    val accent = if (colors.surface.luminance() < 0.4f) Color(0xFF6FE4E7) else Color(0xFF00676C)
+    val shape = RoundedCornerShape(12.dp)
+    val live = !trainingDemo && reading.status == SensorStatus.LIVE
+    val label = when {
+        trainingDemo -> "Sample"
+        live -> "Live"
+        reading.status == SensorStatus.STALE -> "Stale"
+        else -> "Unsupported"
+    }
+    val distance = if (trainingDemo) 242.dp else 280.dp
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .heightIn(min = if (hero) distance else if (trainingDemo) 115.dp else 134.dp)
+            .clip(shape)
+            .background(Brush.linearGradient(listOf(
+                if (hero) colors.surfaceVariant else colors.surface,
+                colors.surface
+            )))
+            .border(1.dp, if (hero) accent.copy(alpha = 0.55f) else colors.outline.copy(alpha = 0.56f), shape)
+    ) {
+        // A static trim motif, not a gauge, threshold, or estimate of vehicle condition.
+        if (hero) {
+            Canvas(Modifier.matchParentSize()) {
+                val w = size.width
+                val h = size.height
+                for (i in 0..3) {
+                    val inset = i * 22.dp.toPx()
+                    drawLine(
+                        color = accent.copy(alpha = 0.15f - i * 0.026f),
+                        start = Offset(w - inset, h * 0.27f),
+                        end = Offset(w - inset - h * 0.63f, h),
+                        strokeWidth = 1.dp.toPx()
+                    )
+                }
+                drawLine(accent, Offset(20.dp.toPx(), 1.dp.toPx()),
+                    Offset(92.dp.toPx(), 1.dp.toPx()), strokeWidth = 2.dp.toPx())
+            }
+        }
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = if (hero) 24.dp else 18.dp,
+                vertical = if (hero) 22.dp else 12.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(reading.label, modifier = Modifier.weight(1f).padding(end = 8.dp),
+                    color = colors.onSurface, style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold)
+                StatusPill(label, live = live, caution = !trainingDemo && reading.status == SensorStatus.STALE)
+            }
+            if (hero) Spacer(Modifier.height(21.dp))
+            Text(
+                reading.value.ifBlank { "—" },
+                style = if (hero) MaterialTheme.typography.displayLarge.copy(fontSize = 64.sp, lineHeight = 69.sp)
+                    else MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+                color = colors.onSurface
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(reading.unit, style = MaterialTheme.typography.labelLarge, color = colors.onSurfaceVariant)
+                if (reading.trend == Trend.UP || reading.trend == Trend.DOWN) {
+                    Text(if (reading.trend == Trend.UP) "Rising" else "Falling",
+                        style = MaterialTheme.typography.labelSmall, color = colors.onSurfaceVariant)
+                }
+            }
+            if (!trainingDemo) {
+                Text("Updated ${reading.lastUpdated.toTime()}", style = MaterialTheme.typography.bodySmall,
+                    color = colors.onSurfaceVariant)
+            }
+        }
+    }
+}
+
+@Composable
+private fun SensorGrid(readings: List<SensorReading>, trainingDemo: Boolean) {
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        val columns = when {
+            maxWidth >= 960.dp -> 3
+            maxWidth >= 580.dp -> 2
+            else -> 1
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            readings.chunked(columns).forEach { rowReadings ->
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    rowReadings.forEach { reading ->
+                        SensorTile(reading, trainingDemo, Modifier.weight(1f))
+                    }
+                    repeat(columns - rowReadings.size) { Spacer(modifier = Modifier.weight(1f)) }
                 }
             }
         }
@@ -398,49 +534,40 @@ private fun SensorGrid(readings: List<SensorReading>, isLandscape: Boolean) {
 }
 
 @Composable
-private fun SensorTile(reading: SensorReading, modifier: Modifier = Modifier) {
-    val alpha = when (reading.status) {
-        SensorStatus.UNSUPPORTED -> 0.4f
-        SensorStatus.STALE -> 0.6f
-        else -> 1f
+private fun SensorTile(reading: SensorReading, trainingDemo: Boolean, modifier: Modifier = Modifier) {
+    val live = !trainingDemo && reading.status == SensorStatus.LIVE
+    val stateLabel = when {
+        trainingDemo -> "Sample"
+        live -> "Live"
+        reading.status == SensorStatus.STALE -> "Stale"
+        else -> "Unsupported"
     }
-    val trendIcon = when (reading.trend) {
-        Trend.UP -> "UP"
-        Trend.DOWN -> "DN"
-        else -> "--"
-    }
-    FleetCard(
-        modifier = modifier
-            .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f))
-    ) {
-        Column(
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-            modifier = Modifier.alpha(alpha)
-        ) {
-            Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                Text(reading.label, modifier = Modifier.weight(1f).padding(end = 12.dp), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                StatusPill(
-                    label = when (reading.status) {
-                        SensorStatus.LIVE -> "Live"
-                        SensorStatus.STALE -> "Stale"
-                        SensorStatus.UNSUPPORTED -> "Unsupported"
-                    },
-                    good = reading.status == SensorStatus.LIVE
-                )
+    FleetCard(modifier = modifier.fillMaxWidth()) {
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(reading.label, modifier = Modifier.weight(1f).padding(end = 8.dp),
+                    style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                StatusPill(stateLabel, live = live, caution = !trainingDemo && reading.status == SensorStatus.STALE)
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(reading.value, style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.width(6.dp))
-                Text(reading.unit, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(trendIcon, style = MaterialTheme.typography.titleMedium)
+                Text(reading.unit, style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (reading.trend == Trend.UP || reading.trend == Trend.DOWN) {
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(if (reading.trend == Trend.UP) "Rising" else "Falling",
+                        style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
-            Text(
-                "PID: ${reading.pid} - Updated ${reading.lastUpdated.toTime()}",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            if (!trainingDemo) {
+                Text("Updated ${reading.lastUpdated.toTime()}", style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }
     }
 }

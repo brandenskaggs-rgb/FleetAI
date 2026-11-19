@@ -29,7 +29,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.fleetai.driver.AppGraph
 import com.fleetai.driver.ui.components.FleetButton
 import com.fleetai.driver.ui.components.FleetCard
-import com.fleetai.driver.ui.components.WarningBanner
 import com.fleetai.driver.ui.viewmodel.DiagnosticsViewModel
 
 @Composable
@@ -45,6 +44,7 @@ fun DiagnosticsScreen(contentPadding: PaddingValues) {
     val transmissionMessage by viewModel.transmissionMessage.collectAsState()
     var parkedConfirmed by remember { mutableStateOf(false) }
     var showNetwork by remember { mutableStateOf(false) }
+    var showTransmission by remember { mutableStateOf(false) }
 
     LazyColumn(
         modifier = Modifier
@@ -69,29 +69,56 @@ fun DiagnosticsScreen(contentPadding: PaddingValues) {
         }
 
         item {
+            Text("Fault results", style = MaterialTheme.typography.titleLarge)
+            Text(
+                if (dtcs.isEmpty()) "No fault records to display." else "Share these codes with your maintenance team.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
+        items(dtcs, key = { it.code }) { dtc ->
             FleetCard(modifier = Modifier.fillMaxWidth()) {
-                Text("Camaro transmission test", style = MaterialTheme.typography.titleLarge)
-                Text("2010 3.6L automatic only. One-time temperature check; ABS and brake controls are not accessed.",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(checked = parkedConfirmed, onCheckedChange = { parkedConfirmed = it },
-                        enabled = !transmissionTesting,
-                        modifier = Modifier.semantics { contentDescription = "Confirm automatic Camaro is parked in P with parking brake set" })
-                    Text("I am parked in P with the parking brake set, in my automatic Camaro.",
-                        modifier = Modifier.weight(1f))
-                }
-                FleetButton(text = if (transmissionTesting) "Testing transmission..." else "Test transmission temperature",
-                    onClick = { viewModel.testTransmission(parkedConfirmed); parkedConfirmed = false },
-                    enabled = parkedConfirmed && !transmissionTesting && !scanning)
-                if (transmissionMessage.isNotBlank()) Text(transmissionMessage)
-                transmissionResults.forEach { result ->
-                    Spacer(Modifier.height(12.dp))
-                    Text("Address ${result.header}", style = MaterialTheme.typography.titleMedium)
-                    result.temperatureC?.let { value ->
-                        Text(String.format(java.util.Locale.US, "%.1f F / %.1f C (test sample)", value * 1.8 + 32, value))
+                Text(text = dtc.code, style = MaterialTheme.typography.titleLarge)
+                Text(text = dtc.description)
+                Text(text = "Severity: ${dtc.severity}")
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+        }
+
+        item {
+            FleetCard(modifier = Modifier.fillMaxWidth()) {
+                TextButton(
+                    onClick = {
+                        showTransmission = !showTransmission
+                        if (!showTransmission) parkedConfirmed = false
+                    },
+                    enabled = !transmissionTesting
+                ) { Text(if (showTransmission) "Hide Camaro transmission test" else "Camaro transmission test") }
+                if (showTransmission) {
+                    Text("Camaro transmission test", style = MaterialTheme.typography.titleMedium)
+                    Text("2010 3.6L automatic only. One-time temperature check; ABS and brake controls are not accessed.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(checked = parkedConfirmed, onCheckedChange = { parkedConfirmed = it },
+                            enabled = !transmissionTesting,
+                            modifier = Modifier.semantics { contentDescription = "Confirm automatic Camaro is parked in P with parking brake set" })
+                        Text("I am parked in P with the parking brake set, in my automatic Camaro.",
+                            modifier = Modifier.weight(1f))
                     }
-                    Text(result.status)
-                    if (result.response.isNotBlank()) Text("Response: ${result.response}")
+                    FleetButton(text = if (transmissionTesting) "Testing transmission..." else "Test transmission temperature",
+                        onClick = { viewModel.testTransmission(parkedConfirmed); parkedConfirmed = false },
+                        enabled = parkedConfirmed && !transmissionTesting && !scanning)
+                    if (transmissionMessage.isNotBlank()) Text(transmissionMessage)
+                    transmissionResults.forEach { result ->
+                        Spacer(Modifier.height(12.dp))
+                        Text("Address ${result.header}", style = MaterialTheme.typography.titleMedium)
+                        result.temperatureC?.let { value ->
+                            Text(String.format(java.util.Locale.US, "%.1f F / %.1f C (test sample)", value * 1.8 + 32, value))
+                        }
+                        Text(result.status)
+                        if (result.response.isNotBlank()) Text("Response: ${result.response}")
+                    }
                 }
             }
         }
@@ -118,17 +145,5 @@ fun DiagnosticsScreen(contentPadding: PaddingValues) {
             }
         }
 
-        if (dtcs.isNotEmpty()) {
-            item { WarningBanner(message = "Share these codes with your maintenance team.", isCritical = false) }
-        }
-
-        items(dtcs, key = { it.code }) { dtc ->
-            FleetCard(modifier = Modifier.fillMaxWidth()) {
-                Text(text = dtc.code, style = MaterialTheme.typography.titleLarge)
-                Text(text = dtc.description)
-                Text(text = "Severity: ${dtc.severity}")
-                Spacer(modifier = Modifier.height(8.dp))
-            }
-        }
     }
 }

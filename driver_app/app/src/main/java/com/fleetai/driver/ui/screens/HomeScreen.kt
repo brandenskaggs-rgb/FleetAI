@@ -63,32 +63,36 @@ fun HomeScreen(
         modifier = Modifier
             .padding(contentPadding)
             .verticalScroll(rememberScrollState())
-            .padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(24.dp)
+            .padding(horizontal = 24.dp, vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                FleetBrandMark(modifier = Modifier.width(48.dp).height(48.dp))
+                FleetBrandMark(modifier = Modifier.width(36.dp).height(36.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text("Fleet AI / Today", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text(sessionState.driverName.ifBlank { "Driver workspace" }, style = MaterialTheme.typography.headlineMedium)
                     Text("Vehicle ${sessionState.vehicleId.ifBlank { "--" }}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-            Spacer(modifier = Modifier.height(12.dp))
-            Text(if (sessionState.demoMode) "Training demo / Sample data" else obdStatus, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(modifier = Modifier.height(18.dp))
-            StatusGrid(listOf(
-                "Duty" to state.dutyStatus.name.replace("_", " "),
-                "ELD" to
-                    when {
-                        !state.eldEnabled -> "Pilot activity"
-                        state.productionAuthorized -> "Recording"
-                        else -> "Pilot only"
-                    },
-                "Motion" to if (state.lastTelemetryAt.isBlank()) "Unknown" else if (state.vehicleMoving) "Moving" else "Stopped",
-                "ELD diagnostics" to state.activeDiagnosticCount.toString()
-            ))
+            if (!sessionState.demoMode) {
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(obdStatus, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Spacer(modifier = Modifier.height(10.dp))
+            FleetCard(modifier = Modifier.fillMaxWidth()) {
+                StatusGrid(listOf(
+                    "Duty" to state.dutyStatus.name.replace("_", " "),
+                    "ELD" to
+                        when {
+                            !state.eldEnabled -> "Pilot activity"
+                            state.productionAuthorized -> "Recording"
+                            else -> "Pilot only"
+                        },
+                    "Motion" to if (state.lastTelemetryAt.isBlank()) "Unknown" else if (state.vehicleMoving) "Moving" else "Stopped",
+                    "ELD diagnostics" to state.activeDiagnosticCount.toString()
+                ))
+            }
             if (state.lastTelemetryAt.isNotBlank()) {
                 Spacer(modifier = Modifier.height(10.dp))
                 Text("Last ELD update: ${state.lastTelemetryAt}", style = MaterialTheme.typography.bodySmall)
@@ -99,6 +103,22 @@ fun HomeScreen(
             ToolButton("Duty status", Icons.Default.CheckCircle, onOpenStatus, Modifier.weight(1f))
             ToolButton("Fault codes", Icons.Default.Engineering, onOpenDiagnostics, Modifier.weight(1f))
             ToolButton("Settings", Icons.Default.Settings, onOpenSettings, Modifier.weight(1f))
+        }
+
+        if (state.statusMessage.isNotBlank() &&
+            !(sessionState.demoMode && state.statusMessage.startsWith("Training demo."))) {
+            WarningBanner(
+                message = state.statusMessage,
+                isCritical = state.eldEnabled && (!state.productionAuthorized || state.activeDiagnosticCount > 0)
+            )
+        }
+
+        if (state.hosViolations.isNotEmpty() || state.drivingProhibitedReasons.isNotEmpty()) {
+            val reasons = (state.hosViolations + state.drivingProhibitedReasons).distinct()
+            WarningBanner(
+                message = "Do not drive: " + reasons.joinToString(", ").replace("_", " "),
+                isCritical = true
+            )
         }
 
         if (state.eldEnabled) FleetCard(modifier = Modifier.fillMaxWidth()) {
@@ -143,33 +163,11 @@ fun HomeScreen(
             }
         }
 
-        Column(modifier = Modifier.fillMaxWidth()) {
-            Text("Before you drive", style = MaterialTheme.typography.titleLarge)
-            Spacer(modifier = Modifier.height(10.dp))
-            ChecklistLine("Complete pre-trip inspection before driving when required.")
-            ChecklistLine("Review unresolved defects from the last DVIR before operating.")
-            ChecklistLine(if (state.eldEnabled) "Confirm ELD recording is active before relying on Fleet AI for legal logs." else "Pilot activity is for testing, not legal ELD logs.")
-        }
-
-        if (state.statusMessage.isNotBlank()) {
-            WarningBanner(
-                message = state.statusMessage,
-                isCritical = state.eldEnabled && (!state.productionAuthorized || state.activeDiagnosticCount > 0)
-            )
-        }
-
-        if (state.hosViolations.isNotEmpty() || state.drivingProhibitedReasons.isNotEmpty()) {
-            val reasons = (state.hosViolations + state.drivingProhibitedReasons).distinct()
-            WarningBanner(
-                message = "Do not drive: " + reasons.joinToString(", ").replace("_", " "),
-                isCritical = true
-            )
-        }
-
         FleetCard(modifier = Modifier.fillMaxWidth()) {
             Text(if (state.eldEnabled) "Duty actions" else "Pilot activity", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
             Text(
                 if (state.eldEnabled) "Driving status is automatic at 5 mph and cannot be started manually."
+                else if (sessionState.demoMode) "Practice recording duty activity and breaks."
                 else "Record driving or a break for your pilot. These entries are not legal hours-of-service records.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.64f)
@@ -204,8 +202,21 @@ fun HomeScreen(
                     modifier = Modifier.weight(1f)
                 )
             }
-            if (!state.eldEnabled) FleetButton("Start driving activity", { viewModel.setDutyStatus(DutyStatus.DRIVING) },
-                enabled = !state.actionInProgress, modifier = Modifier.fillMaxWidth())
+            if (!state.eldEnabled) {
+                Spacer(modifier = Modifier.height(8.dp))
+                FleetButton("Start driving activity", { viewModel.setDutyStatus(DutyStatus.DRIVING) },
+                    enabled = !state.actionInProgress, modifier = Modifier.fillMaxWidth())
+            }
+        }
+
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Text("Before you drive", style = MaterialTheme.typography.titleLarge)
+            Spacer(modifier = Modifier.height(10.dp))
+            ChecklistLine("Complete pre-trip inspection before driving when required.")
+            ChecklistLine("Review unresolved defects from the last DVIR before operating.")
+            if (state.eldEnabled) {
+                ChecklistLine("Confirm ELD recording is active before relying on Fleet AI for legal logs.")
+            }
         }
 
         ToolButton("Open route", Icons.Default.Route, onOpenRoute, Modifier.fillMaxWidth())
@@ -216,7 +227,7 @@ fun HomeScreen(
 private fun StatusTile(label: String, value: String, modifier: Modifier = Modifier) {
     Column(
         modifier = modifier
-            .padding(vertical = 10.dp, horizontal = 4.dp)
+            .padding(vertical = 2.dp, horizontal = 4.dp)
     ) {
         Text(label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.58f))
         Spacer(modifier = Modifier.height(6.dp))
@@ -234,7 +245,7 @@ private fun ChecklistLine(text: String) {
 
 @Composable
 private fun ToolButton(label: String, icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    FilledTonalButton(onClick = onClick, modifier = modifier.heightIn(min = 76.dp), shape = RoundedCornerShape(8.dp)) {
+    FilledTonalButton(onClick = onClick, modifier = modifier.heightIn(min = 60.dp), shape = RoundedCornerShape(8.dp)) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Icon(icon, contentDescription = null)
             Text(label, style = MaterialTheme.typography.labelLarge)

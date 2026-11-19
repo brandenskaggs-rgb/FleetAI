@@ -1,10 +1,10 @@
 {
   "channel": "pilot-debug",
-  "versionCode": 22,
-  "versionName": "1.10.10",
-  "filename": "fleetai-22.apk",
-  "sha256": "1e6be589cbe5d6c96a5988decc5d76b2adf1695cc358f6925ba7abb8724b7c61",
-  "sizeBytes": 24051516,
+  "versionCode": 23,
+  "versionName": "1.10.11",
+  "filename": "fleetai-23.apk",
+  "sha256": "fc7172f6c3f9308a529eccd437865943b4eb673f2a2c62e96b7c2b50bf288ec4",
+  "sizeBytes": 23848329,
   "signerSha256": "68a54f1c5447ac1bcb07263c9ffeb9293e950694ab7619e6835d215cf3d70ac0",
-  "notes": "Adds an optional parked-vehicle transmission temperature compatibility test for the 2010 Camaro 3.6L automatic under Diagnostics. Test samples are not live telemetry or predictions; ABS remains unverified and disabled. Existing pairing, login storage and normal sensor polling are unchanged. Install as an update while parked after pending uploads finish; do not uninstall or clear app data."
+  "notes": "Refreshes the tablet UI: a larger RPM instrument with coolant and voltage alongside it, a more compact Home, and saved fault results ahead of advanced tools. Training readings are labeled Sample. Pairing and vehicle data are unchanged. Install as an update while parked, after pending uploads finish. Do not uninstall or clear app data."
 }

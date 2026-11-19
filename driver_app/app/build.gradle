@@ -18,8 +18,8 @@ android {
         applicationId "com.fleetai.driver"
         minSdk 26
         targetSdk 36
-        versionCode 22
-        versionName "1.10.10"
+        versionCode 23
+        versionName "1.10.11"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
 
         // Set FLEETAI_BASE_URL in gradle.properties or via -PFLEETAI_BASE_URL=https://...
