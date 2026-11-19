@@ -24,6 +24,9 @@ import com.fleetai.driver.data.model.ThemeMode
 import com.fleetai.driver.data.model.Vehicle
 import com.fleetai.driver.network.AlertRequest
 import com.fleetai.driver.network.ApiService
+import com.fleetai.driver.network.AuthenticatedSession
+import com.fleetai.driver.network.ReplaySessionChangedException
+import com.fleetai.driver.network.SessionBoundUploader
 import com.fleetai.driver.network.DriverLogRequest
 import com.fleetai.driver.network.DvirSubmitRequest
 import com.fleetai.driver.network.EldCertificationRequest
@@ -55,6 +58,14 @@ class DefaultDriverRepository(
     private val vehicleDao: VehicleDao,
     private val dvirDao: DvirDao
 ) : DriverRepository {
+    private val uploader = SessionBoundUploader(api) { preferences.authenticatedSession.first() }
+
+    private suspend fun sessionFor(tenantId: String, vehicleId: String, driverId: String): AuthenticatedSession {
+        val session = preferences.authenticatedSession.first()
+        if (!session.owns(tenantId, vehicleId, driverId)) throw ReplaySessionChangedException()
+        return session
+    }
+
     override suspend fun login(companyCode: String, driverPin: String): DriverSession {
         val useMock = preferences.trainingSession.first()
         check(!useMock) { "Exit training demo before signing in to a fleet." }
@@ -189,7 +200,8 @@ class DefaultDriverRepository(
         hosDao.insertEvent(entity)
         if (training) return
         try {
-            val response = api.postHosLog(
+            val response = uploader.postHosLog(
+                sessionFor(event.tenantId, event.vehicleId, event.driverId),
                 DriverLogRequest(
                     clientEventId = event.id,
                     date = event.eventDate,
@@ -276,9 +288,11 @@ class DefaultDriverRepository(
         dvirDao.insert(entity)
         if (training) return true
         return try {
-            api.submitDvir(entity.toRequest())
+            uploader.submitDvir(sessionFor(entity.tenantId, entity.vehicleId, entity.driverId), entity.toRequest())
             dvirDao.markSynced(entity.id, entity.tenantId)
             true
+        } catch (cancelled: CancellationException) {
+            throw cancelled
         } catch (_: Exception) {
             false
         }
@@ -302,7 +316,8 @@ class DefaultDriverRepository(
         notificationDao.insertNotification(entity)
         if (training) return
         try {
-            api.postAlert(
+            uploader.postAlert(
+                sessionFor(notification.tenantId, notification.vehicleId, notification.driverId),
                 AlertRequest(
                     clientAlertId = notification.id,
                     type = "driver",
@@ -312,6 +327,8 @@ class DefaultDriverRepository(
                 )
             )
             notificationDao.markSynced(notification.id)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
         } catch (_: Exception) {
         }
     }
@@ -498,17 +515,18 @@ class DefaultDriverRepository(
     }
 
     override suspend fun syncPending() {
-        if (preferences.trainingSession.first()) return
+        val session = preferences.authenticatedSession.first()
+        if (!session.canReplay) return
         var hadFailure = false
-        val tenantId = preferences.tenantId.first()
-        val vehicleId = preferences.vehicleId.first()
-        val driverId = preferences.driverId.first()
-        if (tenantId.isBlank() || vehicleId.isBlank() || driverId.isBlank()) return
+        val tenantId = session.tenantId
+        val vehicleId = session.vehicleId
+        val driverId = session.driverId
 
         val pendingEvents = hosDao.getPendingEvents(tenantId, vehicleId, driverId)
         for (event in pendingEvents) {
             try {
-                val response = api.postHosLog(
+                val response = uploader.postHosLog(
+                    session,
                     DriverLogRequest(
                         clientEventId = event.id,
                         date = event.eventDate,
@@ -522,6 +540,8 @@ class DefaultDriverRepository(
                 hosDao.markSynced(event.id)
             } catch (cancelled: CancellationException) {
                 throw cancelled
+            } catch (changed: ReplaySessionChangedException) {
+                throw changed
             } catch (_: Exception) {
                 hadFailure = true
             }
@@ -530,7 +550,8 @@ class DefaultDriverRepository(
         val pendingNotifications = notificationDao.getPendingNotifications(tenantId, vehicleId, driverId)
         for (notification in pendingNotifications) {
             try {
-                api.postAlert(
+                uploader.postAlert(
+                    session,
                     AlertRequest(
                         clientAlertId = notification.id,
                         type = "driver",
@@ -540,6 +561,10 @@ class DefaultDriverRepository(
                     )
                 )
                 notificationDao.markSynced(notification.id)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (changed: ReplaySessionChangedException) {
+                throw changed
             } catch (_: Exception) {
                 hadFailure = true
             }
@@ -549,8 +574,12 @@ class DefaultDriverRepository(
         val pendingInspections = dvirDao.getPending(tenantId, vehicleId, driverId)
         for (inspection in pendingInspections) {
             try {
-                api.submitDvir(inspection.toRequest())
+                uploader.submitDvir(session, inspection.toRequest())
                 dvirDao.markSynced(inspection.id, tenantId)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (changed: ReplaySessionChangedException) {
+                throw changed
             } catch (_: Exception) {
                 hadFailure = true
             }

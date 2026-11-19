@@ -5,6 +5,7 @@ const aiReportSvc = require("../services/aiReportService");
 const { sanitizeString } = require("../lib/utils");
 const { mergePythonAndNodePrediction } = require("../lib/mlMerge");
 const { predictionLimiter, defaultLimiter } = require("../middleware/rateLimiter");
+const { loadPersistedFaultEvidence, selectPredictionFaultEvidence } = require("../services/faultEvidence");
 
 function registerMlRoutes(app, deps) {
   const { requireEmployeeOrCustomerApi } = deps;
@@ -79,14 +80,15 @@ function registerMlRoutes(app, deps) {
       const jsPrediction = ml.computeFullPrediction(samples, vehicleId, vehicleMeta);
       let pythonPrediction = null;
       let pythonError = null;
+      const faultEvidence = selectPredictionFaultEvidence(samples, await loadPersistedFaultEvidence(sqliteDb.getPrisma(), orgId, vehicleId));
       try {
-        const latestSample = samples.length ? samples[samples.length - 1] : null;
-        const dtcCodes = latestSample?.raw?.activeDTCs || latestSample?.metrics?.activeDTCs || [];
+        const dtcCodes = faultEvidence.codes;
         pythonPrediction = await pythonMlClient.predict({ orgId, vehicleId, vehicleMeta, samples, dtcCodes });
       } catch (err) {
         pythonError = err.message || "python_ml_unavailable";
       }
       const prediction = mergePythonAndNodePrediction(jsPrediction, pythonPrediction, { orgId, vehicleId, pythonError });
+      prediction.faultEvidence = faultEvidence;
       await sqliteDb.upsertModelState(prediction);
       const runId = await sqliteDb.insertMlPredictionRun({
         orgId,
@@ -126,18 +128,21 @@ function registerMlRoutes(app, deps) {
       const jsPrediction = ml.computeFullPrediction(samples, vehicleId, vehicleMeta);
       let pythonPrediction = null;
       let pythonError = null;
+      const faultEvidence = selectPredictionFaultEvidence(samples, await loadPersistedFaultEvidence(sqliteDb.getPrisma(), orgId, vehicleId));
       try {
         pythonPrediction = await pythonMlClient.predict({
           orgId,
           vehicleId,
           vehicleMeta,
           samples,
+          dtcCodes: faultEvidence.codes,
           alertMode: req.query.alertMode || "launch_default"
         });
       } catch (err) {
         pythonError = err.message || "python_ml_unavailable";
       }
       const prediction = mergePythonAndNodePrediction(jsPrediction, pythonPrediction, { orgId, vehicleId, pythonError });
+      prediction.faultEvidence = faultEvidence;
       await sqliteDb.upsertModelState(prediction);
       const runId = await sqliteDb.insertMlPredictionRun({
         orgId,

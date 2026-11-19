@@ -10,6 +10,7 @@ const {
   defaultBillingSettings, defaultPaymentMethod, defaultFeatures
 } = require('./adminRoutes');
 const { validateBody, schemas } = require('../middleware/validate');
+const { isOrgAvailable } = require('../auth/tenantAccess');
 
 function registerOrgManagementRoutes(app, deps) {
   const { leadStore } = deps;
@@ -992,7 +993,7 @@ function registerOrgManagementRoutes(app, deps) {
     }
     try {
       const data = await readData();
-      if (!findOrgById(data.orgs, orgId)) return res.status(404).json({ error: "Organization not found" });
+      if (!isOrgAvailable(findOrgById(data.orgs, orgId))) return res.status(404).json({ error: "Organization not found" });
       const token = crypto.randomBytes(16).toString("hex");
       const hours = data.settings?.inviteExpiryHours || 72;
       const invite = {
@@ -1224,7 +1225,7 @@ function registerOrgManagementRoutes(app, deps) {
         return res.status(410).json({ error: "Invite expired" });
       }
       const org = findOrgById(data.orgs, invite.orgId);
-      if (!org) return res.status(410).json({ error: "Invite organization is no longer available" });
+      if (!isOrgAvailable(org)) return res.status(410).json({ error: "Invite organization is no longer available" });
       const userEmail = (email || "").trim().toLowerCase();
       if (!userEmail || !/^[^@]+@[^@]+\.[^@]+$/.test(userEmail)) {
         return res.status(400).json({ error: "Valid email required." });

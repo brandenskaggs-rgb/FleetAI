@@ -21,6 +21,7 @@ async function invoke(token, middleware = requireDevice) {
 
 async function run() {
   const original = db.findPairingByDeviceToken;
+  const originalGetOrg = db.getOrg;
   try {
     db.findPairingByDeviceToken = async () => { throw new Error("database unavailable"); };
     const unavailable = await invoke("dev_test");
@@ -39,11 +40,21 @@ async function run() {
     assert.strictEqual((await invoke("dev_invalid", mixed)).res.statusCode, 401);
 
     db.findPairingByDeviceToken = async () => ({ id: "P1", vehicleId: "V1", driverId: "D1", orgId: "O1", deviceId: "T1" });
+    db.getOrg = async (id) => ({ id, status: "PILOT" });
     const valid = await invoke("dev_valid");
     assert.strictEqual(valid.nextCalled, true);
     assert.strictEqual((await invoke("dev_valid", mixed)).nextCalled, true);
+    db.getOrg = async (id) => ({ id, status: "DELETED" });
+    assert.strictEqual((await invoke("dev_valid")).res.statusCode, 401);
+    db.getOrg = async () => null;
+    assert.strictEqual((await invoke("dev_valid")).res.statusCode, 401);
+    db.getOrg = async () => { throw new Error("organization lookup unavailable"); };
+    assert.strictEqual((await invoke("dev_valid")).res.statusCode, 503);
+    db.getOrg = async (id) => ({ id, status: "ACTIVE" });
+    assert.strictEqual((await invoke("dev_valid")).nextCalled, true, "valid pairing is not revoked or rotated");
   } finally {
     db.findPairingByDeviceToken = original;
+    db.getOrg = originalGetOrg;
   }
   console.log("Device and mixed operator/device authentication tests passed");
 }

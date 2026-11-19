@@ -30,7 +30,7 @@
  */
 
 const crypto = require("crypto");
-const { syncFleet, backfillFaultCodes, resolveVehicleId } = require("../services/motiveSync");
+const { syncFleet, backfillFaultCodes, resolveVehicleId, motiveOrgId } = require("../services/motiveSync");
 const motiveClient = require("../services/motiveClient");
 const db = require("../db");
 
@@ -101,7 +101,7 @@ function registerMotiveWebhookRoutes(app, deps) {
       // Backfill fault codes for vehicles that came from Motive
       let backfillResult = [];
       if (syncResult.created > 0 || req.body?.backfill) {
-        const allVehicles = await db.listVehicles();
+        const allVehicles = await db.listVehicles({ orgId: motiveOrgId() });
         const motiveVehicles = allVehicles.filter((v) => v.motiveId);
         backfillResult = await backfillFaultCodes(motiveVehicles, { pythonMlClient, nowIso });
       }
@@ -121,7 +121,7 @@ function registerMotiveWebhookRoutes(app, deps) {
 
   // ── Admin: Motive integration status ──────────────────────────────────────
   app.get("/api/admin/motive/status", requireSuperAdmin, async (req, res) => {
-    const allVehicles = await db.listVehicles();
+    const allVehicles = await db.listVehicles({ orgId: motiveOrgId() });
     const motiveVehicles = allVehicles.filter((v) => v.motiveId);
     return res.json({
       ok: true,
@@ -374,7 +374,7 @@ async function _onGatewayDisconnected(event, { nowIso }) {
   await db.updateVehicleMotiveMetadata(vehicleId, {
     motiveGatewayConnected: false,
     motiveGatewayDisconnectedAt: nowIso()
-  });
+  }, motiveOrgId());
   console.log(`[MOTIVE-WEBHOOK] gateway_disconnected vehicle=${vehicleId}`);
 }
 
@@ -385,7 +385,7 @@ async function _onGatewayReconnected(event) {
   await db.updateVehicleMotiveMetadata(vehicleId, {
     motiveGatewayConnected: true,
     motiveGatewayDisconnectedAt: null
-  });
+  }, motiveOrgId());
   console.log(`[MOTIVE-WEBHOOK] gateway_reconnected vehicle=${vehicleId}`);
 }
 
@@ -514,7 +514,7 @@ async function _onDutyStatusUpdated(event, { nowIso }) {
   const currentStatus = event.current_status || event.status || "";
   if (!motiveUserId) return;
 
-  const driverRecord = await db.findDriverByMotiveUserId(motiveUserId);
+  const driverRecord = await db.findDriverByMotiveUserId(motiveUserId, motiveOrgId());
   if (!driverRecord) {
     console.log(`[MOTIVE-WEBHOOK] duty_status: unknown motiveUserId=${motiveUserId}`);
     return;
@@ -523,7 +523,7 @@ async function _onDutyStatusUpdated(event, { nowIso }) {
   await db.updateDriverMotiveMetadata(driverRecord.driverId, {
     dutyStatus: currentStatus,
     dutyStatusUpdatedAt: event.updated_at || nowIso()
-  });
+  }, motiveOrgId());
   console.log(`[MOTIVE-WEBHOOK] duty_status_updated motiveUserId=${motiveUserId} status=${currentStatus}`);
 }
 

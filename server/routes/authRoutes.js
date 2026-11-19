@@ -21,6 +21,7 @@ function registerAuthRoutes(app, deps) {
     formatAuthError,
     setNoStore,
     requireCustomerApi,
+    requireCustomerPasswordApi = requireCustomerApi,
     requireEmployeeApi,
     validateSessionIdentity,
     revokeUserSessions,
@@ -345,7 +346,7 @@ function registerAuthRoutes(app, deps) {
     app.handle(req, res, next);
   });
 
-  app.post("/api/auth/password/update", requireCustomerApi, validateBody(schemas.passwordUpdate), async (req, res, next) => {
+  app.post("/api/auth/password/update", requireCustomerPasswordApi, validateBody(schemas.passwordUpdate), async (req, res, next) => {
     const { currentPassword, newPassword } = req.body || {};
     if (!currentPassword || !newPassword) {
       return res.status(400).json({ error: "Current and new password required." });

@@ -4,6 +4,7 @@ import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.POST
 import retrofit2.http.Query
+import retrofit2.http.Tag
 
 interface ApiService {
     @GET("api/driver/releases/latest")
@@ -31,13 +32,13 @@ interface ApiService {
     suspend fun selectVehicle(@Body request: SelectVehicleRequest): BasicResponse
 
     @POST("api/logs/hos")
-    suspend fun postHosLog(@Body request: DriverLogRequest): BasicResponse
+    suspend fun postHosLog(@Body request: DriverLogRequest, @Tag session: AuthenticatedSession): BasicResponse
 
     @GET("api/logs/hos")
     suspend fun getHosLogs(@Query("date") date: String): HosLogResponse
 
     @POST("api/driver/dvir")
-    suspend fun submitDvir(@Body request: DvirSubmitRequest): DvirSubmitResponse
+    suspend fun submitDvir(@Body request: DvirSubmitRequest, @Tag session: AuthenticatedSession): DvirSubmitResponse
 
     @GET("api/eld/device/status")
     suspend fun getEldDeviceStatus(): EldDeviceStatusResponse
@@ -55,13 +56,13 @@ interface ApiService {
     suspend fun certifyEldRecords(@Body request: EldCertificationRequest): BasicResponse
 
     @POST("api/telemetry/ingest")
-    suspend fun ingestTelemetry(@Body request: TelemetryIngestRequest): BasicResponse
+    suspend fun ingestTelemetry(@Body request: TelemetryIngestRequest, @Tag session: AuthenticatedSession): BasicResponse
 
     @POST("api/telemetry/snapshot")
     suspend fun postTelemetrySnapshot(@Body request: TelemetrySnapshotRequest): BasicResponse
 
     @POST("api/alerts")
-    suspend fun postAlert(@Body request: AlertRequest): BasicResponse
+    suspend fun postAlert(@Body request: AlertRequest, @Tag session: AuthenticatedSession): BasicResponse
 
     @GET("api/vehicle/dtcs")
     suspend fun getDiagnosticCodes(): DtcResponse

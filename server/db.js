@@ -667,13 +667,14 @@ async function deleteVehicleByVehicleId(vehicleId) {
   }
 }
 
-async function findVehicleByMotiveIdOrVin(motiveId, vin) {
+async function findVehicleByMotiveIdOrVin(motiveId, vin, orgId) {
+  if (!orgId) throw new Error("motive_org_scope_required");
   if (motiveId) {
-    const byMotive = await getPrisma().vehicle.findUnique({ where: { motiveId } });
+    const byMotive = await getPrisma().vehicle.findFirst({ where: { motiveId, orgId } });
     if (byMotive) return rowToVehicle(byMotive);
   }
   if (vin) {
-    const byVin = await getPrisma().vehicle.findFirst({ where: { vin } });
+    const byVin = await getPrisma().vehicle.findFirst({ where: { vin, orgId } });
     if (byVin) return rowToVehicle(byVin);
   }
   return null;
@@ -687,14 +688,14 @@ async function findVehicleByMotiveIdOrVin(motiveId, vin) {
 // evolving and its exact field set isn't stable yet.
 async function upsertVehicleFromMotive({ motiveId, vin, make, model, year, unitName, orgId, metadata }) {
   const normalizedVin = vin ? String(vin).trim().toUpperCase() : null;
-  const existing = await findVehicleByMotiveIdOrVin(motiveId, normalizedVin);
+  const existing = await findVehicleByMotiveIdOrVin(motiveId, normalizedVin, orgId);
   const yearInt = year != null && year !== "" ? parseInt(year, 10) : null;
   const safeYear = Number.isFinite(yearInt) ? yearInt : null;
 
   if (existing) {
     const mergedMetadata = Object.assign({}, existing.motiveMetadata || {}, metadata || {});
     const row = await getPrisma().vehicle.update({
-      where: { vehicleId: existing.vehicleId },
+      where: { vehicleId: existing.vehicleId, orgId },
       data: {
         motiveId: motiveId || existing.motiveId,
         vin: normalizedVin || existing.vin,
@@ -725,11 +726,12 @@ async function upsertVehicleFromMotive({ motiveId, vin, make, model, year, unitN
   return { vehicle: rowToVehicle(row), created: true };
 }
 
-async function updateVehicleMotiveMetadata(vehicleId, patch = {}) {
+async function updateVehicleMotiveMetadata(vehicleId, patch = {}, orgId) {
+  if (!orgId) throw new Error("motive_org_scope_required");
   const existing = await getVehicleByVehicleId(vehicleId);
-  if (!existing) return null;
+  if (!existing || existing.orgId !== orgId) return null;
   const merged = Object.assign({}, existing.motiveMetadata || {}, patch);
-  const row = await getPrisma().vehicle.update({ where: { vehicleId }, data: { motiveMetadata: merged } });
+  const row = await getPrisma().vehicle.update({ where: { vehicleId, orgId }, data: { motiveMetadata: merged } });
   return rowToVehicle(row);
 }
 
@@ -802,17 +804,18 @@ async function deleteDriverByDriverId(driverId) {
   }
 }
 
-async function findDriverByMotiveUserId(motiveUserId) {
+async function findDriverByMotiveUserId(motiveUserId, orgId) {
+  if (!orgId) throw new Error("motive_org_scope_required");
   if (!motiveUserId) return null;
-  const row = await getPrisma().driver.findUnique({ where: { motiveId: motiveUserId } });
+  const row = await getPrisma().driver.findFirst({ where: { motiveId: motiveUserId, orgId } });
   return row ? rowToDriver(row) : null;
 }
 
 async function upsertDriverFromMotive({ motiveUserId, firstName, lastName, email, phone, orgId }) {
-  const existing = await findDriverByMotiveUserId(motiveUserId);
+  const existing = await findDriverByMotiveUserId(motiveUserId, orgId);
   if (existing) {
     const row = await getPrisma().driver.update({
-      where: { driverId: existing.driverId },
+      where: { driverId: existing.driverId, orgId },
       data: {
         firstName: firstName || existing.firstName,
         lastName: lastName || existing.lastName,
@@ -839,12 +842,13 @@ async function upsertDriverFromMotive({ motiveUserId, firstName, lastName, email
   return { driver: rowToDriver(row), created: true };
 }
 
-async function updateDriverMotiveMetadata(driverId, patch = {}) {
+async function updateDriverMotiveMetadata(driverId, patch = {}, orgId) {
+  if (!orgId) throw new Error("motive_org_scope_required");
   const existing = await getDriverByDriverId(driverId);
-  if (!existing) return null;
-  const prismaRow = await getPrisma().driver.findUnique({ where: { driverId }, select: { motiveMetadata: true } });
+  if (!existing || existing.orgId !== orgId) return null;
+  const prismaRow = await getPrisma().driver.findUnique({ where: { driverId, orgId }, select: { motiveMetadata: true } });
   const merged = Object.assign({}, prismaRow?.motiveMetadata || {}, patch);
-  const row = await getPrisma().driver.update({ where: { driverId }, data: { motiveMetadata: merged } });
+  const row = await getPrisma().driver.update({ where: { driverId, orgId }, data: { motiveMetadata: merged } });
   return rowToDriver(row);
 }
 

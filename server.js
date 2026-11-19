@@ -43,6 +43,7 @@ const { registerOrgManagementRoutes } = require("./server/routes/orgManagementRo
 const { startWatchdog } = require("./tools/watchdog");
 const { normalizeAuthData, loadAuthStore, saveAuthStore, isEmployeeRole } = require("./server/authStore");
 const { createAuthService } = require("./server/auth/authService");
+const { isOrgAvailable } = require("./server/auth/tenantAccess");
 const prismaAuthAdapter = require("./server/auth/prismaAuthAdapter");
 const { AUTH_ERRORS, formatAuthError } = require("./server/auth/authErrors");
 const { applyAuthStoreRepair } = require("./server/auth/repairAuthStore");
@@ -790,34 +791,9 @@ app.use(async (req, res, next) => {
 // Legacy JSON-backed routes perform read-modify-write operations. Serialize
 // complete mutation requests so two successful requests cannot overwrite one
 // another's snapshot. Re-entrant app.handle aliases retain the same lock.
-let mutationRequestTail = Promise.resolve();
-app.use(async (req, res, next) => {
-  const pathOnly = String(req.path || req.url || "").split("?")[0];
-  const databaseTelemetryMutation = !TELEMETRY_JSON_MIRROR_ENABLED
-    && ["/api/telemetry", "/api/telemetry/snapshot"].includes(pathOnly);
-  if (databaseTelemetryMutation || req._fleetAiMutationLockHeld || !["POST", "PUT", "PATCH", "DELETE"].includes(String(req.method || "").toUpperCase())) {
-    return next();
-  }
-  const previous = mutationRequestTail;
-  let release;
-  mutationRequestTail = new Promise((resolve) => { release = resolve; });
-  await previous.catch(() => {});
-  req._fleetAiMutationLockHeld = true;
-  let released = false;
-  const finish = () => {
-    if (released) return;
-    released = true;
-    release();
-  };
-  res.once("finish", finish);
-  res.once("close", finish);
-  try {
-    return next();
-  } catch (error) {
-    finish();
-    return next(error);
-  }
-});
+app.use(require("./server/middleware/mutationQueue").createMutationQueue({
+  telemetryJsonMirrorEnabled: TELEMETRY_JSON_MIRROR_ENABLED
+}));
 
 function denyStaticSourcePaths(req, res, next) {
   const pathname = String(req.path || "");
@@ -1265,7 +1241,7 @@ registerMotiveOAuthRoutes(app, {
 });
 
 app.post("/api/telemetry/snapshot", requireDevice, validateBody(schemas.telemetrySnapshot), (req, res) => {
-  (async () => {
+  return (async () => {
     const payload = req.body || {};
     const requestedVehicleId = sanitizeString(payload.vehicleId || "", 80);
     const vehicleId = req.device.vehicleId;
@@ -1314,7 +1290,7 @@ app.post("/api/telemetry/snapshot", requireDevice, validateBody(schemas.telemetr
 });
 
 app.post("/api/alerts", requireDevice, (req, res) => {
-  (async () => {
+  return (async () => {
     const payload = req.body || {};
     const requestedVehicleId = sanitizeString(payload.vehicleId || "", 80);
     const vehicleId = req.device.vehicleId;
@@ -1877,15 +1853,15 @@ async function validateSessionIdentity(session, expectedScope) {
     }
     const prisma = sqliteDb.getPrisma();
     user = session.userId
-      ? await prisma.user.findUnique({ where: { id: session.userId }, include: { org: { select: { id: true } } } })
-      : await prisma.user.findUnique({ where: { email: normalizeEmail(session.email) }, include: { org: { select: { id: true } } } });
-    tenantExists = Boolean(user?.orgId && user?.org?.id === user.orgId);
+      ? await prisma.user.findUnique({ where: { id: session.userId }, include: { org: { select: { id: true, status: true } } } })
+      : await prisma.user.findUnique({ where: { email: normalizeEmail(session.email) }, include: { org: { select: { id: true, status: true } } } });
+    tenantExists = Boolean(user?.orgId && user?.org?.id === user.orgId && isOrgAvailable(user.org));
   } else {
     const data = await readData();
     user = (data.users || []).find((candidate) => session.userId
       ? candidate.id === session.userId
       : normalizeEmail(candidate.email) === normalizeEmail(session.email)) || null;
-    tenantExists = Boolean(user?.orgId && (data.orgs || []).some((org) => (org.id || org.orgId) === user.orgId));
+    tenantExists = Boolean(user?.orgId && (data.orgs || []).some((org) => (org.id || org.orgId) === user.orgId && isOrgAvailable(org)));
   }
   const active = Boolean(user) && user.isActive !== false && user.active !== false
     && !["INACTIVE", "DISABLED", "LOCKED", "DELETED"].includes(String(user.status || "").toUpperCase());
@@ -2063,7 +2039,7 @@ async function requireEmployeeApi(req, res, next) {
   }
 }
 
-async function requireCustomerApi(req, res, next) {
+async function requireCustomerApi(req, res, next, { allowSelfPasswordChange = false } = {}) {
   const session = getCustomerSession(req);
   if (!session) {
     return res.status(401).json({ error: "Unauthorized" });
@@ -2075,7 +2051,8 @@ async function requireCustomerApi(req, res, next) {
       return res.status(401).json({ error: "Unauthorized" });
     }
     req.customer = validated;
-    if (!bindCustomerTenant(req, res, validated, { enforceReadOnly: true })) return;
+    const selfPasswordChange = allowSelfPasswordChange && req.method === "POST" && req.path === "/api/auth/password/update";
+    if (!bindCustomerTenant(req, res, validated, { enforceReadOnly: !selfPasswordChange })) return;
     bindStreamSession(req, validated, "customer");
     next();
   } catch (err) {
@@ -4004,6 +3981,7 @@ registerAuthRoutes(app, {
   formatAuthError,
   setNoStore,
   requireCustomerApi: (req, res, next) => requireCustomerApi(req, res, next),
+  requireCustomerPasswordApi: (req, res, next) => requireCustomerApi(req, res, next, { allowSelfPasswordChange: true }),
   requireEmployeeApi: (req, res, next) => requireEmployeeApi(req, res, next),
   validateSessionIdentity,
   revokeUserSessions,
@@ -4296,6 +4274,7 @@ async function startServer() {
   } catch (err) {
     console.warn(`[AUTH] could not ensure ORG_DEFAULT exists: ${err.message}`);
   }
+  require("./server/middleware/mutationQueue").trackMutationHandlers(app.router.stack);
   const httpServer = app.listen(PORT, HOST, () => {
   console.log(`[env] __dirname=${__dirname}`);
   console.log(`[env] server.js path=${__filename}`);

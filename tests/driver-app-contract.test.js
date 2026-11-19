@@ -245,7 +245,17 @@ console.log("\nOffline legal records are scoped and idempotent");
   const eldRoutes = fs.readFileSync(path.join(__dirname, "..", "server", "routes", "eldRoutes.js"), "utf8");
   check("ELD login, logout, and certification responses match Android BasicResponse", (eldRoutes.match(/success: true/g) || []).length >= 3);
   check("HOS retries carry a stable client event ID", /clientEventId = event\.id/.test(repository) && /clientEventId:\s*String/.test(networkModels));
-  check("driver DVIR is saved locally before network submission", /dvirDao\.insert\(entity\)[\s\S]*api\.submitDvir/.test(repository));
+  const submitInspection = repository.match(
+    /override suspend fun submitInspection\([\s\S]*?(?=\r?\n    override suspend fun )/
+  )?.[0] || "";
+  const insertAt = submitInspection.indexOf("dvirDao.insert(entity)");
+  const uploadAt = submitInspection.indexOf("uploader.submitDvir(");
+  const acknowledgeAt = submitInspection.indexOf("dvirDao.markSynced(entity.id, entity.tenantId)");
+  check("driver DVIR is saved locally before network submission", insertAt >= 0 && uploadAt > insertAt);
+  check("driver DVIR upload is bound to the saved record's session scope",
+    /uploader\.submitDvir\(\s*sessionFor\(entity\.tenantId,\s*entity\.vehicleId,\s*entity\.driverId\),\s*entity\.toRequest\(\)\)/.test(submitInspection));
+  check("driver DVIR is marked synced only after session-bound upload returns",
+    uploadAt >= 0 && acknowledgeAt > uploadAt);
   check("pending DVIR rows are tenant, vehicle, and driver scoped", /dvir_records WHERE tenantId = :tenantId AND vehicleId = :vehicleId AND driverId = :driverId AND synced = 0/.test(dao));
   check("device DVIR endpoint derives scope from the pairing", /\/api\/driver\/dvir[\s\S]*orgId: req\.device\.orgId[\s\S]*vehicleId: req\.device\.vehicleId/.test(driverRoutes));
   check("device DVIR retries return the original record", /clientRecordId[\s\S]*duplicate: true/.test(driverRoutes));

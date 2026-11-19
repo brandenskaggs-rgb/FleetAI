@@ -15,6 +15,7 @@
  */
 
 const db = require("../db");
+const { isOrgAvailable } = require("../auth/tenantAccess");
 
 function extractBearer(req) {
   const header = req.headers.authorization || req.headers.Authorization || "";
@@ -39,7 +40,7 @@ async function attachDevice(req, _res, next) {
     const token = extractBearer(req);
     if (token) {
       const pairing = await db.findPairingByDeviceToken(token);
-      if (pairing) {
+      if (pairing && pairing.orgId && isOrgAvailable(await db.getOrg(pairing.orgId))) {
         req.device = {
           pairingId: pairing.id,
           vehicleId: pairing.vehicleId,
@@ -55,7 +56,8 @@ async function attachDevice(req, _res, next) {
               && current.orgId === pairing.orgId
               && current.vehicleId === pairing.vehicleId
               && current.driverId === pairing.driverId
-              && current.deviceId === pairing.deviceId);
+              && current.deviceId === pairing.deviceId
+              && isOrgAvailable(await db.getOrg(current.orgId)));
           };
         }
       }

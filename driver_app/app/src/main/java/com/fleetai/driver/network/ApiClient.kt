@@ -50,10 +50,6 @@ object ApiClient {
 
     private val httpClient = OkHttpClient.Builder()
         .addInterceptor { chain ->
-            // Training data never leaves the device, including requests from background workers.
-            if (preferences?.let { runBlocking { it.trainingSession.first() } } == true) {
-                throw java.io.IOException("Training demo is local only. Pair a fleet account for online features.")
-            }
             val request = chain.request()
             val ctx = appContext
             val baseUrl = ctx?.let { resolveBaseUrl(it) }
@@ -82,18 +78,9 @@ object ApiClient {
                 )
                 throw IllegalStateException("LOCALHOST_BLOCKED")
             }
-            val builder = request.newBuilder().url(newUrl)
-            val prefs = preferences
-            if (prefs != null) {
-                val token = runBlocking { prefs.token.first() }
-                val tenantId = runBlocking { prefs.tenantId.first() }
-                if (token.isNotBlank()) {
-                    builder.header("Authorization", "Bearer $token")
-                }
-                if (tenantId.isNotBlank()) {
-                    builder.header("X-Tenant-Id", tenantId)
-                }
-            }
+            val session = preferences?.let { runBlocking { it.authenticatedSession.first() } }
+                ?: throw java.io.IOException("Session storage is not initialized")
+            val builder = SessionRequestAuthentication.authenticate(request, session).newBuilder().url(newUrl)
             builder.header("X-FleetAI-BaseUrl", baseUrl.toString())
             builder.header("X-FleetAI-App-Version", BuildConfig.VERSION_NAME)
             builder.header("X-FleetAI-App-Version-Code", BuildConfig.VERSION_CODE.toString())

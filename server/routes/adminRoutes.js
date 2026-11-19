@@ -15,7 +15,8 @@ async function mirrorAdminOrgToPrisma(org) {
 }
 const { generateApiKey } = require("../middleware/apiKeyAuth");
 const { validateBody, schemas } = require("../middleware/validate");
-const { makeId, nowIso, addAudit, sanitizeString, normalizeEmail, parseNumberField, publicUserView } = require("../lib/utils");
+const { makeId, nowIso, addAudit, sanitizeString, normalizeEmail, parseNumberField, publicUserView, generateTempPassword } = require("../lib/utils");
+const { isOrgAvailable } = require("../auth/tenantAccess");
 
 // ── Pure helpers (org/lead data helpers) ──────────────────────────────────
 
@@ -507,10 +508,11 @@ function registerAdminRoutes(app, deps) {
       await reconcileAdminUsers(data, { persist: true });
       const exists = data.users.some((u) => normalizeEmail(u.email) === normalizedEmail);
       if (exists) return res.status(409).json({ error: "User already exists" });
-      if (kindForRole(normalizedRole) === "customer" && !(await getOrg(orgId))) {
+      if (kindForRole(normalizedRole) === "customer" && !isOrgAvailable(await getOrg(orgId))) {
         return res.status(400).json({ error: "Customer organization does not exist." });
       }
-      const passwordHash = password ? await bcrypt.hash(password, 12) : "";
+      const tempPassword = password ? null : generateTempPassword();
+      const passwordHash = await bcrypt.hash(password || tempPassword, 12);
       const user = {
         id: makeId("USR"),
         email: normalizedEmail,
@@ -524,13 +526,14 @@ function registerAdminRoutes(app, deps) {
         lastLoginAt: null,
         passwordHash,
         mustSetPassword: !password,
+        isTemporaryPassword: !password,
         requirePasswordReset: !password
       };
       await saveAdminUserToPrimary(user, data);
       data.users.push(user);
       addAudit(data, "USER_CREATED", `${user.id}:${user.email}:${user.role}`);
       await writeData(data);
-      res.json({ ok: true, data: publicUserView(user) });
+      res.json({ ok: true, data: { ...publicUserView(user), ...(tempPassword ? { tempPassword } : {}) } });
     } catch (err) {
       next(err);
     }

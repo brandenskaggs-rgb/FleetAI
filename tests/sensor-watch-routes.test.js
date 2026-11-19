@@ -27,6 +27,7 @@ test("watch routes enforce session roles, paired vehicle scope, and revision che
   t.mock.method(db, "getPrisma", () => prisma);
   t.mock.method(db, "listVehicles", async () => []);
   t.mock.method(db, "listDrivers", async () => []);
+  t.mock.method(db, "getOrg", async id => ({ id, status: "PILOT" }));
   t.mock.method(db, "findPairingByDeviceToken", async token => token === "test-device-A" ? { id: "pairA", orgId: "A", vehicleId: "carA", deviceId: "deviceA" } : null);
   const app = express();
   app.use(express.json());

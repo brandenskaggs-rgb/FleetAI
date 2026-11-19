@@ -1,4 +1,54 @@
 const { getPrisma } = require("./db");
+const crypto = require("node:crypto");
+
+const OAUTH_STATE_TTL_MS = 10 * 60 * 1000;
+
+function oauthStateHash(state) {
+  if (typeof state !== "string" || !/^[a-f0-9]{32}$/.test(state)) return null;
+  return crypto.createHash("sha256").update(state).digest("hex");
+}
+
+async function setMotiveOAuthState(session, state) {
+  const hash = oauthStateHash(state);
+  if (!session?.id || !hash) throw new Error("Invalid OAuth state session");
+  const now = new Date();
+  const expiresAt = new Date(Math.min(now.getTime() + OAUTH_STATE_TTL_MS, Number(session.expiresAt)));
+  if (!(expiresAt > now)) throw new Error("OAuth session expired");
+  if (process.env.DATABASE_URL) {
+    const result = await getPrisma().session.updateMany({
+      where: { id: session.id, loginRole: "employee", expiresAt: { gt: now } },
+      data: { motiveOAuthStateHash: hash, motiveOAuthStateExpiresAt: expiresAt }
+    });
+    if (result.count !== 1) throw new Error("OAuth session unavailable");
+    return;
+  }
+  session.motiveOAuthStateHash = hash;
+  session.motiveOAuthStateExpiresAt = expiresAt;
+}
+
+async function consumeMotiveOAuthState(session, state) {
+  const hash = oauthStateHash(state);
+  if (!session?.id || !hash) return false;
+  const now = new Date();
+  if (process.env.DATABASE_URL) {
+    // Compare and clear in one statement so callbacks on different replicas cannot replay state.
+    const result = await getPrisma().session.updateMany({
+      where: {
+        id: session.id, loginRole: "employee", expiresAt: { gt: now },
+        motiveOAuthStateHash: hash, motiveOAuthStateExpiresAt: { gt: now }
+      },
+      data: { motiveOAuthStateHash: null, motiveOAuthStateExpiresAt: null }
+    });
+    return result.count === 1;
+  }
+  if (session.expiresAt <= now.getTime() || !(new Date(session.motiveOAuthStateExpiresAt) > now)) return false;
+  const expected = Buffer.from(session.motiveOAuthStateHash || "", "hex");
+  const received = Buffer.from(hash, "hex");
+  if (expected.length !== received.length || !crypto.timingSafeEqual(expected, received)) return false;
+  delete session.motiveOAuthStateHash;
+  delete session.motiveOAuthStateExpiresAt;
+  return true;
+}
 
 async function upsertSession(session) {
   if (!process.env.DATABASE_URL) return;
@@ -79,4 +129,4 @@ async function pruneExpiredSessions() {
   } catch (_) {}
 }
 
-module.exports = { upsertSession, deleteSession, deleteSessionsForUser, getActiveSession, loadActiveSessions, pruneExpiredSessions };
+module.exports = { upsertSession, deleteSession, deleteSessionsForUser, getActiveSession, loadActiveSessions, pruneExpiredSessions, setMotiveOAuthState, consumeMotiveOAuthState };

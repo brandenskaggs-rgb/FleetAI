@@ -43,9 +43,7 @@ object AppGraph {
         val db = DriverDatabase.create(context)
         telemetryOutbox = TelemetryOutbox(
             dao = db.telemetryOutboxDao(),
-            resolveTenantId = { preferences.tenantId.first() },
-            resolveVehicleId = { preferences.vehicleId.first() },
-            resolveAuthToken = { preferences.token.first() }
+            resolveSession = { preferences.authenticatedSession.first() }
         )
         repository = DefaultDriverRepository(
             api = ApiClient.api,

@@ -10,6 +10,7 @@ import com.fleetai.driver.data.model.ThemeMode
 import com.fleetai.driver.j1939.J1939BusProfile
 import com.fleetai.driver.j1939.J1939ConnectorProfile
 import com.fleetai.driver.security.TokenCipher
+import com.fleetai.driver.network.AuthenticatedSession
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import java.util.UUID
@@ -41,6 +42,16 @@ class AppPreferences(context: Context) {
     val vehicleId: Flow<String> = context.appDataStore.data.map { it[vehicleIdKey] ?: "" }
     val deviceId: Flow<String> = context.appDataStore.data.map { it[deviceIdKey] ?: "" }
     val assignmentId: Flow<String> = context.appDataStore.data.map { it[assignmentIdKey] ?: "" }
+    val authenticatedSession: Flow<AuthenticatedSession> = context.appDataStore.data.map { prefs ->
+        AuthenticatedSession(
+            tenantId = prefs[tenantIdKey].orEmpty(),
+            driverId = prefs[driverIdKey].orEmpty(),
+            vehicleId = prefs[vehicleIdKey].orEmpty(),
+            token = tokenCipher.decrypt(prefs[tokenKey]),
+            assignmentId = prefs[assignmentIdKey].orEmpty(),
+            training = prefs[demoModeKey] == true
+        )
+    }
     val themeMode: Flow<ThemeMode> = context.appDataStore.data.map {
         when (it[themeKey]) {
             ThemeMode.LIGHT.name -> ThemeMode.LIGHT

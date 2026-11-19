@@ -2,6 +2,7 @@ const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
 const { AUTH_ERRORS } = require("./authErrors");
 const { normalizeEmail, isCustomerRole, isEmployeeRole, isActiveUser } = require("../authStore");
+const { isOrgAvailable } = require("./tenantAccess");
 
 // Comparing against a real bcrypt hash for unknown/ineligible users keeps the
 // observable login cost close to a valid-account login and avoids an email
@@ -91,6 +92,9 @@ function createAuthService(options) {
     if (scope !== "customer" && scope !== "employee") return { user: null, emailNormalized, data };
     if (scope === "customer" && !isCustomerRole(user)) return { user: null, emailNormalized, data };
     if (scope === "employee" && !isEmployeeRole(user)) return { user: null, emailNormalized, data };
+    if (scope === "customer" && !isOrgAvailable((data.orgs || []).find((org) => (org.id || org.orgId) === user.orgId))) {
+      return { user: null, emailNormalized, data };
+    }
     return { user, emailNormalized, data };
   }
 
@@ -155,6 +159,10 @@ function createAuthService(options) {
     const data = await loadData();
     const user = (data.users || []).find((u) => validateSetupToken(u, token)) || null;
     if (!user) {
+      return { ok: false, error: AUTH_ERRORS.INVALID_CREDENTIALS };
+    }
+    if (!isActiveUser(user) || (isCustomerRole(user)
+      && !isOrgAvailable((data.orgs || []).find((org) => (org.id || org.orgId) === user.orgId)))) {
       return { ok: false, error: AUTH_ERRORS.INVALID_CREDENTIALS };
     }
     await setPassword(user, newPassword);

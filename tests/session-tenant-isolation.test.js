@@ -8,6 +8,7 @@ const vm = require("node:vm");
 const { EventEmitter } = require("node:events");
 const { bindCustomerTenant } = require("../server/middleware/tenantScope");
 const { isEmployeeRole } = require("../server/authStore");
+const { isOrgAvailable } = require("../server/auth/tenantAccess");
 const { createAuthService } = require("../server/auth/authService");
 const { protectSessionStream } = require("../server/middleware/sessionStream");
 const { buildFleetAdvisorContext } = require("../server/services/advisorContextService");
@@ -27,7 +28,7 @@ function fixture() {
     Date, crypto: require("node:crypto"), SESSION_TTL_MS: 60_000,
     CUSTOMER_SESSION_COOKIE: "customer", SESSION_COOKIE: "employee",
     sessionStore: new Map(), customerSessionStore: new Map(),
-    persistSessionStoresSoon() {}, bindCustomerTenant, isEmployeeRole,
+    persistSessionStoresSoon() {}, bindCustomerTenant, isEmployeeRole, isOrgAvailable,
     nowIso: () => new Date().toISOString(), normalizeEmail: value => value.toLowerCase(),
     parseCookies: value => Object.fromEntries(value.split(";").filter(Boolean).map(item => item.trim().split("="))),
     clearSessionCookie() {}, clearCustomerSessionCookie() {},
@@ -76,12 +77,23 @@ test("organization reassignment invalidates the old session instead of moving it
 });
 
 test("disabled accounts, deleted organizations, and password changes invalidate sessions", async () => {
-  for (const change of [{ isActive: false }, { org: null }, { passwordLastSetAt: new Date(Date.now() + 5000).toISOString() }]) {
+  for (const change of [{ isActive: false }, { org: null }, { org: { id: "org-a", status: "DELETED" } }, { passwordLastSetAt: new Date(Date.now() + 5000).toISOString() }]) {
     const ctx = fixture();
     const session = await ctx.issueSession("customer", ctx.user);
     Object.assign(ctx.user, change);
     assert.equal(await ctx.validateSessionIdentity(session, "customer"), null);
   }
+});
+
+test("legacy session validation also rejects soft deletion without invalidating pilot sessions", async () => {
+  const ctx = fixture();
+  ctx.process.env.DATABASE_URL = "";
+  const org = { id: "org-a", status: "PILOT" };
+  ctx.readData = async () => ({ users: [ctx.user], orgs: [org] });
+  const session = await ctx.issueSession("customer", ctx.user);
+  assert.equal((await ctx.validateSessionIdentity(session, "customer")).id, session.id);
+  org.status = "DELETED";
+  assert.equal(await ctx.validateSessionIdentity(session, "customer"), null);
 });
 
 test("unknown and customer roles are never staff roles", async () => {
@@ -142,6 +154,35 @@ test("tenant input tampering and viewer mutations are rejected", () => {
     assert.equal(res.statusCode, 403);
   }
   assert.equal(bindCustomerTenant({ method: "POST" }, response(), { orgId: "org-a", role: "CUSTOMER_VIEWER" }, { enforceReadOnly: true }), false);
+});
+
+test("viewer password authorization is opt-in and retains tenant and session checks", async () => {
+  const ctx = fixture();
+  ctx.user.role = "CUSTOMER_VIEWER";
+  ctx.user.org.status = "PILOT";
+  const session = await ctx.issueSession("customer", ctx.user);
+  const req = { headers: { cookie: `customer=${session.id}` }, method: "POST", path: "/api/auth/password/update", params: {}, query: {}, body: {} };
+  const denied = response();
+  await ctx.requireCustomerApi(req, denied, () => assert.fail("default guard remains read-only"));
+  assert.equal(denied.statusCode, 403);
+  let allowed = 0;
+  await ctx.requireCustomerApi(req, response(), () => allowed++, { allowSelfPasswordChange: true });
+  assert.equal(allowed, 1);
+  assert.equal(ctx.rows.has(session.id), true, "valid pilot sessions are preserved");
+  req.path = "/api/vehicles";
+  const fleetMutation = response();
+  await ctx.requireCustomerApi(req, fleetMutation, () => assert.fail("viewer fleet mutation"), { allowSelfPasswordChange: true });
+  assert.equal(fleetMutation.statusCode, 403);
+  req.path = "/api/auth/password/update";
+  req.body.orgId = "other-org";
+  const wrongTenant = response();
+  await ctx.requireCustomerApi(req, wrongTenant, () => assert.fail("tenant bypass"), { allowSelfPasswordChange: true });
+  assert.equal(wrongTenant.statusCode, 403);
+  req.body = {};
+  ctx.rows.delete(session.id);
+  const revoked = response();
+  await ctx.requireCustomerApi(req, revoked, () => assert.fail("revocation bypass"), { allowSelfPasswordChange: true });
+  assert.equal(revoked.statusCode, 401);
 });
 
 test("stream identities cannot follow a role change", async () => {
@@ -228,17 +269,23 @@ test("device stream authorization expires on revocation or reassignment", async 
   const db = require("../server/db");
   const { attachDevice } = require("../server/middleware/deviceAuth");
   const original = db.findPairingByDeviceToken;
+  const originalGetOrg = db.getOrg;
   let pairing = { id: "p", vehicleId: "v", driverId: "d", orgId: "org-a", deviceId: "tablet" };
+  let orgStatus = "PILOT";
+  db.getOrg = async id => ({ id, status: orgStatus });
   db.findPairingByDeviceToken = async () => pairing;
   try {
     const req = { path: "/api/telemetry/stream", headers: { authorization: "Bearer synthetic-test-token" } };
     await attachDevice(req, {}, () => {});
     assert.equal(await req.revalidateSession(), true);
+    orgStatus = "DELETED";
+    assert.equal(await req.revalidateSession(), false);
+    orgStatus = "PILOT";
     pairing = { ...pairing, orgId: "org-b" };
     assert.equal(await req.revalidateSession(), false);
     pairing = null;
     assert.equal(await req.revalidateSession(), false);
-  } finally { db.findPairingByDeviceToken = original; }
+  } finally { db.findPairingByDeviceToken = original; db.getOrg = originalGetOrg; }
 });
 
 test("Advisor refuses missing tenant scope before querying any data", async () => {

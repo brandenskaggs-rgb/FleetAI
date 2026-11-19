@@ -9,6 +9,7 @@
 
 const motiveClient = require("../services/motiveClient");
 const db = require("../db");
+const { motiveOrgId } = require("../services/motiveSync");
 
 function registerMotiveDataRoutes(app, { requireEmployeeOrCustomerApi, readData, sanitizeString }) {
 
@@ -29,7 +30,7 @@ function registerMotiveDataRoutes(app, { requireEmployeeOrCustomerApi, readData,
   // ── Fuel Events ─────────────────────────────────────────────────────────────
   async function handleFuelEvents(req, res) {
     const vehicleId = sanitizeString(req.query.vehicleId || req.query.vehicle_id || "", 80);
-    if (!motiveClient.isConfigured()) {
+    if (!motiveClient.isConfigured() || (req.customer && req.customer.orgId !== motiveOrgId())) {
       return res.json({ ok: true, data: [] });
     }
     try {
@@ -67,7 +68,7 @@ function registerMotiveDataRoutes(app, { requireEmployeeOrCustomerApi, readData,
   // after this) when Motive isn't configured, rather than responding with an
   // empty result and permanently shadowing that fallback.
   app.get("/api/cost-analytics", requireEmployeeOrCustomerApi, async (req, res, next) => {
-    if (!motiveClient.isConfigured()) {
+    if (!motiveClient.isConfigured() || (req.customer && req.customer.orgId !== motiveOrgId())) {
       return next();
     }
     try {
@@ -75,7 +76,7 @@ function registerMotiveDataRoutes(app, { requireEmployeeOrCustomerApi, readData,
         motiveClient.getFuelPurchases(),
         customerVehicleScope(req)
       ]);
-      const localVehicles = scopedVehicles || await db.listVehicles();
+      const localVehicles = scopedVehicles || await db.listVehicles({ orgId: motiveOrgId() });
       const purchases = scopedVehicles
         ? allPurchases.filter((purchase) => scopedVehicles.some((vehicle) => purchaseMatchesVehicle(purchase, vehicle)))
         : allPurchases;
@@ -126,7 +127,7 @@ function registerMotiveDataRoutes(app, { requireEmployeeOrCustomerApi, readData,
   // ── Driver Scores ───────────────────────────────────────────────────────────
   // Same fallthrough rationale as cost-analytics above.
   app.get("/api/driver-scores", requireEmployeeOrCustomerApi, async (req, res, next) => {
-    if (!motiveClient.isConfigured()) {
+    if (!motiveClient.isConfigured() || (req.customer && req.customer.orgId !== motiveOrgId())) {
       return next();
     }
     try {

@@ -18,6 +18,7 @@
 const crypto = require("crypto");
 const motiveClient = require("../services/motiveClient");
 const motiveOAuth = require("../services/motiveOAuth");
+const pgSessionStore = require("../pgSessionStore");
 
 const MOTIVE_AUTH_HOST = "app.gomotive.com";
 
@@ -49,14 +50,6 @@ function _redirectUri(req) {
   return `${proto}://${host}/api/auth/motive/callback`;
 }
 
-function statesMatch(expected, received) {
-  const expectedBuffer = Buffer.from(String(expected || ""));
-  const receivedBuffer = Buffer.from(String(received || ""));
-  return expectedBuffer.length > 0 &&
-    expectedBuffer.length === receivedBuffer.length &&
-    crypto.timingSafeEqual(expectedBuffer, receivedBuffer);
-}
-
 function _authUrl(clientId, redirectUri, state) {
   const params = new URLSearchParams({
     client_id: clientId,
@@ -70,7 +63,7 @@ function _authUrl(clientId, redirectUri, state) {
 
 function registerMotiveOAuthRoutes(app, { requireSuperAdmin, sessionStore, getSession }) {
   // ── Step 1: Initiate OAuth ─────────────────────────────────────────────────
-  app.get("/api/auth/motive/connect", (req, res, next) => requireSuperAdmin(req, res, next), (req, res) => {
+  app.get("/api/auth/motive/connect", (req, res, next) => requireSuperAdmin(req, res, next), async (req, res) => {
     const clientId = (process.env.MOTIVE_CLIENT_ID || "").trim();
     if (!clientId) {
       return res.status(503).json({ ok: false, error: "MOTIVE_CLIENT_ID not configured — add it to Railway environment variables" });
@@ -80,12 +73,10 @@ function registerMotiveOAuthRoutes(app, { requireSuperAdmin, sessionStore, getSe
     const redirectUri = _redirectUri(req);
     const authUrl = _authUrl(clientId, redirectUri, state);
 
-    // Store state in the session cookie for CSRF validation on callback
+    // Persist before redirecting; request-time session reloads replace the local cache.
     const session = getSession(req);
-    if (session) {
-      session.motiveOAuthState = state;
-      sessionStore.set(session.id, session);
-    }
+    await pgSessionStore.setMotiveOAuthState(session, state);
+    sessionStore.set(session.id, session);
 
     console.log("[MOTIVE-OAUTH] initiating connect, redirect_uri:", redirectUri);
     res.redirect(authUrl);
@@ -95,7 +86,7 @@ function registerMotiveOAuthRoutes(app, { requireSuperAdmin, sessionStore, getSe
   // The browser keeps the employee session cookie through the provider redirect.
   // Require that session as well as a one-time state value before exchanging code.
   app.get("/api/auth/motive/callback", (req, res, next) => requireSuperAdmin(req, res, next), (req, res) => {
-    (async () => {
+    return (async () => {
       const { code, state, error, error_description } = req.query;
 
       if (error) {
@@ -109,12 +100,10 @@ function registerMotiveOAuthRoutes(app, { requireSuperAdmin, sessionStore, getSe
 
       // Fail closed: a missing session state is not a valid OAuth callback.
       const session = getSession(req);
-      if (!session || !statesMatch(session.motiveOAuthState, state)) {
+      if (!session || !(await pgSessionStore.consumeMotiveOAuthState(session, state))) {
         console.error("[MOTIVE-OAUTH] state mismatch — possible CSRF");
         return res.status(403).json({ ok: false, error: "state_mismatch" });
       }
-      delete session.motiveOAuthState;
-      sessionStore.set(session.id, session);
 
       const redirectUri = _redirectUri(req);
       const tokens = await motiveOAuth.exchangeCode(code, redirectUri);
@@ -131,7 +120,7 @@ function registerMotiveOAuthRoutes(app, { requireSuperAdmin, sessionStore, getSe
 
   // ── Status ─────────────────────────────────────────────────────────────────
   app.get("/api/auth/motive/status", (req, res, next) => requireSuperAdmin(req, res, next), (req, res) => {
-    (async () => {
+    return (async () => {
       const tokens = await motiveOAuth.loadTokens();
       const envConfigured = Boolean(
         (process.env.MOTIVE_ACCESS_TOKEN || "").trim() ||
@@ -157,7 +146,7 @@ function registerMotiveOAuthRoutes(app, { requireSuperAdmin, sessionStore, getSe
 
   // ── Force refresh ──────────────────────────────────────────────────────────
   app.post("/api/auth/motive/refresh", (req, res, next) => requireSuperAdmin(req, res, next), (req, res) => {
-    (async () => {
+    return (async () => {
       const tokens = await motiveOAuth.loadTokens();
       if (!tokens?.refresh_token) {
         return res.status(400).json({ ok: false, error: "No refresh token stored — reconnect via /api/auth/motive/connect" });
@@ -173,7 +162,7 @@ function registerMotiveOAuthRoutes(app, { requireSuperAdmin, sessionStore, getSe
 
   // ── Disconnect ─────────────────────────────────────────────────────────────
   app.post("/api/auth/motive/disconnect", (req, res, next) => requireSuperAdmin(req, res, next), (req, res) => {
-    (async () => {
+    return (async () => {
       await motiveOAuth.clearTokens();
       motiveClient.setAccessToken(null);
       console.log("[MOTIVE-OAUTH] disconnected — tokens cleared");

@@ -3,21 +3,23 @@ package com.fleetai.driver.telemetry
 import com.fleetai.driver.data.local.TelemetryOutboxDao
 import com.fleetai.driver.data.local.TelemetryOutboxEntity
 import com.fleetai.driver.network.ApiService
+import com.fleetai.driver.network.AuthenticatedSession
+import com.fleetai.driver.network.ReplaySessionChangedException
+import com.fleetai.driver.network.SessionBoundUploader
 import com.fleetai.driver.network.TelemetryIngestRequest
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import java.util.concurrent.atomic.AtomicLong
 import java.security.MessageDigest
 import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.sync.withLock
 import retrofit2.HttpException
 
 /** Durable, idempotent hand-off between vehicle capture and the network. */
 class TelemetryOutbox(
     private val dao: TelemetryOutboxDao,
-    private val resolveTenantId: suspend () -> String,
-    private val resolveVehicleId: suspend () -> String,
-    private val resolveAuthToken: suspend () -> String
+    private val resolveSession: suspend () -> AuthenticatedSession
 ) {
     private val adapter = Moshi.Builder()
         .add(KotlinJsonAdapterFactory())
@@ -29,9 +31,10 @@ class TelemetryOutbox(
 
     suspend fun enqueue(request: TelemetryIngestRequest) {
         val now = System.currentTimeMillis()
-        val tenantId = resolveTenantId().trim()
-        val vehicleId = resolveVehicleId().trim()
-        if (tenantId.isBlank() || vehicleId.isBlank() || request.vehicleId != vehicleId) return
+        val session = resolveSession()
+        val tenantId = session.tenantId
+        val vehicleId = session.vehicleId
+        if (!session.owns(tenantId, request.vehicleId, request.driverId.orEmpty())) return
         dao.insert(
             TelemetryOutboxEntity(
                 id = request.batchId,
@@ -54,13 +57,14 @@ class TelemetryOutbox(
     suspend fun flush(api: ApiService, limit: Int = 25): FlushResult = flushMutex.withLock {
         var sent = 0
         var failed = 0
-        val tenantId = resolveTenantId().trim()
-        val vehicleId = resolveVehicleId().trim()
+        val session = resolveSession()
+        val tenantId = session.tenantId
+        val vehicleId = session.vehicleId
         if (tenantId.isBlank() || vehicleId.isBlank()) return@withLock FlushResult(0, 0, 0)
-        val token = resolveAuthToken().trim()
+        val token = session.token
         val tokenFingerprint = token.takeIf { it.isNotBlank() }?.let(::fingerprint)
         val remaining = dao.count(tenantId, vehicleId)
-        if (tokenFingerprint == null) return@withLock FlushResult(0, 0, remaining, authBlocked = true)
+        if (!session.canReplay || tokenFingerprint == null) return@withLock FlushResult(0, 0, remaining, authBlocked = true)
         if (blockedTokenFingerprint == tokenFingerprint) {
             return@withLock FlushResult(0, 0, remaining, authBlocked = true)
         }
@@ -84,18 +88,31 @@ class TelemetryOutbox(
             emptyList()
         }
         val items = newest + oldest
+        val uploader = SessionBoundUploader(api, resolveSession)
         for (item in items) {
+            if (resolveSession() != session) {
+                failed += 1
+                break
+            }
             val request = runCatching { adapter.fromJson(item.payloadJson) }.getOrNull()
             if (request == null) {
                 dao.delete(item.id)
                 failed += 1
                 continue
             }
+            if (!session.owns(item.tenantId, request.vehicleId, request.driverId.orEmpty()) ||
+                request.vehicleId != item.vehicleId) continue
             try {
-                api.ingestTelemetry(request)
+                uploader.ingestTelemetry(session, request)
                 dao.delete(item.id)
                 sent += 1
+            } catch (cancelled: CancellationException) {
+                throw cancelled
             } catch (error: Exception) {
+                if (error is ReplaySessionChangedException || resolveSession() != session) {
+                    failed += 1
+                    break
+                }
                 val status = (error as? HttpException)?.code()
                 if (status == 401) {
                     blockedTokenFingerprint = tokenFingerprint

@@ -463,8 +463,10 @@ function testSessionAndDevAuthContracts() {
     "customer sessions must be revalidated against the primary user record"
   );
   assert(
-    server.includes("bindCustomerTenant(req, res, validated, { enforceReadOnly: true })"),
-    "read-only customer roles must be blocked from mutations on customer-only routes"
+    server.includes("{ allowSelfPasswordChange = false } = {})")
+      && server.includes('allowSelfPasswordChange && req.method === "POST" && req.path === "/api/auth/password/update"')
+      && server.includes("bindCustomerTenant(req, res, validated, { enforceReadOnly: !selfPasswordChange })"),
+    "read-only customer mutations stay blocked except the explicitly opted-in self-password endpoint"
   );
   assert(
     /async function ensureBootstrapCustomer\(data\)[\s\S]*DATABASE_URL[\s\S]*source: "primary_database"/.test(server),

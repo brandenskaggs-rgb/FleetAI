@@ -60,6 +60,8 @@ model Session {
   displayName String   @default("")
   createdAt   DateTime @default(now())
   expiresAt   DateTime
+  motiveOAuthStateHash      String?
+  motiveOAuthStateExpiresAt DateTime?
 
   user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
 

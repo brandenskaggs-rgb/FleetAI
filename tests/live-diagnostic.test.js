@@ -6,7 +6,7 @@ const { runLiveDiagnostic, isLiveDiagnosticRequest } = require("../server/servic
 const { registerSolutionRoutes } = require("../server/routes/solutionRoutes");
 const now = new Date("2026-11-18T17:00:00Z");
 
-function fixture({ rows = [], snapshot = null } = {}) {
+function fixture({ rows = [], snapshot = null, diagnostic = null } = {}) {
   const artifacts = [];
   const assertScope = where => {
     assert.equal(where.orgId, "A"); assert.equal(where.vehicleId, "carA"); assert.equal(where.vehicle.orgId, "A");
@@ -15,6 +15,7 @@ function fixture({ rows = [], snapshot = null } = {}) {
     vehicle: { findFirst: async ({ where }) => where.orgId === "A" && where.vehicleId === "carA" ? { vehicleId: "carA", unitName: "Camaro" } : null },
     telemetrySample: { findMany: async ({ where, take }) => { assertScope(where); assert.ok(take <= 120); return rows; } },
     mlPredictionRun: { findFirst: async ({ where }) => { assertScope(where); return null; } },
+    diagnosticScan: { findFirst: async ({ where }) => { assertScope(where); assert.ok(where.scannedAt.lte instanceof Date); return diagnostic; } },
     advisorArtifact: {
       create: async ({ data }) => { artifacts.push(data); return { ...data, id: "reportA", createdAt: now }; },
       findFirst: async ({ where }) => {
@@ -29,6 +30,20 @@ const sample = (metrics, age = 0, raw = {}) => ({ id: "sampleA", orgId: "A", veh
 const live = (overrides = {}) => ({ vehicleId: "carA", busDataActive: true, ts: now, lastObdPacketAt: now,
   metrics: { orgId: "A", engine: { rpm: 800 }, transmission: { transmissionTempC: 85 } },
   deviceDiagnostics: { metricAgesMs: { rpm: 500, transmissionTempC: 31_000 } }, ...overrides });
+
+test("diagnostic-only uploads survive restart without live cache or sensor rows", async () => {
+  const diagnostic = { id: "scanA", orgId: "A", vehicleId: "carA", scannedAt: now, codes: [],
+    summary: { obdFaultRead: { capturedAt: now.toISOString(), confirmed: ["P0300"], pending: null, permanent: [], milOn: true, reportedCodeCount: 1 } } };
+  let report = await runLiveDiagnostic(fixture({ diagnostic }));
+  assert.equal(report.faultCodes.codes[0].code, "P0300");
+  assert.equal(report.faultCodes.completeness, "partial");
+  assert.equal(report.faultCodes.status, "recent_report");
+  report = await runLiveDiagnostic(fixture({ diagnostic: { ...diagnostic, orgId: "B" } }));
+  assert.equal(report.faultCodes.status, "not_read");
+  diagnostic.summary.obdFaultRead.capturedAt = new Date(now - 300000).toISOString();
+  report = await runLiveDiagnostic(fixture({ diagnostic }));
+  assert.equal(report.faultCodes.status, "historical");
+});
 
 test("diagnostic intent is explicit and negative commands do not run it", () => {
   for (const text of ["Run a live diagnostic scan", "Can you do a diagnostic scan of Camaro?", "scan my car"]) assert.equal(isLiveDiagnosticRequest(text), true);

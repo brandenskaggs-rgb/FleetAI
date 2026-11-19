@@ -183,7 +183,7 @@ class TelemetrySender(
         if (activeProtocol == "OBD2") {
             requestMeta["dtcScanStatus"] = when {
                 obdDtcs == null -> "not_read"
-                obdDtcs.confirmed == null || obdDtcs.inconsistent -> "partial"
+                obdDtcs.status != "read" -> "partial"
                 System.currentTimeMillis() - obdDtcs.capturedAt > 120_000L -> "stale"
                 else -> "read"
             }

@@ -515,18 +515,6 @@ class ObdConnectionManager(private val context: Context) {
     }
 
     private fun parseObdResponse(raw: String, command: String): String? {
-        val cleaned = raw
-            .replace(">", " ")
-            .replace("\r", "\n")
-            .replace(Regex("(?i)SEARCHING\\.{0,3}"), " ")
-            .lines()
-            .map { it.trim() }
-            .filter { line ->
-                line.isNotBlank() &&
-                    !line.replace(" ", "").equals(command.replace(" ", ""), ignoreCase = true)
-            }
-            .joinToString(" ")
-            .trim()
-        return cleaned.ifBlank { null }
+        return ObdResponseCleaner.clean(raw, command)
     }
 }

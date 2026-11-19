@@ -76,7 +76,7 @@ async function backfillFaultCodes(vehicles, { pythonMlClient, nowIso }) {
   const results = [];
 
   for (const vehicle of vehicles) {
-    if (!vehicle.motiveId) continue;
+    if (!vehicle.motiveId || vehicle.orgId !== _motiveOrgId()) continue;
     try {
       const faultCodes = await motiveClient.fetchVehicleFaultCodes(vehicle.motiveId, { status: "open" });
       const dtcCodes = faultCodes.map((fc) => fc.code).filter(Boolean);
@@ -124,8 +124,8 @@ async function backfillFaultCodes(vehicles, { pythonMlClient, nowIso }) {
 async function resolveVehicleId(motiveVehicleId, vin) {
   const motiveIdStr = motiveVehicleId ? String(motiveVehicleId) : null;
   const vinUpper = (vin || "").trim().toUpperCase() || null;
-  const match = await db.findVehicleByMotiveIdOrVin(motiveIdStr, vinUpper);
+  const match = await db.findVehicleByMotiveIdOrVin(motiveIdStr, vinUpper, _motiveOrgId());
   return match?.vehicleId ?? null;
 }
 
-module.exports = { syncFleet, backfillFaultCodes, resolveVehicleId };
+module.exports = { syncFleet, backfillFaultCodes, resolveVehicleId, motiveOrgId: _motiveOrgId };

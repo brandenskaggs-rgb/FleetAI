@@ -2,6 +2,7 @@ const { SENSORS, readPath } = require("../telematics/diagnostics/sensorCatalog")
 const { decodeCode } = require("../telematics/diagnostics/dtcCatalog");
 const { sensorTtlMs, sensorAgeMs } = require("../telematics/diagnostics/sensorFreshness");
 const { sanitizeObdFaultRead, faultReadCodes, COVERAGE } = require("../telematics/diagnostics/obdFaultRead");
+const { loadPersistedFaultEvidence } = require("./faultEvidence");
 
 const SAMPLE_KEYS = {
   speedKph: "vehicleSpeed", coolantTempC: "coolantTemp", oilTempC: "oilTemp", batteryVoltageV: "batteryVoltage",
@@ -77,6 +78,8 @@ async function runLiveDiagnostic({ prisma, orgId, vehicleId, telemetryLatest = n
       recordedAt: iso(sample.ts), ageMs: Math.max(0, nowMs - time(sample.ts)), source: `sample:${sample.id}` });
   }
   const dtcCandidates = rows.filter(r => Array.isArray(r.raw?.activeDTCs) && ["read", "stale"].includes(r.raw.dtcScanStatus) && Number.isFinite(time(r.raw.dtcCapturedAt)));
+  const persistedFault = await loadPersistedFaultEvidence(prisma, orgId, vehicleId, now);
+  if (persistedFault) dtcCandidates.push({ raw: persistedFault });
   const meta = snapshot?.deviceDiagnostics;
   if (meta && Array.isArray(snapshot?.metrics?.dtc?.active) && ["read", "stale"].includes(meta.dtcScanStatus) && Number.isFinite(time(meta.dtcCapturedAt))) {
     dtcCandidates.push({ raw: { activeDTCs: snapshot.metrics.dtc.active.map(c => typeof c === "string" ? c : c.code), dtcCapturedAt: meta.dtcCapturedAt, dtcScanStatus: meta.dtcScanStatus } });
