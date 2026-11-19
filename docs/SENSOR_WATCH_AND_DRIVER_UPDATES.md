@@ -74,6 +74,13 @@ releases. Changing backend version numbers alone does not install software.
 
 ### Pilot rollout
 
+The 1.10.7 / version-code 19 pilot now uses a packaged deployment artifact in
+`releases/driver`. With no explicit pilot release environment variables, the
+backend verifies its manifest, file size and SHA-256 before returning update
+metadata. The APK and metadata deploy together and survive rebuilds. See
+`releases/driver/README.md`. The following volume-based procedure remains an
+operator override, not a prerequisite for the packaged pilot release.
+
 1. Build the APK and verify its signing certificate against the installed pilot.
    If the original debug keystore is unavailable, do not overwrite it or instruct
    the driver to uninstall. Recover the original key first.

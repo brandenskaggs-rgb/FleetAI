@@ -1,0 +1,10 @@
+{
+  "channel": "pilot-debug",
+  "versionCode": 19,
+  "versionName": "1.10.7",
+  "filename": "fleetai-19.apk",
+  "sha256": "f28c963908603779841f88bdce3263ffbe919e3989aa566bd5f96b446b7cdc1f",
+  "sizeBytes": 23799173,
+  "signerSha256": "68a54f1c5447ac1bcb07263c9ffeb9293e950694ab7619e6835d215cf3d70ac0",
+  "notes": "Improves sensor polling fairness. Update while parked after pending uploads finish. Install over Fleet AI; do not uninstall or clear app data. Existing pairing and login storage are unchanged."
+}

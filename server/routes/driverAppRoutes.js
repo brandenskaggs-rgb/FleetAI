@@ -21,8 +21,7 @@
 const db = require("../db");
 const { requireDevice, attachDevice } = require("../middleware/deviceAuth");
 const { getWatch, acknowledgeWatch } = require("../services/sensorWatchService");
-const { driverRelease } = require("../services/driverRelease");
-const path = require("node:path");
+const { availableDriverRelease } = require("../services/availableDriverRelease");
 
 function registerDriverAppRoutes(app, deps) {
   const {
@@ -39,18 +38,18 @@ function registerDriverAppRoutes(app, deps) {
   // Public release metadata only; contains no fleet data or credentials.
   app.get("/api/driver/releases/latest", (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    res.json({ release: driverRelease(req.query.channel) });
+    res.json({ release: availableDriverRelease(req.query.channel)?.release || null });
   });
   app.get("/downloads/driver/:filename", (req, res, next) => {
-    const release = driverRelease("pilot-debug");
-    const directory = process.env.FLEETAI_DRIVER_RELEASE_DIR;
+    const available = availableDriverRelease("pilot-debug");
+    const release = available?.release;
     const filename = req.params.filename;
-    if (!release || !directory || !path.isAbsolute(directory) ||
+    if (!release || !available.file ||
         !/^[a-zA-Z0-9._-]+\.apk$/.test(filename) || new URL(release.url).pathname !== `/downloads/driver/${filename}`) {
       return res.status(404).send("Not found");
     }
     res.setHeader("Cache-Control", "no-store");
-    res.download(path.join(directory, filename), filename, error => {
+    res.download(available.file, filename, error => {
       if (error && !res.headersSent) {
         if (error.code === "ENOENT") res.status(404).send("Release file unavailable");
         else next(error);

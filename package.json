@@ -32,7 +32,7 @@
     "launch:check": "node scripts/validate-config.js && node tools/preflight-check.js && node scripts/ui-smoke.js && node scripts/check-dashboard-pairing.js && node scripts/check-hardcoded-hosts.js && node tools/link-audit.js",
     "tag:known-good": "node tools/print-tag-instructions.js",
     "test:chain": "node tests/telemetry-chain.test.js",
-    "test:sensor-watch": "node --test tests/sensor-watch.test.js tests/sensor-watch-routes.test.js tests/driver-release.test.js",
+    "test:sensor-watch": "node --test tests/sensor-watch.test.js tests/sensor-watch-routes.test.js tests/driver-release.test.js tests/driver-release-publishing.test.js",
     "test:live-diagnostics": "node --test tests/live-diagnostic.test.js",
     "test:pilot-data": "node --test tests/ml-database-scope.test.js tests/obd-dtc-persistence.test.js tests/dashboard-pilot-readiness.test.js tests/tablet-readonly-contract.test.js",
     "test:engine-state": "node tests/engine-state.test.js",
