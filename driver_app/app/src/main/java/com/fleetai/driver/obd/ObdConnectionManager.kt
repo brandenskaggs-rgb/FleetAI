@@ -18,6 +18,7 @@ import com.fleetai.driver.BuildConfig
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -32,6 +33,36 @@ import java.util.UUID
 private const val TAG = "FleetAI.OBD"
 
 class ObdConnectionManager(private val context: Context) {
+
+    private val transmissionTestMutex = Mutex()
+
+    suspend fun testGmTransmission(parkedAutomaticConfirmed: Boolean): List<GmTransmissionAttempt> =
+        withContext(Dispatchers.IO) {
+            check(parkedAutomaticConfirmed) { "Confirm the vehicle is parked before testing" }
+            check(transmissionTestMutex.tryLock()) { "Transmission test already running" }
+            try {
+                check(isConnected()) { "Connect the Veepeak adapter first" }
+                val protocol = sendCommand("ATDP").orEmpty()
+                val vin = readVin()
+                GmTransmissionTest.vehicleRejection(vin, protocol)?.let { error(it) }
+                GmTransmissionTest.headers.map { header ->
+                    val result = commandMutex.withLock {
+                        check(isConnected()) { "Adapter disconnected; test stopped" }
+                        try {
+                            GmTransmissionTest.attempt(header, ::sendCommandUnlocked)
+                        } catch (failure: GmTransmissionTest.RestoreFailed) {
+                            // Fail closed rather than allow normal polling at the wrong ECU address.
+                            withContext(NonCancellable) { disconnect() }
+                            throw failure
+                        }
+                    }
+                    delay(150) // Let queued engine/DTC reads resume between test addresses.
+                    result
+                }
+            } finally {
+                transmissionTestMutex.unlock()
+            }
+        }
 
     private val adapter: BluetoothAdapter? = BluetoothAdapter.getDefaultAdapter()
 

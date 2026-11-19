@@ -19,6 +19,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.Checkbox
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -36,6 +40,10 @@ fun DiagnosticsScreen(contentPadding: PaddingValues) {
     val apiDiagnostics by viewModel.apiDiagnostics.collectAsState()
     val networkMessage by viewModel.networkMessage.collectAsState()
     val scanning by viewModel.scanning.collectAsState()
+    val transmissionTesting by viewModel.transmissionTesting.collectAsState()
+    val transmissionResults by viewModel.transmissionResults.collectAsState()
+    val transmissionMessage by viewModel.transmissionMessage.collectAsState()
+    var parkedConfirmed by remember { mutableStateOf(false) }
     var showNetwork by remember { mutableStateOf(false) }
 
     LazyColumn(
@@ -51,11 +59,39 @@ fun DiagnosticsScreen(contentPadding: PaddingValues) {
                 Text("Read-only diagnostics. Codes cannot be erased from this app.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    FleetButton(text = if (scanning) "Reading codes..." else "Read fault codes", onClick = { viewModel.scan() }, enabled = !scanning)
+                    FleetButton(text = if (scanning) "Reading codes..." else "Read fault codes", onClick = { viewModel.scan() }, enabled = !scanning && !transmissionTesting)
                 }
                 if (message.isNotBlank()) {
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(text = message)
+                }
+            }
+        }
+
+        item {
+            FleetCard(modifier = Modifier.fillMaxWidth()) {
+                Text("Camaro transmission test", style = MaterialTheme.typography.titleLarge)
+                Text("2010 3.6L automatic only. One-time temperature check; ABS and brake controls are not accessed.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(checked = parkedConfirmed, onCheckedChange = { parkedConfirmed = it },
+                        enabled = !transmissionTesting,
+                        modifier = Modifier.semantics { contentDescription = "Confirm automatic Camaro is parked in P with parking brake set" })
+                    Text("I am parked in P with the parking brake set, in my automatic Camaro.",
+                        modifier = Modifier.weight(1f))
+                }
+                FleetButton(text = if (transmissionTesting) "Testing transmission..." else "Test transmission temperature",
+                    onClick = { viewModel.testTransmission(parkedConfirmed); parkedConfirmed = false },
+                    enabled = parkedConfirmed && !transmissionTesting && !scanning)
+                if (transmissionMessage.isNotBlank()) Text(transmissionMessage)
+                transmissionResults.forEach { result ->
+                    Spacer(Modifier.height(12.dp))
+                    Text("Address ${result.header}", style = MaterialTheme.typography.titleMedium)
+                    result.temperatureC?.let { value ->
+                        Text(String.format(java.util.Locale.US, "%.1f F / %.1f C (test sample)", value * 1.8 + 32, value))
+                    }
+                    Text(result.status)
+                    if (result.response.isNotBlank()) Text("Response: ${result.response}")
                 }
             }
         }

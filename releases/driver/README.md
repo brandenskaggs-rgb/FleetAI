@@ -5,8 +5,8 @@ artifacts. This small pilot release is tracked in Git so Railway recreates it on
 every deployment, without relying on an ephemeral uploaded file. Only the exact
 advertised APK is served; this directory is not a static website mount.
 
-Version 1.10.9 / 21 uses the same debug signing certificate and application ID
-(`com.fleetai.driver`) as the existing 1.10.6 through 1.10.8 pilots. Signing keys are NOT stored
+Version 1.10.10 / 22 uses the same debug signing certificate and application ID
+(`com.fleetai.driver`) as the existing 1.10.6 through 1.10.9 pilots. Signing keys are NOT stored
 here. Do not replace the pilot key with the Google Play upload key. This is not
 a Google Play release and must not be advertised on the Play channel.
 

@@ -9,6 +9,7 @@ import com.fleetai.driver.data.repository.DriverRepository
 import com.fleetai.driver.network.ApiClient
 import com.fleetai.driver.network.ServerConfig
 import com.fleetai.driver.obd.ObdService
+import com.fleetai.driver.obd.GmTransmissionAttempt
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -33,6 +34,36 @@ class DiagnosticsViewModel(
     val message: StateFlow<String> = _message
     private val _scanning = MutableStateFlow(false)
     val scanning: StateFlow<Boolean> = _scanning.asStateFlow()
+    private val _transmissionTesting = MutableStateFlow(false)
+    val transmissionTesting = _transmissionTesting.asStateFlow()
+    private val _transmissionResults = MutableStateFlow<List<GmTransmissionAttempt>>(emptyList())
+    val transmissionResults = _transmissionResults.asStateFlow()
+    private val _transmissionMessage = MutableStateFlow("")
+    val transmissionMessage = _transmissionMessage.asStateFlow()
+
+    fun testTransmission(confirmed: Boolean) {
+        if (!confirmed || _transmissionTesting.value || _scanning.value) return
+        _transmissionTesting.value = true
+        _transmissionResults.value = emptyList()
+        _transmissionMessage.value = "Checking VIN, protocol and speed, then testing two read-only addresses..."
+        viewModelScope.launch {
+            try {
+                _transmissionResults.value = obd.testGmTransmission(confirmed)
+                _transmissionMessage.value = "Test completed at ${java.time.LocalTime.now().withNano(0)}. " +
+                    "Normal polling restored. These are one-time test results, not live readings. " +
+                    "They are not uploaded or used for predictions."
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                _transmissionMessage.value = if (error is com.fleetai.driver.obd.GmTransmissionTest.RestoreFailed) {
+                    "Test stopped: adapter address could not be restored. Bluetooth disconnected for safety; " +
+                        "reconnect the adapter. Your Fleet AI pairing is unchanged."
+                } else error.message ?: "Transmission test could not finish. Check the adapter connection."
+            } finally {
+                _transmissionTesting.value = false
+            }
+        }
+    }
 
     val apiDiagnostics: StateFlow<ApiClient.ApiDiagnostics> = ApiClient.diagnostics
 
@@ -50,7 +81,7 @@ class DiagnosticsViewModel(
     }
 
     fun scan() {
-        if (_scanning.value) return
+        if (_scanning.value || _transmissionTesting.value) return
         _scanning.value = true
         viewModelScope.launch {
             try {

@@ -1,10 +1,10 @@
 {
   "channel": "pilot-debug",
-  "versionCode": 21,
-  "versionName": "1.10.9",
-  "filename": "fleetai-21.apk",
-  "sha256": "52f4e08cd1778c28380fe6877b3118414f0667435f5270106057573ecce5ee12",
-  "sizeBytes": 23815557,
+  "versionCode": 22,
+  "versionName": "1.10.10",
+  "filename": "fleetai-22.apk",
+  "sha256": "1e6be589cbe5d6c96a5988decc5d76b2adf1695cc358f6925ba7abb8724b7c61",
+  "sizeBytes": 24051516,
   "signerSha256": "68a54f1c5447ac1bcb07263c9ffeb9293e950694ab7619e6835d215cf3d70ac0",
-  "notes": "Fixes multi-ECU fault-code response handling and keeps offline logs, inspections and telemetry bound to their original account during upload. Existing pairing and login storage are unchanged. Install as an update while parked after pending uploads finish; do not uninstall or clear app data. Generic OBD reads do not establish TPMS/ABS coverage."
+  "notes": "Adds an optional parked-vehicle transmission temperature compatibility test for the 2010 Camaro 3.6L automatic under Diagnostics. Test samples are not live telemetry or predictions; ABS remains unverified and disabled. Existing pairing, login storage and normal sensor polling are unchanged. Install as an update while parked after pending uploads finish; do not uninstall or clear app data."
 }
