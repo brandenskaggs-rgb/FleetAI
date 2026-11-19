@@ -42,6 +42,7 @@ async function checkNewWorkspace(page, fixture, output) {
   assert.equal(await page.locator('.sensorReading').count(),1);
   await page.fill('#sensorSearch','');await page.selectOption('#sensorFilter','stale');
   assert.equal(await page.locator('.sensorReading').count(),1);
+  assert.match(await page.textContent('.sensorReadingValue'),/720 rpm\s+Last known: 45s ago/);
   await page.selectOption('#sensorFilter','reporting');
   assert.equal(await page.locator('.sensorReading').count(),2);
   await page.selectOption('#sensorFilter','unsupported');

@@ -204,8 +204,8 @@ class ObdTelemetryService : Service() {
             val extendedDue = extendedPlan
                 .filter { now - (lastPolledAt[it.command] ?: 0L) >= it.minIntervalMs }
                 .sortedByDescending {
-                    val overdue = (now - (lastPolledAt[it.command] ?: 0L)).toDouble() / it.minIntervalMs
-                    overdue + (3 - it.priority) * 0.5 + if (currentFocus?.keys?.contains(it.key) == true) 1.0 else 0.0
+                    SensorWatchPolicy.priorityScore(now, lastPolledAt[it.command] ?: 0L, it.minIntervalMs,
+                        it.priority, currentFocus?.keys?.contains(it.key) == true)
                 }
                 .take(1)
             if (due.isEmpty() && extendedDue.isEmpty()) {

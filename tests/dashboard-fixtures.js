@@ -14,7 +14,7 @@ function createFixtures(options={}) {
   const controls={pairConflict:false},requests=[];
   const sensorReadings=require('../server/telematics/diagnostics/sensorCatalog').SENSORS.map(sensor=>({...sensor,value:null,supported:false,state:'unsupported'}));
   Object.assign(sensorReadings.find(sensor=>sensor.key==='coolantTempC'),{value:80,supported:true,state:'normal'});
-  Object.assign(sensorReadings.find(sensor=>sensor.key==='rpm'),{supported:true,state:'stale',stale:true});
+  Object.assign(sensorReadings.find(sensor=>sensor.key==='rpm'),{supported:true,state:'stale',stale:true,lastKnownValue:720,ageMs:45000});
   if(!options.catalogOnly)sensorReadings.push({key:'futureSignal',label:'Future signal',group:'new-module',value:3,supported:true,state:'normal'});
   let pending=[];
   function respond(url,method='GET',payload={}) {

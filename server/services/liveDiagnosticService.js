@@ -1,5 +1,6 @@
 const { SENSORS, readPath } = require("../telematics/diagnostics/sensorCatalog");
 const { decodeCode } = require("../telematics/diagnostics/dtcCatalog");
+const { sensorTtlMs, sensorAgeMs } = require("../telematics/diagnostics/sensorFreshness");
 
 const SAMPLE_KEYS = {
   speedKph: "vehicleSpeed", coolantTempC: "coolantTemp", oilTempC: "oilTemp", batteryVoltageV: "batteryVoltage",
@@ -21,6 +22,7 @@ function isLiveDiagnosticRequest(message) {
   const text = String(message || "");
   if (/\b(don't|do not|never|cancel|stop|what is|how does|how do|explain|describe)\b/i.test(text)) return false;
   return /\bscan (?:my|the|this) (?:car|truck|vehicle)\b/i.test(text)
+    || /\b(run|perform|do|start)\s+(?:(?:a|the|another|new|full|live|diagnostic|sensor)\s+)*scan\b/i.test(text)
     || (/\b(run|perform|do|start|give me|check)\b/i.test(text)
       && /\b(live diagnostic|diagnostic scan|sensor scan)\b/i.test(text));
 }
@@ -55,9 +57,8 @@ async function runLiveDiagnostic({ prisma, orgId, vehicleId, telemetryLatest = n
     const sample = rows.find(row => finite(row.metrics?.[sampleKey]) !== null);
     const historical = sample ? finite(sample.metrics[sampleKey]) : null;
     const cachedValue = finite(readPath(snapshot?.metrics, sensor.path));
-    const declaredAge = finite(ages[sensor.key]);
-    const totalAge = declaredAge !== null && declaredAge >= 0 && Number.isFinite(cacheElapsed) ? declaredAge + Math.max(0, cacheElapsed) : null;
-    const fresh = busLive && cachedValue !== null && totalAge !== null && totalAge <= 30_000;
+    const totalAge = sensorAgeMs(ages[sensor.key], cacheElapsed);
+    const fresh = busLive && cachedValue !== null && totalAge !== null && totalAge <= sensorTtlMs(sensor.key);
     // Retained cache values without acquisition ages must not turn into fresh evidence.
     const value = fresh ? cachedValue : historical;
     const recordedAt = fresh ? iso(snapshot.ts) : iso(sample?.ts);

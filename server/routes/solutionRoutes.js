@@ -5,7 +5,8 @@ const { buildAdvisorMessages } = require("../services/advisorConversation");
 const { buildFleetAdvisorContext } = require("../services/advisorContextService");
 const { buildReportArtifact, planAdvisorActions, renderReportHtml, renderReportText } = require("../services/advisorAgentService");
 const { saveWatch, WATCH_GROUPS } = require("../services/sensorWatchService");
-const { isLiveDiagnosticRequest, runLiveDiagnostic } = require("../services/liveDiagnosticService");
+const { runLiveDiagnostic } = require("../services/liveDiagnosticService");
+const { diagnosticIntent, diagnosticStatusReply, guardDiagnosticClaims } = require("../services/advisorDiagnosticStatus");
 
 function finiteInRange(value, min, max) {
   if (value === null || value === undefined || typeof value === "boolean" || String(value).trim() === "") return null;
@@ -713,7 +714,7 @@ function registerSolutionRoutes(app, deps) {
       type: "live_diagnostic", title: `${report.vehicleName} - received sensor diagnostic analysis`, request: message,
       content: { summary: report.summary, scope: { vehicleId }, sources: report }
     } });
-    return res.json({ ok: true, reply: report.summary, source: "fleetai_received_telemetry", model: null, diagnostic: report,
+    return res.json({ ok: true, reply: report.summary, source: "fleetai_received_telemetry", model: null, diagnostic: report, scanStatus: "completed",
       artifacts: [{ id: artifact.id, type: artifact.type, title: artifact.title, createdAt: artifact.createdAt,
         downloadUrl: `/api/advisor/artifacts/${encodeURIComponent(artifact.id)}/download` }], proposedActions: [] });
   }
@@ -741,13 +742,18 @@ function registerSolutionRoutes(app, deps) {
       if (!orgId) return res.status(400).json({ error: "orgId required" });
 
       // Run the read-only action before the language model; no invented tool success.
-      if (isLiveDiagnosticRequest(message)) {
+      const scanIntent = diagnosticIntent(message, req.body.history);
+      if (scanIntent) {
         const assets = data.vehicles.filter(vehicle => vehicle.orgId === orgId);
         const selected = sanitizeString(req.body.vehicleId || "", 80);
         const matches = assets.filter(vehicle => [vehicle.vehicleId, vehicle.unitName].filter(Boolean)
           .some(value => message.toLowerCase().includes(String(value).toLowerCase())));
         const vehicleId = selected || (matches.length === 1 ? matches[0].vehicleId : assets.length === 1 ? assets[0].vehicleId : null);
         if (!vehicleId) return res.json({ ok: true, reply: "Which vehicle should I check? Select a vehicle or include its exact unit name.", source: "fleetai_received_telemetry", artifacts: [], proposedActions: [] });
+        if (scanIntent === "status") {
+          const statusReply = await diagnosticStatusReply(db.getPrisma(), orgId, vehicleId);
+          return statusReply ? res.json(statusReply) : res.status(404).json({ ok: false, error: "vehicle_not_found" });
+        }
         return await liveDiagnosticReply(req, res, orgId, vehicleId, message);
       }
 
@@ -773,6 +779,7 @@ function registerSolutionRoutes(app, deps) {
           sanitizeString
         });
         const completion = await completeChat(messages, { temperature: 0.55, maxTokens: 700 });
+        const groundedReply = guardDiagnosticClaims(completion.content);
         const plannedActions = planAdvisorActions(message, context);
         const artifacts = [];
         for (const action of plannedActions.filter((item) => item.action === "generate_report" && item.mode === "automatic")) {
@@ -780,7 +787,7 @@ function registerSolutionRoutes(app, deps) {
             data: buildReportArtifact({
               action,
               context,
-              reply: completion.content,
+              reply: groundedReply,
               request: message,
               userId: req.customer?.userId || req.employee?.userId || req.employee?.id || null
             })
@@ -798,7 +805,7 @@ function registerSolutionRoutes(app, deps) {
           .map((item) => ({ ...item, id: makeId("ACT") }));
         return res.json({
           ok: true,
-          reply: sanitizeString(completion.content, 3000),
+          reply: sanitizeString(groundedReply, 3000),
           source: completion.provider,
           model: completion.model,
           artifacts,

@@ -12,6 +12,8 @@
  * be resolved generically rather than with a switch statement per sensor.
  */
 
+const { sensorAgeMs, sensorTtlMs } = require("./sensorFreshness");
+
 const SENSORS = [
   // OEM-specific identifiers cannot be inferred from the generic OBD capability bitmap.
   ...[
@@ -176,7 +178,7 @@ function classify(sensor, value) {
  * the driver can see what this truck's bus does NOT expose rather than being
  * shown a silently shorter list.
  */
-function buildSensorView(normalized, supported = {}) {
+function buildSensorView(normalized, supported = {}, { elapsedMs = 0, connectionLive = true } = {}) {
   const supportedPids = new Set((supported.supportedPids || []).map((p) => String(p).toLowerCase()));
   const supportedSpns = new Set((supported.supportedSpns || []).map((s) => Number(s)));
   const metricAgesMs = supported.metricAgesMs && typeof supported.metricAgesMs === "object"
@@ -186,11 +188,12 @@ function buildSensorView(normalized, supported = {}) {
 
   const readings = SENSORS.map((s) => {
     const value = normalized ? readPath(normalized, s.path) : undefined;
-    const ageMs = Number(metricAgesMs[s.key]);
-    const stale = Number.isFinite(ageMs) && ageMs > 30_000;
-    const present = value !== undefined && value !== null && !stale;
+    const ageMs = sensorAgeMs(metricAgesMs[s.key === "odometerKmObd" ? "odometerKm" : s.key], elapsedMs);
+    const hasValue = value !== undefined && value !== null && value !== "" && Number.isFinite(Number(value));
+    const stale = hasValue && (!connectionLive || (ageMs !== null && ageMs > sensorTtlMs(s.key)));
+    const present = hasValue && !stale;
     // Enhanced signals may arrive without an equivalent generic capability bit.
-    const isSupported = present || (declaresSupport
+    const isSupported = hasValue || (declaresSupport
       ? (s.spn != null && supportedSpns.has(s.spn)) || (s.pid && supportedPids.has(String(s.pid).toLowerCase()))
       : false);
     return {
@@ -203,9 +206,11 @@ function buildSensorView(normalized, supported = {}) {
       normal: s.normal,
       value: present ? Number(Number(value).toFixed(s.precision ?? 2)) : null,
       raw: present ? value : null,
+      lastKnownValue: hasValue ? Number(Number(value).toFixed(s.precision ?? 2)) : null,
+      freshnessLimitMs: sensorTtlMs(s.key),
       boolean: Boolean(s.boolean),
       supported: Boolean(isSupported),
-      ageMs: Number.isFinite(ageMs) ? ageMs : null,
+      ageMs,
       stale,
       state: present ? classify(s, value) : (stale ? "stale" : (isSupported ? "unknown" : "unsupported"))
     };

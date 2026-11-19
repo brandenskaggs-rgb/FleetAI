@@ -15,7 +15,13 @@ function fixture({ rows = [], snapshot = null } = {}) {
     vehicle: { findFirst: async ({ where }) => where.orgId === "A" && where.vehicleId === "carA" ? { vehicleId: "carA", unitName: "Camaro" } : null },
     telemetrySample: { findMany: async ({ where, take }) => { assertScope(where); assert.ok(take <= 120); return rows; } },
     mlPredictionRun: { findFirst: async ({ where }) => { assertScope(where); return null; } },
-    advisorArtifact: { create: async ({ data }) => { artifacts.push(data); return { ...data, id: "reportA", createdAt: now }; } }
+    advisorArtifact: {
+      create: async ({ data }) => { artifacts.push(data); return { ...data, id: "reportA", createdAt: now }; },
+      findFirst: async ({ where }) => {
+        assert.equal(where.orgId, "A"); assert.equal(where.content.equals, "carA");
+        return artifacts.length ? { id: "reportA", type: "live_diagnostic", title: "Saved analysis", createdAt: now } : null;
+      }
+    }
   };
   return { prisma, artifacts, telemetryLatest: new Map(snapshot ? [["carA", snapshot]] : []), orgId: "A", vehicleId: "carA", now };
 }
@@ -103,9 +109,20 @@ test("Advisor executes read-only scan without LLM credentials and saves tenant-s
   const response = await post("/api/advisor/message", request);
   assert.equal(response.status, 200);
   const body = await response.json();
+  assert.equal(body.scanStatus, "completed");
   assert.equal(body.source, "fleetai_received_telemetry");
   assert.equal(body.artifacts.length, 1);
   assert.equal(f.artifacts[0].orgId, "A");
   assert.equal(f.artifacts[0].content.scope.vehicleId, "carA");
   assert.equal(body.diagnostic.faultCodes.status, "not_read");
+  const history = [{ role: "user", content: request.message }, { role: "assistant", content: "The scan is running" }];
+  const followup = await (await post("/api/advisor/message", { vehicleId: "carA", message: "Is it done?", history })).json();
+  assert.equal(followup.scanStatus, "not_running"); assert.equal(followup.artifacts[0].id, "reportA");
+  assert.equal(f.artifacts.length, 1, "status reads must not rerun a scan");
+  const retry = await (await post("/api/advisor/message", { vehicleId: "carA", message: "try again", history })).json();
+  assert.equal(retry.scanStatus, "completed"); assert.equal(f.artifacts.length, 2);
+  assert.equal((await post("/api/advisor/message", { message: "scan status", vehicleId: "carB" })).status, 404);
+  t.mock.method(f.prisma.advisorArtifact, "create", async () => { throw new Error("storage_unavailable"); });
+  const failed = await post("/api/advisor/message", request);
+  assert.equal(failed.status, 500); assert.equal((await failed.json()).scanStatus, undefined);
 });
