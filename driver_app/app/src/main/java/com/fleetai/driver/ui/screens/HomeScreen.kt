@@ -35,6 +35,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fleetai.driver.AppGraph
 import com.fleetai.driver.data.model.DutyStatus
 import com.fleetai.driver.ui.components.FleetButton
@@ -56,7 +57,7 @@ fun HomeScreen(
     onOpenSettings: () -> Unit
 ) {
     val viewModel: HomeViewModel = viewModel(factory = AppGraph.viewModelFactory)
-    val state by viewModel.uiState.collectAsState()
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
     val obdStatus by sensorViewModel.status.collectAsState()
 
     Column(

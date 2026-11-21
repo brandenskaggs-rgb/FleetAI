@@ -32,11 +32,9 @@ import com.fleetai.driver.ui.components.FleetCard
 import com.fleetai.driver.ui.viewmodel.DiagnosticsViewModel
 
 @Composable
-fun DiagnosticsScreen(contentPadding: PaddingValues) {
-    val viewModel: DiagnosticsViewModel = viewModel(factory = AppGraph.viewModelFactory)
+fun DiagnosticsScreen(contentPadding: PaddingValues, viewModel: DiagnosticsViewModel = viewModel(factory = AppGraph.viewModelFactory)) {
     val dtcs by viewModel.dtcs.collectAsState()
     val message by viewModel.message.collectAsState()
-    val apiDiagnostics by viewModel.apiDiagnostics.collectAsState()
     val networkMessage by viewModel.networkMessage.collectAsState()
     val scanning by viewModel.scanning.collectAsState()
     val transmissionTesting by viewModel.transmissionTesting.collectAsState()
@@ -77,7 +75,8 @@ fun DiagnosticsScreen(contentPadding: PaddingValues) {
             )
         }
 
-        items(dtcs, key = { it.code }) { dtc ->
+        // The same code can occur in multiple fault records. Rows have no local state.
+        items(dtcs) { dtc ->
             FleetCard(modifier = Modifier.fillMaxWidth()) {
                 Text(text = dtc.code, style = MaterialTheme.typography.titleLarge)
                 Text(text = dtc.description)
@@ -127,6 +126,7 @@ fun DiagnosticsScreen(contentPadding: PaddingValues) {
             FleetCard(modifier = Modifier.fillMaxWidth()) {
                 TextButton(onClick = { showNetwork = !showNetwork }) { Text(if (showNetwork) "Hide connection details" else "Connection details") }
                 if (showNetwork) {
+                val apiDiagnostics by viewModel.apiDiagnostics.collectAsState()
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(text = "Base URL: ${apiDiagnostics.baseUrl.ifBlank { "--" }}")
                 Text(text = "Last Request: ${apiDiagnostics.lastMethod} ${apiDiagnostics.lastUrl}".trim())

@@ -13,6 +13,7 @@ import com.fleetai.driver.obd.GmTransmissionAttempt
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -70,23 +71,33 @@ class DiagnosticsViewModel(
     private val _networkMessage = MutableStateFlow("")
     val networkMessage: StateFlow<String> = _networkMessage.asStateFlow()
 
-    private val httpClient = OkHttpClient.Builder()
+    private val httpClient by lazy { OkHttpClient.Builder()
         .connectTimeout(4, TimeUnit.SECONDS)
         .readTimeout(4, TimeUnit.SECONDS)
         .writeTimeout(4, TimeUnit.SECONDS)
-        .build()
+        .build() }
 
-    init {
-        scan()
+    // Opening the screen must not queue a second ECU scan alongside telemetry.
+    private val savedLoad = viewModelScope.launch {
+        _message.value = "Loading saved fault records..."
+        try {
+            _dtcs.value = repository.getDiagnosticCodes()
+            _message.value = "Saved records, not a new scan. Tap Read fault codes for a current engine/emissions check."
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            _message.value = "Saved fault records unavailable. Connect the adapter and tap Read fault codes."
+        }
     }
 
     fun scan() {
         if (_scanning.value || _transmissionTesting.value) return
+        savedLoad.cancel()
         _scanning.value = true
         viewModelScope.launch {
             try {
                 _message.value = "Scanning..."
-                val connected = obd.isConnected()
+                val connected = !preferences.trainingSession.first() && obd.isConnected()
                 val codes = if (connected) {
                     obd.readDtcs().map { code ->
                         val read = obd.dtcSnapshot

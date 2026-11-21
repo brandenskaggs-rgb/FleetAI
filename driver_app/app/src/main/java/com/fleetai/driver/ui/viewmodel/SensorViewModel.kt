@@ -32,6 +32,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -134,14 +137,17 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
             }
         }
         obdSnapshotJob = viewModelScope.launch {
-            ObdRuntime.snapshot.collect { snapshot ->
-                if (preferences.trainingSession.first()) return@collect
-                if (J1939Runtime.state.value == J1939Runtime.State.STOPPED &&
-                    (snapshot.standardPlan.isNotEmpty() || snapshot.extendedPlan.isNotEmpty())) {
-                    _readings.value = buildObdReadings(snapshot)
-                } else if (J1939Runtime.state.value == J1939Runtime.State.STOPPED && snapshot.lastPacketAt == 0L) {
-                    _readings.value = _readings.value.map {
-                        if (it.status == SensorStatus.LIVE) it.copy(status = SensorStatus.STALE) else it
+            // Rendering and smoothing every PID is screen work, not part of collection or upload.
+            _readings.subscriptionCount.map { it > 0 }.distinctUntilChanged().collectLatest { visible ->
+                if (!visible) return@collectLatest
+                ObdRuntime.snapshot.collect { snapshot ->
+                    if (preferences.trainingSession.first() || J1939Runtime.state.value != J1939Runtime.State.STOPPED) return@collect
+                    if (snapshot.standardPlan.isNotEmpty() || snapshot.extendedPlan.isNotEmpty()) {
+                        _readings.value = buildObdReadings(snapshot)
+                    } else if (snapshot.lastPacketAt == 0L) {
+                        _readings.value = _readings.value.map {
+                            if (it.status == SensorStatus.LIVE) it.copy(status = SensorStatus.STALE) else it
+                        }
                     }
                 }
             }

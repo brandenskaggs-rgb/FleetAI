@@ -30,6 +30,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -62,7 +63,7 @@ import java.util.Locale
 fun SensorsScreen(contentPadding: PaddingValues, viewModel: SensorViewModel) {
     val status by viewModel.status.collectAsState()
     val savedDevice by viewModel.savedDevice.collectAsState()
-    val readings by viewModel.readings.collectAsState()
+    val readings by viewModel.readings.collectAsStateWithLifecycle()
     val debug by viewModel.debug.collectAsState()
     val unitPrefs by viewModel.unitPrefs.collectAsState()
     val j1939BusProfile by viewModel.j1939BusProfile.collectAsState()

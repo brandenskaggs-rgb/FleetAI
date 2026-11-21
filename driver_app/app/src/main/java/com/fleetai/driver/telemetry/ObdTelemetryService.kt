@@ -88,6 +88,7 @@ class ObdTelemetryService : Service() {
     private var locationJob: Job? = null
     private var requestedAddress = ""
     private var locationEnabled = false
+    private var notificationText: String? = null
     private val stopping = AtomicBoolean(false)
     private data class Focus(val requestId: String, val keys: Set<String>, val untilElapsed: Long)
     @Volatile private var focus: Focus? = null
@@ -170,6 +171,7 @@ class ObdTelemetryService : Service() {
             val advertisedPlan = plan.filter { it.command in supported }
             watchJob = scope.launch { watchRequests(vehicleId, advertisedPlan, extendedPlan) }
             val disconnected = pollConnectedAdapter(plan, extendedPlan)
+            ObdRuntime.publish(ObdRuntimeSnapshot())
             watchJob?.cancel()
             focus = null
             sender.stop()
@@ -256,7 +258,8 @@ class ObdTelemetryService : Service() {
             val liveCount = ObdSignalFreshness.count(intervals, latestValues, updatedAt, System.currentTimeMillis())
             val live = successfulReads > 0 || (lastPacketAt > 0 && now - lastPacketAt <= ECU_DATA_SILENCE_MS)
             sender.updateLocation(locationTracker.latestFresh())
-            sender.updateSnapshot(latestValues.toMap(), true, lastPacketAt, updatedAt.toMap())
+            // The sender already takes a defensive copy. Only the UI needs its own snapshot.
+            sender.updateSnapshot(latestValues, true, lastPacketAt, updatedAt)
             ObdRuntime.publish(
                 ObdRuntimeSnapshot(latestValues.toMap(), updatedAt.toMap(), plan, extendedPlan, lastPacketAt)
             )
@@ -267,7 +270,11 @@ class ObdTelemetryService : Service() {
                 "Adapter connected - waiting for ECU data"
             }
             ObdRuntime.update(if (live) ObdRuntime.State.LIVE else ObdRuntime.State.WAITING_FOR_ECU, status)
-            updateNotification(if (currentFocus != null) "$status - focused sensor watch" else status)
+            updateNotification(when {
+                !live -> "Adapter connected - waiting for ECU data"
+                currentFocus != null -> "Reading vehicle data - focused sensor watch"
+                else -> "Reading vehicle data"
+            })
             delay(100L)
         }
         !obd.isConnected()
@@ -341,7 +348,7 @@ class ObdTelemetryService : Service() {
         }
     }
 
-    private fun promote(text: String) {
+    @Synchronized private fun promote(text: String) {
         ServiceCompat.startForeground(
             this,
             NOTIFICATION_ID,
@@ -349,6 +356,7 @@ class ObdTelemetryService : Service() {
             ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE or
                 (if (locationEnabled) ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION else 0)
         )
+        notificationText = text
     }
 
     private fun createNotificationChannel() {
@@ -385,8 +393,10 @@ class ObdTelemetryService : Service() {
         .setOnlyAlertOnce(true)
         .build()
 
-    private fun updateNotification(text: String) {
+    @Synchronized private fun updateNotification(text: String) {
+        if (text == notificationText) return
         (getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).notify(NOTIFICATION_ID, notification(text))
+        notificationText = text
     }
 
     override fun onDestroy() {

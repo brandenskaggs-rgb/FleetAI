@@ -8,6 +8,10 @@ import com.fleetai.driver.data.repository.DriverRepository
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
 class HomeViewModel(
@@ -36,12 +40,16 @@ class HomeViewModel(
         )
     )
     val uiState: StateFlow<HomeUiState> = _uiState
+    private var nextLoginAttemptNs: Long? = null
 
     init {
         viewModelScope.launch {
-            while (true) {
-                refreshEldStatus()
-                delay(5_000)
+            refreshEldStatus()
+            _uiState.subscriptionCount.map { it > 0 }.distinctUntilChanged().collectLatest { visible ->
+                while (visible) {
+                    delay(5_000)
+                    refreshEldStatus()
+                }
             }
         }
     }
@@ -69,10 +77,11 @@ class HomeViewModel(
     private suspend fun refreshEldStatus() {
         try {
             val status = repository.getEldDeviceStatus()
-            if (status.enabled && !status.driverLoggedIn) {
+            val now = System.nanoTime()
+            if (!status.enabled || status.driverLoggedIn) nextLoginAttemptNs = null
+            else if (nextLoginAttemptNs?.let { now - it >= 0 } != false) {
+                nextLoginAttemptNs = now + 60_000_000_000L
                 repository.recordEldLogin()
-                delay(250)
-                return refreshEldStatus()
             }
             val hos = if (status.enabled) runCatching { repository.getEldHosStatus() }.getOrNull() else null
             val message = when {
@@ -106,6 +115,8 @@ class HomeViewModel(
                 statusMessage = message,
                 actionInProgress = _uiState.value.actionInProgress
             )
+        } catch (cancelled: CancellationException) {
+            throw cancelled
         } catch (_: Exception) {
             _uiState.value = _uiState.value.copy(
                 statusMessage = "Unable to refresh activity status. Check the connection; previous status is shown.",
