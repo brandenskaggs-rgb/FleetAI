@@ -6,6 +6,7 @@ const { watchProposal } = require("./sensorWatchService");
 
 function reportTypeFor(message) {
   const text = String(message || "").toLowerCase();
+  if (/\bmechanic(?:'s)?\b/.test(text)) return "mechanic";
   if (/\b(hos|eld|dot|compliance|violation)\b/.test(text)) return "compliance";
   if (/\b(drive|trip|telemetry|route)\b/.test(text)) return "drive";
   if (/\b(maintenance|service|work order|repair|parts)\b/.test(text)) return "maintenance";
@@ -16,6 +17,7 @@ function reportTypeFor(message) {
 
 function reportTitle(type, organizationName) {
   const names = {
+    mechanic: "Mechanic report",
     compliance: "Compliance activity report",
     drive: "Drive activity report",
     maintenance: "Maintenance operations report",
@@ -81,6 +83,9 @@ function reportSections(type, context, vehicleId = null) {
     lookbackDays: context.lookbackDays,
     organization: context.organization,
     requestedVehicleId: vehicleId,
+    ...(vehicleId && context.sampleCoverage?.vehicleId === vehicleId ? {
+      sampleCoverage:context.sampleCoverage,signalSummary:context.signalSummary
+    } : {}),
     assets: scoped(context.assets),
     predictions: scoped(context.predictions),
     riskOverviewScope: context.riskOverviewScope || "organization",
@@ -89,6 +94,7 @@ function reportSections(type, context, vehicleId = null) {
     learningEvidenceScope: "organization",
     learning: context.learning ? { ...context.learning, recentOutcomes: scoped(context.learning.recentOutcomes) } : null
   };
+  if (type === "mechanic") return { ...common, inspections, vehicleId, vehicleHealth:scoped(context.vehicleHealth) };
   if (type === "drive") return { ...common, driveLogs: scoped(context.driveLogs), vehicleHealth: scoped(context.vehicleHealth), alerts: scoped(context.alerts) };
   if (type === "maintenance") return { ...common, maintenance: scoped(context.maintenance), workOrders: scoped(context.workOrders), inspections: { dvir: scoped(context.inspections?.dvir), diagnosticScans: scoped(context.inspections?.diagnosticScans) }, vehicleHealth: scoped(context.vehicleHealth) };
   if (type === "compliance") return { ...common, compliance, inspections, drivers: vehicleId ? [] : context.drivers };

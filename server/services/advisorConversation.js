@@ -38,15 +38,86 @@ function buildAdvisorSystemPrompt(context) {
   ].join("\n");
 }
 
-function buildAdvisorMessages({ context, history, message, sanitizeString }) {
+// Bound the evidence sent to the provider, not the database records used to build reports.
+function promptEvidence(context, question, budget) {
+  const size = value => Buffer.byteLength(JSON.stringify(value));
+  const shortlist = value => {
+    if (typeof value === "string") return value.slice(0, 320);
+    if (Array.isArray(value)) return value.slice(0, 4).map(shortlist);
+    if (value && typeof value === "object") return Object.fromEntries(Object.entries(value).slice(0, 22)
+      .map(([k, v]) => [k, shortlist(v)]));
+    return value;
+  };
+  const out = { coverage: "Selected records only; omission does not mean no events or faults." };
+  const entries = { ...context, faultReads: context.inspections?.diagnosticScans, dvir: context.inspections?.dvir,
+    ...context.compliance };
+  const priority = ["generatedAt","selectedVehicleId","lookbackDays","riskOverviewScope","recordCounts","sampleCoverage"];
+  const topics = [
+    [/code|dtc|fault|catalyst|engine light/i, "faultReads"],
+    [/sensor|sample|temp|coolant|rpm|voltage|pressure|fuel trim|transmission/i,"signalSummary","focusedSensorEvidence"],
+    [/maintenance|repair|service|work order/i,"maintenance","workOrders"],
+    [/hos|driver|duty|compliance/i,"dutyEvents","drivers","diagnostics"],
+    [/trip|drive|speed/i,"driveLogs"], [/cost|fuel/i,"fuel"], [/inspect/i,"dvir"],
+    [/learn|model|predict/i,"learning","predictions"], [/alert|risk/i,"alerts","vehicleHealth"]
+  ];
+  for (const [pattern,...keys] of topics) if (pattern.test(question)) priority.push(...keys);
+  priority.push("vehicleHealth","faultReads","driveLogs","alerts","signalSummary","assets","riskOverview");
+  for (const key of new Set([...priority,...Object.keys(entries)])) {
+    if (["inspections","compliance","question"].includes(key) || entries[key] == null) continue;
+    const value = entries[key];
+    if (Array.isArray(value)) {
+      const chosen = [];
+      let rows=value;
+      if (key === "faultReads") {
+        const positive=value.find(r=>r.codes?.length);
+        if (positive && value.length) rows=[...new Set([value[0],positive,...value])];
+      } else if (key === "signalSummary" || key === "focusedSensorEvidence") {
+        const words=String(question).toLowerCase().match(/[a-z0-9]+/g)?.filter(w=>w.length>2)||[];
+        const rank=r=>words.filter(w=>[r.label,r.key,r.signal].join(" ").toLowerCase().includes(w)).length;
+        rows=[...value].sort((a,b)=>rank(b)-rank(a));
+      }
+      for (const row of rows.slice(0, key === "signalSummary" ? 22 : 5)) {
+        const next = [...chosen,shortlist(row)];
+        if (size({...out,[key]:next}) > budget) break;
+        chosen.push(next.at(-1));
+      }
+      if (chosen.length) out[key] = chosen;
+    } else {
+      const item = shortlist(value);
+      if (size({...out,[key]:item}) <= budget) out[key] = item;
+    }
+  }
+  return out;
+}
+
+function buildAdvisorMessages({ context, history, message, sanitizeString, compact = false }) {
+  const recent = normalizeAdvisorHistory(history, sanitizeString).slice(compact ? -1 : -4)
+    .map(entry => ({...entry,content:entry.content.slice(0,compact ? 200 : 500)}));
   return [
-    { role: "system", content: buildAdvisorSystemPrompt(context) },
-    ...normalizeAdvisorHistory(history, sanitizeString),
+    { role: "system", content: buildAdvisorSystemPrompt(promptEvidence(context,message,compact ? 2400 : 9500)) },
+    ...recent,
     { role: "user", content: message }
   ];
 }
 
+async function completeAdvisor(input, completeChat) {
+  const options = { temperature: 0.55, maxTokens: 700 };
+  try { return await completeChat(buildAdvisorMessages(input), options); }
+  catch (error) {
+    if (error.status !== 413) throw error;
+    return completeChat(buildAdvisorMessages({...input, compact:true}), {...options,maxTokens:450});
+  }
+}
+
+function chatFailureMessage(error) {
+  if (error.status === 413) return "The provider cannot fit this much evidence into one answer. Select one vehicle and ask about a specific signal or fault. PDF reports are still available.";
+  if (error.status === 429) return "The AI provider has reached a usage limit. Try again later, or request a PDF report now.";
+  if ([401,403].includes(error.status)) return "The AI provider rejected Fleet AI's access. A workspace operator needs to check the provider credentials.";
+  return "The Advisor could not complete this request. Try again shortly.";
+}
+
 module.exports = {
+  completeAdvisor, chatFailureMessage,
   MAX_HISTORY_MESSAGES,
   buildAdvisorMessages,
   buildAdvisorSystemPrompt,

@@ -4,7 +4,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { XMLParser } = require("fast-xml-parser");
 
-const TEMPLATE_VERSION = "fleet-evidence-v1";
+const TEMPLATE_VERSION = "fleet-evidence-v2";
 const MAX_PDF_BYTES = 4 * 1024 * 1024;
 const logo = new XMLParser({ ignoreAttributes: false }).parse(fs.readFileSync(
   path.join(__dirname, "../../assets/brand/fleet-ai-mark.svg"), "utf8"
@@ -72,12 +72,47 @@ async function renderReportPdf(artifact) {
     if (rows.length > 100) paragraph(`Showing 100 of ${rows.length} retrieved records.`);
     doc.moveDown(0.6);
   }
+  function sensorTable(coverage) {
+    heading("Recorded sensor values");
+    paragraph(`${coverage.reviewed ?? 0} telemetry rows reviewed${Number.isFinite(coverage.retained) ? " out of "+coverage.retained+" stored for this vehicle" : ""}. ${coverage.from && coverage.to ? "Window: "+date(coverage.from)+" to "+date(coverage.to)+"." : "No dated readings in this selection."}${coverage.truncated ? " Limited to the first 1,000 rows." : ""}`);
+    paragraph("Latest is the last recorded value in this window, not a live reading. Low and high can come from different times. The row count is the number of records containing that signal.",9);
+    const measured = source.signalSummary.filter(r=>r.count>0);
+    if (measured.length) table([["Signal / unit",r=>r.label+(r.unit?" ("+r.unit+")":"")],["Latest",r=>r.latest],["Low to high",r=>r.min+" to "+r.max],["Rows",r=>r.count],["Latest row (UTC)",r=>date(r.recordedAt).replace(" UTC","")]], measured);
+    else paragraph("No measured values were available for the signals listed in this report.");
+    const missing = source.signalSummary.filter(r=>!r.count);
+    if (missing.length) { heading("Not measured in this window"); paragraph(missing.map(r=>r.label).join(", ")+". Missing readings are not zeros or evidence these systems passed."); }
+  }
   try {
     doc.font("Helvetica-Bold").fontSize(26).fillColor("#172225").text(text(artifact.title), 46, doc.y, { width });
     doc.moveDown(0.5);
     paragraph(`Generated: ${date(artifact.createdAt || source.generatedAt)}\nScope: ${content.scope?.vehicleId || content.scope?.organization || source.organization?.name || "Saved diagnostic evidence"}\nTemplate: ${TEMPLATE_VERSION}`, 9);
+    if (["Maintenance evidence","mechanic"].includes(artifact.type) && source.signalSummary) {
+      const coverage = source.sampleCoverage || {};
+      const scans = source.inspections?.diagnosticScans || [];
+      const latestScan = scans[0];
+      heading("Reason for inspection");
+      if (artifact.type === "Maintenance evidence") paragraph(content.summary);
+      else if (latestScan) paragraph(`Most recent fault read: ${date(latestScan.scannedAt)}. ${latestScan.diagnosticStatus?.message || "See recorded codes below."}`);
+      else paragraph("No fault scan was retrieved. That does not establish that the vehicle has no faults.");
+      const codeRows = scans.flatMap(scan => (scan.codes || []).map(item => ({
+        ...(typeof item === "string" ? { code:item } : item), scannedAt:scan.scannedAt
+      })));
+      const seen = new Set();
+      const recentCodes = codeRows.filter(row => {
+        const key = JSON.stringify([row.code,row.codeStatus]);
+        if (seen.has(key)) return false;
+        seen.add(key); return true;
+      });
+      if (recentCodes.length) table([["Fault code",r=>r.code],["Status at read",r=>r.codeStatus||"Reported"],["Meaning",r=>r.parameter||r.description],["Last reported",r=>date(r.scannedAt)]],recentCodes);
+      if (source.predictions?.length && !scans.length) paragraph(`Model evidence recorded: ${date(source.predictions[0].createdAt)}. A model warning is not a confirmed failure.`);
+      sensorTable(coverage);
+      heading("What to verify");
+      paragraph("Compare the recorded codes and symptoms with a current scan and the vehicle's freeze-frame. A stored code identifies a condition to investigate, not a part to replace. Permanent codes can remain after repair.");
+      for (const limit of source.limitations || []) paragraph(limit,9);
+    } else {
     heading("01 / Summary");
     paragraph(content.summary || "This report contains the available saved fleet records. Missing information is marked, not inferred.", 11);
+    if (source.signalSummary && ["fleet","drive","maintenance","risk"].includes(artifact.type)) sensorTable(source.sampleCoverage || {});
     heading("02 / Evidence coverage");
     paragraph(`Report type: ${artifact.type || "fleet"}. ${source.lookbackDays ? `Telemetry lookback: ${source.lookbackDays} days, subject to query limits.` : "Point-in-time evidence snapshot."} This is not a complete lifetime history or a new ECU scan. Empty sections mean no retrieved evidence, not that the vehicle has no faults.`);
     if (source.recordCounts) paragraph(`Retrieved context counts (not lifetime totals; personnel counts can be fleet-wide): ${Object.entries(source.recordCounts).map(([k, v]) => `${k}: ${v}`).join("; ")}`, 9);
@@ -118,6 +153,7 @@ async function renderReportPdf(artifact) {
     paragraph("Review reported faults and symptoms with a qualified technician. An illuminated warning light should not be dismissed because this report has no codes. Generic OBD engine/emissions reads do not establish TPMS, ABS, or complete manufacturer-module coverage. No codes are cleared and no vehicle settings are changed.");
     for (const limit of source.limitations || []) paragraph(limit, 9);
     paragraph("Evidence is limited to the records retrieved when this report was created. The saved report does not update as new telemetry arrives. Request a new report for updated evidence.", 9);
+    }
     const range = doc.bufferedPageRange();
     for (let i = 0; i < range.count; i++) {
       doc.switchToPage(i);

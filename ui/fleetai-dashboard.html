@@ -683,7 +683,7 @@
         const remaining=MIN_ADVISOR_TYPING_MS-(performance.now()-started);
         if(remaining>0)await new Promise(resolve=>setTimeout(resolve,remaining));
         clearAdvisorTyping(loadingId);
-        appendAdvisorMessage("assistant",`I can't reach the advisor service right now. ${e.message}`);
+        appendAdvisorMessage("assistant",e.message || "The Advisor couldn't complete this request.");
       }finally{setAdvisorBusy(false);}
     }
     async function loadMaintenanceLogs(){ return loadMaintenanceLogsV2("maintenance"); }

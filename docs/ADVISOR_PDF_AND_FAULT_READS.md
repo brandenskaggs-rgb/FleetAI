@@ -7,11 +7,19 @@ The server executes `generate_report` without depending on an LLM response. The 
 page, dock, and Recent reports list expose Open PDF and Download PDF controls. No fabricated
 link or report receipt is returned when generation or persistence fails.
 
-`server/services/advisorReportPdf.js` owns template `fleet-evidence-v1`: summary, coverage,
+`server/services/advisorReportPdf.js` owns template `fleet-evidence-v2`: summary, coverage,
 health/model evidence, faults, service/activity, optional sensor appendix, and limitations.
 It uses the existing Link mark, fixed columns, wrapped rows, repeated headers, and page numbers.
 The template displays recorded values, not invented readings or forecasts. Queries are bounded;
 this is not a complete lifetime data export. Synthetic prior scores are not field validation.
+
+For a shop handoff, select a vehicle and ask `Make a mechanic PDF`. Its fault table
+and measured-signal table come first. Each signal shows the latest recorded value,
+units, range, row count and timestamp. Unmeasured channels are listed separately.
+Advisor vehicle summaries use the newest 2,500 telemetry rows within 30 days and
+report the selected vehicle's retained row count separately. An incident's mechanic
+PDF instead uses a two-minute event window, capped at 1,000 rows. Neither is an ECU
+freeze-frame. Already sealed PDFs do not change when a new template is released.
 
 The PDF bytes, SHA-256 and template version are stored in the existing AdvisorArtifact JSON
 alongside the evidence snapshot. Downloads return those same bytes. Maximum size is 4 MiB;

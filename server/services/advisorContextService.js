@@ -256,6 +256,13 @@ async function buildFleetAdvisorContext({ db, orgId, query, selectedVehicleId, s
     reports: aiReports.map((report) => ({ evidenceRef: `report:${report.id}`, id: report.id, vehicleId: report.vehicleId, narrative: String(report.narrative || "").slice(0, 1200), modelUsed: report.modelUsed, createdAt: iso(report.createdAt) })),
     predictions: predictionRuns.map((run) => ({ evidenceRef: `prediction:${run.id}`, id: run.id, vehicleId: run.vehicleId, source: run.source, modelVersion: run.modelVersion, confidence: finiteNumber(run.confidence), riskProbability: finiteNumber(run.riskProbability), healthScore: finiteNumber(run.healthScore), createdAt: iso(run.createdAt) }))
   };
+  if (scopedSelectedVehicleId) {
+    const selectedSamples = samples.filter(row=>row.vehicleId === scopedSelectedVehicleId);
+    const retained = await prisma.telemetrySample.count({where:{orgId,vehicleId:scopedSelectedVehicleId,vehicle:{orgId}}});
+    context.sampleCoverage = {vehicleId:scopedSelectedVehicleId,retained,reviewed:selectedSamples.length,
+      from:iso(selectedSamples.at(-1)?.ts),to:iso(selectedSamples[0]?.ts),limit:2500,lookbackDays:DEFAULT_LOOKBACK_DAYS};
+    context.signalSummary = require("./advisorSignalSummary").summarizeSignals(selectedSamples);
+  }
   context.learning = await require("./learningEvidence").learningSummary(prisma, orgId);
   context.sensorWatches = prisma.sensorWatch ? (await prisma.sensorWatch.findMany({
     where: { orgId, ...(scopedSelectedVehicleId ? { vehicleId: scopedSelectedVehicleId } : {}) },

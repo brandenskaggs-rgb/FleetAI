@@ -81,6 +81,9 @@ test("Advisor watch evidence is tenant scoped and retains sparse/stale sample ti
   ];
   const prisma = new Proxy({}, { get: (_target, model) => ({
     findUnique: async () => ({ id: "A", name: "Test Fleet" }),
+    count: async ({where}) => {
+      assert.deepEqual(where,{orgId:"A",vehicleId:"carA",vehicle:{orgId:"A"}}); return 12000;
+    },
     findMany: async ({ where }) => {
       assert.equal(where.orgId, "A");
       if (model === "vehicle") return [{ vehicleId: "carA", orgId: "A", unitName: "Test car" }];
@@ -97,6 +100,9 @@ test("Advisor watch evidence is tenant scoped and retains sparse/stale sample ti
   }) });
   const context = await buildFleetAdvisorContext({ db: { getPrisma: () => prisma }, orgId: "A", selectedVehicleId: "carA", query: "watch transmission", now });
   assert.equal(context.sensorWatches[0].status, "awaiting_tablet");
+  assert.equal(context.sampleCoverage.retained,12000);
+  assert.equal(context.sampleCoverage.reviewed,2);
+  assert.equal(context.signalSummary.find(r=>r.key==="transmissionTempC").max,158);
   assert.ok(context.focusedSensorEvidence.every(row => row.vehicleId === "carA"));
   const temperature = context.focusedSensorEvidence.find(row => row.signal === "transmissionTempC");
   assert.equal(temperature.value, 70);

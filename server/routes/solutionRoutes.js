@@ -2,7 +2,7 @@ const db = require("../db");
 const { scopedSnapshot } = require("../lib/snapshotScope");
 const { protectSessionStream } = require("../middleware/sessionStream");
 const { completeChat, getAiProviderStatus } = require("../services/aiProviderService");
-const { buildAdvisorMessages } = require("../services/advisorConversation");
+const { completeAdvisor, chatFailureMessage } = require("../services/advisorConversation");
 const { buildFleetAdvisorContext } = require("../services/advisorContextService");
 const { buildReportArtifact, planAdvisorActions, renderReportHtml, renderReportText } = require("../services/advisorAgentService");
 const { sealReportPdf, getReportPdf } = require("../services/advisorReportPdf");
@@ -788,11 +788,17 @@ function registerSolutionRoutes(app, deps) {
         assets: data.vehicles.filter(vehicle => vehicle.orgId === orgId)
       }).find(action => action.action === "generate_report");
       if (reportPlan) {
+        if (reportPlan.reportType === "mechanic" && !reportPlan.vehicleId) {
+          const units = data.vehicles.filter(v => v.orgId === orgId);
+          if (units.length === 1) reportPlan.vehicleId = units[0].vehicleId;
+          else return res.json({ok:true,reply:"Which vehicle is the mechanic inspecting? Select one and request the report again.",artifacts:[],proposedActions:[]});
+        }
         if (reportPlan.vehicleId && !await db.getPrisma().vehicle.findFirst({ where: { orgId, vehicleId: reportPlan.vehicleId } })) {
           return res.status(404).json({ ok: false, error: "vehicle_not_found" });
         }
         const context = await buildFleetAdvisorContext({ db, orgId, query: message, selectedVehicleId: reportPlan.vehicleId, scopeToVehicle: true, legacyData: data });
         const action = planAdvisorActions(message, context).find(item => item.action === "generate_report");
+        if (action.reportType === "mechanic") action.vehicleId = reportPlan.vehicleId;
         const unit = context.assets.find(vehicle => vehicle.vehicleId === action.vehicleId);
         action.title = `${unit?.unitName || context.organization.name} - ${action.reportType} report`;
         const scope = action.vehicleId ? (unit?.unitName || action.vehicleId) : context.organization.name;
@@ -818,17 +824,18 @@ function registerSolutionRoutes(app, deps) {
         orgId,
         query: message,
         selectedVehicleId: sanitizeString(req.body.vehicleId || "", 80),
+        scopeToVehicle: true,
         legacyData: data
       });
+      if (req.body.vehicleId && !context.selectedVehicleId) return res.status(404).json({ok:false,error:"vehicle_not_found"});
 
       try {
-        const messages = buildAdvisorMessages({
+        const completion = await completeAdvisor({
           context,
           history: req.body.history,
           message,
           sanitizeString
-        });
-        const completion = await completeChat(messages, { temperature: 0.55, maxTokens: 700 });
+        }, completeChat);
         const groundedReply = guardDiagnosticClaims(completion.content);
         const plannedActions = planAdvisorActions(message, context);
         const artifacts = [];
@@ -867,7 +874,7 @@ function registerSolutionRoutes(app, deps) {
         return res.status(503).json({
           ok: false,
           error: "advisor_temporarily_unavailable",
-          message: error.retryable ? "AI Advisor is temporarily unavailable. Try again shortly." : "AI Advisor configuration needs attention."
+          message: chatFailureMessage(error)
         });
       }
     } catch (err) { next(err); }

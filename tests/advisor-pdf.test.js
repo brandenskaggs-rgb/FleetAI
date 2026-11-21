@@ -64,6 +64,9 @@ test("report action works without an LLM and downloads are authenticated, scoped
       return scopedEmpty.findMany(args);
     }
   };
+  prisma.telemetrySample.count = async ({where}) => {
+    assert.deepEqual(where,{orgId:"A",vehicleId:"unitA",vehicle:{orgId:"A"}}); return 0;
+  };
   t.mock.method(db, "getPrisma", () => prisma);
   t.mock.method(db, "listVehicles", async () => vehicles);
   t.mock.method(db, "listDrivers", async () => []);
