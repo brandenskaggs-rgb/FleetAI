@@ -16,6 +16,7 @@ test("scan follow-ups use user intent, not assistant promises as execution evide
 test("status reads saved artifacts for the authorized tenant and vehicle only", async () => {
   let found = null, queries = 0;
   const prisma = {
+    sensorWatch: { findUnique: async () => null },
     vehicle: { findFirst: async ({ where }) => where.orgId === "A" && where.vehicleId === "car" ? { vehicleId: "car" } : null },
     advisorArtifact: { findFirst: async ({ where }) => {
       queries++; assert.equal(where.orgId, "A"); assert.equal(where.type, "live_diagnostic");

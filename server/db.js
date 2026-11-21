@@ -588,12 +588,22 @@ async function createVehicle(vehicle) {
   return rowToVehicle(row);
 }
 
-async function listVehicles({ orgId } = {}) {
+// A claimed assignment persists across offline periods and claim-code expiry.
+// Never project a related driver's or vehicle's identity outside its own fleet.
+function assignmentInclude(orgId, withAssignments) {
+  if (!orgId || !withAssignments) return {};
+  return { include: { pairings: {
+    where: { orgId, status: "active", revokedAt: null, driver: { orgId }, vehicle: { orgId } },
+    select: { driverId: true, vehicleId: true, deviceLabel: true }, orderBy: { claimedAt: "desc" }
+  } } };
+}
+
+async function listVehicles({ orgId, withAssignments = false } = {}) {
   const rows = await getPrisma().vehicle.findMany({
     where: orgId ? { orgId } : {},
-    orderBy: { createdAt: "asc" }
+    orderBy: { createdAt: "asc" }, ...assignmentInclude(orgId, withAssignments)
   });
-  return rows.map(rowToVehicle);
+  return rows.map(row => ({ ...rowToVehicle(row), ...(row.pairings && { assignments: row.pairings }) }));
 }
 
 async function getVehicleByVehicleId(vehicleId) {
@@ -785,12 +795,12 @@ async function createDriver(driver) {
   return rowToDriver(row);
 }
 
-async function listDrivers({ orgId } = {}) {
+async function listDrivers({ orgId, withAssignments = false } = {}) {
   const rows = await getPrisma().driver.findMany({
     where: orgId ? { orgId } : {},
-    orderBy: { createdAt: "asc" }
+    orderBy: { createdAt: "asc" }, ...assignmentInclude(orgId, withAssignments)
   });
-  return rows.map(rowToDriver);
+  return rows.map(row => ({ ...rowToDriver(row), ...(row.pairings && { assignments: row.pairings }) }));
 }
 
 async function getDriverByDriverId(driverId) {

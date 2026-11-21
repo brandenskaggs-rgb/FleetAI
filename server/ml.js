@@ -660,8 +660,21 @@ function buildTelemetrySample(normalized, extra = {}) {
   for (const key of ["activeDTCs", "dtcCapturedAt", "dtcScanStatus", "obdFaultRead"]) delete raw[key];
   const timestamp = normalized.timestamp || new Date().toISOString();
   const meta = extra.meta || normalized.meta || {};
-  if (typeof meta.sensorWatchRequestId === "string" && /^[a-f0-9-]{36}$/i.test(meta.sensorWatchRequestId)) {
+  for (const key of ["sensorWatchRequestId", "watchReadings", "watchDeviceId"]) delete raw[key];
+  if (extra.pairedScanDeviceId && typeof meta.sensorWatchRequestId === "string" && /^[a-f\d]{8}-(?:[a-f\d]{4}-){3}[a-f\d]{12}$/i.test(meta.sensorWatchRequestId)) {
     raw.sensorWatchRequestId = meta.sensorWatchRequestId;
+    raw.watchDeviceId = extra.pairedScanDeviceId;
+    const packetAt = Date.parse(timestamp);
+    // Tablet ages are relative to enqueue, not upload. Its packet timestamp is
+    // the newest actual measurement, so no reading can be newer than that.
+    const enqueueAt = extra.rawPids?.heartbeatMs;
+    const origin = Number.isFinite(enqueueAt) ? enqueueAt : packetAt;
+    raw.watchReadings = {};
+    for (const [key, age] of Object.entries(meta.metricAgesMs || {})) {
+      const value = extra.rawPids?.[key];
+      if (!/^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(key) || !Number.isFinite(value) || !Number.isFinite(age) || age < 0 || age > 30000 || !Number.isFinite(packetAt)) continue;
+      raw.watchReadings[key] = { value, at: Math.min(packetAt, origin - age) };
+    }
   }
   const dtcCapturedAt = Date.parse(meta.dtcCapturedAt);
   const faultRead = require("./telematics/diagnostics/obdFaultRead").sanitizeObdFaultRead(meta.obdFaultRead);

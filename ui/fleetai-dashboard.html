@@ -66,6 +66,9 @@
       </section>
 
       <section id="view-telemetry" class="section hide">
+        <div class="card"><div class="cardHead"><div><h3>Live diagnostic scanner</h3><p class="cardMeta" id="scanSessionStatus" role="status">Select a vehicle to check scan status.</p></div>
+        <div class="sectionActions"><button id="startSensorScan" class="btn primary" type="button" hidden>Start 5-minute scan</button><button id="stopSensorScan" class="btn" type="button" hidden>Stop scan</button></div></div>
+        <div class="cardBody"><p id="scanCoverage" class="muted"></p><div id="scanReadings" class="tableWrap"></div><div id="scanError" class="inlineError" role="status"></div></div></div>
         <div class="sectionActions sensorJump"><button class="btn" id="btnAllSensors" type="button">All sensors <span aria-hidden="true">&#8595;</span></button></div>
         <div class="instrumentDeck">
           <div class="commandMetric"><div class="commandMetric__label">Engine speed / RPM</div><div class="commandMetric__value" id="liveRpm">--</div><div class="commandMetric__sub">Current engine speed</div></div>
@@ -216,6 +219,7 @@
     function renderRoute(route){
       if(!titles[route]) route = "dashboard";
       state.activeRoute = route;
+      refreshScanView();
       document.querySelector(".main").scrollTop=0;
       document.body.classList.toggle("advisor-route",route==="advisor");
       if(route==="advisor")$("opsAdvisorDock")?.classList.remove("open");
@@ -333,6 +337,7 @@
     function selectVehicleContext(vehicleId){
       if(String(vehicleId)===String(state.selectedVehicleId))return;
       state.selectedVehicleId=vehicleId;
+      refreshScanView();
       state.telemetryRows=[];state.liveChartRows=[];state.telemetryLastAt=0;state.sensorLastRefresh=0;
       clearLiveTelemetryValues();
       $("telemetryRows").innerHTML=rowsEmpty(7,"Waiting for this vehicle's readings.");
@@ -589,6 +594,51 @@
       if(!/^\/api\/advisor\/artifacts\/[a-zA-Z0-9_%.-]+\/download$/.test(url))return "";
       return `<div class="advisorReportRow"><div class="advisorReportTitle"><strong>${esc(report.title||"Fleet AI report")}</strong><span>PDF · ${esc(report.createdAt?formatDateTime(report.createdAt):"Saved evidence snapshot")}</span></div><div class="sectionActions"><a class="btn" href="/api/advisor/artifacts/${esc(url.split('/')[4])}/download?inline=1" target="_blank" rel="noopener">Open PDF</a><button class="btn ghost" type="button" data-advisor-download="${esc(url)}">Download PDF</button></div></div>`;
     }
+    let scanTimer=0, scanViewRevision=0;
+    function refreshScanView(){
+      clearTimeout(scanTimer);
+      const revision=++scanViewRevision, vehicleId=state.selectedVehicleId;
+      const current=()=>revision===scanViewRevision && state.activeRoute==="telemetry" && state.selectedVehicleId===vehicleId;
+      const start=$("startSensorScan"),stop=$("stopSensorScan");
+      start.hidden=stop.hidden=true;
+      $("scanCoverage").textContent=$("scanError").textContent=$("scanReadings").textContent="";
+      $("scanSessionStatus").textContent=vehicleId?"Checking scan status...":"Select a vehicle to check scan status.";
+      if(state.activeRoute!=="telemetry")return;
+      if(!vehicleId){scanTimer=setTimeout(refreshScanView,3000);return;}
+      async function change(action,requestId){
+        if(!current())return;
+        clearTimeout(scanTimer);++scanViewRevision;
+        start.disabled=stop.disabled=true;
+        try {
+          await apiPost("/api/advisor/actions/execute",{confirmed:true,action,payload:{vehicleId,requestId,groups:["engine","transmission","brakes"],durationMinutes:5,reason:"Live diagnostic scan"}});
+          if(state.activeRoute==="telemetry"&&state.selectedVehicleId===vehicleId)refreshScanView();
+        }catch(error){
+          if(state.activeRoute==="telemetry"&&state.selectedVehicleId===vehicleId){refreshScanView();$("scanError").textContent=error.message;}
+        }
+      }
+      async function poll(){
+        let delay=4000;
+        try{
+          const s=await apiGet("/api/diagnostics/vehicles/"+encodeURIComponent(vehicleId)+"/session");
+          if(!current())return;
+          const active=!["idle","stopped","expired"].includes(s.status);
+          $("scanSessionStatus").textContent=s.message;
+          start.hidden=!state.isAdmin||active;stop.hidden=!state.isAdmin||!active;
+          start.disabled=stop.disabled=false;
+          start.onclick=()=>change("start_sensor_watch");stop.onclick=()=>change("stop_sensor_watch",s.requestId);
+          const readings=Array.isArray(s.readings)?s.readings:[];
+          $("scanCoverage").textContent=s.acknowledgedAt?`${s.supportedKeys.length} priority signals acknowledged. ${readings.length} sensors observed in recent scan packets, including normal polling.`:"";
+          $("scanReadings").innerHTML=readings.length?`<table class="table"><thead><tr><th>Sensor</th><th>Reading</th><th>Measured at</th><th>Status</th></tr></thead><tbody>${readings.map(r=>`<tr><td>${esc(r.label)}</td><td>${esc(r.unit==="°C"?((r.value*9/5+32).toFixed(1)+" °F"):(r.value+" "+r.unit))}</td><td>${esc(formatDateTime(r.at))}</td><td>${r.fresh?"Live":"Last observed"}</td></tr>`).join("")}</tbody></table>`:"";
+          if(!active)delay=15000;
+        }catch(error){
+          if(!current())return;
+          start.hidden=stop.hidden=true;$("scanReadings").textContent=$("scanCoverage").textContent="";
+          $("scanSessionStatus").textContent="Scan status unavailable. Live readings cannot be verified.";
+        }
+        if(current())scanTimer=setTimeout(poll,delay);
+      }
+      poll();
+    }
     async function executeAdvisorAction(actionId,button){
       const action=state.advisorActions?.[actionId];
       if(!action) return;
@@ -598,8 +648,11 @@
       try{
         const result=await apiPost("/api/advisor/actions/execute",{action:action.action,payload:action.payload,confirmed:true});
         delete state.advisorActions[actionId];
-        button.textContent="Completed";
+        button.textContent=action.action==="start_sensor_watch"?"Requested":"Completed";
         appendAdvisorMessage("assistant",result.message||"The requested action is complete.");
+        if(action.action==="start_sensor_watch" && state.selectedVehicleId===action.payload.vehicleId){
+          $("opsAdvisorDock").classList.remove("open");setHashRoute("telemetry");
+        }
       }catch(error){
         button.disabled=false;
         button.textContent=original;
@@ -693,12 +746,19 @@
     function appendMessage(msg){ const el=$("messageThread"); if(el){const empty=el.querySelector(".muted");if(empty&&el.children.length===1)el.innerHTML="";el.insertAdjacentHTML("beforeend",messageMarkup(msg));el.scrollTop=el.scrollHeight;} }
     function initReports(){ genericPanel("reports","Fleet Reports","Verified exports are available from connected operational records",`<p class="muted">Use Audit export to generate the currently supported DVIR, maintenance, and HOS-readiness export. Additional report types will appear only when their data sources are connected.</p><button class="btn primary" type="button" data-route="compliance-report">Open Audit export</button>`); document.querySelector("#view-reports [data-route]")?.addEventListener("click",event=>setHashRoute(event.currentTarget.dataset.route)); }
     function loadSettings(){ genericPanel("settings","Workspace Settings","Secure account and organization controls",`<div class="note">Organization profile, roles, password changes, and notification delivery require dedicated server-backed settings before they will be editable here.</div><button class="btn danger" id="settingsLogout" type="button">Sign out of Fleet AI</button>`); $("settingsLogout").onclick=logout; }
+    function assignmentState(record){
+      return !Array.isArray(record.assignments) ? "Not verified" : record.assignments.length ? "Paired" : "Unpaired";
+    }
+    function assignedNames(record, key, label){
+      if(!Array.isArray(record.assignments))return "Not verified";
+      return [...new Set(record.assignments.map(a=>a[key]).filter(Boolean).map(label))].join(", ") || "None assigned";
+    }
     function renderFleetTables(){
       const addVehicleBtn = `<button class="btn primary" id="btnAddVehicle" style="margin-left:auto">Add vehicle</button>`;
       const addDriverBtn = `<button class="btn primary" id="btnAddDriver" style="margin-left:auto">Add driver</button>`;
-      const vehicleRows = state.vehicles.map(v=>`<tr><td><strong>${esc(v.unitName||v.vehicleId||v.id)}</strong><div class="muted" style="font-size:12px">${esc(v.vehicleId||"")}</div></td><td>${esc([v.year,v.make,v.model].filter(Boolean).join(" ")||v.type||"--")}</td><td>${esc(v.type||"--")}</td><td>${riskPill(v.deviceId?"Paired":"Unpaired")}</td><td>${esc(v.lastSeen||"--")}</td></tr>`).join("") || rowsEmpty(5,"No vehicles registered. Add your first vehicle above.");
-      const driverRows = state.drivers.map(d=>`<tr><td>${esc([d.firstName,d.lastName].filter(Boolean).join(" ")||d.name||d.email)}</td><td>${esc(d.licenseNumber||d.license||"--")}</td><td>${esc(d.assignedVehicle||"--")}</td><td>${riskPill(d.pairingStatus||"Ready")}</td></tr>`).join("") || rowsEmpty(4,"No drivers registered. Add your first driver above.");
-      if($("view-vehicles") && state.activeRoute==="vehicles") genericPanel("vehicles","Vehicle Registry","Fleet units and device status",`<div class="cardHead" style="display:flex;align-items:center;gap:8px;padding:0 0 10px">${addVehicleBtn}</div><div class="inlineStatus" id="vehicleActionStatus" role="status"></div><div class="tableWrap"><table class="table"><thead><tr><th>Unit Name / ID</th><th>Year/Make/Model</th><th>Type</th><th>Device</th><th>Last Seen</th></tr></thead><tbody>${vehicleRows}</tbody></table></div><div id="addVehicleFormWrap" class="creationPanel" role="region" aria-label="Add a vehicle" tabindex="-1" style="display:none"></div>`);
+      const vehicleRows = state.vehicles.map(v=>`<tr><td><strong>${esc(v.unitName||v.vehicleId||v.id)}</strong><div class="muted" style="font-size:12px">${esc(v.vehicleId||"")}</div></td><td>${esc([v.year,v.make,v.model].filter(Boolean).join(" ")||v.type||"--")}</td><td>${esc(v.type||"--")}</td><td>${riskPill(assignmentState(v))}</td><td>${esc(assignedNames(v,"driverId",driverLabel))}</td></tr>`).join("") || rowsEmpty(5,"No vehicles registered. Add your first vehicle above.");
+      const driverRows = state.drivers.map(d=>`<tr><td>${esc([d.firstName,d.lastName].filter(Boolean).join(" ")||d.name||d.email)}</td><td>${esc(d.licenseNum||d.licenseNumber||d.license||"--")}</td><td>${esc(assignedNames(d,"vehicleId",vehicleLabel))}</td><td>${riskPill(assignmentState(d))}</td></tr>`).join("") || rowsEmpty(4,"No drivers registered. Add your first driver above.");
+      if($("view-vehicles") && state.activeRoute==="vehicles") genericPanel("vehicles","Vehicle Registry","Fleet units and device status",`<div class="cardHead" style="display:flex;align-items:center;gap:8px;padding:0 0 10px">${addVehicleBtn}</div><div class="inlineStatus" id="vehicleActionStatus" role="status"></div><div class="tableWrap"><table class="table"><thead><tr><th>Unit Name / ID</th><th>Year/Make/Model</th><th>Type</th><th>Tablet pairing</th><th>Assigned driver</th></tr></thead><tbody>${vehicleRows}</tbody></table></div><div id="addVehicleFormWrap" class="creationPanel" role="region" aria-label="Add a vehicle" tabindex="-1" style="display:none"></div>`);
       if($("view-drivers") && state.activeRoute==="drivers") genericPanel("drivers","Driver Roster","Active drivers and assignments",`<div class="cardHead" style="display:flex;align-items:center;gap:8px;padding:0 0 10px">${addDriverBtn}</div><div class="tableWrap"><table class="table"><thead><tr><th>Name</th><th>License</th><th>Vehicle</th><th>Pairing</th></tr></thead><tbody>${driverRows}</tbody></table></div><div id="addDriverFormWrap" class="creationPanel" role="region" aria-label="Add a driver" tabindex="-1" style="display:none"></div>`);
       if($("view-vehicles")) $("btnAddVehicle")?.addEventListener("click", showAddVehicleForm);
       if($("view-drivers")) $("btnAddDriver")?.addEventListener("click", showAddDriverForm);

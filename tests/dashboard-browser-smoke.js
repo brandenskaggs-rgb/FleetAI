@@ -91,11 +91,14 @@ async function checkNewWorkspace(page, fixture, output) {
   }
   await page.setViewportSize({width:1440,height:960});
   await page.evaluate(()=>window.renderRoute('vehicles'));await page.waitForSelector('#btnAddVehicle');
+  assert.match(await page.locator('#view-vehicles tbody tr').filter({hasText:'UNIT-214'}).innerText(),/Paired[\s\S]*Alex Morgan/);
+  assert.match(await page.locator('#view-vehicles tbody tr').filter({hasText:'UNIT-308'}).innerText(),/Unpaired/);
   await page.click('#btnAddVehicle');await page.fill('#newVehId','TEST-999');await page.fill('#newVehName','Test unit');await page.fill('#newVehVin','1XPBD49X1XD123456');
   await page.screenshot({path:path.join(output,'add-vehicle-1440.png'),fullPage:true});
   await page.click('#btnSaveVehicle');await page.waitForFunction(()=>document.querySelector('#vehicleActionStatus').textContent.includes('added'));
   assert.equal(fixture.vehicles.length,3);
   await page.evaluate(()=>window.renderRoute('drivers'));await page.waitForSelector('#btnAddDriver');
+  assert.match(await page.locator('#view-drivers tbody tr').filter({hasText:'Alex Morgan'}).innerText(),/Unit 214[\s\S]*Paired/);
   await page.click('#btnAddDriver');await page.fill('#newDrvFirst','Taylor');await page.fill('#newDrvLast','Test');await page.fill('#newDrvPhone','5550102');
   await page.click('#btnSaveDriver');await page.waitForFunction(()=>document.querySelector('#view-drivers').textContent.includes('Taylor'));
   assert.equal(fixture.drivers.length,2);

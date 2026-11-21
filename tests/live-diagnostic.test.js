@@ -12,6 +12,7 @@ function fixture({ rows = [], snapshot = null, diagnostic = null } = {}) {
     assert.equal(where.orgId, "A"); assert.equal(where.vehicleId, "carA"); assert.equal(where.vehicle.orgId, "A");
   };
   const prisma = {
+    sensorWatch: { findUnique: async () => null },
     vehicle: { findFirst: async ({ where }) => where.orgId === "A" && where.vehicleId === "carA" ? { vehicleId: "carA", unitName: "Camaro" } : null },
     telemetrySample: { findMany: async ({ where, take }) => { assertScope(where); assert.ok(take <= 120); return rows; } },
     mlPredictionRun: { findFirst: async ({ where }) => { assertScope(where); return null; } },
@@ -134,7 +135,12 @@ test("Advisor executes read-only scan without LLM credentials and saves tenant-s
   assert.equal((await post("/api/diagnostics/live-analysis", {})).status, 400);
   const response = await post("/api/advisor/message", request);
   assert.equal(response.status, 200);
-  const body = await response.json();
+  const proposal = await response.json();
+  assert.equal(proposal.scanStatus, "idle");
+  assert.equal(proposal.proposedActions[0].action, "start_sensor_watch");
+  assert.equal(f.artifacts.length, 0, "a request is not a completed scan");
+  const recorded = { ...request, message: "Analyze uploaded sensor readings" };
+  const body = await (await post("/api/advisor/message", recorded)).json();
   assert.equal(body.scanStatus, "completed");
   assert.equal(body.source, "fleetai_received_telemetry");
   assert.equal(body.artifacts.length, 1);
@@ -146,9 +152,9 @@ test("Advisor executes read-only scan without LLM credentials and saves tenant-s
   assert.equal(followup.scanStatus, "not_running"); assert.equal(followup.artifacts[0].id, "reportA");
   assert.equal(f.artifacts.length, 1, "status reads must not rerun a scan");
   const retry = await (await post("/api/advisor/message", { vehicleId: "carA", message: "try again", history })).json();
-  assert.equal(retry.scanStatus, "completed"); assert.equal(f.artifacts.length, 2);
+  assert.equal(retry.proposedActions[0].mode, "confirmation_required"); assert.equal(f.artifacts.length, 1);
   assert.equal((await post("/api/advisor/message", { message: "scan status", vehicleId: "carB" })).status, 404);
   t.mock.method(f.prisma.advisorArtifact, "create", async () => { throw new Error("storage_unavailable"); });
-  const failed = await post("/api/advisor/message", request);
+  const failed = await post("/api/advisor/message", recorded);
   assert.equal(failed.status, 500); assert.equal((await failed.json()).scanStatus, undefined);
 });

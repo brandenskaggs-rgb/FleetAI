@@ -8,6 +8,7 @@ const { buildReportArtifact, planAdvisorActions, renderReportHtml, renderReportT
 const { sealReportPdf, getReportPdf } = require("../services/advisorReportPdf");
 const { saveWatch, WATCH_GROUPS } = require("../services/sensorWatchService");
 const { runLiveDiagnostic } = require("../services/liveDiagnosticService");
+const { scanSession, proposeScan } = require("../services/liveScanSession");
 const { diagnosticIntent, diagnosticStatusReply, guardDiagnosticClaims } = require("../services/advisorDiagnosticStatus");
 
 function finiteInRange(value, min, max) {
@@ -734,6 +735,18 @@ function registerSolutionRoutes(app, deps) {
     res.json({ ok: true, ...getAiProviderStatus() });
   });
 
+  app.get("/api/diagnostics/vehicles/:vehicleId/session", requireEmployeeOrCustomerApi, async (req, res, next) => {
+    try {
+      const orgId = resolveRequestOrgId(req, {}), vehicleId = req.params.vehicleId;
+      const prisma = db.getPrisma();
+      if (!orgId || !await prisma.vehicle.findFirst({ where: { orgId, vehicleId }, select: { vehicleId: true } })) {
+        return res.status(404).json({ error: "vehicle_not_found" });
+      }
+      res.setHeader("Cache-Control", "private, no-store");
+      res.json(await scanSession(prisma, orgId, vehicleId));
+    } catch (error) { next(error); }
+  });
+
   app.post("/api/advisor/message", requireEmployeeOrCustomerApi, async (req, res, next) => {
     try {
       const message = sanitizeString(req.body.message || req.body.query || req.body.content || "", 2000);
@@ -756,7 +769,18 @@ function registerSolutionRoutes(app, deps) {
           const statusReply = await diagnosticStatusReply(db.getPrisma(), orgId, vehicleId);
           return statusReply ? res.json(statusReply) : res.status(404).json({ ok: false, error: "vehicle_not_found" });
         }
-        return await liveDiagnosticReply(req, res, orgId, vehicleId, message);
+        if (scanIntent === "snapshot") return await liveDiagnosticReply(req, res, orgId, vehicleId, message);
+        if (!assets.some(v => v.vehicleId === vehicleId)) return res.status(404).json({ error: "vehicle_not_found" });
+        const session = await scanSession(db.getPrisma(), orgId, vehicleId);
+        const active = !["idle", "stopped", "expired"].includes(session.status);
+        const proposal = proposeScan(vehicleId);
+        if (scanIntent === "stop" && active) Object.assign(proposal, { action: "stop_sensor_watch", label: "Stop sensor scan",
+          payload: { vehicleId, requestId: session.requestId } });
+        const shouldConfirm = scanIntent === "stop" ? active : !active;
+        return res.json({ ok: true, source: "fleetai_sensor_watch", scanStatus: session.status, session,
+          reply: shouldConfirm ? (scanIntent === "stop" ? "Confirm to stop the current scan." :
+            "Confirm below to ask the paired tablet for five minutes of fresh sensor readings. Nothing has started yet. Open Signal desk to follow the readings.") : session.message,
+          artifacts: [], proposedActions: shouldConfirm ? [proposal] : [] });
       }
 
       const reportPlan = planAdvisorActions(message, {
@@ -903,7 +927,8 @@ function registerSolutionRoutes(app, deps) {
           return res.status(403).json({ ok: false, error: "insufficient_role" });
         }
         if (action === "stop_sensor_watch") {
-          await db.getPrisma().sensorWatch.updateMany({ where: { orgId, vehicleId }, data: { stoppedAt: new Date() } });
+          const stopped = await db.getPrisma().sensorWatch.updateMany({ where: { orgId, vehicleId, ...(payload.requestId ? { requestId: String(payload.requestId) } : {}) }, data: { stoppedAt: new Date() } });
+          if (!stopped.count) return res.status(409).json({ error: "scan_no_longer_current" });
           return res.json({ ok: true, message: "Focused monitoring cancelled. The tablet will return to its normal schedule at its next connection check (normally within 30 seconds)." });
         }
         const groups = payload.groups;

@@ -92,6 +92,9 @@ function sanitizeTelemetryMeta(meta) {
     throw new TelemetryPayloadError("meta must be an object");
   }
   const output = {};
+  if (typeof meta.sensorWatchRequestId === "string" && /^[a-f\d]{8}-(?:[a-f\d]{4}-){3}[a-f\d]{12}$/i.test(meta.sensorWatchRequestId)) {
+    output.sensorWatchRequestId = meta.sensorWatchRequestId;
+  }
   const faultRead = sanitizeObdFaultRead(meta.obdFaultRead);
   if (faultRead) output.obdFaultRead = faultRead;
   if (["not_read", "read", "stale", "partial"].includes(meta.dtcScanStatus)) {
@@ -115,7 +118,7 @@ function sanitizeTelemetryMeta(meta) {
     output.metricAgesMs = Object.fromEntries(
       Object.entries(meta.metricAgesMs)
         .filter(([key, value]) => /^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(key)
-          && Number.isFinite(Number(value))
+          && typeof value === "number" && Number.isFinite(value)
           && Number(value) >= 0)
         .slice(0, 256)
         .map(([key, value]) => [key, Math.min(Math.round(Number(value)), MAX_OFFLINE_AGE_MS)])

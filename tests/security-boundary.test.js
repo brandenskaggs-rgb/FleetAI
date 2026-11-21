@@ -214,7 +214,7 @@ async function testVehicleListsIgnoreForeignOrgInput() {
       params: { orgId: "ORG_B" }
     });
     assert.strictEqual(res.statusCode, 200);
-    assert.deepStrictEqual(calls, [{ orgId: "ORG_A" }]);
+    assert.deepStrictEqual(calls, [{ orgId: "ORG_A", withAssignments: true }]);
     assert.deepStrictEqual(res.body.data.map((vehicle) => vehicle.orgId), ["ORG_A"]);
   });
 }

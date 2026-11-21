@@ -1,11 +1,12 @@
 // Synthetic, in-memory UI evidence. Never reads credentials or contacts production.
 function createFixtures(options={}) {
   const now=new Date().toISOString();
+  const assigned=[{vehicleId:'UNIT-214',driverId:'DRIVER-A',deviceLabel:'Shop tablet'}];
   const vehicles=[
-    {vehicleId:'UNIT-214',unitName:'Unit 214',year:2021,make:'Freightliner',model:'Cascadia',type:'Heavy-duty',deviceId:'TABLET-214'},
-    {vehicleId:'UNIT-308',unitName:'Unit 308',year:2023,make:'Volvo',model:'VNL',type:'Heavy-duty'}
+    {vehicleId:'UNIT-214',unitName:'Unit 214',year:2021,make:'Freightliner',model:'Cascadia',type:'Heavy-duty',assignments:assigned},
+    {vehicleId:'UNIT-308',unitName:'Unit 308',year:2023,make:'Volvo',model:'VNL',type:'Heavy-duty',assignments:[]}
   ];
-  const drivers=[{driverId:'DRIVER-A',firstName:'Alex',lastName:'Morgan'}];
+  const drivers=[{driverId:'DRIVER-A',firstName:'Alex',lastName:'Morgan',assignments:assigned}];
   const health=[
     {vehicleId:'UNIT-214',healthScore:64,risk:'Medium',subsystem:'Cooling',recommendedAction:'Review coolant trend with maintenance',updatedAt:now,topFeatures:[{feature:'Coolant temperature',value:'Review trend'}]},
     {vehicleId:'UNIT-308',healthScore:91,risk:'Low',subsystem:'Electrical',recommendedAction:'Continue monitoring',updatedAt:now}
@@ -22,6 +23,7 @@ function createFixtures(options={}) {
     requests.push({key,method,payload});
     const reply=(body,status=200)=>({status,contentType:'application/json',body:JSON.stringify(body)});
     if(key.endsWith('/stream'))return reply({error:'No physical device in design preview'},503);
+    if(key.match(/^\/api\/diagnostics\/vehicles\/[^/]+\/session$/))return reply({status:'idle',message:'No sensor scan has been requested for this vehicle.',readings:[]});
     if(key==='/api/me')return reply({user:{id:'fixture-user',orgId:'FIXTURE',orgName:'Design preview / Sample data',displayName:'Test operator',role:'ORG_ADMIN'}});
     if(key==='/api/vehicles'){
       if(method==='POST')vehicles.push({...payload});

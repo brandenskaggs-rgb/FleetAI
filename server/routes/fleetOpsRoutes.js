@@ -149,7 +149,8 @@ function registerFleetOpsRoutes(app, deps) {
   async function handleListVehicles(req, res, next) {
     try {
       const orgId = await resolveRequestOrgId(req);
-      const vehicles = await db.listVehicles({ orgId: orgId || undefined });
+      if (req.customer && (!orgId || !req.customer.orgId)) return res.status(403).json({ error: "organization_required" });
+      const vehicles = await db.listVehicles({ orgId: orgId || undefined, withAssignments: true });
       if (req.path.startsWith("/api/orgs/")) {
         return res.json({ ok: true, data: vehicles });
       }
@@ -270,7 +271,9 @@ function registerFleetOpsRoutes(app, deps) {
   async function handleListDrivers(req, res, next) {
     try {
       const orgId = await resolveRequestOrgId(req);
-      const drivers = await db.listDrivers({ orgId: orgId || undefined });
+      if (req.customer && (!orgId || !req.customer.orgId)) return res.status(403).json({ error: "organization_required" });
+      const records = await db.listDrivers({ orgId: orgId || undefined, withAssignments: true });
+      const drivers = records.map(({ pin, ...driver }) => driver);
       if (req.path.startsWith("/api/orgs/")) {
         return res.json({ ok: true, data: drivers });
       }
@@ -511,6 +514,7 @@ function registerFleetOpsRoutes(app, deps) {
       if (busDataActive && !duplicateBusSample) {
         await storeNormalizedSnapshot(data, prepared.normalized, {
           serverReceivedAt,
+          pairedScanDeviceId: req.device?.deviceId || null,
           driverId: snapshot.driverId,
           deviceId: snapshot.deviceId,
           rawPids: payload.metrics || {},

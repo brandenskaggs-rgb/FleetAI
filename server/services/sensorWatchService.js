@@ -2,7 +2,7 @@ const { randomUUID } = require("node:crypto");
 
 // Signal names only: never executable diagnostic commands or ECU addresses.
 const WATCH_GROUPS = Object.freeze({
-  engine: ["rpm", "speedKph", "engineLoadPct", "throttlePosPct", "ignitionTimingAdvanceDeg", "shortTermFuelTrimBank1Pct", "shortTermFuelTrimBank2Pct", "fuelRailGaugePressureKpa", "fuelRailAbsolutePressureKpa", "cylinderMisfireCount"],
+  engine: ["rpm", "speedKph", "coolantTempC", "batteryVoltageV", "engineLoadPct", "throttlePosPct", "ignitionTimingAdvanceDeg", "shortTermFuelTrimBank1Pct", "shortTermFuelTrimBank2Pct", "fuelRailGaugePressureKpa", "fuelRailAbsolutePressureKpa", "cylinderMisfireCount"],
   transmission: ["transmissionTempC", "transmissionInputSpeedRpm", "transmissionOutputSpeedRpm", "transmissionGear", "torqueConverterSlipRpm", "transmissionPressureKpa"],
   brakes: ["wheelSpeedFlKph", "wheelSpeedFrKph", "wheelSpeedRlKph", "wheelSpeedRrKph", "absActive", "tractionControlBrakeActive", "serviceBrakeActive", "brakePedalPositionPct"]
 });
@@ -46,7 +46,7 @@ async function saveWatch(prisma, { orgId, vehicleId, userId, groups, reason, dur
   if (!Array.isArray(groups) || !groups.length || groups.some(g => !Object.hasOwn(WATCH_GROUPS, g))) throw new Error("Invalid sensor watch groups");
   if (!Number.isInteger(durationMinutes) || durationMinutes < 5 || durationMinutes > 60) throw new Error("Watch duration must be 5 to 60 minutes");
   const data = { requestId: randomUUID(), groups: [...new Set(groups)], reason: String(reason || "").slice(0, 500),
-    requestedBy: userId || null, expiresAt: new Date(now.getTime() + durationMinutes * 60_000),
+    requestedBy: userId || null, createdAt: now, expiresAt: new Date(now.getTime() + durationMinutes * 60_000),
     stoppedAt: null, acknowledgedAt: null, supportedKeys: [], deviceId: null };
   const row = await prisma.sensorWatch.upsert({ where: { orgId_vehicleId: where }, create: { ...where, ...data }, update: data });
   return describeWatch(row, now.getTime());
