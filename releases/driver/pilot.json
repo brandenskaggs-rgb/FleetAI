@@ -1,10 +1,10 @@
 {
   "channel": "pilot-debug",
-  "versionCode": 23,
-  "versionName": "1.10.11",
-  "filename": "fleetai-23.apk",
-  "sha256": "fc7172f6c3f9308a529eccd437865943b4eb673f2a2c62e96b7c2b50bf288ec4",
+  "versionCode": 24,
+  "versionName": "1.10.12",
+  "filename": "fleetai-24.apk",
+  "sha256": "41033a369018a4778aee1d7d2431935ec6135f41cb1c2c09e06ad43475ebd5e2",
   "sizeBytes": 23848329,
   "signerSha256": "68a54f1c5447ac1bcb07263c9ffeb9293e950694ab7619e6835d215cf3d70ac0",
-  "notes": "Refreshes the tablet UI: a larger RPM instrument with coolant and voltage alongside it, a more compact Home, and saved fault results ahead of advanced tools. Training readings are labeled Sample. Pairing and vehicle data are unchanged. Install as an update while parked, after pending uploads finish. Do not uninstall or clear app data."
+  "notes": "Sensors now distinguish awaiting a first read from a stale reading. The live count uses each sensor's polling interval. Adds additional truck measurements when reported. Install as an update while parked after pending uploads finish; do not uninstall or clear app data. Your existing login and pairing are retained."
 }

@@ -15,6 +15,16 @@
 const { sensorAgeMs, sensorTtlMs } = require("./sensorFreshness");
 
 const SENSORS = [
+  ...[
+    ["engineOilPressureKpa", "engine", "Engine oil pressure", "kPa", "engine"],
+    ["engineOilLevelPct", "engine", "Engine oil level", "%", "engine"],
+    ["fuelDeliveryPressureKpa", "engine", "Fuel delivery pressure", "kPa", "fuel"],
+    ["instantFuelEconomyKmPerL", "vehicle", "Instant fuel economy", "km/L", "fuel"],
+    ["tripDistanceKm", "vehicle", "Trip distance", "km", "vehicle"],
+    ["alternatorVoltageV", "electrical", "Alternator voltage", "V", "electrical"]
+  ].map(([key, section, label, unit, group]) => ({
+    key, path: `${section}.${key}`, label, unit, group, normal: null, informational: true
+  })),
   // OEM-specific identifiers cannot be inferred from the generic OBD capability bitmap.
   ...[
     ["transmissionTempC", "Transmission fluid temperature", "°C"],
@@ -188,7 +198,8 @@ function buildSensorView(normalized, supported = {}, { elapsedMs = 0, connection
 
   const readings = SENSORS.map((s) => {
     const value = normalized ? readPath(normalized, s.path) : undefined;
-    const ageMs = sensorAgeMs(metricAgesMs[s.key === "odometerKmObd" ? "odometerKm" : s.key], elapsedMs);
+    const metricKey = s.path.split(".").pop();
+    const ageMs = sensorAgeMs(metricAgesMs[metricKey] ?? metricAgesMs[s.key], elapsedMs);
     const hasValue = value !== undefined && value !== null && value !== "" && Number.isFinite(Number(value));
     const stale = hasValue && (!connectionLive || (ageMs !== null && ageMs > sensorTtlMs(s.key)));
     const present = hasValue && !stale;

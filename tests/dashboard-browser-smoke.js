@@ -36,6 +36,10 @@ async function checkNewWorkspace(page, fixture, output) {
   });
   assert.equal(chart.unit,'\u00b0F');assert.ok(chart.points.some(p=>p.y===195.8));assert.ok(chart.colored>10,'coolant trace must render real canvas pixels');
   await page.waitForFunction(()=>document.querySelector('#telemetrySensorGrid').textContent.includes('176'));
+  await page.click('#btnTransmissionSensors');
+  assert.equal(await page.locator('.sensorReading').count(),6);
+  assert.match(await page.textContent('#telemetrySensorGrid'),/Transmission fluid temperature/);
+  assert.match(await page.textContent('#telemetrySensorGrid'),/Not reported/);
   await page.click('#btnAllSensors');
   assert.equal(await page.locator('.sensorReading').count(),fixture.sensorReadings.length,'every returned sensor is visible, including new groups');
   await page.fill('#sensorSearch','coolant');

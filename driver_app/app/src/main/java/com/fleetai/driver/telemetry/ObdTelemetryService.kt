@@ -194,6 +194,7 @@ class ObdTelemetryService : Service() {
             ObdRuntime.update(ObdRuntime.State.WAITING_FOR_ECU, "ECU connected - no supported live PIDs advertised")
             updateNotification(ObdRuntime.status.value)
         }
+        val intervals = plan.associate { it.key to it.minIntervalMs } + extendedPlan.associate { it.key to it.minIntervalMs }
         while (scope.isActive && !stopping.get() && obd.isConnected()) {
             val now = System.currentTimeMillis()
             val currentFocus = focus?.takeIf { SystemClock.elapsedRealtime() < it.untilElapsed }
@@ -252,7 +253,7 @@ class ObdTelemetryService : Service() {
                 updatedAt["boostPsi"] = boostSourceAt
             }
             val lastPacketAt = updatedAt.values.maxOrNull() ?: 0L
-            val liveCount = updatedAt.values.count { now - it <= ECU_DATA_SILENCE_MS }
+            val liveCount = ObdSignalFreshness.count(intervals, latestValues, updatedAt, System.currentTimeMillis())
             val live = successfulReads > 0 || (lastPacketAt > 0 && now - lastPacketAt <= ECU_DATA_SILENCE_MS)
             sender.updateLocation(locationTracker.latestFresh())
             sender.updateSnapshot(latestValues.toMap(), true, lastPacketAt, updatedAt.toMap())
@@ -318,15 +319,13 @@ class ObdTelemetryService : Service() {
         now: Long
     ) {
         plan.forEach { spec ->
-            if (now - (updatedAt[spec.key] ?: 0L) > (spec.minIntervalMs * 4).coerceIn(30_000L, 120_000L)) {
+            if (now - (updatedAt[spec.key] ?: 0L) > ObdSignalFreshness.window(spec.minIntervalMs)) {
                 values.remove(spec.key)
-                updatedAt.remove(spec.key)
             }
         }
         extendedPlan.forEach { definition ->
-            if (now - (updatedAt[definition.key] ?: 0L) > (definition.minIntervalMs * 4).coerceIn(30_000L, 120_000L)) {
+            if (now - (updatedAt[definition.key] ?: 0L) > ObdSignalFreshness.window(definition.minIntervalMs)) {
                 values.remove(definition.key)
-                updatedAt.remove(definition.key)
             }
         }
     }

@@ -69,7 +69,7 @@
         <div class="card"><div class="cardHead"><div><h3>Live diagnostic scanner</h3><p class="cardMeta" id="scanSessionStatus" role="status">Select a vehicle to check scan status.</p></div>
         <div class="sectionActions"><button id="startSensorScan" class="btn primary" type="button" hidden>Start 5-minute scan</button><button id="stopSensorScan" class="btn" type="button" hidden>Stop scan</button></div></div>
         <div class="cardBody"><p id="scanCoverage" class="muted"></p><div id="scanReadings" class="tableWrap"></div><div id="scanError" class="inlineError" role="status"></div></div></div>
-        <div class="sectionActions sensorJump"><button class="btn" id="btnAllSensors" type="button">All sensors <span aria-hidden="true">&#8595;</span></button></div>
+        <div class="sectionActions sensorJump"><button class="btn" id="btnTransmissionSensors" type="button">Transmission</button><button class="btn" id="btnAllSensors" type="button">All sensors <span aria-hidden="true">&#8595;</span></button></div>
         <div class="instrumentDeck">
           <div class="commandMetric"><div class="commandMetric__label">Engine speed / RPM</div><div class="commandMetric__value" id="liveRpm">--</div><div class="commandMetric__sub">Current engine speed</div></div>
           <div class="commandMetric"><div class="commandMetric__label">Speed (mph)</div><div class="commandMetric__value" id="liveSpeed">--</div><div class="commandMetric__sub">Current road speed</div></div>
@@ -1040,7 +1040,7 @@
       battery:["batteryVoltageV","batteryVoltage"], load:["engineLoadPct","engine_load"]
     };
     const SENSOR_GROUP_LABELS = {
-      engine:"Engine", fuel:"Fuel delivery", electrical:"Electrical", emissions:"Emissions",
+      engine:"Engine", transmission:"Transmission", fuel:"Fuel delivery", electrical:"Electrical", emissions:"Emissions",
       vehicle:"Vehicle", controls:"Driver controls", brakes:"Brakes", lifecycle:"Lifecycle", environment:"Environment"
     };
     function sensorStatePill(stateName){
@@ -1052,7 +1052,7 @@
     function formatSensorValue(reading){
       const retained=reading.stale===true && reading.lastKnownValue!==null && reading.lastKnownValue!==undefined;
       const raw=retained?reading.lastKnownValue:reading.value;
-      if(raw===null||raw===undefined) return reading.supported?"No current value":"Not exposed";
+      if(raw===null||raw===undefined) return reading.supported?"Awaiting reading":reading.group==="transmission"?"Not reported":"Not exposed";
       const age=Number.isFinite(reading.ageMs)?`${Math.ceil(reading.ageMs/1000)}s ago`:"time unavailable";
       const suffix=retained?`\nLast known: ${age}`:"";
       if(reading.boolean) return (Number(raw)===1||reading.raw===true?"Active":"Inactive")+suffix;
@@ -1073,10 +1073,10 @@
         const unsupported=reading.supported===false||reading.state==="unsupported",stale=reading.stale===true||reading.state==="stale";
         return matches&&(filter==="all"||filter==="unsupported"&&unsupported||filter==="stale"&&stale||filter==="reporting"&&!unsupported&&!stale&&reading.value!==null&&reading.value!==undefined);
       });
-      const order=[...new Set(["engine","fuel","electrical","controls","brakes","emissions","vehicle","lifecycle","environment",...visible.map(reading=>reading.group||"other")])];
+      const order=[...new Set(["engine","transmission","fuel","electrical","controls","brakes","emissions","vehicle","lifecycle","environment",...visible.map(reading=>reading.group||"other")])];
       const groups=order.map(group=>[group,visible.filter(reading=>(reading.group||"other")===group)]).filter(([,items])=>items.length);
       $("sensorResultCount").textContent=readings.length?`${visible.length} of ${readings.length} sensor entries shown`:"No sensor catalog returned for this vehicle yet";
-      grid.innerHTML=groups.length?groups.map(([group,items])=>`<div class="sensorGroup"><h4>${esc(SENSOR_GROUP_LABELS[group]||group)}</h4>${items.map(reading=>`<div class="sensorReading ${reading.supported===false?"unsupported":""}"><div><div class="sensorReadingName">${esc(reading.label||reading.key)}</div><div class="sensorReadingMeta">${esc(reading.pid?`PID ${reading.pid}`:reading.spn?`SPN ${reading.spn}`:"Derived signal")}</div></div><div><div class="sensorReadingValue">${esc(formatSensorValue(reading))}</div>${sensorStatePill(reading.state)}</div></div>`).join("")}</div>`).join(""):`<div class="sensorEmpty">No standardized ECU signals have been reported for this vehicle.</div>`;
+      grid.innerHTML=groups.length?groups.map(([group,items])=>`<div class="sensorGroup"><h4>${esc(SENSOR_GROUP_LABELS[group]||group)}</h4>${items.map(reading=>`<div class="sensorReading ${reading.supported===false?"unsupported":""}"><div><div class="sensorReadingName">${esc(reading.label||reading.key)}</div><div class="sensorReadingMeta">${esc(reading.group==="transmission"?"Vehicle-specific signal":reading.pid?`PID ${reading.pid}`:reading.spn?`SPN ${reading.spn}`:"Vehicle telemetry")}</div></div><div><div class="sensorReadingValue">${esc(formatSensorValue(reading))}</div>${reading.group==="transmission"&&!reading.supported?"":sensorStatePill(reading.state)}</div></div>`).join("")}</div>`).join(""):`<div class="sensorEmpty">No sensors match this selection.</div>`;
       const counts=payload?.counts||{};
       if($("sensorSummary")) $("sensorSummary").innerHTML=`<span class="pill good">${num(counts.reporting,0)} reporting</span><span class="pill warn">${num(counts.unsupported,0)} not exposed</span>${counts.stale?`<span class="pill warn">${num(counts.stale)} stale</span>`:""}${counts.watch?`<span class="pill warn">${num(counts.watch)} watch</span>`:""}${counts.critical?`<span class="pill bad">${num(counts.critical)} critical</span>`:""}`;
     }
@@ -1094,7 +1094,7 @@
         if(!Array.isArray(data.readings))throw new Error("The sensor response was not a sensor list.");
         state.sensorLastRefresh=Date.now();
         renderSensorInventory(data);
-        err("sensorInventoryError",data?.stale?"No current ECU data. Last known readings are retained in signal history.":"");
+        $("sensorInventoryError").textContent=data?.stale?"ECU offline. These are last known readings, not live measurements.":"";
       }catch(e){ if(String(vehicleId)===String(state.selectedVehicleId)&&request===state.sensorRequest){renderSensorInventory({readings:[],counts:{}});err("sensorInventoryError",e.message);} }
       finally{if(request===state.sensorRequest)state.sensorRequestVehicle=null;}
     }
@@ -1199,7 +1199,9 @@
       $("telemetryVehicleSelect")?.addEventListener("change",event=>{selectVehicleContext(event.target.value);loadLiveSensors();});
       $("workspaceVehicleSelect")?.addEventListener("change",event=>{selectVehicleContext(event.target.value);renderRoute(state.activeRoute);});
       $("outputMetricSelect").addEventListener("change",renderLiveCharts);
-      $("btnAllSensors").onclick=()=>{$("sensorFilter").value="all";$("sensorSearch").value="";renderSensorInventory(state.sensorInventory||{});$("sensorInventory").scrollIntoView({block:"start"});$("sensorSearch").focus({preventScroll:true});};
+      function showSensorGroup(query){$("sensorFilter").value="all";$("sensorSearch").value=query;renderSensorInventory(state.sensorInventory||{});$("sensorInventory").scrollIntoView({block:"start"});$("sensorSearch").focus({preventScroll:true});}
+      $("btnAllSensors").onclick=()=>showSensorGroup("");
+      $("btnTransmissionSensors").onclick=()=>showSensorGroup("transmission");
       $("sensorSearch").oninput=()=>renderSensorInventory(state.sensorInventory||{});
       $("sensorFilter").onchange=()=>renderSensorInventory(state.sensorInventory||{});
       $("btnRefreshSensors").onclick=()=>loadLiveSensors();

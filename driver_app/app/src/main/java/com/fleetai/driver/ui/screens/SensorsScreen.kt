@@ -445,6 +445,7 @@ private fun FeaturedInstrument(
     val label = when {
         trainingDemo -> "Sample"
         live -> "Live"
+        reading.status == SensorStatus.WAITING -> "Awaiting first read"
         reading.status == SensorStatus.STALE -> "Stale"
         else -> "Unsupported"
     }
@@ -539,6 +540,7 @@ private fun SensorTile(reading: SensorReading, trainingDemo: Boolean, modifier: 
     val stateLabel = when {
         trainingDemo -> "Sample"
         live -> "Live"
+        reading.status == SensorStatus.WAITING -> "Awaiting first read"
         reading.status == SensorStatus.STALE -> "Stale"
         else -> "Unsupported"
     }

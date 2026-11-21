@@ -131,7 +131,7 @@ data class EldDeviceStatus(
     val trainingDemo: Boolean = false
 )
 
-enum class SensorStatus { LIVE, STALE, UNSUPPORTED }
+enum class SensorStatus { LIVE, STALE, UNSUPPORTED, WAITING }
 enum class Trend { UP, DOWN, FLAT }
 
 data class SensorReading(

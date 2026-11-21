@@ -23,6 +23,7 @@ import com.fleetai.driver.telemetry.PidSpec
 import com.fleetai.driver.telemetry.DeviceLocationTracker
 import com.fleetai.driver.telemetry.TelemetrySender
 import com.fleetai.driver.telemetry.ObdRuntime
+import com.fleetai.driver.telemetry.ObdSignalFreshness
 import com.fleetai.driver.telemetry.ObdRuntimeSnapshot
 import com.fleetai.driver.telemetry.ObdTelemetryService
 import kotlinx.coroutines.Dispatchers
@@ -138,6 +139,10 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
                 if (J1939Runtime.state.value == J1939Runtime.State.STOPPED &&
                     (snapshot.standardPlan.isNotEmpty() || snapshot.extendedPlan.isNotEmpty())) {
                     _readings.value = buildObdReadings(snapshot)
+                } else if (J1939Runtime.state.value == J1939Runtime.State.STOPPED && snapshot.lastPacketAt == 0L) {
+                    _readings.value = _readings.value.map {
+                        if (it.status == SensorStatus.LIVE) it.copy(status = SensorStatus.STALE) else it
+                    }
                 }
             }
         }
@@ -371,12 +376,12 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
                 lastReadError = loopError
                 plan.forEach { spec ->
                     val age = now - (updatedAt[spec.key] ?: 0L)
-                    val ttl = (spec.minIntervalMs * 4).coerceIn(30_000L, 120_000L)
+                    val ttl = ObdSignalFreshness.window(spec.minIntervalMs)
                     if (age > ttl) latestValues.remove(spec.key)
                 }
                 extendedPlan.forEach { definition ->
                     val age = now - (updatedAt[definition.key] ?: 0L)
-                    val ttl = (definition.minIntervalMs * 4).coerceIn(30_000L, 120_000L)
+                    val ttl = ObdSignalFreshness.window(definition.minIntervalMs)
                     if (age > ttl) latestValues.remove(definition.key)
                 }
                 val boostSourceAt = maxOf(updatedAt["mapKpa"] ?: 0L, updatedAt["barometricPressureKpa"] ?: 0L)
@@ -393,7 +398,8 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
                     metricUpdatedAt = updatedAt.toMap()
                 )
 
-                val liveSignalCount = updatedAt.values.count { timestamp -> now - timestamp <= ECU_DATA_SILENCE_MS }
+                val intervals = plan.associate { it.key to it.minIntervalMs } + extendedPlan.associate { it.key to it.minIntervalMs }
+                val liveSignalCount = ObdSignalFreshness.count(intervals, latestValues, updatedAt, System.currentTimeMillis())
                 _status.value = if (ecuDataFresh && liveSignalCount > 0) {
                     "Live vehicle data - $liveSignalCount of ${plan.size + extendedPlan.size} supported signals"
                 } else {
@@ -564,11 +570,7 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
         decimals: Int = 1
     ): SensorReading {
         val smoothed = raw?.let { if (pid == "010D" || pid == "SPN 84") it else smooth(pid, it) }
-        val status = when {
-            raw == null -> SensorStatus.STALE
-            System.currentTimeMillis() - ts > staleAfterMs -> SensorStatus.STALE
-            else -> SensorStatus.LIVE
-        }
+        val status = ObdSignalFreshness.status(raw, ts, System.currentTimeMillis(), staleAfterMs)
         val trend = trend(pid, smoothed ?: raw)
         val valueStr = when {
             (smoothed ?: raw) == null -> "—"
@@ -611,7 +613,7 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
     }
 
     private fun readingFreshnessMs(minIntervalMs: Long): Long =
-        (minIntervalMs * 6).coerceIn(15_000L, 90_000L)
+        ObdSignalFreshness.window(minIntervalMs)
 
     private fun smooth(pid: String, value: Double): Double {
         val alpha = 0.15  // 15% new / 85% history — low enough to suppress BT noise
@@ -664,6 +666,11 @@ class SensorViewModel(private val preferences: AppPreferences) : ViewModel() {
             Display("coolantTempC", "SPN 110", "Coolant Temperature", if (unit.tempF) "F" else "C"),
             Display("oilTempC", "SPN 175", "Engine Oil Temperature", if (unit.tempF) "F" else "C"),
             Display("engineOilPressureKpa", "SPN 100", "Engine Oil Pressure", "kPa"),
+            Display("engineOilLevelPct", "J1939 oil level", "Engine Oil Level", "%"),
+            Display("fuelDeliveryPressureKpa", "J1939 delivery pressure", "Fuel Delivery Pressure", "kPa"),
+            Display("instantFuelEconomyKmPerL", "J1939 fuel economy", "Instant Fuel Economy", "km/L"),
+            Display("alternatorVoltageV", "J1939 alternator", "Alternator Voltage", "V", 2),
+            Display("tripDistanceKm", "J1939 trip distance", "Trip Distance", "km"),
             Display("fuelRateLph", "SPN 183", "Fuel Rate", "L/h", 2),
             Display("fuelLevelPct", "SPN 96", "Fuel Level", "%"),
             Display("batteryVoltageV", "SPN 168", "Battery Voltage", "V", 2),
