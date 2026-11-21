@@ -652,6 +652,8 @@ function buildTelemetrySample(normalized, extra = {}) {
     brakePedalPosition: brakes.brakePedalPositionPct ?? null
   }, extra.meta?.metricAgesMs);
   const raw = Object.assign({}, extra.rawPids || {}, extra.derivedMetrics || {});
+  delete raw.serverReceivedAt;
+  if (extra.serverReceivedAt) raw.serverReceivedAt = extra.serverReceivedAt;
   delete raw.heartbeatMs;
   delete raw.vin;
   delete raw.VIN;

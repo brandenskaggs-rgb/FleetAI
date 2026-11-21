@@ -1,4 +1,5 @@
 const { SENSORS, readPath } = require("../telematics/diagnostics/sensorCatalog");
+const { scopedSnapshot } = require("../lib/snapshotScope");
 const { decodeCode } = require("../telematics/diagnostics/dtcCatalog");
 const { sensorTtlMs, sensorAgeMs } = require("../telematics/diagnostics/sensorFreshness");
 const { sanitizeObdFaultRead, faultReadCodes, COVERAGE } = require("../telematics/diagnostics/obdFaultRead");
@@ -49,7 +50,7 @@ async function runLiveDiagnostic({ prisma, orgId, vehicleId, telemetryLatest = n
     select: { id: true, modelVersion: true, source: true, confidenceStage: true, createdAt: true, healthScore: true, riskProbability: true, confidence: true } });
   const cached = telemetryLatest.get(vehicleId);
   // A global vehicle cache is never sufficient proof of tenant ownership.
-  const snapshot = cached?.metrics?.orgId === orgId && cached?.vehicleId === vehicleId ? cached : null;
+  const snapshot = scopedSnapshot(cached, orgId, vehicleId);
   const packetAge = nowMs - time(snapshot?.lastObdPacketAt);
   const cacheElapsed = nowMs - time(snapshot?.ts);
   const busLive = snapshot?.busDataActive === true && packetAge >= -5000 && packetAge <= 15_000 && cacheElapsed >= -5000 && cacheElapsed <= 15_000;
@@ -98,6 +99,7 @@ async function runLiveDiagnostic({ prisma, orgId, vehicleId, telemetryLatest = n
   const transmission = coverage(readings, "transmission");
   const brakes = coverage(readings, "brakes");
   const report = { vehicleId, vehicleName: vehicle.unitName || vehicleId, generatedAt: now.toISOString(),
+    lastKnownFaults: persistedFault?.lastKnown || null,
     mode: "read_only_received_telemetry", connection: busLive ? "recent_bus_packets" : "live_connection_not_verified",
     counts, transmission, brakes, faultCodes, readings,
     modelEvidence: prediction ? { ...prediction, healthScore: finite(prediction.healthScore), riskProbability: finite(prediction.riskProbability), confidence: finite(prediction.confidence),
@@ -111,6 +113,7 @@ async function runLiveDiagnostic({ prisma, orgId, vehicleId, telemetryLatest = n
   const details = faultCodes.codes.slice(0, 5).map(code => `${code.code}${code.codeStatus ? ` (${code.codeStatus})` : ""}: ${code.parameter || "reported fault"}`).join("; ");
   report.summary = [
     counts.fresh ? `I checked the latest received data for ${report.vehicleName}. ${counts.fresh} sensor readings have fresh timing evidence.` : `I checked the available records for ${report.vehicleName}, but I cannot verify fresh live sensor readings right now.`,
+    !faultCodes.codes.length && persistedFault?.lastKnown ? `Previous positive scan on ${iso(persistedFault.lastKnown.capturedAt)}: ${persistedFault.lastKnown.codes.map(c=>c.code+(c.codeStatus?" ("+c.codeStatus+")":"")).slice(0,12).join(", ")}. Historical evidence, not confirmation that these codes are active now.` : "",
     `${counts.recent_record} readings are from recent stored samples, ${counts.stale} are stale, and ${counts.unreported} catalog signals have no reading in this window.`,
     faultCodes.status === "not_read" ? "I don't have a verified fault-code read. That does not mean there are no faults." : faultCodes.status === "historical" ? `The fault-code read is historical (${faultCodes.capturedAt}); it is not a new scan.` : details ? `The latest reported codes are ${details}.` : `No code entries were received at ${faultCodes.capturedAt}. This does not establish a complete or clean scan.`,
     faultCodes.completeness === "inconsistent" ? "The check-engine status and code read disagree. The read is incomplete, not a clean scan."

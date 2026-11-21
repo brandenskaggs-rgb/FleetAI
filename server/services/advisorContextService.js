@@ -157,6 +157,11 @@ async function buildFleetAdvisorContext({ db, orgId, query, selectedVehicleId, s
 
   const allowedVehicleIds = new Set(vehicles.map((vehicle) => vehicle.vehicleId));
   const scopedSelectedVehicleId = selectedId && allowedVehicleIds.has(selectedId) ? selectedId : null;
+  if (scopedSelectedVehicleId && !scans.some(scan=>scan.vehicleId===scopedSelectedVehicleId && scan.codes?.length)) {
+    const [lastPositive] = await prisma.diagnosticScan.findMany({where:{orgId,vehicleId:scopedSelectedVehicleId,vehicle:{orgId},codeCount:{gt:0}},
+      orderBy:{scannedAt:"desc"},take:1});
+    if(lastPositive?.codes?.length && !scans.some(scan=>scan.id===lastPositive.id)) scans.push(lastPositive);
+  }
   const modelStates = modelRows.map((row) => ({ ...row.state, vehicleId: row.vehicleId, updatedAt: iso(row.updatedAt) }));
   const driveLogs = summarizeDriveSessions(samples, 24);
   const dvirRecords = sanitizeLegacyRecords(legacyData.dvirRecords, orgId, 30, (record) => ({

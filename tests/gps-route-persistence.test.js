@@ -33,9 +33,14 @@ async function getPositions() {
   assert.equal(positions.length, 1);
   assert.equal(positions[0].lat, 37.2, "position survives a restart without the JSON mirror");
   assert.deepEqual(reads, ["V_A"], "never query another tenant's vehicles");
-  latest.set("V_A", { vehicleId: "V_A", deviceDiagnostics: { ...location, latitude: 38, locationCapturedAt: now + 1000 } });
+  const cached = { vehicleId: "V_A", deviceDiagnostics: { ...location, latitude: 38, locationCapturedAt: now + 1000 } };
+  for (const owner of [undefined, "B"]) {
+    latest.set("V_A", { ...cached, orgId: owner });
+    assert.equal((await getPositions())[0].lat, 37.2, "unknown or previous owner cannot supply current position");
+  }
+  latest.set("V_A", { ...cached, orgId: "A" });
   positions = await getPositions();
   assert.equal(positions[0].lat, 38, "fresh live position supersedes history");
-  assert.equal(reads.length, 1, "fresh positions do not repeatedly query history");
+  assert.equal(reads.length, 3, "fresh positions do not repeatedly query history");
   console.log("GPS persistence and tenant isolation tests passed");
 })().catch((err) => { console.error(err); process.exitCode = 1; });

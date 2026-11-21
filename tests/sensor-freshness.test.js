@@ -39,7 +39,7 @@ test("sensor route ages cache between uploads and rejects heartbeat, invalid and
   const handlers = new Map();
   t.mock.method(db, "getVehicleOrgId", async () => "A");
   const now = Date.now();
-  const snapshot = { ts: new Date(now - 4000).toISOString(), lastObdPacketAt: new Date(now - 4000).toISOString(),
+  const snapshot = { vehicleId: "car", orgId: "A", ts: new Date(now - 4000).toISOString(), lastObdPacketAt: new Date(now - 4000).toISOString(),
     busDataActive: true, metrics: { engine: { rpm: 700 }, vehicle: { warmupsSinceClear: 7 } },
     deviceDiagnostics: { metricAgesMs: { rpm: 28_000, warmupsSinceClear: 40_000 } } };
   registerDiagnosticsRoutes({ get: (url, ...fns) => handlers.set(url, fns.at(-1)), post() {} }, {

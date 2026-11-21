@@ -56,11 +56,14 @@ function _buildTopContributors(jsPrediction, py) {
   return [];
 }
 
-function _healthScoreFromRisk(riskProbability, jsHealthScore) {
-  if (jsHealthScore != null) return jsHealthScore;
-  if (!Number.isFinite(riskProbability)) return null;
-  // Non-linear mapping: risk 0→health 100, risk 0.5→health 60, risk 1→health 10
-  return Math.max(0, Math.round(100 - riskProbability * 90));
+function healthDecision(risk, node, py, enoughHistory) {
+  const model = Number.isFinite(risk) && risk >= 0 && risk <= 1 ? Math.round(100 - risk * 90) : null;
+  const modelConfirmed = enoughHistory && py.stageSystem?.confirmed === true &&
+    (!py.stageSystem.stage3 || py.stageSystem.stage3.verdict === "CONFIRM");
+  const reportedFault = Number(py.dtcAnalysis?.risk_score) > 0;
+  const useModel = model !== null && (node == null || ((modelConfirmed || reportedFault) && model < node));
+  return {score:useModel?model:node??null,nodeScore:node??null,modelIndex:model,
+    basis:useModel?(reportedFault?"model_with_ecu_fault":modelConfirmed?"corroborated_model":"model_only"):"sensor_baseline"};
 }
 
 function _mergeSignatures(jsSignatures, pyFleetNorm) {
@@ -89,7 +92,7 @@ function _advisoryText(py, jsPrediction) {
 function mergePythonAndNodePrediction(jsPrediction, pythonPrediction, context = {}) {
   const lineage = {
     version: 1,
-    mergePolicy: "python_risk_node_health_minimum_confidence_v1",
+    mergePolicy: "corroborated_health_minimum_confidence_v2",
     node: {
       modelVersion: jsPrediction.modelVersion || "node-ewma-v2",
       riskProbability: jsPrediction.riskProbability ?? null,
@@ -137,11 +140,11 @@ function mergePythonAndNodePrediction(jsPrediction, pythonPrediction, context = 
     });
   }
 
-  const riskProbability = Number(py.riskProbability);
-  const healthScore = _healthScoreFromRisk(
-    Number.isFinite(riskProbability) ? riskProbability : null,
-    jsPrediction.healthScore
-  );
+  const riskProbability = py.riskProbability == null ? NaN : Number(py.riskProbability);
+  const decision = healthDecision(riskProbability,jsPrediction.healthScore,py,
+    !jsPrediction.insufficientData && !jsPrediction.insufficientHistory);
+  lineage.healthDecision = decision;
+  const healthScore = decision.score;
   const topContributors = _buildTopContributors(jsPrediction, py);
   const signatures = _mergeSignatures(jsPrediction.signatures, py.fleetNormalization);
   const predictionLabel = PREDICTION_LABEL_MAP[py.prediction] || py.prediction || null;

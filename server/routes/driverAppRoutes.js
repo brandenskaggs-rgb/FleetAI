@@ -347,12 +347,16 @@ function registerDriverAppRoutes(app, deps) {
     if (!req.device) return next();
     try {
       const scans = await db.listDiagnosticScans(req.device.vehicleId, { limit: 1, orgId: req.device.orgId });
-      const codes = (scans[0] && scans[0].codes) || [];
+      const status = require("../telematics/diagnostics/obdFaultRead").diagnosticReadStatus(scans[0]);
+      const history = !scans[0]?.codes?.length && ["partial","inconsistent"].includes(status.completeness)
+        ? (await db.listDiagnosticScans(req.device.vehicleId,{limit:1,orgId:req.device.orgId,positiveOnly:true}))[0] : null;
+      const codes = require("../services/diagnosticIncident").describeCodes(history?.codes || scans[0]?.codes || []);
       res.json({
-        diagnosticStatus: require("../telematics/diagnostics/obdFaultRead").diagnosticReadStatus(scans[0]),
+        diagnosticStatus: status,
+        lastPositiveAt: history?.scannedAt || null,
         dtcs: codes.map((c) => ({
           code: c.code || "",
-          description: `${c.codeStatus ? c.codeStatus + ": " : ""}${c.parameter || ""}`,
+          description: `${history ? "Last known "+history.scannedAt+" (not verified now): " : ""}${c.codeStatus ? c.codeStatus + ": " : ""}${c.parameter || ""}`,
           severity: c.severity || "unknown"
         }))
       });

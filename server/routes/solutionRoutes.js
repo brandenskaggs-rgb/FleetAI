@@ -1,4 +1,5 @@
 const db = require("../db");
+const { scopedSnapshot } = require("../lib/snapshotScope");
 const { protectSessionStream } = require("../middleware/sessionStream");
 const { completeChat, getAiProviderStatus } = require("../services/aiProviderService");
 const { buildAdvisorMessages } = require("../services/advisorConversation");
@@ -956,7 +957,7 @@ function registerSolutionRoutes(app, deps) {
       const positions = (await Promise.all(vehicles.map(async (v) => {
         const vid = v.vehicleId || v.id;
         let position = latestByVehicle[vid];
-        const live = gpsPositionFromSnapshot(telemetryLatest.get(vid));
+        const live = gpsPositionFromSnapshot(scopedSnapshot(telemetryLatest.get(vid), orgId, vid));
         if (live && (!position || live.capturedMs > position.capturedMs)) position = live;
         if (!position || position.stale) {
           const samples = await db.getSamplesForVehicle(vid, { limit: 30, orgId });

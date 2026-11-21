@@ -16,15 +16,22 @@ function sample(codes, status = 'read') {
   return buildTelemetrySample(prepared.normalized, { meta: prepared.decoded.meta });
 }
 function database() {
-  const scans = new Map(), rows = [];
+  const scans = new Map(), rows = [], alerts = [], notifications = [];
   let failScan = false;
   const prisma = {
+    $transaction: async fn => fn(prisma),
+    $executeRaw: async () => 1,
+    alert: { findFirst: async ({where}) => alerts.find(a=>a.dedupeKey===where.dedupeKey),
+      create: async ({data}) => alerts.push(data) },
+    notification: {create: async ({data}) => notifications.push(data)},
     vehicle: { upsert: async () => {} },
     telemetrySample: { upsert: async query => rows.push(query) },
     diagnosticScan: { createMany: async query => {
       if (failScan) throw new Error('scan persistence unavailable');
       assert.equal(query.skipDuplicates, true);
+      const before = scans.size;
       for (const scan of query.data) if (!scans.has(scan.id)) scans.set(scan.id, scan);
+      return {count:scans.size-before};
     } }
   };
   const filename = path.resolve(__dirname, '../server/db.js');
@@ -38,7 +45,7 @@ function database() {
       return createRequire(filename)(id);
     }, Buffer, console
   }, { filename });
-  return { db: module.exports, scans, rows, setFailure: value => { failScan = value; } };
+  return { db: module.exports, scans, rows, alerts, notifications, setFailure: value => { failScan = value; } };
 }
 
 test('OBD codes and actual scan time survive normalization for ML and persistence', () => {
@@ -126,4 +133,17 @@ test('diagnostic-only persistence never creates a telemetry sample or loses repe
   await db.persistTelemetryDiagnostics(evidence);
   assert.equal(rows.length, 0);
   assert.equal(scans.size, 1);
+});
+
+test('different capture times and replays generate one catalyst notification per fleet', async () => {
+  const f=database();
+  const evidence=sample(["P0420","P0430"]);
+  await f.db.persistTelemetryDiagnostics(evidence);
+  await f.db.persistTelemetryDiagnostics({...evidence,raw:{...evidence.raw,dtcCapturedAt:"2026-09-11T12:01:00Z"}});
+  await f.db.persistTelemetryDiagnostics(evidence);
+  assert.equal(f.scans.size,2);
+  assert.equal(f.alerts.length,1); assert.equal(f.notifications.length,1);
+  assert.match(f.alerts[0].explanation,/P0430.*bank 2/i);
+  await f.db.persistTelemetryDiagnostics({...evidence,orgId:"org-b"});
+  assert.equal(f.notifications.length,2);
 });

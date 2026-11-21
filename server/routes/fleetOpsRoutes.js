@@ -1,4 +1,5 @@
 const db = require("../db");
+const { scopedSnapshot } = require("../lib/snapshotScope");
 const { protectSessionStream } = require("../middleware/sessionStream");
 
 const { requireOperatorOrDevice: buildOperatorOrDevice, requireDevice } = require("../middleware/deviceAuth");
@@ -114,11 +115,12 @@ function registerFleetOpsRoutes(app, deps) {
   }
 
   async function telemetryItemsForRequest(req, items) {
-    if (!req.customer?.orgId) return items;
+    if (!req.customer) return items;
     const customerOrgId = sanitizeString(req.customer.orgId, 80);
+    if (!customerOrgId) return [];
     const scoped = await Promise.all(items.map(async (item) => {
       const orgId = await db.getVehicleOrgId(item?.vehicleId, "").catch(() => "");
-      return orgId === customerOrgId ? item : null;
+      return orgId === customerOrgId ? scopedSnapshot(item, customerOrgId, item.vehicleId) : null;
     }));
     return scoped.filter(Boolean);
   }
@@ -381,6 +383,7 @@ function registerFleetOpsRoutes(app, deps) {
   // (backfills, integrations) and for them the body value is honoured.
   app.post("/api/telemetry/ingest", requireOperatorOrDevice, async (req, res, next) => {
     try {
+      const serverReceivedAt = nowIso();
       const payload = req.body || {};
       const bodyVehicleId = sanitizeString(payload.vehicleId || payload.vehicle_id || "", 80);
       const vehicleId = req.device ? req.device.vehicleId : bodyVehicleId;
@@ -394,9 +397,10 @@ function registerFleetOpsRoutes(app, deps) {
           message: "This device is not paired to that vehicle."
         });
       }
+      const orgId = req.device ? req.device.orgId : await db.getVehicleOrgId(vehicleId, "");
+      if (!orgId) return res.status(404).json({ ok: false, error: "vehicle_not_found" });
       if (!req.device) {
-        const vehicleOrgId = await db.getVehicleOrgId(vehicleId, "");
-        if (denyCustomerOrgMismatch(req, res, vehicleOrgId)) return;
+        if (denyCustomerOrgMismatch(req, res, orgId)) return;
         const bodyDriverId = sanitizeString(payload.driverId || payload.driver_id || "", 80);
         if (bodyDriverId && req.customer) {
           const driver = await db.getDriverByDriverId(bodyDriverId);
@@ -409,16 +413,16 @@ function registerFleetOpsRoutes(app, deps) {
       // came off the bus. Over a cellular link that is seconds of skew on data
       // whose whole value is when it happened.
       const ts = payload.ts || payload.timestamp || nowIso();
-      const orgId = req.device?.orgId || await db.getVehicleOrgId(vehicleId, "").catch(() => "");
       const batchId = sanitizeString(payload.batchId || payload.batch_id || "", 80);
       const receiptDeviceId = req.device?.deviceId || payload.deviceId || payload.device_id || "";
       const data = useTelemetryJsonMirror
         ? await readData()
-        : (typeof getTelemetryWorkingData === "function" ? getTelemetryWorkingData(vehicleId) : {});
+        : (typeof getTelemetryWorkingData === "function" ? getTelemetryWorkingData(vehicleId, orgId) : {});
       data.telemetryIngestReceipts = Array.isArray(data.telemetryIngestReceipts) ? data.telemetryIngestReceipts : [];
       const jsonDuplicate = useTelemetryJsonMirror && batchId
-        && data.telemetryIngestReceipts.some((item) => item.batchId === batchId && item.deviceId === receiptDeviceId);
-      if (batchId && (hasTelemetryReceipt(batchId, receiptDeviceId) || jsonDuplicate)) {
+        && data.telemetryIngestReceipts.some((item) => item.orgId === orgId && item.vehicleId === vehicleId
+          && item.batchId === batchId && item.deviceId === receiptDeviceId);
+      if (batchId && (hasTelemetryReceipt(batchId, receiptDeviceId, orgId, vehicleId) || jsonDuplicate)) {
         return res.json({ ok: true, success: true, stored: false, duplicate: true });
       }
       const prepared = prepareTelemetryIngest(payload, {
@@ -439,7 +443,7 @@ function registerFleetOpsRoutes(app, deps) {
       const adapterResponding = hasAdapterDiagnostic
         ? prepared.decoded.meta.adapterResponding === true
         : obdConnected === true;
-      const previousSnapshot = telemetryLatest.get(vehicleId) || null;
+      const previousSnapshot = scopedSnapshot(telemetryLatest.get(vehicleId), orgId, vehicleId);
       const liveMetrics = busDataActive ? mergeLiveMetrics(previousSnapshot?.metrics, metrics) : (previousSnapshot?.metrics || metrics);
       const duplicateBusSample = busDataActive
         && previousSnapshot
@@ -452,6 +456,7 @@ function registerFleetOpsRoutes(app, deps) {
         metricAgesMs: mergeMetricAges(previousSnapshot, currentDiagnostics, normalizedTs)
       });
       const snapshot = {
+        orgId,
         vehicleId,
         driverId: req.device
           ? (req.device.driverId || "")
@@ -460,6 +465,7 @@ function registerFleetOpsRoutes(app, deps) {
           ? (req.device.deviceId || "")
           : sanitizeString(payload.deviceId || payload.device_id || "", 120),
         ts: normalizedTs,
+        receivedAt: serverReceivedAt,
         // A link heartbeat updates connectivity without erasing the last known
         // sensor snapshot. Consumers must use busDataActive/lastObdPacketAt to
         // decide whether these retained values are live.
@@ -504,6 +510,7 @@ function registerFleetOpsRoutes(app, deps) {
         : (!previousSnapshot || snapshotTimestampMs > previousTimestampMs));
       if (busDataActive && !duplicateBusSample) {
         await storeNormalizedSnapshot(data, prepared.normalized, {
+          serverReceivedAt,
           driverId: snapshot.driverId,
           deviceId: snapshot.deviceId,
           rawPids: payload.metrics || {},
@@ -528,11 +535,11 @@ function registerFleetOpsRoutes(app, deps) {
           })));
         }
         if (batchId && useTelemetryJsonMirror) {
-          data.telemetryIngestReceipts.push({ batchId, deviceId: snapshot.deviceId, vehicleId, receivedAt: nowIso() });
+          data.telemetryIngestReceipts.push({ orgId, batchId, deviceId: snapshot.deviceId, vehicleId, receivedAt: nowIso() });
           if (data.telemetryIngestReceipts.length > 5000) data.telemetryIngestReceipts = data.telemetryIngestReceipts.slice(-5000);
         }
         if (useTelemetryJsonMirror) await writeData(data);
-        rememberTelemetryReceipt(batchId, receiptDeviceId);
+        rememberTelemetryReceipt(batchId, receiptDeviceId, orgId, vehicleId);
       } else if (prepared.decoded.meta?.obdFaultRead || ["read", "stale"].includes(prepared.decoded.meta?.dtcScanStatus)) {
         // A diagnostic-only upload must not create a fake sensor sample or train ML.
         const evidence = require("../ml").buildTelemetrySample(prepared.normalized, { meta: prepared.decoded.meta, driverId: snapshot.driverId });
@@ -548,11 +555,7 @@ function registerFleetOpsRoutes(app, deps) {
       // the pairing for a device, otherwise looked up from the vehicle, so a
       // snapshot is only ever delivered inside its owning organisation.
       if (promoteLiveSnapshot) {
-        let snapshotOrgId = req.device ? (req.device.orgId || null) : null;
-        if (!snapshotOrgId) {
-          snapshotOrgId = await db.getVehicleOrgId(vehicleId).catch(() => null);
-        }
-        broadcastTelemetry(snapshot, snapshotOrgId);
+        broadcastTelemetry(snapshot, orgId);
       }
 
       res.json({
@@ -581,15 +584,13 @@ function registerFleetOpsRoutes(app, deps) {
         ? req.device.vehicleId
         : sanitizeString(req.query.vehicle_id || req.query.vehicleId || "", 80);
       if (!vehicleId) return res.status(400).json({ error: "vehicle_id required" });
-      if (!req.device) {
-        const vehicleOrgId = await db.getVehicleOrgId(vehicleId, "");
-        if (denyCustomerOrgMismatch(req, res, vehicleOrgId)) return;
-      }
-      const cached = telemetryLatest.get(vehicleId);
+      const vehicleOrgId = req.device ? req.device.orgId : await db.getVehicleOrgId(vehicleId, "");
+      if (denyCustomerOrgMismatch(req, res, vehicleOrgId)) return;
+      const cached = scopedSnapshot(telemetryLatest.get(vehicleId), vehicleOrgId, vehicleId);
       if (cached) return res.json(cached);
       const data = await readData();
       const snapshots = data.telemetrySnapshots || [];
-      const snapshot = [...snapshots].reverse().find((snap) => snap.vehicleId === vehicleId) || {};
+      const snapshot = [...snapshots].reverse().find((snap) => scopedSnapshot(snap, vehicleOrgId, vehicleId)) || {};
       res.json(snapshot);
     } catch (err) {
       next(err);
@@ -607,13 +608,13 @@ function registerFleetOpsRoutes(app, deps) {
         if (requested && requested !== req.device.vehicleId) {
           return res.status(403).json({ ok: false, error: "VEHICLE_MISMATCH" });
         }
-        const own = telemetryLatest.get(req.device.vehicleId);
+        const own = scopedSnapshot(telemetryLatest.get(req.device.vehicleId), req.device.orgId, req.device.vehicleId);
         return res.json({ ok: true, data: own || null });
       }
       if (requested) {
         const vehicleOrgId = await db.getVehicleOrgId(requested, "");
         if (denyCustomerOrgMismatch(req, res, vehicleOrgId)) return;
-        const cached = telemetryLatest.get(requested);
+        const cached = scopedSnapshot(telemetryLatest.get(requested), vehicleOrgId, requested);
         return res.json({ ok: true, data: cached || null });
       }
       const allLatest = Array.from(telemetryLatest.values()).sort((a, b) => new Date(b.ts || 0) - new Date(a.ts || 0));
@@ -629,15 +630,18 @@ function registerFleetOpsRoutes(app, deps) {
     try {
       const allItems = Array.from(telemetryLatest.values()).sort((a, b) => new Date(b.ts || 0) - new Date(a.ts || 0));
       const items = await telemetryItemsForRequest(req, allItems);
-      res.json({ ok: true, data: items, count: items.length, lastSeen: getTelemetryLastSeen() });
+      const latest = items[0];
+      const lastSeen = req.customer ? (latest ? {
+        vehicleId: latest.vehicleId, driverId: latest.driverId || null, deviceId: latest.deviceId || null, ts: latest.ts
+      } : null) : getTelemetryLastSeen();
+      res.json({ ok: true, data: items, count: items.length, lastSeen });
     } catch (err) {
       next(err);
     }
   });
 
   app.get("/api/telemetry/health", (req, res) => {
-    const state = getTelemetryState();
-    res.json({ ok: true, status: state.status, lastSampleAt: state.lastSampleAt, ageMs: state.ageMs, subscribers: telemetrySubscribers.size });
+    res.json({ ok: true, status: "reachable" });
   });
 
   const historyMetricPaths = {
@@ -673,6 +677,8 @@ function registerFleetOpsRoutes(app, deps) {
         id: sample.id,
         vehicleId,
         timestamp: sample.ts,
+        storedAt: sample.storedAt || null,
+        receivedAt: sample.raw?.serverReceivedAt || null,
         metric,
         value: metricValue(sample.metrics || {}, paths),
         quality: sample.raw?.quality || "normalized"

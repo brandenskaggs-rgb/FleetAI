@@ -19,21 +19,20 @@
  */
 
 const db = require("../db");
+const { scopedSnapshot } = require("../lib/snapshotScope");
 const { decodeCode, summarize, driverGuidance } = require("../telematics/diagnostics/dtcCatalog");
 const { buildSensorView, SENSORS, GROUPS } = require("../telematics/diagnostics/sensorCatalog");
 const { requireOperatorOrDevice: buildOperatorOrDevice, requireDevice } = require("../middleware/deviceAuth");
 const { diagnosticReadStatus } = require("../telematics/diagnostics/obdFaultRead");
-
-// Severity → the shape the rest of the platform already speaks.
-const ALERT_SEVERITY = { critical: "critical", warning: "warning", info: "info", unknown: "warning" };
+const { describeCodes } = require("../services/diagnosticIncident");
+const { makeScanReport } = require("../services/scanEvidenceReport");
 
 function registerDiagnosticsRoutes(app, deps) {
   const {
     requireEmployeeOrCustomerApi,
     sanitizeString,
     nowIso,
-    telemetryLatest,
-    log = console.log
+    telemetryLatest
   } = deps;
 
   const requireOperatorOrDevice = buildOperatorOrDevice(requireEmployeeOrCustomerApi);
@@ -56,7 +55,7 @@ function registerDiagnosticsRoutes(app, deps) {
       res.status(404).json({ ok: false, error: "vehicle_not_found" });
       return null;
     }
-    if (req.customer?.orgId && req.customer.orgId !== orgId) {
+    if (req.customer && req.customer.orgId !== orgId) {
       res.status(403).json({ ok: false, error: "cross_org_vehicle_denied" });
       return null;
     }
@@ -89,7 +88,7 @@ function registerDiagnosticsRoutes(app, deps) {
       if (!scope) return;
       const { vehicleId } = scope;
 
-      const snapshot = telemetryLatest.get(vehicleId) || null;
+      const snapshot = scopedSnapshot(telemetryLatest.get(vehicleId), scope.orgId, vehicleId);
       // telemetryLatest holds the normalized shape written by the ingest route.
       const normalized = snapshot?.metrics || null;
       const capturedAt = snapshot?.lastObdPacketAt || (snapshot?.busDataActive ? snapshot.ts : null);
@@ -134,8 +133,11 @@ function registerDiagnosticsRoutes(app, deps) {
         return res.status(400).json({ ok: false, error: "TOO_MANY_CODES", message: "A scan may report at most 200 codes." });
       }
 
-      const decoded = rawCodes.map(decodeCode);
-      const summary = summarize(decoded);
+      const decoded = rawCodes.map(item => {
+        const code = decodeCode(item);
+        return ["pending","confirmed","permanent"].includes(item?.codeStatus) ? {...code,codeStatus:item.codeStatus} : code;
+      });
+      const summary = summarize(decoded.filter(c=>c.codeStatus!=="permanent"));
       const guidance = driverGuidance(summary);
       const scannedAt = nowIso();
       const source = req.device ? "device" : "operator";
@@ -153,42 +155,6 @@ function registerDiagnosticsRoutes(app, deps) {
         summary
       });
 
-      // Anything above info reaches the fleet manager without the driver having
-      // to report it. A clean scan does not generate noise.
-      if (summary.total > 0 && summary.severity !== "info") {
-        const worst = decoded
-          .filter((d) => d.severity === summary.severity)
-          .slice(0, 3)
-          .map((d) => `${d.code} — ${d.parameter}`)
-          .join("; ");
-
-        const title = summary.driveability === "stop"
-          ? `Stop-driving fault on ${vehicleId}`
-          : `${summary.criticalCount + summary.warningCount} fault code(s) on ${vehicleId}`;
-        const body = `${guidance.headline}. ${worst}${summary.total > 3 ? ` (+${summary.total - 3} more)` : ""}.`;
-
-        await db.insertAlert({
-          id: `DIAG_${scanId}`,
-          orgId,
-          vehicleId,
-          type: "diagnostic_scan",
-          severity: ALERT_SEVERITY[summary.severity] || "warning",
-          explanation: body,
-          recommendedChecks: decoded.slice(0, 10).map((d) => `${d.code}: ${d.parameter}`),
-          createdAt: scannedAt
-        }).catch((err) => log("[DIAG] alert insert failed:", err.message));
-
-        await db.createNotification({
-          orgId,
-          vehicleId,
-          recipientType: "fleet_manager",
-          title,
-          body,
-          severity: ALERT_SEVERITY[summary.severity] || "warning"
-        }).catch((err) => log("[DIAG] notification failed:", err.message));
-
-        log("[DIAG] scan", { vehicleId, source, total: summary.total, severity: summary.severity, driveability: summary.driveability });
-      }
 
       res.json({ ok: true, scanId, vehicleId, scannedAt, codes: decoded, summary, guidance, reportedToFleet: summary.total > 0 && summary.severity !== "info" });
     } catch (err) {
@@ -203,7 +169,7 @@ function registerDiagnosticsRoutes(app, deps) {
       if (!scope) return;
       const { vehicleId } = scope;
       const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 20, 1), 100);
-      const scans = await db.listDiagnosticScans(vehicleId, { limit });
+      const scans = await db.listDiagnosticScans(vehicleId, { limit, orgId: scope.orgId });
       res.json({ ok: true, vehicleId, scans });
     } catch (err) {
       next(err);
@@ -216,12 +182,15 @@ function registerDiagnosticsRoutes(app, deps) {
       const scope = await authorizeVehicle(req, res);
       if (!scope) return;
       const { vehicleId } = scope;
-      const scans = await db.listDiagnosticScans(vehicleId, { limit: 1 });
+      const scans = await db.listDiagnosticScans(vehicleId, { limit: 1, orgId: scope.orgId });
       const latest = scans[0] || null;
+      const [lastPositive] = await db.listDiagnosticScans(vehicleId, { limit: 1, orgId: scope.orgId, positiveOnly: true });
       res.json({
         ok: true,
         vehicleId,
         scan: latest,
+        diagnosticStatus: diagnosticReadStatus(latest),
+        lastPositiveScan: lastPositive || null,
         guidance: latest ? driverGuidance(latest.summary || {}) : null
       });
     } catch (err) {
@@ -259,8 +228,9 @@ function registerDiagnosticsRoutes(app, deps) {
     try {
       const scope = await authorizeVehicle(req, res);
       if (!scope) return;
-      const scans = await db.listDiagnosticScans(scope.vehicleId, { limit: 100, orgId: scope.orgId });
-      const rows = scans.flatMap((scan) => (scan.codes || []).map((code) => ({
+      const [latest] = await db.listDiagnosticScans(scope.vehicleId, { limit: 1, orgId: scope.orgId });
+      const scans = await db.listDiagnosticScans(scope.vehicleId, { limit: 100, orgId: scope.orgId, positiveOnly: true });
+      const rows = scans.flatMap((scan) => describeCodes(scan.codes).map((code) => ({
         scanId: scan.id,
         vehicleId: scope.vehicleId,
         code: code.code || "",
@@ -269,15 +239,28 @@ function registerDiagnosticsRoutes(app, deps) {
         severity: code.severity || scan.severity || "unknown",
         firstSeen: scan.scannedAt,
         lastSeen: scan.scannedAt,
+        storedAt: scan.createdAt,
         source: scan.source
       })));
-      res.json({ ok: true, data: rows, diagnosticStatus: diagnosticReadStatus(scans[0]) });
+      res.json({ ok: true, data: rows, diagnosticStatus: diagnosticReadStatus(latest), latestPositiveAt: scans[0]?.scannedAt || null });
     } catch (err) {
       next(err);
     }
   }
 
   app.get("/api/dtc-history", requireEmployeeOrCustomerApi, handleDtcHistory);
+  app.get("/api/vehicles/:vehicleId/diagnostic-report.pdf", requireEmployeeOrCustomerApi, async (req,res,next) => {
+    try {
+      const scope = await authorizeVehicle(req,res);
+      if (!scope) return;
+      const stamp = new Date(String(req.query.at || ""));
+      if (!Number.isFinite(stamp.getTime())) return res.status(400).json({error:"scan_time_required"});
+      const ref = typeof req.query.ref==="string" && /^[A-Za-z0-9_-]{1,120}$/.test(req.query.ref) ? req.query.ref : null;
+      const pdf = await makeScanReport(db.getPrisma(), scope, stamp, ref, req.query.kind==="model");
+      if (!pdf) return res.status(404).json({error:"scan_not_found"});
+      res.set("Cache-Control","private, no-store").type("application/pdf").send(pdf);
+    } catch (e) { next(e); }
+  });
   app.get("/api/vehicles/:vehicleId/dtc-history", requireEmployeeOrCustomerApi, handleDtcHistory);
 }
 

@@ -2,6 +2,7 @@ const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
 const { decodeCode, summarize } = require("./telematics/diagnostics/dtcCatalog");
+const { recordIncidents } = require("./services/diagnosticIncident");
 const { sanitizeObdFaultRead, faultReadCodes } = require("./telematics/diagnostics/obdFaultRead");
 const { PrismaClient } = require("@prisma/client");
 const { Pool } = require("pg");
@@ -84,12 +85,15 @@ async function persistTelemetryDiagnostics(sample) {
     const capturedAt = faultRead?.capturedAt || sample.raw.dtcCapturedAt;
     const id = "DS_TEL_" + crypto.createHash("sha256")
       .update(JSON.stringify([sample.orgId, sample.vehicleId, capturedAt, faultRead || sample.raw.activeDTCs])).digest("hex");
-    await getPrisma().diagnosticScan.createMany({
-      data: [{ id, orgId: sample.orgId, vehicleId: sample.vehicleId, driverId: sample.driverId || null,
+    const row = { id, orgId: sample.orgId, vehicleId: sample.vehicleId, driverId: sample.driverId || null,
         source: "telemetry", scannedAt: toDate(capturedAt), codes, summary,
-        severity: summary.severity, driveability: summary.driveability, codeCount: codes.length }],
-      skipDuplicates: true
-    });
+        severity: summary.severity, driveability: summary.driveability, codeCount: codes.length };
+    const save = tx => tx.diagnosticScan.createMany({ data: [row], skipDuplicates: true });
+    if (codes.some(c => c.codeStatus !== "permanent" && c.severity !== "info")) {
+      await getPrisma().$transaction(async tx => {
+        if ((await save(tx)).count) await recordIncidents(tx, row);
+      });
+    } else await save(getPrisma());
   }
 }
 
@@ -100,6 +104,7 @@ function rowToSample(row) {
     vehicleId: row.vehicleId,
     driverId: row.driverId,
     ts: row.ts instanceof Date ? row.ts.toISOString() : row.ts,
+    storedAt: row.createdAt instanceof Date ? row.createdAt.toISOString() : row.createdAt || null,
     odometer: row.odometer !== null ? Number(row.odometer) : null,
     engineHours: row.engineHours !== null ? Number(row.engineHours) : null,
     metrics: row.metrics || {},
@@ -1275,7 +1280,8 @@ async function syncMlArtifactsFromDisk(modelDir) {
 
 async function insertDiagnosticScan({ vehicleId, orgId, driverId, deviceId, source, scannedAt, codes, summary } = {}) {
   await ensureVehicleStub(vehicleId);
-  const row = await getPrisma().diagnosticScan.create({
+  return getPrisma().$transaction(async tx => {
+    const row = await tx.diagnosticScan.create({
     data: {
       orgId: orgId || null,
       vehicleId,
@@ -1291,7 +1297,9 @@ async function insertDiagnosticScan({ vehicleId, orgId, driverId, deviceId, sour
     },
     select: { id: true }
   });
-  return row.id;
+    await recordIncidents(tx, { id: row.id, vehicleId, orgId, codes, scannedAt: toDate(scannedAt) });
+    return row.id;
+  });
 }
 
 function rowToDiagnosticScan(row) {
@@ -1312,9 +1320,10 @@ function rowToDiagnosticScan(row) {
   };
 }
 
-async function listDiagnosticScans(vehicleId, { limit = 20, orgId } = {}) {
+async function listDiagnosticScans(vehicleId, { limit = 20, orgId, positiveOnly = false } = {}) {
+  if (!orgId) throw new Error("Organization scope required for diagnostic history");
   const rows = await getPrisma().diagnosticScan.findMany({
-    where: { vehicleId, ...(orgId ? { orgId } : {}) },
+    where: { vehicleId, orgId, ...(positiveOnly ? { codeCount: { gt: 0 } } : {}) },
     orderBy: { scannedAt: "desc" },
     take: limit
   });

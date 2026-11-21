@@ -60,7 +60,7 @@ async function invoke(app, body) {
     requireEmployeeOrCustomerApi: (_req, _res, next) => next(),
     telemetryLatest,
     telemetrySubscribers,
-    getTelemetryLastSeen: () => null,
+    getTelemetryLastSeen: () => ({ vehicleId: "OTHER_FLEET_VEHICLE", driverId: "OTHER_DRIVER" }),
     getTelemetryState: () => ({}),
     triggerTelemetryPipeline: () => { pipelineRuns += 1; },
     storeNormalizedSnapshot: (store, normalized, extra) => { stored = { store, normalized, extra }; },
@@ -371,6 +371,29 @@ async function invoke(app, body) {
     assert.equal(diagnosticsStored, 1);
     assert.equal(productionStores, 2, 'diagnostics without sensor readings cannot create training samples');
   } finally { db.persistTelemetryDiagnostics = previousPersist; }
+  // Ownership transfer: neither stale cache nor a mirrored reading belongs to the new fleet.
+  const get = async (url, query = {}) => {
+    const res = response();
+    await app.routes.get("GET " + url).at(-1)({ query, customer: { orgId: "ORG_B" } },
+      res, err => { throw err; });
+    return res.body;
+  };
+  db.getVehicleOrgId = async () => "ORG_B";
+  try {
+    data.telemetrySnapshots = [{ vehicleId: "TRUCK_1", orgId: "ORG_A", driverId: "PREVIOUS_DRIVER" }];
+    assert.deepEqual(await get("/api/telemetry", { vehicleId: "TRUCK_1" }), {});
+    assert.equal((await get("/api/telemetry/latest", { vehicleId: "TRUCK_1" })).data, null);
+    assert.deepEqual((await get("/api/telemetry/latest")).items, []);
+    assert.equal((await get("/api/telemetry/active")).lastSeen, null);
+    const res = response();
+    await app.routes.get("POST /api/telemetry/ingest").at(-1)({
+      device: { orgId: "ORG_B", vehicleId: "TRUCK_1", deviceId: "TABLET_1", driverId: "NEW_DRIVER" },
+      body: { ...payload, metrics: { rpm: 1200 }, frames: [], protocol: "OBD2", meta: {}, ts: "2026-08-14T12:00:01Z" }
+    }, res, err => { throw err; });
+    assert.equal(res.body.snapshot.orgId, "ORG_B", "same batch and device in new org must not be dropped");
+    assert.equal(res.body.snapshot.deviceDiagnostics.latitude, undefined);
+    assert.equal((await get("/api/telemetry/active")).lastSeen.driverId, "NEW_DRIVER");
+  } finally { db.getVehicleOrgId = priorVehicleOrg; }
   console.log("Telemetry route tests passed");
 })().catch((error) => {
   console.error(error);

@@ -156,8 +156,9 @@ const TELEMETRY_RETENTION_LIMIT = Number(process.env.TELEMETRY_RETENTION_LIMIT |
 // PostgreSQL is the production telemetry authority. The JSON mirror remains a
 // local/no-database compatibility path only; rewriting the full application
 // document for every two-second tablet sample does not scale safely.
-const TELEMETRY_JSON_MIRROR_ENABLED = String(process.env.TELEMETRY_JSON_MIRROR_ENABLED || "").toLowerCase() === "true"
-  || !process.env.DATABASE_URL;
+const TELEMETRY_JSON_MIRROR_ENABLED = process.env.NODE_ENV !== "production" && (
+  String(process.env.TELEMETRY_JSON_MIRROR_ENABLED || "").toLowerCase() === "true" || !process.env.DATABASE_URL
+);
 const THEOREM_INFERENCE_INTERVAL_MS = Math.max(
   15_000,
   Number(process.env.FLEETAI_THEOREM_INFERENCE_INTERVAL_MS || 60_000)
@@ -321,6 +322,9 @@ function validateRuntimeConfig() {
   ].filter(Boolean);
 
   if (IS_PROD) {
+    if (String(process.env.TELEMETRY_JSON_MIRROR_ENABLED || "").toLowerCase() === "true") {
+      warnings.push("Ignoring TELEMETRY_JSON_MIRROR_ENABLED in production; shared JSON telemetry is for local development only.");
+    }
     if (!process.env.FLEETAI_SESSION_SECRET || String(process.env.FLEETAI_SESSION_SECRET).trim().length < 32) {
       errors.push("FLEETAI_SESSION_SECRET must be set to a strong value (32+ chars) in production.");
     }
@@ -645,8 +649,8 @@ const telemetryState = {
 };
 let watchdogInstance = null;
 
-function getTelemetryWorkingData(vehicleId) {
-  const key = String(vehicleId || "unknown");
+function getTelemetryWorkingData(vehicleId, orgId) {
+  const key = JSON.stringify([orgId, vehicleId]);
   if (!telemetryWorkingData.has(key)) {
     telemetryWorkingData.set(key, {
       telemetrySnapshots: [],
@@ -659,17 +663,17 @@ function getTelemetryWorkingData(vehicleId) {
   return telemetryWorkingData.get(key);
 }
 
-function telemetryReceiptKey(batchId, deviceId) {
-  return `${String(deviceId || "unknown")}:${String(batchId || "")}`;
+function telemetryReceiptKey(batchId, deviceId, orgId, vehicleId) {
+  return JSON.stringify([orgId, vehicleId, deviceId, batchId]);
 }
 
-function hasTelemetryReceipt(batchId, deviceId) {
-  return Boolean(batchId) && telemetryIngestReceipts.has(telemetryReceiptKey(batchId, deviceId));
+function hasTelemetryReceipt(batchId, deviceId, orgId, vehicleId) {
+  return Boolean(batchId) && telemetryIngestReceipts.has(telemetryReceiptKey(batchId, deviceId, orgId, vehicleId));
 }
 
-function rememberTelemetryReceipt(batchId, deviceId) {
+function rememberTelemetryReceipt(batchId, deviceId, orgId, vehicleId) {
   if (!batchId) return;
-  telemetryIngestReceipts.set(telemetryReceiptKey(batchId, deviceId), Date.now());
+  telemetryIngestReceipts.set(telemetryReceiptKey(batchId, deviceId, orgId, vehicleId), Date.now());
   if (telemetryIngestReceipts.size <= 10000) return;
   const oldest = [...telemetryIngestReceipts.entries()].sort((a, b) => a[1] - b[1]).slice(0, 1000);
   oldest.forEach(([key]) => telemetryIngestReceipts.delete(key));
@@ -1251,7 +1255,7 @@ app.post("/api/telemetry/snapshot", requireDevice, validateBody(schemas.telemetr
     const orgId = req.device.orgId;
     const data = TELEMETRY_JSON_MIRROR_ENABLED
       ? await readData()
-      : getTelemetryWorkingData(vehicleId);
+      : getTelemetryWorkingData(vehicleId, orgId);
     const ts = payload.timestamp || nowIso();
     const pids = payload.pids || {};
     const decodedMetrics = {
@@ -1340,8 +1344,18 @@ app.post("/api/alerts", requireDevice, (req, res) => {
   });
 });
 
-app.get("/api/vehicle/dtcs", requireEmployeeOrCustomerApi, (req, res) => {
-  res.json({ dtcs: [] });
+app.get("/api/vehicle/dtcs", requireEmployeeOrCustomerApi, async (req, res, next) => {
+  try {
+    const vehicleId = sanitizeString(req.query.vehicleId || "",80);
+    if (!vehicleId) return res.status(400).json({error:"vehicleId required"});
+    const orgId = await sqliteDb.getVehicleOrgId(vehicleId,"");
+    if (!orgId || (req.customer && req.customer.orgId!==orgId)) return res.status(404).json({error:"vehicle_not_found"});
+    const [latest] = await sqliteDb.listDiagnosticScans(vehicleId,{orgId,limit:1});
+    const [previous] = await sqliteDb.listDiagnosticScans(vehicleId,{orgId,limit:1,positiveOnly:true});
+    const {describeCodes}=require("./server/services/diagnosticIncident");
+    res.json({dtcs:describeCodes(latest?.codes),diagnosticStatus:require("./server/telematics/diagnostics/obdFaultRead").diagnosticReadStatus(latest),
+      lastPositiveScan:previous?{scannedAt:previous.scannedAt,codes:describeCodes(previous.codes)}:null});
+  } catch(e){next(e);}
 });
 
 async function ensureDataFile() {
@@ -3641,8 +3655,10 @@ async function runTelemetryPipeline() {
           vehicleById.get(vehicleId) || {},
           (await sqliteDb.getVehicleCapabilities(vehicleId)) || {}
         );
-        const latestSample = samples[samples.length - 1] || null;
-        const dtcCodes = latestSample?.raw?.activeDTCs || latestSample?.metrics?.activeDTCs || [];
+        const { selectPredictionFaultEvidence, loadPersistedFaultEvidence } = require("./server/services/faultEvidence");
+        const faultEvidence = selectPredictionFaultEvidence(samples,
+          await loadPersistedFaultEvidence(sqliteDb.getPrisma(), orgId, vehicleId));
+        const dtcCodes = faultEvidence.codes;
         const predictionResult = await telemetryPredictionCoordinator.predict({
           orgId,
           vehicleId,
@@ -3651,6 +3667,8 @@ async function runTelemetryPipeline() {
           dtcCodes
         });
         const prediction = predictionResult.prediction;
+        prediction.faultEvidence = faultEvidence;
+        prediction.evidenceThrough = samples.at(-1)?.ts || null;
         await sqliteDb.upsertModelState(prediction);
         if (predictionResult.attempted) {
           try {
@@ -3666,6 +3684,11 @@ async function runTelemetryPipeline() {
               prediction
             });
             const features = prediction.lineage ? { values: prediction.features || prediction.featureVector || null, lineage: prediction.lineage } : prediction.features || prediction.featureVector || null;
+            const {confirmedPredictionIncident,openIncident} = require("./server/services/diagnosticIncident");
+            const finding = confirmedPredictionIncident(prediction);
+            if (finding && runId) await sqliteDb.getPrisma().$transaction(tx => openIncident(tx,{
+              orgId,vehicleId,id:runId,scannedAt:new Date(prediction.evidenceThrough)
+            },"predictive_maintenance","confirmed-model-warning","warning",finding));
             if (features) {
               await sqliteDb.insertMlFeatureSnapshot({ orgId, vehicleId, predictionRunId: runId, features });
             }

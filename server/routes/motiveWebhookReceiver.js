@@ -30,6 +30,7 @@
  */
 
 const crypto = require("crypto");
+const { scopedSnapshot } = require("../lib/snapshotScope");
 const { syncFleet, backfillFaultCodes, resolveVehicleId, motiveOrgId } = require("../services/motiveSync");
 const motiveClient = require("../services/motiveClient");
 const db = require("../db");
@@ -411,8 +412,10 @@ async function _onVehicleLocation(event, { nowIso, telemetryLatest }) {
   const description = location.description || location.address || null;
 
   if (telemetryLatest) {
-    const existing = telemetryLatest.get(vehicleId) || {};
+    const orgId = motiveOrgId();
+    const existing = scopedSnapshot(telemetryLatest.get(vehicleId), orgId, vehicleId) || {};
     telemetryLatest.set(vehicleId, Object.assign({}, existing, {
+      orgId,
       vehicleId,
       ts,
       lat,
@@ -424,7 +427,6 @@ async function _onVehicleLocation(event, { nowIso, telemetryLatest }) {
     }));
   }
 
-  console.log(`[MOTIVE-WEBHOOK] vehicle_location vehicle=${vehicleId} lat=${lat} lon=${lon} speed=${speedKph}`);
 }
 
 // ── user_upserted (Motive driver sync) ───────────────────────────────────────

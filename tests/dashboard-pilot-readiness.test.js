@@ -35,7 +35,7 @@ test('sensor handler isolates organizations and device vehicle scope',async t=>{
   const routes=new Map(),reads=[];
   const app={get:(url,...handlers)=>routes.set(url,handlers.at(-1)),post:()=>{}};
   t.mock.method(db,'getVehicleOrgId',async id=>({'CAR-A':'ORG-A','CAR-B':'ORG-B'}[id]||''));
-  const sample={metrics:{engine:{rpm:900,coolantTempC:90}},ts:new Date().toISOString(),busDataActive:true};
+  const sample={vehicleId:'CAR-A',orgId:'ORG-A',metrics:{engine:{rpm:900,coolantTempC:90}},ts:new Date().toISOString(),busDataActive:true};
   const telemetryLatest={get:id=>{reads.push(id);return sample;}};
   registerDiagnosticsRoutes(app,{requireEmployeeOrCustomerApi:()=>{},sanitizeString:value=>String(value||''),nowIso:()=>new Date().toISOString(),telemetryLatest,log:()=>{}});
   async function run(req){
