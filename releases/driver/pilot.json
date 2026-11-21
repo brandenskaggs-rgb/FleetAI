@@ -1,10 +1,10 @@
 {
   "channel": "pilot-debug",
-  "versionCode": 24,
-  "versionName": "1.10.12",
-  "filename": "fleetai-24.apk",
-  "sha256": "41033a369018a4778aee1d7d2431935ec6135f41cb1c2c09e06ad43475ebd5e2",
-  "sizeBytes": 23848329,
+  "versionCode": 25,
+  "versionName": "1.10.13",
+  "filename": "fleetai-25.apk",
+  "sha256": "de71b04751a3e77734142b3f5c72ada0f2787fc82f2a8fd94b0e4598ea6e73a3",
+  "sizeBytes": 23848333,
   "signerSha256": "68a54f1c5447ac1bcb07263c9ffeb9293e950694ab7619e6835d215cf3d70ac0",
-  "notes": "Sensors now distinguish awaiting a first read from a stale reading. The live count uses each sensor's polling interval. Adds additional truck measurements when reported. Install as an update while parked after pending uploads finish; do not uninstall or clear app data. Your existing login and pairing are retained."
+  "notes": "Fixes a crash when the same fault code appears with different statuses. Fault Codes opens saved results; tap Read fault codes for a fresh scan. Reduces unnecessary screen polling and notification updates without slowing OBD sampling. While parked, let pending uploads finish and choose Update. Do not uninstall, clear app data, or reset pairing."
 }
